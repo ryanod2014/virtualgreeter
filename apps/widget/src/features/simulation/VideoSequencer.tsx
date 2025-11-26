@@ -38,6 +38,7 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
   const [hasStartedWithAudio, setHasStartedWithAudio] = useState(false);
   const [introReady, setIntroReady] = useState(false);
   const [introCompleted, setIntroCompleted] = useState(false);
+  const [introStartedAt, setIntroStartedAt] = useState<number | null>(null);
   
   const waveVideoRef = useRef<HTMLVideoElement>(null);
   const introVideoRef = useRef<HTMLVideoElement>(null);
@@ -91,6 +92,7 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
     setState("intro");
     setActiveVideo("intro");
     setIsMuted(false);
+    setIntroStartedAt(Date.now()); // Track when intro started
     introVideoRef.current.muted = false;
     introVideoRef.current.currentTime = 0;
     
@@ -138,10 +140,39 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
   }, [introCompleted, loopUrl, switchToLoop]);
 
   // Handle intro video end -> mark complete and switch to loop
+  // Only accept if intro actually played (not a spurious event)
   const handleIntroEnded = useCallback(() => {
+    const introVideo = introVideoRef.current;
+    
+    // Safety checks to prevent premature completion:
+    // 1. Intro must have started (introStartedAt is set)
+    // 2. At least 500ms must have passed since start
+    // 3. Video must be near the end (currentTime close to duration)
+    
+    if (!introStartedAt) {
+      console.warn("[VideoSequencer] ⚠️ Ignoring ended event - intro never started");
+      return;
+    }
+    
+    const timeSinceStart = Date.now() - introStartedAt;
+    if (timeSinceStart < 500) {
+      console.warn("[VideoSequencer] ⚠️ Ignoring ended event - too soon (${timeSinceStart}ms)");
+      return;
+    }
+    
+    if (introVideo) {
+      const duration = introVideo.duration;
+      const currentTime = introVideo.currentTime;
+      // Allow some tolerance (within 0.5s of end)
+      if (duration > 0 && currentTime < duration - 0.5) {
+        console.warn(`[VideoSequencer] ⚠️ Ignoring ended event - video not at end (${currentTime}/${duration})`);
+        return;
+      }
+    }
+    
     console.log("[VideoSequencer] ✅ Intro video finished playing");
     setIntroCompleted(true);
-  }, []);
+  }, [introStartedAt]);
 
   // Preload intro video and track when it's ready
   useEffect(() => {
