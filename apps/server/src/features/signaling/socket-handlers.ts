@@ -1,0 +1,587 @@
+import type { Server, Socket } from "socket.io";
+import type {
+  WidgetToServerEvents,
+  DashboardToServerEvents,
+  ServerToWidgetEvents,
+  ServerToDashboardEvents,
+  VisitorJoinPayload,
+  VisitorInteractionPayload,
+  AgentLoginPayload,
+  AgentStatusPayload,
+  CallRequestPayload,
+  CallAcceptPayload,
+  CallRejectPayload,
+  CallCancelPayload,
+  CallEndPayload,
+  WebRTCSignalPayload,
+  CobrowseSnapshotPayload,
+  CobrowseMousePayload,
+  CobrowseScrollPayload,
+  CobrowseSelectionPayload,
+  AgentProfile,
+} from "@ghost-greeter/domain";
+import { SOCKET_EVENTS, ERROR_CODES, TIMING } from "@ghost-greeter/domain";
+import type { PoolManager } from "../routing/pool-manager.js";
+
+type AppSocket = Socket<
+  WidgetToServerEvents & DashboardToServerEvents,
+  ServerToWidgetEvents & ServerToDashboardEvents
+>;
+
+type AppServer = Server<
+  WidgetToServerEvents & DashboardToServerEvents,
+  ServerToWidgetEvents & ServerToDashboardEvents
+>;
+
+export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
+  io.on("connection", (socket: AppSocket) => {
+    console.log(`[Socket] New connection: ${socket.id}`);
+
+    // -------------------------------------------------------------------------
+    // VISITOR EVENTS (Widget)
+    // -------------------------------------------------------------------------
+
+    socket.on(SOCKET_EVENTS.VISITOR_JOIN, (data: VisitorJoinPayload) => {
+      console.log("[Socket] 👤 VISITOR_JOIN received:", { siteId: data.siteId, pageUrl: data.pageUrl });
+      
+      const visitorId = data.visitorId ?? `visitor_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      
+      const session = poolManager.registerVisitor(
+        socket.id,
+        visitorId,
+        data.siteId,
+        data.pageUrl
+      );
+      console.log("[Socket] Visitor registered:", visitorId);
+
+      // Find and assign best agent using path-based routing
+      const agent = poolManager.findBestAgentForVisitor(data.siteId, data.pageUrl);
+      console.log("[Socket] Best agent found:", agent?.agentId ?? "NONE");
+      if (agent) {
+        poolManager.assignVisitorToAgent(visitorId, agent.agentId);
+        
+        socket.emit(SOCKET_EVENTS.AGENT_ASSIGNED, {
+          agent: {
+            id: agent.profile.id,
+            displayName: agent.profile.displayName,
+            avatarUrl: agent.profile.avatarUrl,
+            introVideoUrl: agent.profile.introVideoUrl,
+            loopVideoUrl: agent.profile.loopVideoUrl,
+          },
+          visitorId: session.visitorId,
+        });
+      } else {
+        // No agents available - emit error
+        socket.emit(SOCKET_EVENTS.ERROR, {
+          code: ERROR_CODES.AGENT_UNAVAILABLE,
+          message: "No agents are currently available. Please try again later.",
+        });
+      }
+    });
+
+    socket.on(SOCKET_EVENTS.VISITOR_INTERACTION, (_data: VisitorInteractionPayload) => {
+      const visitor = poolManager.getVisitorBySocketId(socket.id);
+      if (visitor && !visitor.interactedAt) {
+        poolManager.updateVisitorState(visitor.visitorId, "watching_simulation");
+      }
+    });
+
+    socket.on(SOCKET_EVENTS.CALL_REQUEST, (data: CallRequestPayload) => {
+      const visitor = poolManager.getVisitorBySocketId(socket.id);
+      if (!visitor) {
+        socket.emit(SOCKET_EVENTS.ERROR, {
+          code: ERROR_CODES.VISITOR_NOT_FOUND,
+          message: "Visitor session not found",
+        });
+        return;
+      }
+
+      const agent = poolManager.getAgent(data.agentId);
+      if (!agent) {
+        socket.emit(SOCKET_EVENTS.ERROR, {
+          code: ERROR_CODES.AGENT_NOT_FOUND,
+          message: "Agent not found",
+        });
+        return;
+      }
+
+      // Create call request (visitor will wait indefinitely until agent is available)
+      const request = poolManager.createCallRequest(
+        visitor.visitorId,
+        data.agentId,
+        visitor.siteId,
+        visitor.pageUrl
+      );
+
+      console.log(`[Socket] CALL_REQUEST from visitor ${visitor.visitorId} for agent ${data.agentId}`);
+      console.log(`[Socket] Agent status: ${agent.profile.status}, socketId: ${agent.socketId}`);
+
+      // If agent is available (not in call and not offline), notify them immediately
+      if (agent.profile.status !== "in_call" && agent.profile.status !== "offline") {
+        const agentSocket = io.sockets.sockets.get(agent.socketId);
+        if (agentSocket) {
+          console.log(`[Socket] Sending CALL_INCOMING to agent ${data.agentId}`);
+          agentSocket.emit(SOCKET_EVENTS.CALL_INCOMING, {
+            request,
+            visitor: {
+              visitorId: visitor.visitorId,
+              pageUrl: visitor.pageUrl,
+              connectedAt: visitor.connectedAt,
+            },
+          });
+        } else {
+          console.log(`[Socket] WARNING: Agent ${data.agentId} socket not found! socketId: ${agent.socketId}`);
+          // Agent socket might be stale - they may have disconnected
+        }
+      } else {
+        // Agent is busy or offline - visitor will wait
+        console.log(`[Socket] Agent ${data.agentId} is ${agent.profile.status}. Visitor ${visitor.visitorId} queued.`);
+      }
+      
+      // NO TIMEOUT - visitor waits indefinitely until agent accepts or visitor cancels
+    });
+
+    socket.on(SOCKET_EVENTS.CALL_CANCEL, (data: CallCancelPayload) => {
+      const request = poolManager.cancelCall(data.requestId);
+      if (request) {
+        const agent = poolManager.getAgent(request.agentId);
+        if (agent) {
+          const agentSocket = io.sockets.sockets.get(agent.socketId);
+          agentSocket?.emit(SOCKET_EVENTS.CALL_CANCELLED, {
+            requestId: data.requestId,
+          });
+        }
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // AGENT EVENTS (Dashboard)
+    // -------------------------------------------------------------------------
+
+    socket.on(SOCKET_EVENTS.AGENT_LOGIN, async (data: AgentLoginPayload) => {
+      // TODO: Verify token with Supabase
+      // For now, create a mock profile
+      const profile: AgentProfile = {
+        id: data.agentId,
+        userId: data.agentId,
+        displayName: "Demo Agent",
+        avatarUrl: null,
+        introVideoUrl: "/videos/intro.mp4",
+        loopVideoUrl: "/videos/loop.mp4",
+        status: "idle",
+        maxSimultaneousSimulations: 25,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const agentState = poolManager.registerAgent(socket.id, profile);
+      console.log("[Socket] 🟢 AGENT_LOGIN successful:", {
+        agentId: data.agentId,
+        socketId: socket.id,
+        status: agentState.profile.status,
+      });
+      
+      socket.emit(SOCKET_EVENTS.LOGIN_SUCCESS, { agentState });
+      
+      // Send initial stats
+      const stats = poolManager.getAgentStats(data.agentId);
+      if (stats) {
+        socket.emit(SOCKET_EVENTS.STATS_UPDATE, stats);
+      }
+
+      // Check for unassigned visitors and assign them to this agent
+      const unassignedVisitors = poolManager.getUnassignedVisitors();
+      for (const visitor of unassignedVisitors) {
+        poolManager.assignVisitorToAgent(visitor.visitorId, agentState.agentId);
+        
+        const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+        visitorSocket?.emit(SOCKET_EVENTS.AGENT_ASSIGNED, {
+          agent: {
+            id: profile.id,
+            displayName: profile.displayName,
+            avatarUrl: profile.avatarUrl,
+            introVideoUrl: profile.introVideoUrl,
+            loopVideoUrl: profile.loopVideoUrl,
+          },
+          visitorId: visitor.visitorId,
+        });
+        console.log(`[Socket] Assigned unassigned visitor ${visitor.visitorId} to newly logged in agent ${agentState.agentId}`);
+      }
+    });
+
+    socket.on(SOCKET_EVENTS.AGENT_STATUS, (data: AgentStatusPayload) => {
+      const agent = poolManager.getAgentBySocketId(socket.id);
+      if (agent) {
+        poolManager.updateAgentStatus(agent.agentId, data.status);
+        
+        // If agent goes offline, reassign their visitors
+        if (data.status === "offline") {
+          const reassignments = poolManager.reassignVisitors(agent.agentId);
+          notifyReassignments(io, poolManager, reassignments, "agent_offline");
+        }
+      }
+    });
+
+    socket.on(SOCKET_EVENTS.CALL_ACCEPT, (data: CallAcceptPayload) => {
+      const request = poolManager.getCallRequest(data.requestId);
+      if (!request) {
+        socket.emit(SOCKET_EVENTS.ERROR, {
+          code: ERROR_CODES.CALL_NOT_FOUND,
+          message: "Call request not found or expired",
+        });
+        return;
+      }
+
+      const activeCall = poolManager.acceptCall(data.requestId);
+      if (!activeCall) {
+        socket.emit(SOCKET_EVENTS.ERROR, {
+          code: ERROR_CODES.INTERNAL_ERROR,
+          message: "Failed to accept call",
+        });
+        return;
+      }
+
+      // Notify the visitor
+      const visitor = poolManager.getVisitor(request.visitorId);
+      if (visitor) {
+        const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+        visitorSocket?.emit(SOCKET_EVENTS.CALL_ACCEPTED, {
+          callId: activeCall.callId,
+          agentId: request.agentId,
+        });
+      }
+
+      // Reassign other visitors watching this agent
+      const reassignments = poolManager.reassignVisitors(
+        request.agentId,
+        request.visitorId // Exclude the visitor in the call
+      );
+      notifyReassignments(io, poolManager, reassignments, "agent_busy");
+
+      // Notify agent that call started
+      socket.emit(SOCKET_EVENTS.CALL_STARTED, {
+        call: activeCall,
+        visitor: {
+          visitorId: request.visitorId,
+          pageUrl: request.pageUrl,
+        },
+      });
+    });
+
+    socket.on(SOCKET_EVENTS.CALL_REJECT, (data: CallRejectPayload) => {
+      const request = poolManager.getCallRequest(data.requestId);
+      if (request) {
+        // Don't reject the visitor - they keep waiting
+        // Just remove this specific request so we can create a new one later
+        poolManager.rejectCall(data.requestId);
+        
+        console.log(`[Socket] Agent rejected call. Visitor ${request.visitorId} will keep waiting.`);
+        
+        // Create a new request so the agent will be notified again when available
+        // The visitor stays in "call_requested" state
+        const visitor = poolManager.getVisitor(request.visitorId);
+        if (visitor) {
+          const newRequest = poolManager.createCallRequest(
+            request.visitorId,
+            request.agentId,
+            request.siteId,
+            request.pageUrl
+          );
+          console.log(`[Socket] Created new request ${newRequest.requestId} for waiting visitor`);
+        }
+        
+        // NOTE: We do NOT emit CALL_REJECTED to the visitor - they keep waiting
+      }
+    });
+
+    socket.on(SOCKET_EVENTS.CALL_END, (data: CallEndPayload) => {
+      const call = poolManager.endCall(data.callId);
+      if (call) {
+        console.log("[Socket] Call ended:", data.callId, "by socket:", socket.id);
+        
+        // Determine who ended the call
+        const agent = poolManager.getAgentBySocketId(socket.id);
+        const isAgentEnding = !!agent;
+        
+        // Notify visitor
+        const visitor = poolManager.getVisitor(call.visitorId);
+        if (visitor) {
+          const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+          visitorSocket?.emit(SOCKET_EVENTS.CALL_ENDED, {
+            callId: data.callId,
+            reason: isAgentEnding ? "agent_ended" : "visitor_ended",
+          });
+        }
+        
+        // Notify agent
+        const callAgent = poolManager.getAgent(call.agentId);
+        if (callAgent) {
+          const agentSocket = io.sockets.sockets.get(callAgent.socketId);
+          agentSocket?.emit(SOCKET_EVENTS.CALL_ENDED, {
+            callId: data.callId,
+            reason: isAgentEnding ? "agent_ended" : "visitor_ended",
+          });
+          
+          // Check if there are any visitors waiting for this agent
+          // and notify the agent immediately
+          setTimeout(() => {
+            const waitingRequest = poolManager.getNextWaitingRequest(call.agentId);
+            if (waitingRequest && agentSocket) {
+              const waitingVisitor = poolManager.getVisitor(waitingRequest.visitorId);
+              if (waitingVisitor) {
+                console.log(`[Socket] Agent ${call.agentId} now available. Notifying of waiting visitor ${waitingRequest.visitorId}`);
+                agentSocket.emit(SOCKET_EVENTS.CALL_INCOMING, {
+                  request: waitingRequest,
+                  visitor: {
+                    visitorId: waitingVisitor.visitorId,
+                    pageUrl: waitingVisitor.pageUrl,
+                    connectedAt: waitingVisitor.connectedAt,
+                  },
+                });
+              }
+            }
+          }, 1000); // Small delay to let the UI update first
+        }
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // WEBRTC SIGNALING (Both)
+    // -------------------------------------------------------------------------
+
+    socket.on(SOCKET_EVENTS.WEBRTC_SIGNAL, (data: WebRTCSignalPayload) => {
+      // Determine if sender is agent or visitor
+      const agent = poolManager.getAgentBySocketId(socket.id);
+      const visitor = poolManager.getVisitorBySocketId(socket.id);
+
+      if (agent) {
+        // Agent sending signal to visitor
+        const targetVisitor = poolManager.getVisitor(data.targetId);
+        if (targetVisitor) {
+          const targetSocket = io.sockets.sockets.get(targetVisitor.socketId);
+          targetSocket?.emit(SOCKET_EVENTS.WEBRTC_SIGNAL, {
+            targetId: agent.agentId,
+            signal: data.signal,
+          });
+        }
+      } else if (visitor) {
+        // Visitor sending signal to agent
+        const targetAgent = poolManager.getAgent(data.targetId);
+        if (targetAgent) {
+          const targetSocket = io.sockets.sockets.get(targetAgent.socketId);
+          targetSocket?.emit(SOCKET_EVENTS.WEBRTC_SIGNAL, {
+            targetId: visitor.visitorId,
+            signal: data.signal,
+          });
+        }
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // CO-BROWSING (Visitor -> Agent)
+    // -------------------------------------------------------------------------
+
+    socket.on(SOCKET_EVENTS.COBROWSE_SNAPSHOT, (data: CobrowseSnapshotPayload) => {
+      const visitor = poolManager.getVisitorBySocketId(socket.id);
+      if (!visitor) {
+        console.log("[Cobrowse] Snapshot received but no visitor found for socket:", socket.id);
+        return;
+      }
+
+      // Find the agent in call with this visitor
+      const activeCall = poolManager.getActiveCallByVisitorId(visitor.visitorId);
+      if (!activeCall) {
+        console.log("[Cobrowse] Snapshot received but no active call for visitor:", visitor.visitorId);
+        return;
+      }
+
+      const agent = poolManager.getAgent(activeCall.agentId);
+      if (!agent) {
+        console.log("[Cobrowse] Snapshot received but agent not found:", activeCall.agentId);
+        return;
+      }
+
+      console.log("[Cobrowse] Relaying snapshot:", { 
+        visitorId: visitor.visitorId,
+        viewport: data.viewport,
+        url: data.url,
+      });
+
+      const agentSocket = io.sockets.sockets.get(agent.socketId);
+      agentSocket?.emit(SOCKET_EVENTS.COBROWSE_SNAPSHOT, {
+        ...data,
+        visitorId: visitor.visitorId,
+      });
+    });
+
+    socket.on(SOCKET_EVENTS.COBROWSE_MOUSE, (data: CobrowseMousePayload) => {
+      const visitor = poolManager.getVisitorBySocketId(socket.id);
+      if (!visitor) return;
+
+      const activeCall = poolManager.getActiveCallByVisitorId(visitor.visitorId);
+      if (!activeCall) return;
+
+      const agent = poolManager.getAgent(activeCall.agentId);
+      if (!agent) return;
+
+      const agentSocket = io.sockets.sockets.get(agent.socketId);
+      agentSocket?.emit(SOCKET_EVENTS.COBROWSE_MOUSE, {
+        ...data,
+        visitorId: visitor.visitorId,
+      });
+    });
+
+    socket.on(SOCKET_EVENTS.COBROWSE_SCROLL, (data: CobrowseScrollPayload) => {
+      const visitor = poolManager.getVisitorBySocketId(socket.id);
+      if (!visitor) return;
+
+      const activeCall = poolManager.getActiveCallByVisitorId(visitor.visitorId);
+      if (!activeCall) return;
+
+      const agent = poolManager.getAgent(activeCall.agentId);
+      if (!agent) return;
+
+      const agentSocket = io.sockets.sockets.get(agent.socketId);
+      agentSocket?.emit(SOCKET_EVENTS.COBROWSE_SCROLL, {
+        ...data,
+        visitorId: visitor.visitorId,
+      });
+    });
+
+    socket.on(SOCKET_EVENTS.COBROWSE_SELECTION, (data: CobrowseSelectionPayload) => {
+      const visitor = poolManager.getVisitorBySocketId(socket.id);
+      if (!visitor) return;
+
+      const activeCall = poolManager.getActiveCallByVisitorId(visitor.visitorId);
+      if (!activeCall) return;
+
+      const agent = poolManager.getAgent(activeCall.agentId);
+      if (!agent) return;
+
+      const agentSocket = io.sockets.sockets.get(agent.socketId);
+      agentSocket?.emit(SOCKET_EVENTS.COBROWSE_SELECTION, {
+        ...data,
+        visitorId: visitor.visitorId,
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // DISCONNECT
+    // -------------------------------------------------------------------------
+
+    socket.on("disconnect", () => {
+      console.log(`[Socket] Disconnected: ${socket.id}`);
+
+      // Check if this was an agent
+      const agent = poolManager.getAgentBySocketId(socket.id);
+      if (agent) {
+        // End any active call
+        const activeCall = poolManager.getActiveCallByAgentId(agent.agentId);
+        if (activeCall) {
+          poolManager.endCall(activeCall.callId);
+          const visitor = poolManager.getVisitor(activeCall.visitorId);
+          if (visitor) {
+            const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+            visitorSocket?.emit(SOCKET_EVENTS.CALL_ENDED, {
+              callId: activeCall.callId,
+              reason: "agent_ended",
+            });
+          }
+        }
+
+        // Reassign visitors and unregister
+        const affectedVisitors = poolManager.unregisterAgent(agent.agentId);
+        if (affectedVisitors.length > 0) {
+          // Try to reassign each affected visitor using path-based routing
+          for (const visitorId of affectedVisitors) {
+            const visitor = poolManager.getVisitor(visitorId);
+            if (visitor) {
+              const newAgent = poolManager.findBestAgentForVisitor(visitor.siteId, visitor.pageUrl);
+              if (newAgent) {
+                poolManager.assignVisitorToAgent(visitorId, newAgent.agentId);
+                const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+                visitorSocket?.emit(SOCKET_EVENTS.AGENT_REASSIGNED, {
+                  previousAgentId: agent.agentId,
+                  newAgent: {
+                    id: newAgent.profile.id,
+                    displayName: newAgent.profile.displayName,
+                    avatarUrl: newAgent.profile.avatarUrl,
+                    introVideoUrl: newAgent.profile.introVideoUrl,
+                    loopVideoUrl: newAgent.profile.loopVideoUrl,
+                  },
+                  reason: "agent_offline",
+                });
+              }
+            }
+          }
+        }
+        return;
+      }
+
+      // Check if this was a visitor
+      const visitor = poolManager.getVisitorBySocketId(socket.id);
+      if (visitor) {
+        // End any active call
+        const activeCall = poolManager.getActiveCallByVisitorId(visitor.visitorId);
+        if (activeCall) {
+          poolManager.endCall(activeCall.callId);
+          const callAgent = poolManager.getAgent(activeCall.agentId);
+          if (callAgent) {
+            const agentSocket = io.sockets.sockets.get(callAgent.socketId);
+            agentSocket?.emit(SOCKET_EVENTS.CALL_ENDED, {
+              callId: activeCall.callId,
+              reason: "visitor_ended",
+            });
+          }
+        }
+
+        poolManager.unregisterVisitor(visitor.visitorId);
+      }
+    });
+  });
+}
+
+/**
+ * Helper to notify visitors about agent reassignments and unavailability
+ */
+function notifyReassignments(
+  io: AppServer,
+  poolManager: PoolManager,
+  result: { reassigned: Map<string, string>; unassigned: string[] },
+  reason: "agent_busy" | "agent_offline"
+) {
+  // Notify reassigned visitors of their new agent
+  for (const [visitorId, newAgentId] of result.reassigned) {
+    const visitor = poolManager.getVisitor(visitorId);
+    const newAgent = poolManager.getAgent(newAgentId);
+    
+    if (visitor && newAgent) {
+      const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+      visitorSocket?.emit(SOCKET_EVENTS.AGENT_REASSIGNED, {
+        previousAgentId: visitor.assignedAgentId ?? "",
+        newAgent: {
+          id: newAgent.profile.id,
+          displayName: newAgent.profile.displayName,
+          avatarUrl: newAgent.profile.avatarUrl,
+          introVideoUrl: newAgent.profile.introVideoUrl,
+          loopVideoUrl: newAgent.profile.loopVideoUrl,
+        },
+        reason,
+      });
+    }
+  }
+
+  // Notify unassigned visitors that no agents are available
+  for (const visitorId of result.unassigned) {
+    const visitor = poolManager.getVisitor(visitorId);
+    if (visitor) {
+      const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+      visitorSocket?.emit(SOCKET_EVENTS.ERROR, {
+        code: ERROR_CODES.AGENT_UNAVAILABLE,
+        message: "All agents are currently unavailable",
+      });
+      console.log(`[Socket] Visitor ${visitorId} now waiting - no agents available`);
+    }
+  }
+}
+

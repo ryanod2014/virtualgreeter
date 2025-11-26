@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS variables for theming */
+:root {
+  --gg-bg: #0f0f14;
+  --gg-surface: #1a1a24;
+  --gg-border: #2a2a3a;
+  --gg-text: #e4e4eb;
+  --gg-muted: #8888a0;
+  --gg-primary: #6366f1;
+  --gg-success: #22c55e;
+}
+
