@@ -55,20 +55,20 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     // -------------------------------------------------------------------------
 
     socket.on(SOCKET_EVENTS.VISITOR_JOIN, (data: VisitorJoinPayload) => {
-      console.log("[Socket] 👤 VISITOR_JOIN received:", { siteId: data.siteId, pageUrl: data.pageUrl });
+      console.log("[Socket] 👤 VISITOR_JOIN received:", { orgId: data.orgId, pageUrl: data.pageUrl });
       
       const visitorId = data.visitorId ?? `visitor_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
       
       const session = poolManager.registerVisitor(
         socket.id,
         visitorId,
-        data.siteId,
+        data.orgId,
         data.pageUrl
       );
       console.log("[Socket] Visitor registered:", visitorId);
 
       // Find and assign best agent using path-based routing
-      const agent = poolManager.findBestAgentForVisitor(data.siteId, data.pageUrl);
+      const agent = poolManager.findBestAgentForVisitor(data.orgId, data.pageUrl);
       console.log("[Socket] Best agent found:", agent?.agentId ?? "NONE");
       if (agent) {
         poolManager.assignVisitorToAgent(visitorId, agent.agentId);
@@ -123,7 +123,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
 
       // If the requested agent is unavailable, immediately find an alternative
       if (!targetAgent || targetAgent.profile.status === "in_call" || targetAgent.profile.status === "offline" || targetAgent.profile.status === "away") {
-        const alternativeAgent = poolManager.findBestAgentForVisitor(visitor.siteId, visitor.pageUrl);
+        const alternativeAgent = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
         
         if (alternativeAgent && alternativeAgent.agentId !== data.agentId) {
           console.log(`[Socket] Agent ${data.agentId} unavailable (${targetAgent?.profile.status ?? 'not found'}), rerouting to ${alternativeAgent.agentId}`);
@@ -143,7 +143,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       const request = poolManager.createCallRequest(
         visitor.visitorId,
         targetAgentId,
-        visitor.siteId,
+        visitor.orgId,
         visitor.pageUrl
       );
 
@@ -154,7 +154,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       createCallLog(request.requestId, {
         visitorId: visitor.visitorId,
         agentId: targetAgentId,
-        siteId: visitor.siteId,
+        orgId: visitor.orgId,
         pageUrl: visitor.pageUrl,
       });
 
@@ -288,7 +288,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           // Try to find another agent for the waiting visitor
           const visitor = poolManager.getVisitor(request.visitorId);
           if (visitor) {
-            const newAgent = poolManager.findBestAgentForVisitor(visitor.siteId, visitor.pageUrl);
+            const newAgent = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
             if (newAgent && newAgent.agentId !== agent.agentId) {
               // Mark old call as missed (agent went away)
               markCallMissed(request.requestId);
@@ -298,7 +298,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
               const newRequest = poolManager.createCallRequest(
                 visitor.visitorId,
                 newAgent.agentId,
-                visitor.siteId,
+                visitor.orgId,
                 visitor.pageUrl
               );
               
@@ -306,7 +306,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
               createCallLog(newRequest.requestId, {
                 visitorId: visitor.visitorId,
                 agentId: newAgent.agentId,
-                siteId: visitor.siteId,
+                orgId: visitor.orgId,
                 pageUrl: visitor.pageUrl,
               });
               
@@ -436,7 +436,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           const newRequest = poolManager.createCallRequest(
             request.visitorId,
             request.agentId,
-            request.siteId,
+            request.orgId,
             request.pageUrl
           );
           console.log(`[Socket] Created new request ${newRequest.requestId} for waiting visitor`);
@@ -445,7 +445,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           createCallLog(newRequest.requestId, {
             visitorId: visitor.visitorId,
             agentId: request.agentId,
-            siteId: request.siteId,
+            orgId: request.orgId,
             pageUrl: request.pageUrl,
           });
         }
@@ -662,7 +662,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           for (const visitorId of affectedVisitors) {
             const visitor = poolManager.getVisitor(visitorId);
             if (visitor) {
-              const newAgent = poolManager.findBestAgentForVisitor(visitor.siteId, visitor.pageUrl);
+              const newAgent = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
               if (newAgent) {
                 poolManager.assignVisitorToAgent(visitorId, newAgent.agentId);
                 const visitorSocket = io.sockets.sockets.get(visitor.socketId);
@@ -784,7 +784,7 @@ function startRNATimeout(
     // Try to find another agent for the visitor
     const visitor = poolManager.getVisitor(visitorId);
     if (visitor) {
-      const newAgent = poolManager.findBestAgentForVisitor(visitor.siteId, visitor.pageUrl);
+      const newAgent = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
       
       if (newAgent && newAgent.agentId !== agentId) {
         console.log(`[RNA] Routing visitor ${visitorId} to agent ${newAgent.agentId}`);
@@ -793,7 +793,7 @@ function startRNATimeout(
         const newRequest = poolManager.createCallRequest(
           visitorId,
           newAgent.agentId,
-          visitor.siteId,
+          visitor.orgId,
           visitor.pageUrl
         );
         
@@ -801,7 +801,7 @@ function startRNATimeout(
         createCallLog(newRequest.requestId, {
           visitorId: visitor.visitorId,
           agentId: newAgent.agentId,
-          siteId: visitor.siteId,
+          orgId: visitor.orgId,
           pageUrl: visitor.pageUrl,
         });
 

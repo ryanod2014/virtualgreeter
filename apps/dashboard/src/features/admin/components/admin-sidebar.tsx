@@ -26,15 +26,24 @@ export function AdminSidebar({ user, organization }: AdminSidebarProps) {
       <div className="flex h-full flex-col">
         {/* Logo & Org */}
         <div className="p-6 border-b border-border">
-          <div className="flex items-center gap-2 mb-3">
-            <Ghost className="w-7 h-7 text-primary" />
-            <span className="font-bold text-lg">Ghost-Greeter</span>
-          </div>
-          <div className="text-sm text-muted-foreground truncate">
-            {organization.name}
-          </div>
-          <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-            Admin
+          <div className="flex items-center gap-3 mb-3">
+            {organization.logo_url ? (
+              <img
+                src={organization.logo_url}
+                alt={organization.name}
+                className="w-10 h-10 rounded-lg object-contain bg-muted/50"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Ghost className="w-6 h-6 text-primary" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-lg truncate">{organization.name}</div>
+              <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                Admin
+              </div>
+            </div>
           </div>
         </div>
 
@@ -69,7 +78,7 @@ export function AdminSidebar({ user, organization }: AdminSidebarProps) {
           </div>
           
           <NavLink href="/dashboard" icon={Video}>
-            Go to Workbench
+            Agent Dashboard
           </NavLink>
         </nav>
 

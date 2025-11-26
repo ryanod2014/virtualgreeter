@@ -12,7 +12,7 @@ import { SOCKET_EVENTS } from "@ghost-greeter/domain";
 
 interface UseSignalingOptions {
   serverUrl: string;
-  siteId: string;
+  orgId: string;
   onAgentAssigned: (data: AgentAssignedPayload) => void;
   onAgentReassigned: (data: AgentReassignedPayload) => void;
   onAgentUnavailable: () => void;
@@ -62,7 +62,7 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
 
       // Join as visitor
       socket.emit(SOCKET_EVENTS.VISITOR_JOIN, {
-        siteId: options.siteId,
+        orgId: options.orgId,
         pageUrl: window.location.href,
       });
     });

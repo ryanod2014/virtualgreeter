@@ -24,6 +24,7 @@ export interface Database {
           id: string;
           name: string;
           slug: string;
+          logo_url: string | null;
           plan: SubscriptionPlan;
           max_agents: number;
           max_sites: number;

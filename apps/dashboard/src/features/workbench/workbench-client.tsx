@@ -1,25 +1,16 @@
 "use client";
 
-import { useEffect, useCallback, useState, useRef } from "react";
 import {
   Video,
   Users,
-  Wifi,
-  WifiOff,
   AlertTriangle,
   Coffee,
 } from "lucide-react";
-import { useSignaling } from "@/features/signaling/use-signaling";
 import { useWebRTC } from "@/features/webrtc/use-webrtc";
-import { IncomingCallModal } from "@/features/workbench/incoming-call-modal";
 import { ActiveCallStage } from "@/features/webrtc/active-call-stage";
 import { CobrowseViewer } from "@/features/cobrowse/CobrowseViewer";
-import { PostCallDispositionModal } from "@/features/workbench/post-call-disposition-modal";
-import { useIncomingCall } from "@/features/workbench/hooks/useIncomingCall";
-import { useIdleTimer } from "@/features/workbench/hooks/useIdleTimer";
-import { useHeartbeat } from "@/features/workbench/hooks/useHeartbeat";
+import { useSignalingContext } from "@/features/signaling/signaling-provider";
 import type { AgentProfile, User } from "@ghost-greeter/domain/database.types";
-import { TIMING } from "@ghost-greeter/domain";
 
 interface WorkbenchClientProps {
   agentProfile: AgentProfile | null;
@@ -28,116 +19,18 @@ interface WorkbenchClientProps {
 }
 
 export function WorkbenchClient({ agentProfile, user, organizationId }: WorkbenchClientProps) {
-  const agentId = agentProfile?.id ?? user.id;
   const displayName = agentProfile?.display_name ?? user.full_name;
-  
-  // Track ended call for disposition modal
-  const [endedCallId, setEndedCallId] = useState<string | null>(null);
-  const previousCallRef = useRef<string | null>(null);
   
   const {
     isConnected,
-    incomingCall,
     activeCall,
     stats,
     cobrowse,
     isMarkedAway,
-    awayReason,
-    acceptCall,
-    rejectCall,
     endCall,
-    setAway,
     setBack,
     socket,
-  } = useSignaling(agentId, {
-    displayName: agentProfile?.display_name ?? user.full_name,
-    avatarUrl: user.avatar_url ?? null,
-    waveVideoUrl: agentProfile?.wave_video_url ?? null,
-    introVideoUrl: agentProfile?.intro_video_url ?? null,
-    connectVideoUrl: agentProfile?.connect_video_url ?? null,
-    loopVideoUrl: agentProfile?.loop_video_url ?? null,
-  });
-
-  // Incoming call notifications and audio
-  const {
-    startRinging,
-    stopRinging,
-    isAudioReady,
-    initializeAudio,
-  } = useIncomingCall();
-
-  // Auto-away on idle
-  const { isIdle } = useIdleTimer({
-    timeout: TIMING.AGENT_IDLE_TIMEOUT,
-    onIdle: () => {
-      if (!activeCall && !isMarkedAway) {
-        setAway("idle");
-      }
-    },
-    // Disable idle tracking during calls
-    enabled: !activeCall,
-  });
-
-  // Worker-based heartbeat to prevent tab freezing
-  useHeartbeat({
-    socket,
-    enabled: isConnected,
-  });
-
-  // Handle incoming call - start/stop ringing
-  useEffect(() => {
-    if (incomingCall) {
-      startRinging(incomingCall);
-    } else {
-      stopRinging();
-    }
-  }, [incomingCall, startRinging, stopRinging]);
-
-  // Track when call ends to show disposition modal
-  useEffect(() => {
-    if (activeCall) {
-      // Store the database call log ID (not the generated callId)
-      console.log("[Workbench] Active call:", { callId: activeCall.callId, callLogId: activeCall.callLogId });
-      previousCallRef.current = activeCall.callLogId ?? null;
-    } else if (previousCallRef.current) {
-      // Call just ended - show disposition modal
-      console.log("[Workbench] Call ended, showing disposition modal for:", previousCallRef.current);
-      setEndedCallId(previousCallRef.current);
-      previousCallRef.current = null;
-    }
-  }, [activeCall]);
-
-  // Initialize audio on first user interaction (for AudioContext)
-  const handleFirstInteraction = useCallback(() => {
-    if (!isAudioReady) {
-      initializeAudio();
-    }
-  }, [isAudioReady, initializeAudio]);
-
-  // Listen for first interaction to init audio
-  useEffect(() => {
-    const events = ["click", "keydown", "touchstart"];
-    events.forEach((event) => {
-      window.addEventListener(event, handleFirstInteraction, { once: true });
-    });
-    return () => {
-      events.forEach((event) => {
-        window.removeEventListener(event, handleFirstInteraction);
-      });
-    };
-  }, [handleFirstInteraction]);
-
-  // Handle call acceptance with ring stop
-  const handleAcceptCall = useCallback((requestId: string) => {
-    stopRinging();
-    acceptCall(requestId);
-  }, [stopRinging, acceptCall]);
-
-  // Handle call rejection with ring stop
-  const handleRejectCall = useCallback((requestId: string, reason?: string) => {
-    stopRinging();
-    rejectCall(requestId, reason);
-  }, [stopRinging, rejectCall]);
+  } = useSignalingContext();
 
   // WebRTC connection
   const {
@@ -170,21 +63,8 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
-              {isConnected ? (
-                <>
-                  <Wifi className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium text-green-500">Connected</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-4 h-4 text-destructive" />
-                  <span className="text-sm font-medium text-destructive">Disconnected</span>
-                </>
-              )}
-            </div>
             <div className="relative">
-              {isConnected && (
+              {isConnected && !isMarkedAway && (
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full live-pulse" />
               )}
               <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
@@ -274,6 +154,24 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
               />
             </div>
           </div>
+        ) : isMarkedAway ? (
+          <div className="glass rounded-2xl p-8 min-h-[500px]">
+            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
+              <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
+                <Coffee className="w-12 h-12 text-muted-foreground" />
+              </div>
+              <h2 className="text-2xl font-semibold mb-2">You're Away</h2>
+              <p className="text-muted-foreground max-w-md">
+                You're not receiving calls right now. Set your status to Active when you're ready.
+              </p>
+              <button
+                onClick={setBack}
+                className="mt-6 px-6 py-2 rounded-lg bg-green-500 text-white font-medium hover:bg-green-600 transition-colors"
+              >
+                Go Active
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="glass rounded-2xl p-8 min-h-[500px]">
             <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
@@ -299,54 +197,6 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
         )}
       </div>
 
-      {/* Incoming Call Modal */}
-      <IncomingCallModal
-        incomingCall={incomingCall}
-        onAccept={handleAcceptCall}
-        onReject={handleRejectCall}
-      />
-
-      {/* Away Modal */}
-      {isMarkedAway && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-          {/* Modal */}
-          <div className="relative glass rounded-3xl p-8 max-w-md w-full mx-4 animate-fade-in">
-            <div className="text-center">
-              {/* Icon */}
-              <div className="relative inline-block mb-6">
-                <div className="w-20 h-20 rounded-full bg-amber-500/20 flex items-center justify-center">
-                  <Coffee className="w-10 h-10 text-amber-500" />
-                </div>
-              </div>
-
-              {/* Title */}
-              <h2 className="text-2xl font-bold mb-2">You're Away</h2>
-              <p className="text-muted-foreground mb-6">
-                {awayReason || "You've been marked as away and won't receive incoming calls."}
-              </p>
-
-              {/* Action */}
-              <button
-                onClick={setBack}
-                className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-primary text-white hover:bg-primary/90 transition-colors font-medium"
-              >
-                I'm Back
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Post-Call Disposition Modal */}
-      <PostCallDispositionModal
-        isOpen={!!endedCallId}
-        callLogId={endedCallId}
-        organizationId={organizationId}
-        onClose={() => setEndedCallId(null)}
-      />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/actions";
-import { AgentSidebar } from "@/features/workbench/agent-sidebar";
+import { DashboardShell } from "@/features/signaling/dashboard-shell";
 
 export default async function DashboardLayout({
   children,
@@ -15,15 +15,14 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <AgentSidebar 
-        user={auth.profile} 
-        organization={auth.organization} 
-        agentProfile={auth.agentProfile}
-        isAdmin={auth.isAdmin}
-      />
-      <main className="ml-64 min-h-screen">{children}</main>
-    </div>
+    <DashboardShell
+      user={auth.profile}
+      organization={auth.organization}
+      agentProfile={auth.agentProfile}
+      isAdmin={auth.isAdmin}
+    >
+      {children}
+    </DashboardShell>
   );
 }
 

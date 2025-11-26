@@ -51,7 +51,7 @@ export interface VisitorSession {
   socketId: string;
   assignedAgentId: string | null;
   state: VisitorState;
-  siteId: string;
+  orgId: string;
   pageUrl: string;
   connectedAt: number;
   interactedAt: number | null;
@@ -66,7 +66,7 @@ export interface CallRequest {
   requestId: string;
   visitorId: string;
   agentId: string;
-  siteId: string;
+  orgId: string;
   pageUrl: string;
   requestedAt: number;
 }
@@ -148,7 +148,7 @@ export interface ServerToDashboardEvents {
 
 // Widget -> Server Payloads
 export interface VisitorJoinPayload {
-  siteId: string;
+  orgId: string;
   pageUrl: string;
   visitorId?: string; // Optional for returning visitors
 }

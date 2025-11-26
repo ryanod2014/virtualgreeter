@@ -28,16 +28,16 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: Date.now() });
 });
 
-// API: Update site configuration (path rules)
-app.post("/api/config/site", (req, res) => {
-  const { siteId, defaultPoolId, pathRules } = req.body;
+// API: Update organization configuration (path rules for pools)
+app.post("/api/config/org", (req, res) => {
+  const { orgId, defaultPoolId, pathRules } = req.body;
   
-  if (!siteId) {
-    res.status(400).json({ error: "siteId is required" });
+  if (!orgId) {
+    res.status(400).json({ error: "orgId is required" });
     return;
   }
 
-  poolManager.setSiteConfig(siteId, defaultPoolId ?? null, pathRules ?? []);
+  poolManager.setOrgConfig(orgId, defaultPoolId ?? null, pathRules ?? []);
   res.json({ success: true });
 });
 

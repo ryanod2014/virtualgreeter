@@ -9,7 +9,6 @@ import {
   Clock,
   TrendingUp,
   Timer,
-  Calendar,
   BarChart3,
 } from "lucide-react";
 import {
@@ -18,6 +17,7 @@ import {
   type CallLogForStats,
   type DispositionForStats,
 } from "@/lib/stats/agent-stats";
+import { DateRangePicker } from "@/lib/components/date-range-picker";
 
 interface Props {
   agentName: string;
@@ -35,32 +35,12 @@ export function AgentStatsView({
   const router = useRouter();
   const stats = calculateAgentStats(calls, dispositions);
 
-  const handleDateRangeChange = (days: number) => {
-    const to = new Date();
-    const from = new Date();
-    if (days > 0) {
-      from.setDate(from.getDate() - days);
-    }
+  const handleDateRangeChange = (from: Date, to: Date) => {
     const params = new URLSearchParams();
     params.set("from", from.toISOString().split("T")[0]);
     params.set("to", to.toISOString().split("T")[0]);
     router.push(`/dashboard/stats?${params.toString()}`);
   };
-
-  // Preset date ranges
-  const presets = [
-    { label: "Today", days: 0 },
-    { label: "7 days", days: 7 },
-    { label: "30 days", days: 30 },
-    { label: "90 days", days: 90 },
-  ];
-
-  // Determine active preset
-  const fromDate = new Date(dateRange.from);
-  const toDate = new Date(dateRange.to);
-  const daysDiff = Math.round(
-    (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)
-  );
 
   return (
     <>
@@ -74,25 +54,12 @@ export function AgentStatsView({
             </p>
           </div>
 
-          {/* Date Range Selector */}
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-muted-foreground" />
-            <div className="flex gap-1 bg-muted/30 rounded-lg p-1">
-              {presets.map((preset) => (
-                <button
-                  key={preset.label}
-                  onClick={() => handleDateRangeChange(preset.days)}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    daysDiff === preset.days
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-background"
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Date Range Picker */}
+          <DateRangePicker
+            from={new Date(dateRange.from)}
+            to={new Date(dateRange.to)}
+            onRangeChange={handleDateRangeChange}
+          />
         </div>
       </header>
 

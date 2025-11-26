@@ -30,7 +30,7 @@ export async function createCallLog(
   data: {
     visitorId: string;
     agentId: string;
-    siteId: string;
+    orgId: string;
     pageUrl: string;
   }
 ): Promise<string | null> {
@@ -52,18 +52,9 @@ export async function createCallLog(
       return null;
     }
 
-    // Check if site_id is valid, if not use null
-    let validSiteId: string | null = null;
-    if (data.siteId) {
-      const { data: site } = await supabase
-        .from("sites")
-        .select("id")
-        .eq("id", data.siteId)
-        .single();
-      if (site) {
-        validSiteId = data.siteId;
-      }
-    }
+    // Site ID is no longer used - we use orgId for routing now
+    // Keep site_id as null in the database for now
+    const validSiteId: string | null = null;
 
     const now = new Date().toISOString();
 

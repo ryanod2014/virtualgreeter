@@ -4,7 +4,7 @@ import "./styles.css";
 
 // Widget configuration from script tag or global
 interface GhostGreeterConfig {
-  siteId: string;
+  orgId: string;
   serverUrl?: string;
   position?: "bottom-right" | "bottom-left";
   triggerDelay?: number;

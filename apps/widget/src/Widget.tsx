@@ -7,7 +7,7 @@ import { useCobrowse } from "./features/cobrowse/useCobrowse";
 import type { AgentAssignedPayload } from "@ghost-greeter/domain";
 
 interface WidgetConfig {
-  siteId: string;
+  orgId: string;
   serverUrl?: string;
   position?: "bottom-right" | "bottom-left";
   triggerDelay?: number;
@@ -50,7 +50,7 @@ export function Widget({ config }: WidgetProps) {
     socket,
   } = useSignaling({
     serverUrl: config.serverUrl ?? "http://localhost:3001",
-    siteId: config.siteId,
+    orgId: config.orgId,
     onAgentAssigned: (data) => {
       console.log("[Widget] ✅ Agent assigned:", data.agent.id, data.agent.displayName);
       setAgent(data.agent);

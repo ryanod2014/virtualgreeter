@@ -4,7 +4,6 @@ import {
   Users,
   Globe,
   Phone,
-  TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
@@ -46,7 +45,7 @@ export default async function AdminOverviewPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <StatCard
           title="Total Agents"
           value={stats.agents}
@@ -67,13 +66,6 @@ export default async function AdminOverviewPage() {
           icon={Phone}
           trend={+23}
           color="accent"
-        />
-        <StatCard
-          title="Conversion Rate"
-          value="24%"
-          icon={TrendingUp}
-          trend={+8}
-          color="warning"
         />
       </div>
 

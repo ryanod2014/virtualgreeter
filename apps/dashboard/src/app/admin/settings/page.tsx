@@ -35,13 +35,11 @@ export default async function SettingsPage() {
         />
 
         <SettingsCard
-          href="#"
+          href="/admin/settings/organization"
           icon={Building2}
           title="Organization"
-          description="Update your organization name and details"
+          description="Update your organization name, logo, and details"
           color="blue"
-          disabled
-          comingSoon
         />
 
         <SettingsCard

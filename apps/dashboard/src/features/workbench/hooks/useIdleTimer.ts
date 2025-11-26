@@ -25,6 +25,7 @@ interface UseIdleTimerReturn {
 }
 
 const DEFAULT_IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const NOTIFICATION_GRACE_PERIOD = 60 * 1000; // 60 seconds to respond
 
 // Events that indicate user activity
 const ACTIVITY_EVENTS = [
@@ -44,6 +45,7 @@ const ACTIVITY_EVENTS = [
  * - Configurable timeout (default 5 minutes)
  * - Provides time remaining for UI countdown
  * - Can be disabled during active calls
+ * - Shows notification when tab is hidden before marking away
  */
 export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerReturn {
   const {
@@ -59,8 +61,10 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
   const lastActivityRef = useRef<number>(Date.now());
   const idleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const notificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onIdleRef = useRef(onIdle);
   const onActiveRef = useRef(onActive);
+  const notificationRef = useRef<Notification | null>(null);
 
   // Keep callbacks fresh
   useEffect(() => {
@@ -68,10 +72,32 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
     onActiveRef.current = onActive;
   }, [onIdle, onActive]);
 
+  // Clean up notification
+  const clearNotification = useCallback(() => {
+    if (notificationRef.current) {
+      notificationRef.current.close();
+      notificationRef.current = null;
+    }
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current);
+      notificationTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Mark as idle
+  const markIdle = useCallback(() => {
+    setIsIdle(true);
+    onIdleRef.current?.();
+    clearNotification();
+  }, [clearNotification]);
+
   // Reset the idle timer
   const resetTimer = useCallback(() => {
     lastActivityRef.current = Date.now();
     setTimeUntilIdle(timeout);
+
+    // Close any existing notification
+    clearNotification();
 
     // Clear existing timeout
     if (idleTimeoutRef.current) {
@@ -80,10 +106,32 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
 
     // Set new timeout
     idleTimeoutRef.current = setTimeout(() => {
-      setIsIdle(true);
-      onIdleRef.current?.();
+      // If tab is hidden, show notification instead of immediately marking away
+      if (document.visibilityState === "hidden" && Notification.permission === "granted") {
+        // Show "still there?" notification
+        notificationRef.current = new Notification("Still there?", {
+          body: "Click to stay available for calls",
+          icon: "/favicon.ico",
+          requireInteraction: true,
+          tag: "idle-check",
+        });
+
+        notificationRef.current.onclick = () => {
+          resetTimer();
+          window.focus();
+          clearNotification();
+        };
+
+        // If no response within grace period, mark as away
+        notificationTimeoutRef.current = setTimeout(() => {
+          markIdle();
+        }, NOTIFICATION_GRACE_PERIOD);
+      } else {
+        // Tab is visible or no notification permission - mark idle immediately
+        markIdle();
+      }
     }, timeout);
-  }, [timeout]);
+  }, [timeout, clearNotification, markIdle]);
 
   // Handle user activity
   const handleActivity = useCallback(() => {
@@ -117,6 +165,7 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
         clearInterval(countdownIntervalRef.current);
         countdownIntervalRef.current = null;
       }
+      clearNotification();
       setTimeUntilIdle(timeout);
       return;
     }
@@ -148,8 +197,9 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
       }
+      clearNotification();
     };
-  }, [enabled, timeout, handleActivity, resetTimer]);
+  }, [enabled, timeout, handleActivity, resetTimer, clearNotification]);
 
   return {
     isIdle,

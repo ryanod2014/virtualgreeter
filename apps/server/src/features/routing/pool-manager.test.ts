@@ -40,7 +40,7 @@ describe("PoolManager", () => {
       // Register 5 visitors sequentially
       for (let i = 0; i < 5; i++) {
         const visitorId = `visitor_${i}`;
-        poolManager.registerVisitor(`socket_visitor_${i}`, visitorId, "site1", "/");
+        poolManager.registerVisitor(`socket_visitor_${i}`, visitorId, "org1", "/");
 
         const bestAgent = poolManager.findBestAgent();
         expect(bestAgent).toBeDefined();
@@ -71,7 +71,7 @@ describe("PoolManager", () => {
       const firstRoundAssignments: string[] = [];
       for (let i = 0; i < 3; i++) {
         const visitorId = `visitor_round1_${i}`;
-        poolManager.registerVisitor(`socket_v1_${i}`, visitorId, "site1", "/");
+        poolManager.registerVisitor(`socket_v1_${i}`, visitorId, "org1", "/");
         const agent = poolManager.findBestAgent();
         poolManager.assignVisitorToAgent(visitorId, agent!.agentId);
         firstRoundAssignments.push(agent!.agentId);
@@ -89,7 +89,7 @@ describe("PoolManager", () => {
       const secondRoundAssignments: string[] = [];
       for (let i = 0; i < 3; i++) {
         const visitorId = `visitor_round2_${i}`;
-        poolManager.registerVisitor(`socket_v2_${i}`, visitorId, "site1", "/");
+        poolManager.registerVisitor(`socket_v2_${i}`, visitorId, "org1", "/");
         const agent = poolManager.findBestAgent();
         poolManager.assignVisitorToAgent(visitorId, agent!.agentId);
         secondRoundAssignments.push(agent!.agentId);
@@ -112,7 +112,7 @@ describe("PoolManager", () => {
       // Simulate 20 sequential visitors (each leaves before next arrives)
       for (let i = 0; i < 20; i++) {
         const visitorId = `visitor_${i}`;
-        poolManager.registerVisitor(`socket_v_${i}`, visitorId, "site1", "/");
+        poolManager.registerVisitor(`socket_v_${i}`, visitorId, "org1", "/");
 
         const agent = poolManager.findBestAgent();
         expect(agent).toBeDefined();
@@ -146,16 +146,16 @@ describe("PoolManager", () => {
       // Give agentA 3 visitors
       for (let i = 0; i < 3; i++) {
         const visitorId = `visitor_a_${i}`;
-        poolManager.registerVisitor(`socket_va_${i}`, visitorId, "site1", "/");
+        poolManager.registerVisitor(`socket_va_${i}`, visitorId, "org1", "/");
         poolManager.assignVisitorToAgent(visitorId, "agentA");
       }
 
       // Give agentB 1 visitor
-      poolManager.registerVisitor("socket_vb_0", "visitor_b_0", "site1", "/");
+      poolManager.registerVisitor("socket_vb_0", "visitor_b_0", "org1", "/");
       poolManager.assignVisitorToAgent("visitor_b_0", "agentB");
 
       // Next visitor should go to agentB (lower load)
-      poolManager.registerVisitor("socket_new", "visitor_new", "site1", "/");
+      poolManager.registerVisitor("socket_new", "visitor_new", "org1", "/");
       const bestAgent = poolManager.findBestAgent();
 
       expect(bestAgent?.agentId).toBe("agentB");
@@ -200,7 +200,7 @@ describe("PoolManager", () => {
   describe("findBestAgentForVisitor with busy agent rerouting", () => {
     it("should find alternative agent when preferred agent is in_call", () => {
       // Setup site config with a pool
-      poolManager.setSiteConfig("site1", "pool1", []);
+      poolManager.setOrgConfig("org1", "pool1", []);
 
       // Register 2 agents in the pool
       poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
@@ -212,12 +212,12 @@ describe("PoolManager", () => {
       poolManager.setAgentInCall("agentA", "visitor_in_call");
 
       // findBestAgentForVisitor should return agentB
-      const agent = poolManager.findBestAgentForVisitor("site1", "/some-page");
+      const agent = poolManager.findBestAgentForVisitor("org1", "/some-page");
       expect(agent?.agentId).toBe("agentB");
     });
 
     it("should return undefined when all agents in pool are busy", () => {
-      poolManager.setSiteConfig("site1", "pool1", []);
+      poolManager.setOrgConfig("org1", "pool1", []);
 
       poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
       poolManager.addAgentToPool("agentA", "pool1");
@@ -226,7 +226,7 @@ describe("PoolManager", () => {
       poolManager.setAgentInCall("agentA", "visitor_in_call");
 
       // Should fall back to finding any agent, but none available
-      const agent = poolManager.findBestAgentForVisitor("site1", "/some-page");
+      const agent = poolManager.findBestAgentForVisitor("org1", "/some-page");
       expect(agent).toBeUndefined();
     });
   });
@@ -241,9 +241,9 @@ describe("PoolManager", () => {
       poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
 
       // Give agentA 2 visitors (at capacity)
-      poolManager.registerVisitor("socket_v1", "v1", "site1", "/");
+      poolManager.registerVisitor("socket_v1", "v1", "org1", "/");
       poolManager.assignVisitorToAgent("v1", "agentA");
-      poolManager.registerVisitor("socket_v2", "v2", "site1", "/");
+      poolManager.registerVisitor("socket_v2", "v2", "org1", "/");
       poolManager.assignVisitorToAgent("v2", "agentA");
 
       // Next visitor should go to agentB since agentA is at capacity
@@ -257,14 +257,14 @@ describe("PoolManager", () => {
       poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
 
       // Create 3 call requests at different times
-      poolManager.registerVisitor("socket_v1", "visitor1", "site1", "/");
-      const req1 = poolManager.createCallRequest("visitor1", "agentA", "site1", "/");
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      const req1 = poolManager.createCallRequest("visitor1", "agentA", "org1", "/");
 
-      poolManager.registerVisitor("socket_v2", "visitor2", "site1", "/");
-      const req2 = poolManager.createCallRequest("visitor2", "agentA", "site1", "/");
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+      const req2 = poolManager.createCallRequest("visitor2", "agentA", "org1", "/");
 
-      poolManager.registerVisitor("socket_v3", "visitor3", "site1", "/");
-      const req3 = poolManager.createCallRequest("visitor3", "agentA", "site1", "/");
+      poolManager.registerVisitor("socket_v3", "visitor3", "org1", "/");
+      const req3 = poolManager.createCallRequest("visitor3", "agentA", "org1", "/");
 
       // Get waiting requests - should be in order
       const waiting = poolManager.getWaitingRequestsForAgent("agentA");

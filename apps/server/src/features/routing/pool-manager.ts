@@ -11,7 +11,7 @@ import type {
  */
 interface PathRule {
   id: string;
-  siteId: string;
+  orgId: string;
   pathPattern: string;
   poolId: string;
   priority: number;
@@ -19,10 +19,10 @@ interface PathRule {
 }
 
 /**
- * Site configuration for routing
+ * Organization configuration for routing
  */
-interface SiteConfig {
-  siteId: string;
+interface OrgConfig {
+  orgId: string;
   defaultPoolId: string | null;
   pathRules: PathRule[];
 }
@@ -46,7 +46,7 @@ export class PoolManager {
   // Pool-based routing
   private poolMemberships: Map<string, Set<string>> = new Map(); // poolId -> Set<agentId>
   private agentPools: Map<string, Set<string>> = new Map(); // agentId -> Set<poolId>
-  private siteConfigs: Map<string, SiteConfig> = new Map(); // siteId -> config
+  private orgConfigs: Map<string, OrgConfig> = new Map(); // orgId -> config
 
   // Track assignment order for fair round-robin distribution
   // Uses a monotonically increasing counter to ensure unique ordering
@@ -54,19 +54,19 @@ export class PoolManager {
   private lastAssignmentOrder: Map<string, number> = new Map(); // agentId -> assignment order
 
   // ---------------------------------------------------------------------------
-  // SITE & POOL CONFIGURATION
+  // ORGANIZATION & POOL CONFIGURATION
   // ---------------------------------------------------------------------------
 
   /**
-   * Load site configuration including path rules
+   * Load organization configuration including path rules
    */
-  setSiteConfig(siteId: string, defaultPoolId: string | null, pathRules: PathRule[]): void {
-    this.siteConfigs.set(siteId, {
-      siteId,
+  setOrgConfig(orgId: string, defaultPoolId: string | null, pathRules: PathRule[]): void {
+    this.orgConfigs.set(orgId, {
+      orgId,
       defaultPoolId,
       pathRules: pathRules.filter(r => r.isActive).sort((a, b) => b.priority - a.priority),
     });
-    console.log(`[PoolManager] Site config loaded: ${siteId} with ${pathRules.length} path rules`);
+    console.log(`[PoolManager] Org config loaded: ${orgId} with ${pathRules.length} path rules`);
   }
 
   /**
@@ -119,8 +119,8 @@ export class PoolManager {
    * Match a URL path to a pool using path rules
    * Returns the matched pool ID or the default pool ID
    */
-  matchPathToPool(siteId: string, pageUrl: string): string | null {
-    const config = this.siteConfigs.get(siteId);
+  matchPathToPool(orgId: string, pageUrl: string): string | null {
+    const config = this.orgConfigs.get(orgId);
     if (!config) return null;
 
     // Extract path from URL
@@ -274,7 +274,7 @@ export class PoolManager {
   registerVisitor(
     socketId: string,
     visitorId: string,
-    siteId: string,
+    orgId: string,
     pageUrl: string
   ): VisitorSession {
     const session: VisitorSession = {
@@ -282,7 +282,7 @@ export class PoolManager {
       socketId,
       assignedAgentId: null,
       state: "browsing",
-      siteId,
+      orgId,
       pageUrl,
       connectedAt: Date.now(),
       interactedAt: null,
@@ -392,12 +392,12 @@ export class PoolManager {
   }
 
   /**
-   * Find the best agent for a visitor based on their site and page URL
+   * Find the best agent for a visitor based on their org and page URL
    * Uses path-based routing to determine the appropriate pool
    */
-  findBestAgentForVisitor(siteId: string, pageUrl: string): AgentState | undefined {
+  findBestAgentForVisitor(orgId: string, pageUrl: string): AgentState | undefined {
     // First, try to find an agent in the matched pool
-    const poolId = this.matchPathToPool(siteId, pageUrl);
+    const poolId = this.matchPathToPool(orgId, pageUrl);
     
     if (poolId) {
       const agent = this.findBestAgent(poolId);
@@ -513,13 +513,13 @@ export class PoolManager {
   // CALL MANAGEMENT
   // ---------------------------------------------------------------------------
 
-  createCallRequest(visitorId: string, agentId: string, siteId: string, pageUrl: string): CallRequest {
+  createCallRequest(visitorId: string, agentId: string, orgId: string, pageUrl: string): CallRequest {
     const requestId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     const request: CallRequest = {
       requestId,
       visitorId,
       agentId,
-      siteId,
+      orgId,
       pageUrl,
       requestedAt: Date.now(),
     };

@@ -154,6 +154,13 @@ export default function VideosPage() {
     };
   }, []);
 
+  // Re-attach stream when video element changes (stage transitions unmount/remount the video element)
+  useEffect(() => {
+    if (streamRef.current && webcamRef.current && !webcamRef.current.srcObject) {
+      webcamRef.current.srcObject = streamRef.current;
+    }
+  }, [stage]);
+
   // Start countdown before recording
   const startCountdown = useCallback((nextStage: RecordingStage, recordingStage: RecordingStage) => {
     setStage(nextStage);
