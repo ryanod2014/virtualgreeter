@@ -1,15 +1,19 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import {
   Video,
   Users,
   AlertTriangle,
   Coffee,
+  Camera,
+  RefreshCw,
 } from "lucide-react";
 import { useWebRTC } from "@/features/webrtc/use-webrtc";
 import { ActiveCallStage } from "@/features/webrtc/active-call-stage";
 import { CobrowseViewer } from "@/features/cobrowse/CobrowseViewer";
 import { useSignalingContext } from "@/features/signaling/signaling-provider";
+import { useCameraPreview } from "@/features/workbench/hooks/use-camera-preview";
 import type { AgentProfile, User } from "@ghost-greeter/domain/database.types";
 
 interface WorkbenchClientProps {
@@ -20,6 +24,7 @@ interface WorkbenchClientProps {
 
 export function WorkbenchClient({ agentProfile, user, organizationId }: WorkbenchClientProps) {
   const displayName = agentProfile?.display_name ?? user.full_name;
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
   
   const {
     isConnected,
@@ -48,6 +53,22 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
     visitorId: activeCall?.visitorId ?? null,
     isCallActive: !!activeCall,
   });
+
+  // Camera preview when active but not on a call
+  const shouldShowPreview = isConnected && !isMarkedAway && !activeCall;
+  const {
+    stream: previewStream,
+    isLoading: previewLoading,
+    error: previewError,
+    retry: retryPreview,
+  } = useCameraPreview({ enabled: shouldShowPreview });
+
+  // Attach preview stream to video element
+  useEffect(() => {
+    if (previewVideoRef.current && previewStream) {
+      previewVideoRef.current.srcObject = previewStream;
+    }
+  }, [previewStream]);
 
   const hasVideos = agentProfile?.intro_video_url && agentProfile?.loop_video_url;
 
@@ -174,24 +195,81 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
           </div>
         ) : (
           <div className="glass rounded-2xl p-8 min-h-[500px]">
-            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
-              <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
-                <Video className="w-12 h-12 text-muted-foreground" />
-              </div>
-              <h2 className="text-2xl font-semibold mb-2">Ready for Calls</h2>
-              <p className="text-muted-foreground max-w-md">
-                Your simulated presence is broadcasting to visitors. When someone
-                requests to connect, you'll see it here.
-              </p>
-              {isConnected && (
-                <div className="mt-6 flex items-center gap-2 text-green-500">
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
-                  </span>
-                  <span className="text-sm font-medium">Broadcasting Live</span>
+            <div className="flex flex-col items-center justify-center h-full min-h-[400px]">
+              {/* Camera Preview */}
+              <div className="relative w-full max-w-lg mb-6">
+                <div className="aspect-video rounded-2xl overflow-hidden bg-black/90 shadow-2xl ring-1 ring-white/10">
+                  {previewLoading ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                      <div className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin mb-4" />
+                      <span className="text-sm">Starting camera...</span>
+                    </div>
+                  ) : previewError ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-center p-6">
+                      <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+                        <Camera className="w-8 h-8 text-red-400" />
+                      </div>
+                      <p className="text-sm text-red-400 mb-4 max-w-xs">{previewError}</p>
+                      <button
+                        onClick={retryPreview}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Retry
+                      </button>
+                    </div>
+                  ) : previewStream ? (
+                    <video
+                      ref={previewVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover transform scale-x-[-1]"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                      <Camera className="w-12 h-12 mb-4 opacity-50" />
+                      <span className="text-sm">Camera preview</span>
+                    </div>
+                  )}
                 </div>
-              )}
+                
+                {/* Live indicator badge */}
+                {isConnected && previewStream && (
+                  <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/90 text-white text-sm font-medium shadow-lg">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                    </span>
+                    Live
+                  </div>
+                )}
+
+                {/* Name tag */}
+                {previewStream && (
+                  <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white text-sm font-medium">
+                    {displayName}
+                  </div>
+                )}
+              </div>
+              
+              {/* Status text */}
+              <div className="text-center">
+                <h2 className="text-2xl font-semibold mb-2">Ready for Calls</h2>
+                <p className="text-muted-foreground max-w-md">
+                  Your simulated presence is broadcasting to visitors. When someone
+                  requests to connect, you'll see it here.
+                </p>
+                {isConnected && (
+                  <div className="mt-4 flex items-center justify-center gap-2 text-green-500">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+                    </span>
+                    <span className="text-sm font-medium">Broadcasting Live</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
