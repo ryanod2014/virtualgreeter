@@ -1,127 +1,197 @@
 import { useState, useEffect, useRef, useCallback } from "preact/hooks";
 
 interface VideoSequencerProps {
-  introUrl?: string;
-  loopUrl?: string;
+  /** Plays on loop while muted (before user interaction) */
+  waveUrl?: string | null;
+  /** Plays once with audio after user interaction */
+  introUrl?: string | null;
+  /** Loops forever after intro finishes */
+  loopUrl?: string | null;
+  /** Whether WebRTC is connecting (show "Connecting..." overlay) */
+  isConnecting?: boolean;
+  /** Whether we're in a live call */
   isLive?: boolean;
 }
 
-type VideoState = "loading" | "intro" | "loop" | "live" | "error";
+type VideoState = "loading" | "wave" | "intro" | "loop" | "connecting" | "live" | "error";
 
 /**
- * VideoSequencer - Handles the Intro -> Loop video transition
+ * VideoSequencer - Handles the 3-part video sequence
+ * 
+ * Flow:
+ * 1. Wave video plays on loop (muted) until user interaction grants audio permission
+ * 2. After user interaction, intro video plays once with audio
+ * 3. Loop video plays forever after intro finishes
  * 
  * Key features:
- * - Double buffering (two video tags) to prevent black flash on switch
+ * - Triple buffering (three video tags) to prevent black flash on switch
  * - Starts muted for autoplay, unmutes on first user interaction
- * - Seamless transition from intro to loop
+ * - Seamless transitions between all videos
  * - Looks like a live video feed (no play button overlay)
  */
-export function VideoSequencer({ introUrl, loopUrl, isLive }: VideoSequencerProps) {
+export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLive }: VideoSequencerProps) {
   const [state, setState] = useState<VideoState>("loading");
   const [isMuted, setIsMuted] = useState(true);
-  const [activeVideo, setActiveVideo] = useState<"primary" | "secondary">("primary");
+  const [activeVideo, setActiveVideo] = useState<"wave" | "intro" | "loop">("wave");
+  const [hasInteracted, setHasInteracted] = useState(false);
   
-  const primaryVideoRef = useRef<HTMLVideoElement>(null);
-  const secondaryVideoRef = useRef<HTMLVideoElement>(null);
+  const waveVideoRef = useRef<HTMLVideoElement>(null);
+  const introVideoRef = useRef<HTMLVideoElement>(null);
+  const loopVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Unmute videos on any page interaction
+  // Handle user interaction - unmute and switch to intro
   useEffect(() => {
-    if (!isMuted) return;
+    if (hasInteracted) return;
 
-    const unmute = () => {
+    const handleInteraction = () => {
+      setHasInteracted(true);
       setIsMuted(false);
       
-      // Unmute the active video
-      if (primaryVideoRef.current) {
-        primaryVideoRef.current.muted = false;
-      }
-      if (secondaryVideoRef.current) {
-        secondaryVideoRef.current.muted = false;
+      // If we have an intro video, switch to it
+      if (introUrl && introVideoRef.current) {
+        // Pause wave video
+        if (waveVideoRef.current) {
+          waveVideoRef.current.pause();
+        }
+        
+        setState("intro");
+        setActiveVideo("intro");
+        introVideoRef.current.muted = false;
+        introVideoRef.current.currentTime = 0;
+        introVideoRef.current.play().catch((error) => {
+          console.error("Intro play failed:", error);
+          // Fallback to loop if intro fails
+          switchToLoop();
+        });
+      } else {
+        // No intro, go straight to loop
+        switchToLoop();
       }
     };
 
     const events = ["click", "scroll", "touchstart", "keydown"];
     events.forEach((event) => {
-      window.addEventListener(event, unmute, { once: true, passive: true });
+      window.addEventListener(event, handleInteraction, { once: true, passive: true });
     });
 
     return () => {
       events.forEach((event) => {
-        window.removeEventListener(event, unmute);
+        window.removeEventListener(event, handleInteraction);
       });
     };
-  }, [isMuted]);
+  }, [hasInteracted, introUrl]);
 
-  // Preload the loop video while intro plays
-  useEffect(() => {
-    if (!loopUrl || !secondaryVideoRef.current) return;
+  // Switch to loop video
+  const switchToLoop = useCallback(() => {
+    if (!loopVideoRef.current) return;
     
-    secondaryVideoRef.current.src = loopUrl;
-    secondaryVideoRef.current.load();
-  }, [loopUrl]);
+    // Pause other videos
+    if (waveVideoRef.current) {
+      waveVideoRef.current.pause();
+    }
+    if (introVideoRef.current) {
+      introVideoRef.current.pause();
+    }
+    
+    setState("loop");
+    setActiveVideo("loop");
+    loopVideoRef.current.muted = false;
+    loopVideoRef.current.currentTime = 0;
+    loopVideoRef.current.play().catch((error) => {
+      console.error("Loop autoplay failed:", error);
+    });
+  }, []);
 
   // Handle intro video end -> switch to loop
   const handleIntroEnded = useCallback(() => {
-    if (!secondaryVideoRef.current) return;
-    
-    setState("loop");
-    setActiveVideo("secondary");
-    
-    // Ensure loop video has same muted state
-    secondaryVideoRef.current.muted = isMuted;
-    secondaryVideoRef.current.play().catch((error) => {
-      console.error("Loop autoplay failed:", error);
-    });
-  }, [isMuted]);
+    switchToLoop();
+  }, [switchToLoop]);
 
-  // Start playing intro when URL is available
+  // Preload intro and loop videos
   useEffect(() => {
-    if (!introUrl || !primaryVideoRef.current) return;
+    if (introUrl && introVideoRef.current) {
+      introVideoRef.current.src = introUrl;
+      introVideoRef.current.load();
+    }
+  }, [introUrl]);
+
+  useEffect(() => {
+    if (loopUrl && loopVideoRef.current) {
+      loopVideoRef.current.src = loopUrl;
+      loopVideoRef.current.load();
+    }
+  }, [loopUrl]);
+
+  // Start playing wave video when URL is available (or fallback to old intro behavior)
+  useEffect(() => {
+    const videoUrl = waveUrl || introUrl;
+    const videoRef = waveVideoRef.current;
     
-    const video = primaryVideoRef.current;
-    video.src = introUrl;
-    video.muted = true; // Must start muted for autoplay
+    if (!videoUrl || !videoRef) return;
     
-    const playPromise = video.play();
+    videoRef.src = videoUrl;
+    videoRef.muted = true; // Must start muted for autoplay
+    videoRef.loop = true; // Loop until interaction
+    
+    const playPromise = videoRef.play();
     
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
-          setState("intro");
+          setState("wave");
         })
         .catch((error) => {
           console.warn("Autoplay prevented:", error);
-          setState("intro");
+          setState("wave");
         });
     }
-  }, [introUrl]);
+  }, [waveUrl, introUrl]);
+
+  // Handle connecting state change (show "Connecting..." overlay on loop video)
+  useEffect(() => {
+    if (isConnecting && !isLive) {
+      setState("connecting");
+      // Keep the loop video playing in background during connecting
+    }
+  }, [isConnecting, isLive]);
 
   // Handle live state change
   useEffect(() => {
     if (isLive) {
       setState("live");
+      // Pause all videos when going live
+      if (waveVideoRef.current) waveVideoRef.current.pause();
+      if (introVideoRef.current) introVideoRef.current.pause();
+      if (loopVideoRef.current) loopVideoRef.current.pause();
     }
   }, [isLive]);
 
   return (
     <div className="gg-video-container">
-      {/* Primary Video (Intro) */}
+      {/* Wave Video (loops muted until interaction) */}
       <video
-        ref={primaryVideoRef}
-        className={`gg-video ${activeVideo !== "primary" ? "gg-video-hidden" : ""}`}
+        ref={waveVideoRef}
+        className={`gg-video ${activeVideo !== "wave" ? "gg-video-hidden" : ""}`}
         playsInline
-        muted={isMuted}
+        muted
+        loop
+        onError={() => setState("error")}
+      />
+      
+      {/* Intro Video (plays once with audio after interaction) */}
+      <video
+        ref={introVideoRef}
+        className={`gg-video ${activeVideo !== "intro" ? "gg-video-hidden" : ""}`}
+        playsInline
         onEnded={handleIntroEnded}
         onError={() => setState("error")}
       />
       
-      {/* Secondary Video (Loop) - Double buffer */}
+      {/* Loop Video (loops forever after intro) */}
       <video
-        ref={secondaryVideoRef}
-        className={`gg-video ${activeVideo !== "secondary" ? "gg-video-hidden" : ""}`}
+        ref={loopVideoRef}
+        className={`gg-video ${activeVideo !== "loop" ? "gg-video-hidden" : ""}`}
         playsInline
-        muted={isMuted}
         loop
         onError={() => setState("error")}
       />
@@ -149,9 +219,34 @@ export function VideoSequencer({ introUrl, loopUrl, isLive }: VideoSequencerProp
       )}
 
       {/* Loading state - show while waiting for video */}
-      {state === "loading" && !introUrl && (
+      {state === "loading" && !waveUrl && !introUrl && (
         <div className="gg-video-loading">
           <div className="gg-loading-spinner" />
+        </div>
+      )}
+
+      {/* Connecting state - overlay shown while WebRTC connection is establishing */}
+      {state === "connecting" && (
+        <div className="gg-connecting-overlay">
+          <div className="gg-connecting-content">
+            <div className="gg-connecting-spinner">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round">
+                  <animateTransform
+                    attributeName="transform"
+                    type="rotate"
+                    from="0 12 12"
+                    to="360 12 12"
+                    dur="1s"
+                    repeatCount="indefinite"
+                  />
+                </path>
+              </svg>
+            </div>
+            <span className="gg-connecting-text">Connecting...</span>
+            <span className="gg-connecting-subtext">Please wait while we connect you</span>
+          </div>
         </div>
       )}
 
@@ -168,4 +263,3 @@ export function VideoSequencer({ introUrl, loopUrl, isLive }: VideoSequencerProp
     </div>
   );
 }
-

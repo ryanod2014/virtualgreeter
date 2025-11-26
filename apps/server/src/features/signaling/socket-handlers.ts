@@ -8,6 +8,7 @@ import type {
   VisitorInteractionPayload,
   AgentLoginPayload,
   AgentStatusPayload,
+  AgentAwayPayload,
   CallRequestPayload,
   CallAcceptPayload,
   CallRejectPayload,
@@ -22,6 +23,9 @@ import type {
 } from "@ghost-greeter/domain";
 import { SOCKET_EVENTS, ERROR_CODES, TIMING } from "@ghost-greeter/domain";
 import type { PoolManager } from "../routing/pool-manager.js";
+
+// Track RNA (Ring-No-Answer) timeouts
+const rnaTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
 type AppSocket = Socket<
   WidgetToServerEvents & DashboardToServerEvents,
@@ -60,12 +64,21 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       if (agent) {
         poolManager.assignVisitorToAgent(visitorId, agent.agentId);
         
+        // Emit updated stats to the agent (live visitor count)
+        const updatedStats = poolManager.getAgentStats(agent.agentId);
+        if (updatedStats) {
+          const agentSocket = io.sockets.sockets.get(agent.socketId);
+          agentSocket?.emit(SOCKET_EVENTS.STATS_UPDATE, updatedStats);
+        }
+        
         socket.emit(SOCKET_EVENTS.AGENT_ASSIGNED, {
           agent: {
             id: agent.profile.id,
             displayName: agent.profile.displayName,
             avatarUrl: agent.profile.avatarUrl,
+            waveVideoUrl: agent.profile.waveVideoUrl,
             introVideoUrl: agent.profile.introVideoUrl,
+            connectVideoUrl: agent.profile.connectVideoUrl,
             loopVideoUrl: agent.profile.loopVideoUrl,
           },
           visitorId: session.visitorId,
@@ -96,31 +109,43 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         return;
       }
 
-      const agent = poolManager.getAgent(data.agentId);
-      if (!agent) {
-        socket.emit(SOCKET_EVENTS.ERROR, {
-          code: ERROR_CODES.AGENT_NOT_FOUND,
-          message: "Agent not found",
-        });
-        return;
+      let targetAgent = poolManager.getAgent(data.agentId);
+      let targetAgentId = data.agentId;
+
+      // If the requested agent is unavailable, immediately find an alternative
+      if (!targetAgent || targetAgent.profile.status === "in_call" || targetAgent.profile.status === "offline" || targetAgent.profile.status === "away") {
+        const alternativeAgent = poolManager.findBestAgentForVisitor(visitor.siteId, visitor.pageUrl);
+        
+        if (alternativeAgent && alternativeAgent.agentId !== data.agentId) {
+          console.log(`[Socket] Agent ${data.agentId} unavailable (${targetAgent?.profile.status ?? 'not found'}), rerouting to ${alternativeAgent.agentId}`);
+          targetAgent = alternativeAgent;
+          targetAgentId = alternativeAgent.agentId;
+        } else if (!targetAgent) {
+          socket.emit(SOCKET_EVENTS.ERROR, {
+            code: ERROR_CODES.AGENT_NOT_FOUND,
+            message: "Agent not found",
+          });
+          return;
+        }
+        // If no alternative available and original agent exists but busy, fall through to queue
       }
 
-      // Create call request (visitor will wait indefinitely until agent is available)
+      // Create call request for the target agent (original or alternative)
       const request = poolManager.createCallRequest(
         visitor.visitorId,
-        data.agentId,
+        targetAgentId,
         visitor.siteId,
         visitor.pageUrl
       );
 
-      console.log(`[Socket] CALL_REQUEST from visitor ${visitor.visitorId} for agent ${data.agentId}`);
-      console.log(`[Socket] Agent status: ${agent.profile.status}, socketId: ${agent.socketId}`);
+      console.log(`[Socket] CALL_REQUEST from visitor ${visitor.visitorId} for agent ${targetAgentId}`);
+      console.log(`[Socket] Agent status: ${targetAgent.profile.status}, socketId: ${targetAgent.socketId}`);
 
-      // If agent is available (not in call and not offline), notify them immediately
-      if (agent.profile.status !== "in_call" && agent.profile.status !== "offline") {
-        const agentSocket = io.sockets.sockets.get(agent.socketId);
+      // If agent is available, notify them immediately
+      if (targetAgent.profile.status !== "in_call" && targetAgent.profile.status !== "offline" && targetAgent.profile.status !== "away") {
+        const agentSocket = io.sockets.sockets.get(targetAgent.socketId);
         if (agentSocket) {
-          console.log(`[Socket] Sending CALL_INCOMING to agent ${data.agentId}`);
+          console.log(`[Socket] Sending CALL_INCOMING to agent ${targetAgentId}`);
           agentSocket.emit(SOCKET_EVENTS.CALL_INCOMING, {
             request,
             visitor: {
@@ -129,19 +154,23 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
               connectedAt: visitor.connectedAt,
             },
           });
+
+          // Start RNA (Ring-No-Answer) timeout
+          startRNATimeout(io, poolManager, request.requestId, targetAgentId, visitor.visitorId);
         } else {
-          console.log(`[Socket] WARNING: Agent ${data.agentId} socket not found! socketId: ${agent.socketId}`);
+          console.log(`[Socket] WARNING: Agent ${targetAgentId} socket not found! socketId: ${targetAgent.socketId}`);
           // Agent socket might be stale - they may have disconnected
         }
       } else {
-        // Agent is busy or offline - visitor will wait
-        console.log(`[Socket] Agent ${data.agentId} is ${agent.profile.status}. Visitor ${visitor.visitorId} queued.`);
+        // Agent is busy and no alternatives - visitor will wait (rare edge case)
+        console.log(`[Socket] All agents busy. Visitor ${visitor.visitorId} queued for ${targetAgentId}.`);
       }
-      
-      // NO TIMEOUT - visitor waits indefinitely until agent accepts or visitor cancels
     });
 
     socket.on(SOCKET_EVENTS.CALL_CANCEL, (data: CallCancelPayload) => {
+      // Clear RNA timeout since call was cancelled
+      clearRNATimeout(data.requestId);
+      
       const request = poolManager.cancelCall(data.requestId);
       if (request) {
         const agent = poolManager.getAgent(request.agentId);
@@ -160,14 +189,16 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
 
     socket.on(SOCKET_EVENTS.AGENT_LOGIN, async (data: AgentLoginPayload) => {
       // TODO: Verify token with Supabase
-      // For now, create a mock profile
+      // Use profile from login payload
       const profile: AgentProfile = {
         id: data.agentId,
         userId: data.agentId,
-        displayName: "Demo Agent",
-        avatarUrl: null,
-        introVideoUrl: "/videos/intro.mp4",
-        loopVideoUrl: "/videos/loop.mp4",
+        displayName: data.profile.displayName,
+        avatarUrl: data.profile.avatarUrl,
+        waveVideoUrl: data.profile.waveVideoUrl,
+        introVideoUrl: data.profile.introVideoUrl ?? "",
+        connectVideoUrl: data.profile.connectVideoUrl,
+        loopVideoUrl: data.profile.loopVideoUrl ?? "",
         status: "idle",
         maxSimultaneousSimulations: 25,
         createdAt: new Date().toISOString(),
@@ -200,7 +231,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
             id: profile.id,
             displayName: profile.displayName,
             avatarUrl: profile.avatarUrl,
+            waveVideoUrl: profile.waveVideoUrl,
             introVideoUrl: profile.introVideoUrl,
+            connectVideoUrl: profile.connectVideoUrl,
             loopVideoUrl: profile.loopVideoUrl,
           },
           visitorId: visitor.visitorId,
@@ -222,7 +255,80 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       }
     });
 
+    // Agent manually sets themselves as away (e.g., from idle timer)
+    socket.on(SOCKET_EVENTS.AGENT_AWAY, (data: AgentAwayPayload) => {
+      const agent = poolManager.getAgentBySocketId(socket.id);
+      if (agent) {
+        console.log(`[Socket] Agent ${agent.agentId} marked as away, reason: ${data.reason}`);
+        poolManager.updateAgentStatus(agent.agentId, "away");
+        
+        // Cancel any pending call requests for this agent
+        const pendingRequests = poolManager.getWaitingRequestsForAgent(agent.agentId);
+        for (const request of pendingRequests) {
+          // Try to find another agent for the waiting visitor
+          const visitor = poolManager.getVisitor(request.visitorId);
+          if (visitor) {
+            const newAgent = poolManager.findBestAgentForVisitor(visitor.siteId, visitor.pageUrl);
+            if (newAgent && newAgent.agentId !== agent.agentId) {
+              // Cancel old request and create new one for the new agent
+              poolManager.cancelCall(request.requestId);
+              const newRequest = poolManager.createCallRequest(
+                visitor.visitorId,
+                newAgent.agentId,
+                visitor.siteId,
+                visitor.pageUrl
+              );
+              
+              // Notify new agent
+              const newAgentSocket = io.sockets.sockets.get(newAgent.socketId);
+              if (newAgentSocket) {
+                newAgentSocket.emit(SOCKET_EVENTS.CALL_INCOMING, {
+                  request: newRequest,
+                  visitor: {
+                    visitorId: visitor.visitorId,
+                    pageUrl: visitor.pageUrl,
+                    connectedAt: visitor.connectedAt,
+                  },
+                });
+                startRNATimeout(io, poolManager, newRequest.requestId, newAgent.agentId, visitor.visitorId);
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Agent returns from away
+    socket.on(SOCKET_EVENTS.AGENT_BACK, () => {
+      const agent = poolManager.getAgentBySocketId(socket.id);
+      if (agent) {
+        console.log(`[Socket] Agent ${agent.agentId} is back from away`);
+        poolManager.updateAgentStatus(agent.agentId, "idle");
+        
+        // Check for waiting visitors
+        const waitingRequest = poolManager.getNextWaitingRequest(agent.agentId);
+        if (waitingRequest) {
+          const visitor = poolManager.getVisitor(waitingRequest.visitorId);
+          if (visitor) {
+            console.log(`[Socket] Notifying agent ${agent.agentId} of waiting visitor ${waitingRequest.visitorId}`);
+            socket.emit(SOCKET_EVENTS.CALL_INCOMING, {
+              request: waitingRequest,
+              visitor: {
+                visitorId: visitor.visitorId,
+                pageUrl: visitor.pageUrl,
+                connectedAt: visitor.connectedAt,
+              },
+            });
+            startRNATimeout(io, poolManager, waitingRequest.requestId, agent.agentId, visitor.visitorId);
+          }
+        }
+      }
+    });
+
     socket.on(SOCKET_EVENTS.CALL_ACCEPT, (data: CallAcceptPayload) => {
+      // Clear RNA timeout since agent answered
+      clearRNATimeout(data.requestId);
+
       const request = poolManager.getCallRequest(data.requestId);
       if (!request) {
         socket.emit(SOCKET_EVENTS.ERROR, {
@@ -269,6 +375,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     });
 
     socket.on(SOCKET_EVENTS.CALL_REJECT, (data: CallRejectPayload) => {
+      // Clear RNA timeout since agent responded (even if rejected)
+      clearRNATimeout(data.requestId);
+      
       const request = poolManager.getCallRequest(data.requestId);
       if (request) {
         // Don't reject the visitor - they keep waiting
@@ -506,7 +615,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
                     id: newAgent.profile.id,
                     displayName: newAgent.profile.displayName,
                     avatarUrl: newAgent.profile.avatarUrl,
+                    waveVideoUrl: newAgent.profile.waveVideoUrl,
                     introVideoUrl: newAgent.profile.introVideoUrl,
+                    connectVideoUrl: newAgent.profile.connectVideoUrl,
                     loopVideoUrl: newAgent.profile.loopVideoUrl,
                   },
                   reason: "agent_offline",
@@ -535,10 +646,131 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           }
         }
 
+        // Get the agent BEFORE unregistering visitor so we can update their stats
+        const assignedAgent = visitor.assignedAgentId 
+          ? poolManager.getAgent(visitor.assignedAgentId) 
+          : null;
+        
         poolManager.unregisterVisitor(visitor.visitorId);
+        
+        // Emit updated stats to the agent (live visitor count)
+        if (assignedAgent) {
+          const updatedStats = poolManager.getAgentStats(assignedAgent.agentId);
+          if (updatedStats) {
+            const agentSocket = io.sockets.sockets.get(assignedAgent.socketId);
+            agentSocket?.emit(SOCKET_EVENTS.STATS_UPDATE, updatedStats);
+          }
+        }
       }
     });
   });
+}
+
+/**
+ * Start RNA (Ring-No-Answer) timeout for a call request
+ * If agent doesn't answer within the timeout, mark them as away and route to next agent
+ */
+function startRNATimeout(
+  io: AppServer,
+  poolManager: PoolManager,
+  requestId: string,
+  agentId: string,
+  visitorId: string
+): void {
+  // Clear any existing timeout for this request
+  clearRNATimeout(requestId);
+
+  console.log(`[RNA] Starting ${TIMING.RNA_TIMEOUT}ms timeout for request ${requestId}`);
+
+  const timeout = setTimeout(() => {
+    console.log(`[RNA] ⏰ Timeout reached for request ${requestId}`);
+    
+    // Get the request (it may have been handled already)
+    const request = poolManager.getCallRequest(requestId);
+    if (!request) {
+      console.log(`[RNA] Request ${requestId} no longer exists, skipping`);
+      rnaTimeouts.delete(requestId);
+      return;
+    }
+
+    // Get the agent
+    const agent = poolManager.getAgent(agentId);
+    if (!agent) {
+      console.log(`[RNA] Agent ${agentId} no longer exists, skipping`);
+      rnaTimeouts.delete(requestId);
+      return;
+    }
+
+    // Mark agent as away (they walked away from their desk)
+    console.log(`[RNA] Marking agent ${agentId} as away due to RNA`);
+    poolManager.updateAgentStatus(agentId, "away");
+
+    // Notify the agent they've been marked away
+    const agentSocket = io.sockets.sockets.get(agent.socketId);
+    if (agentSocket) {
+      agentSocket.emit(SOCKET_EVENTS.CALL_CANCELLED, { requestId });
+      agentSocket.emit(SOCKET_EVENTS.AGENT_MARKED_AWAY, {
+        reason: "ring_no_answer",
+        message: "You've been marked as Away because you didn't answer an incoming call.",
+      });
+    }
+
+    // Cancel the old request
+    poolManager.rejectCall(requestId);
+
+    // Try to find another agent for the visitor
+    const visitor = poolManager.getVisitor(visitorId);
+    if (visitor) {
+      const newAgent = poolManager.findBestAgentForVisitor(visitor.siteId, visitor.pageUrl);
+      
+      if (newAgent && newAgent.agentId !== agentId) {
+        console.log(`[RNA] Routing visitor ${visitorId} to agent ${newAgent.agentId}`);
+        
+        // Create new request for the new agent
+        const newRequest = poolManager.createCallRequest(
+          visitorId,
+          newAgent.agentId,
+          visitor.siteId,
+          visitor.pageUrl
+        );
+
+        // Notify new agent
+        const newAgentSocket = io.sockets.sockets.get(newAgent.socketId);
+        if (newAgentSocket) {
+          newAgentSocket.emit(SOCKET_EVENTS.CALL_INCOMING, {
+            request: newRequest,
+            visitor: {
+              visitorId: visitor.visitorId,
+              pageUrl: visitor.pageUrl,
+              connectedAt: visitor.connectedAt,
+            },
+          });
+          
+          // Start RNA timeout for new agent too
+          startRNATimeout(io, poolManager, newRequest.requestId, newAgent.agentId, visitorId);
+        }
+      } else {
+        console.log(`[RNA] No other agents available for visitor ${visitorId}`);
+        // Visitor keeps waiting - request is already cancelled above
+      }
+    }
+
+    rnaTimeouts.delete(requestId);
+  }, TIMING.RNA_TIMEOUT);
+
+  rnaTimeouts.set(requestId, timeout);
+}
+
+/**
+ * Clear RNA timeout for a request (call was answered or cancelled)
+ */
+function clearRNATimeout(requestId: string): void {
+  const timeout = rnaTimeouts.get(requestId);
+  if (timeout) {
+    console.log(`[RNA] Clearing timeout for request ${requestId}`);
+    clearTimeout(timeout);
+    rnaTimeouts.delete(requestId);
+  }
 }
 
 /**
@@ -563,7 +795,9 @@ function notifyReassignments(
           id: newAgent.profile.id,
           displayName: newAgent.profile.displayName,
           avatarUrl: newAgent.profile.avatarUrl,
+          waveVideoUrl: newAgent.profile.waveVideoUrl,
           introVideoUrl: newAgent.profile.introVideoUrl,
+          connectVideoUrl: newAgent.profile.connectVideoUrl,
           loopVideoUrl: newAgent.profile.loopVideoUrl,
         },
         reason,

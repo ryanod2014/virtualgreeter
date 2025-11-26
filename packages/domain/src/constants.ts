@@ -13,6 +13,8 @@ export const SOCKET_EVENTS = {
   AGENT_LOGIN: "agent:login",
   AGENT_LOGOUT: "agent:logout",
   AGENT_STATUS: "agent:status",
+  AGENT_AWAY: "agent:away",
+  AGENT_BACK: "agent:back",
   
   // Shared
   CALL_REQUEST: "call:request",
@@ -40,6 +42,8 @@ export const SOCKET_EVENTS = {
   CALL_INCOMING: "call:incoming",
   CALL_CANCELLED: "call:cancelled",
   CALL_STARTED: "call:started",
+  CALL_RNA_TIMEOUT: "call:rna_timeout",
+  AGENT_MARKED_AWAY: "agent:marked_away",
   STATS_UPDATE: "stats:update",
   
   // Shared
@@ -68,6 +72,10 @@ export const TIMING = {
   DEFAULT_TRIGGER_DELAY: 500,
   /** Video preload buffer time in ms */
   VIDEO_PRELOAD_BUFFER: 2000,
+  /** Ring-No-Answer timeout - agent has this long to accept call */
+  RNA_TIMEOUT: 15_000,
+  /** Agent idle timeout before auto-away */
+  AGENT_IDLE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
 } as const;
 
 /** Error codes */
@@ -117,6 +125,7 @@ export const AGENT_STATUS_LABELS = {
   idle: "Available",
   in_simulation: "Broadcasting",
   in_call: "In Call",
+  away: "Away",
 } as const;
 
 /** Plan limits */

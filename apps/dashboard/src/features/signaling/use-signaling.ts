@@ -13,6 +13,8 @@ import type {
   CobrowseMousePayload,
   CobrowseScrollPayload,
   CobrowseSelectionPayload,
+  AgentMarkedAwayPayload,
+  CallRNATimeoutPayload,
 } from "@ghost-greeter/domain";
 import { SOCKET_EVENTS } from "@ghost-greeter/domain";
 
@@ -31,17 +33,32 @@ interface UseSignalingReturn {
   activeCall: ActiveCall | null;
   stats: StatsUpdatePayload | null;
   cobrowse: CobrowseState;
+  isMarkedAway: boolean;
+  awayReason: string | null;
   acceptCall: (requestId: string) => void;
   rejectCall: (requestId: string, reason?: string) => void;
   endCall: (callId: string) => void;
+  setAway: (reason: "idle" | "manual") => void;
+  setBack: () => void;
   socket: Socket<ServerToDashboardEvents, DashboardToServerEvents> | null;
 }
 
-export function useSignaling(agentId: string): UseSignalingReturn {
+interface AgentProfileData {
+  displayName: string;
+  avatarUrl: string | null;
+  waveVideoUrl: string | null;
+  introVideoUrl: string | null;
+  connectVideoUrl: string | null;
+  loopVideoUrl: string | null;
+}
+
+export function useSignaling(agentId: string, profile?: AgentProfileData): UseSignalingReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [incomingCall, setIncomingCall] = useState<CallIncomingPayload | null>(null);
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [stats, setStats] = useState<StatsUpdatePayload | null>(null);
+  const [isMarkedAway, setIsMarkedAway] = useState(false);
+  const [awayReason, setAwayReason] = useState<string | null>(null);
   const [cobrowse, setCobrowse] = useState<CobrowseState>({
     snapshot: null,
     mousePosition: null,
@@ -65,10 +82,18 @@ export function useSignaling(agentId: string): UseSignalingReturn {
       setIsConnected(true);
 
       // Login as agent
-      console.log("[Signaling] Logging in as agent:", agentId);
+      console.log("[Signaling] Logging in as agent:", agentId, "with profile:", profile);
       socket.emit(SOCKET_EVENTS.AGENT_LOGIN, {
         agentId,
         token: "demo-token", // TODO: Use real Supabase JWT
+        profile: profile ?? {
+          displayName: "Agent",
+          avatarUrl: null,
+          waveVideoUrl: null,
+          introVideoUrl: null,
+          connectVideoUrl: null,
+          loopVideoUrl: null,
+        },
       });
     });
 
@@ -103,6 +128,18 @@ export function useSignaling(agentId: string): UseSignalingReturn {
     socket.on(SOCKET_EVENTS.CALL_CANCELLED, () => {
       console.log("[Signaling] Call cancelled by visitor");
       setIncomingCall(null);
+    });
+
+    socket.on(SOCKET_EVENTS.AGENT_MARKED_AWAY, (data: AgentMarkedAwayPayload) => {
+      console.log("[Signaling] Agent marked as away:", data);
+      setIsMarkedAway(true);
+      setAwayReason(data.message);
+      setIncomingCall(null); // Clear any incoming call since we're away
+    });
+
+    socket.on(SOCKET_EVENTS.CALL_RNA_TIMEOUT, (data: CallRNATimeoutPayload) => {
+      console.log("[Signaling] Call RNA timeout:", data);
+      // The agent:marked_away event will handle the UI update
     });
 
     socket.on(SOCKET_EVENTS.CALL_STARTED, (data: CallStartedPayload) => {
@@ -163,15 +200,31 @@ export function useSignaling(agentId: string): UseSignalingReturn {
     setActiveCall(null);
   }, []);
 
+  const setAway = useCallback((reason: "idle" | "manual") => {
+    socketRef.current?.emit(SOCKET_EVENTS.AGENT_AWAY, { reason });
+    setIsMarkedAway(true);
+    setAwayReason(reason === "idle" ? "You were marked away due to inactivity" : "You set yourself as away");
+  }, []);
+
+  const setBack = useCallback(() => {
+    socketRef.current?.emit(SOCKET_EVENTS.AGENT_BACK);
+    setIsMarkedAway(false);
+    setAwayReason(null);
+  }, []);
+
   return {
     isConnected,
     incomingCall,
     activeCall,
     stats,
     cobrowse,
+    isMarkedAway,
+    awayReason,
     acceptCall,
     rejectCall,
     endCall,
+    setAway,
+    setBack,
     socket: socketRef.current,
   };
 }

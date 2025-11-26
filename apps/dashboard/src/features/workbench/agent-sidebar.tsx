@@ -8,10 +8,11 @@ import {
   Settings,
   LogOut,
   LayoutDashboard,
+  BarChart3,
 } from "lucide-react";
 import type { User, Organization, AgentProfile } from "@ghost-greeter/domain/database.types";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface AgentSidebarProps {
   user: User;
@@ -22,6 +23,7 @@ interface AgentSidebarProps {
 
 export function AgentSidebar({ user, organization, agentProfile, isAdmin }: AgentSidebarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClient();
 
   const handleSignOut = async () => {
@@ -49,13 +51,16 @@ export function AgentSidebar({ user, organization, agentProfile, isAdmin }: Agen
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
-          <NavLink href="/dashboard" icon={Video} active>
-            Workbench
+          <NavLink href="/dashboard" icon={Video} pathname={pathname} exact>
+            Bullpen
           </NavLink>
-          <NavLink href="/dashboard/videos" icon={Film}>
-            My Videos
+          <NavLink href="/dashboard/videos" icon={Film} pathname={pathname}>
+            Pre-recorded Intro
           </NavLink>
-          <NavLink href="/dashboard/settings" icon={Settings}>
+          <NavLink href="/dashboard/stats" icon={BarChart3} pathname={pathname}>
+            Stats
+          </NavLink>
+          <NavLink href="/dashboard/settings" icon={Settings} pathname={pathname}>
             Settings
           </NavLink>
           
@@ -66,7 +71,7 @@ export function AgentSidebar({ user, organization, agentProfile, isAdmin }: Agen
                   Admin Mode
                 </div>
               </div>
-              <NavLink href="/admin" icon={LayoutDashboard}>
+              <NavLink href="/admin" icon={LayoutDashboard} pathname={pathname}>
                 Admin Dashboard
               </NavLink>
             </>
@@ -111,18 +116,22 @@ function NavLink({
   href,
   icon: Icon,
   children,
-  active = false,
+  pathname,
+  exact = false,
 }: {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
-  active?: boolean;
+  pathname: string;
+  exact?: boolean;
 }) {
+  const isActive = exact ? pathname === href : pathname.startsWith(href);
+  
   return (
     <Link
       href={href}
       className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-        active
+        isActive
           ? "bg-primary/10 text-primary font-medium"
           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
       }`}

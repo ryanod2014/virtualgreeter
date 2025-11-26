@@ -71,7 +71,9 @@ export interface Database {
           user_id: string;
           organization_id: string;
           display_name: string;
+          wave_video_url: string | null;
           intro_video_url: string | null;
+          connect_video_url: string | null;
           loop_video_url: string | null;
           status: AgentStatus;
           max_simultaneous_simulations: number;

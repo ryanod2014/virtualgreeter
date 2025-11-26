@@ -509,6 +509,42 @@ function getStyles() {
       background: #1a1a24;
     }
 
+    /* Connecting overlay - shown while WebRTC establishes connection */
+    .gg-connecting-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 15, 20, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 15;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .gg-connecting-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      text-align: center;
+    }
+
+    .gg-connecting-spinner {
+      color: #6366f1;
+    }
+
+    .gg-connecting-text {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e4e4eb;
+    }
+
+    .gg-connecting-subtext {
+      font-size: 12px;
+      color: #8888a0;
+    }
+
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }

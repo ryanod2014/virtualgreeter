@@ -10,7 +10,7 @@
 // ----------------------------------------------------------------------------
 
 /** Agent availability status */
-export type AgentStatus = "offline" | "idle" | "in_simulation" | "in_call";
+export type AgentStatus = "offline" | "idle" | "in_simulation" | "in_call" | "away";
 
 /** Agent profile stored in database */
 export interface AgentProfile {
@@ -18,7 +18,9 @@ export interface AgentProfile {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
+  waveVideoUrl: string | null;
   introVideoUrl: string;
+  connectVideoUrl: string | null;
   loopVideoUrl: string;
   status: AgentStatus;
   maxSimultaneousSimulations: number;
@@ -101,6 +103,8 @@ export interface WidgetToServerEvents {
 export interface DashboardToServerEvents {
   "agent:login": (data: AgentLoginPayload) => void;
   "agent:status": (data: AgentStatusPayload) => void;
+  "agent:away": (data: AgentAwayPayload) => void;
+  "agent:back": () => void;
   "call:accept": (data: CallAcceptPayload) => void;
   "call:reject": (data: CallRejectPayload) => void;
   "call:end": (data: CallEndPayload) => void;
@@ -126,6 +130,8 @@ export interface ServerToDashboardEvents {
   "call:cancelled": (data: CallCancelledPayload) => void;
   "call:started": (data: CallStartedPayload) => void;
   "call:ended": (data: CallEndedPayload) => void;
+  "call:rna_timeout": (data: CallRNATimeoutPayload) => void;
+  "agent:marked_away": (data: AgentMarkedAwayPayload) => void;
   "webrtc:signal": (data: WebRTCSignalPayload) => void;
   "cobrowse:snapshot": (data: CobrowseSnapshotPayload & { visitorId: string }) => void;
   "cobrowse:mouse": (data: CobrowseMousePayload & { visitorId: string }) => void;
@@ -163,6 +169,14 @@ export interface CallCancelPayload {
 export interface AgentLoginPayload {
   agentId: string;
   token: string; // Supabase JWT for verification
+  profile: {
+    displayName: string;
+    avatarUrl: string | null;
+    waveVideoUrl: string | null;
+    introVideoUrl: string | null;
+    connectVideoUrl: string | null;
+    loopVideoUrl: string | null;
+  };
 }
 
 export interface AgentStatusPayload {
@@ -182,6 +196,10 @@ export interface CallEndPayload {
   callId: string;
 }
 
+export interface AgentAwayPayload {
+  reason: "idle" | "manual";
+}
+
 // Shared Payloads
 export interface WebRTCSignalPayload {
   targetId: string; // visitorId or agentId
@@ -190,13 +208,13 @@ export interface WebRTCSignalPayload {
 
 // Server -> Widget Payloads
 export interface AgentAssignedPayload {
-  agent: Pick<AgentProfile, "id" | "displayName" | "avatarUrl" | "introVideoUrl" | "loopVideoUrl">;
+  agent: Pick<AgentProfile, "id" | "displayName" | "avatarUrl" | "waveVideoUrl" | "introVideoUrl" | "connectVideoUrl" | "loopVideoUrl">;
   visitorId: string;
 }
 
 export interface AgentReassignedPayload {
   previousAgentId: string;
-  newAgent: Pick<AgentProfile, "id" | "displayName" | "avatarUrl" | "introVideoUrl" | "loopVideoUrl">;
+  newAgent: Pick<AgentProfile, "id" | "displayName" | "avatarUrl" | "waveVideoUrl" | "introVideoUrl" | "connectVideoUrl" | "loopVideoUrl">;
   reason: "agent_busy" | "agent_offline";
 }
 
@@ -235,9 +253,20 @@ export interface CallStartedPayload {
 }
 
 export interface StatsUpdatePayload {
-  activeSimulations: number;
-  totalVisitorsWatching: number;
-  callsToday: number;
+  poolVisitors: number; // All active page views in the agent's pool(s)
+}
+
+/** Payload when server marks agent as away due to RNA timeout */
+export interface CallRNATimeoutPayload {
+  requestId: string;
+  visitorId: string;
+  reason: "ring_no_answer";
+}
+
+/** Payload when agent is marked away by the server */
+export interface AgentMarkedAwayPayload {
+  reason: "idle" | "ring_no_answer";
+  message: string;
 }
 
 export interface ErrorPayload {

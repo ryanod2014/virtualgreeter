@@ -48,6 +48,11 @@ export class PoolManager {
   private agentPools: Map<string, Set<string>> = new Map(); // agentId -> Set<poolId>
   private siteConfigs: Map<string, SiteConfig> = new Map(); // siteId -> config
 
+  // Track assignment order for fair round-robin distribution
+  // Uses a monotonically increasing counter to ensure unique ordering
+  private assignmentCounter = 0;
+  private lastAssignmentOrder: Map<string, number> = new Map(); // agentId -> assignment order
+
   // ---------------------------------------------------------------------------
   // SITE & POOL CONFIGURATION
   // ---------------------------------------------------------------------------
@@ -338,13 +343,14 @@ export class PoolManager {
 
   /**
    * Find the best available agent using "least connections" algorithm
-   * Priority: idle agents > agents with fewer simulations > round robin
+   * Priority: idle agents (fair round-robin by oldest assignment order) > agents with fewer simulations
    * 
    * @param poolId - Optional pool ID to restrict search to a specific pool
    */
   findBestAgent(poolId?: string | null): AgentState | undefined {
     let bestAgent: AgentState | undefined;
     let lowestLoad = Infinity;
+    let oldestOrder = Infinity;
 
     // Get candidate agents - either from a specific pool or all agents
     const candidates = poolId 
@@ -363,9 +369,16 @@ export class PoolManager {
         continue;
       }
 
-      // Prefer idle agents (load = 0) over in_simulation agents
+      // Get assignment order (0 means never assigned - highest priority)
+      const assignmentOrder = this.lastAssignmentOrder.get(agent.agentId) ?? 0;
+
+      // For idle agents with 0 load, use fair round-robin (pick oldest assignment order)
       if (agent.profile.status === "idle" && currentLoad === 0) {
-        return agent; // Ideal candidate - idle with no load
+        if (assignmentOrder < oldestOrder) {
+          oldestOrder = assignmentOrder;
+          bestAgent = agent;
+        }
+        continue; // Keep looking for potentially older assignments
       }
 
       // Otherwise, pick agent with lowest load
@@ -417,6 +430,10 @@ export class PoolManager {
     visitor.assignedAgentId = agentId;
     visitor.state = "watching_simulation";
     agent.currentSimulations.push(visitorId);
+
+    // Track assignment order for fair round-robin distribution
+    this.assignmentCounter++;
+    this.lastAssignmentOrder.set(agentId, this.assignmentCounter);
     
     // Update agent status if this is their first simulation
     if (agent.currentSimulations.length === 1 && agent.profile.status === "idle") {
@@ -633,10 +650,36 @@ export class PoolManager {
     const agent = this.agents.get(agentId);
     if (!agent) return null;
 
+    // Count all visitors in the pools this agent belongs to
+    const agentPoolIds = this.agentPools.get(agentId);
+    let poolVisitors = 0;
+    
+    if (agentPoolIds && agentPoolIds.size > 0) {
+      // Get all agents in the same pools
+      const poolAgentIds = new Set<string>();
+      for (const poolId of agentPoolIds) {
+        const agentsInPool = this.poolMemberships.get(poolId);
+        if (agentsInPool) {
+          for (const aid of agentsInPool) {
+            poolAgentIds.add(aid);
+          }
+        }
+      }
+      
+      // Count visitors assigned to any agent in these pools
+      for (const aid of poolAgentIds) {
+        const poolAgent = this.agents.get(aid);
+        if (poolAgent) {
+          poolVisitors += poolAgent.currentSimulations.length;
+        }
+      }
+    } else {
+      // No pool memberships - just count this agent's visitors
+      poolVisitors = agent.currentSimulations.length;
+    }
+
     return {
-      activeSimulations: agent.currentSimulations.length,
-      totalVisitorsWatching: agent.currentSimulations.length,
-      callsToday: 0, // TODO: Implement call tracking
+      poolVisitors,
     };
   }
 

@@ -477,6 +477,7 @@ export function Widget({ config }: WidgetProps) {
             />
           ) : (
             <VideoSequencer
+              waveUrl={agent?.waveVideoUrl}
               introUrl={agent?.introVideoUrl}
               loopUrl={agent?.loopVideoUrl}
               isLive={false}
