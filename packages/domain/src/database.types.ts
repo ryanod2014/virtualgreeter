@@ -95,12 +95,33 @@ export interface Database {
           status: CallStatus;
           page_url: string;
           duration_seconds: number | null;
+          ring_started_at: string | null;
+          answered_at: string | null;
+          answer_time_seconds: number | null;
+          recording_url: string | null;
+          disposition_id: string | null;
           started_at: string | null;
           ended_at: string | null;
           created_at: string;
         };
         Insert: Omit<Database["public"]["Tables"]["call_logs"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["call_logs"]["Insert"]>;
+      };
+
+      dispositions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          color: string;
+          icon: string | null;
+          is_active: boolean;
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["dispositions"]["Row"], "id" | "created_at" | "updated_at">;
+        Update: Partial<Database["public"]["Tables"]["dispositions"]["Insert"]>;
       };
 
       agent_pools: {
@@ -206,6 +227,9 @@ export type SitePathRuleInsert = Database["public"]["Tables"]["site_path_rules"]
 
 export type PoolRoutingRule = Database["public"]["Tables"]["pool_routing_rules"]["Row"];
 export type PoolRoutingRuleInsert = Database["public"]["Tables"]["pool_routing_rules"]["Insert"];
+
+export type Disposition = Database["public"]["Tables"]["dispositions"]["Row"];
+export type DispositionInsert = Database["public"]["Tables"]["dispositions"]["Insert"];
 
 // ----------------------------------------------------------------------------
 // AUTH SESSION TYPES

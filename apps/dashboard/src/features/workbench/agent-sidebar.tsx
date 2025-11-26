@@ -9,6 +9,7 @@ import {
   LogOut,
   LayoutDashboard,
   BarChart3,
+  FileText,
 } from "lucide-react";
 import type { User, Organization, AgentProfile } from "@ghost-greeter/domain/database.types";
 import { createClient } from "@/lib/supabase/client";
@@ -59,6 +60,9 @@ export function AgentSidebar({ user, organization, agentProfile, isAdmin }: Agen
           </NavLink>
           <NavLink href="/dashboard/stats" icon={BarChart3} pathname={pathname}>
             Stats
+          </NavLink>
+          <NavLink href="/dashboard/call-logs" icon={FileText} pathname={pathname}>
+            Call Logs
           </NavLink>
           <NavLink href="/dashboard/settings" icon={Settings} pathname={pathname}>
             Settings

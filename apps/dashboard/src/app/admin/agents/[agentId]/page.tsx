@@ -1,17 +1,21 @@
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/server";
-import { AgentStatsView } from "./agent-stats-view";
+import { AgentStatsClient } from "./agent-stats-client";
 
 interface Props {
+  params: Promise<{ agentId: string }>;
   searchParams: Promise<{ from?: string; to?: string }>;
 }
 
-export default async function StatsPage({ searchParams }: Props) {
+export default async function AgentStatsPage({ params, searchParams }: Props) {
   const auth = await getCurrentUser();
   if (!auth) redirect("/login");
+  if (!auth.isAdmin) redirect("/dashboard");
 
+  const { agentId } = await params;
   const { from, to } = await searchParams;
+
   const supabase = await createClient();
 
   // Date range (default: last 30 days)
@@ -20,21 +24,20 @@ export default async function StatsPage({ searchParams }: Props) {
     ? new Date(from)
     : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  // Get the agent's profile ID
-  const agentId = auth.agentProfile?.id;
+  // Fetch agent profile
+  const { data: agent } = await supabase
+    .from("agent_profiles")
+    .select(
+      `
+      *,
+      user:users(email, full_name)
+    `
+    )
+    .eq("id", agentId)
+    .eq("organization_id", auth.organization.id)
+    .single();
 
-  if (!agentId) {
-    return (
-      <div className="p-8">
-        <div className="glass rounded-2xl p-12 text-center">
-          <h2 className="text-xl font-bold mb-2">No Agent Profile</h2>
-          <p className="text-muted-foreground">
-            Your agent profile hasn't been set up yet.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (!agent) notFound();
 
   // Fetch call logs for this agent in date range
   const { data: calls } = await supabase
@@ -65,11 +68,12 @@ export default async function StatsPage({ searchParams }: Props) {
     .order("display_order");
 
   return (
-    <AgentStatsView
-      agentName={auth.agentProfile.display_name}
+    <AgentStatsClient
+      agent={agent}
       calls={calls ?? []}
       dispositions={dispositions ?? []}
       dateRange={{ from: fromDate.toISOString(), to: toDate.toISOString() }}
     />
   );
 }
+

@@ -23,6 +23,15 @@ import type {
 } from "@ghost-greeter/domain";
 import { SOCKET_EVENTS, ERROR_CODES, TIMING } from "@ghost-greeter/domain";
 import type { PoolManager } from "../routing/pool-manager.js";
+import {
+  createCallLog,
+  markCallAccepted,
+  markCallEnded,
+  markCallMissed,
+  markCallRejected,
+  markCallCancelled,
+  getCallLogId,
+} from "../../lib/call-logger.js";
 
 // Track RNA (Ring-No-Answer) timeouts
 const rnaTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -141,6 +150,14 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       console.log(`[Socket] CALL_REQUEST from visitor ${visitor.visitorId} for agent ${targetAgentId}`);
       console.log(`[Socket] Agent status: ${targetAgent.profile.status}, socketId: ${targetAgent.socketId}`);
 
+      // Log to database (ring started)
+      createCallLog(request.requestId, {
+        visitorId: visitor.visitorId,
+        agentId: targetAgentId,
+        siteId: visitor.siteId,
+        pageUrl: visitor.pageUrl,
+      });
+
       // If agent is available, notify them immediately
       if (targetAgent.profile.status !== "in_call" && targetAgent.profile.status !== "offline" && targetAgent.profile.status !== "away") {
         const agentSocket = io.sockets.sockets.get(targetAgent.socketId);
@@ -170,6 +187,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     socket.on(SOCKET_EVENTS.CALL_CANCEL, (data: CallCancelPayload) => {
       // Clear RNA timeout since call was cancelled
       clearRNATimeout(data.requestId);
+      
+      // Mark call as cancelled in database
+      markCallCancelled(data.requestId);
       
       const request = poolManager.cancelCall(data.requestId);
       if (request) {
@@ -270,6 +290,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           if (visitor) {
             const newAgent = poolManager.findBestAgentForVisitor(visitor.siteId, visitor.pageUrl);
             if (newAgent && newAgent.agentId !== agent.agentId) {
+              // Mark old call as missed (agent went away)
+              markCallMissed(request.requestId);
+              
               // Cancel old request and create new one for the new agent
               poolManager.cancelCall(request.requestId);
               const newRequest = poolManager.createCallRequest(
@@ -278,6 +301,14 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
                 visitor.siteId,
                 visitor.pageUrl
               );
+              
+              // Create call log for the new agent
+              createCallLog(newRequest.requestId, {
+                visitorId: visitor.visitorId,
+                agentId: newAgent.agentId,
+                siteId: visitor.siteId,
+                pageUrl: visitor.pageUrl,
+              });
               
               // Notify new agent
               const newAgentSocket = io.sockets.sockets.get(newAgent.socketId);
@@ -347,6 +378,12 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         return;
       }
 
+      // Get the database call log ID before we transfer the mapping
+      const callLogId = getCallLogId(data.requestId);
+
+      // Mark call as accepted in database
+      markCallAccepted(data.requestId, activeCall.callId);
+
       // Notify the visitor
       const visitor = poolManager.getVisitor(request.visitorId);
       if (visitor) {
@@ -364,9 +401,12 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       );
       notifyReassignments(io, poolManager, reassignments, "agent_busy");
 
-      // Notify agent that call started
+      // Notify agent that call started (include callLogId for disposition updates)
       socket.emit(SOCKET_EVENTS.CALL_STARTED, {
-        call: activeCall,
+        call: {
+          ...activeCall,
+          callLogId: callLogId ?? null,
+        },
         visitor: {
           visitorId: request.visitorId,
           pageUrl: request.pageUrl,
@@ -380,6 +420,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       
       const request = poolManager.getCallRequest(data.requestId);
       if (request) {
+        // Mark original call as rejected in database
+        markCallRejected(data.requestId);
+        
         // Don't reject the visitor - they keep waiting
         // Just remove this specific request so we can create a new one later
         poolManager.rejectCall(data.requestId);
@@ -397,6 +440,14 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
             request.pageUrl
           );
           console.log(`[Socket] Created new request ${newRequest.requestId} for waiting visitor`);
+          
+          // Create a new call log for the retry
+          createCallLog(newRequest.requestId, {
+            visitorId: visitor.visitorId,
+            agentId: request.agentId,
+            siteId: request.siteId,
+            pageUrl: request.pageUrl,
+          });
         }
         
         // NOTE: We do NOT emit CALL_REJECTED to the visitor - they keep waiting
@@ -407,6 +458,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       const call = poolManager.endCall(data.callId);
       if (call) {
         console.log("[Socket] Call ended:", data.callId, "by socket:", socket.id);
+        
+        // Mark call as completed in database
+        markCallEnded(data.callId);
         
         // Determine who ended the call
         const agent = poolManager.getAgentBySocketId(socket.id);
@@ -587,6 +641,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         // End any active call
         const activeCall = poolManager.getActiveCallByAgentId(agent.agentId);
         if (activeCall) {
+          // Mark call as completed in database
+          markCallEnded(activeCall.callId);
+          
           poolManager.endCall(activeCall.callId);
           const visitor = poolManager.getVisitor(activeCall.visitorId);
           if (visitor) {
@@ -635,6 +692,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         // End any active call
         const activeCall = poolManager.getActiveCallByVisitorId(visitor.visitorId);
         if (activeCall) {
+          // Mark call as completed in database
+          markCallEnded(activeCall.callId);
+          
           poolManager.endCall(activeCall.callId);
           const callAgent = poolManager.getAgent(activeCall.agentId);
           if (callAgent) {
@@ -715,6 +775,9 @@ function startRNATimeout(
       });
     }
 
+    // Mark call as missed in database
+    markCallMissed(requestId);
+    
     // Cancel the old request
     poolManager.rejectCall(requestId);
 
@@ -733,6 +796,14 @@ function startRNATimeout(
           visitor.siteId,
           visitor.pageUrl
         );
+        
+        // Create call log for the new agent
+        createCallLog(newRequest.requestId, {
+          visitorId: visitor.visitorId,
+          agentId: newAgent.agentId,
+          siteId: visitor.siteId,
+          pageUrl: visitor.pageUrl,
+        });
 
         // Notify new agent
         const newAgentSocket = io.sockets.sockets.get(newAgent.socketId);

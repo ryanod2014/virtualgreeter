@@ -14,7 +14,9 @@ import {
   MoreVertical,
   Video,
   Circle,
+  BarChart3,
 } from "lucide-react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 interface Pool {
@@ -309,7 +311,15 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
                     </div>
 
                     {/* Actions */}
-                    <div className="col-span-1 flex justify-end">
+                    <div className="col-span-1 flex justify-end gap-1">
+                      <Link
+                        href={`/admin/agents/${agent.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-2 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
+                        title="View Stats"
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                      </Link>
                       <button className="p-2 rounded-lg hover:bg-muted transition-colors">
                         <MoreVertical className="w-4 h-4 text-muted-foreground" />
                       </button>

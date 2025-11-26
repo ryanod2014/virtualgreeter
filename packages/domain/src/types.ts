@@ -74,6 +74,7 @@ export interface CallRequest {
 /** Active call between visitor and agent */
 export interface ActiveCall {
   callId: string;
+  callLogId?: string | null; // Database call_logs.id for disposition updates
   visitorId: string;
   agentId: string;
   startedAt: number;

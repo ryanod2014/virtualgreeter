@@ -9,6 +9,8 @@ import {
   Video,
   LogOut,
   Code,
+  FileText,
+  Palette,
 } from "lucide-react";
 import type { User, Organization } from "@ghost-greeter/domain/database.types";
 import { signOut } from "@/lib/auth/actions";
@@ -52,6 +54,12 @@ export function AdminSidebar({ user, organization }: AdminSidebarProps) {
           </NavLink>
           <NavLink href="/admin/analytics" icon={BarChart3}>
             Analytics
+          </NavLink>
+          <NavLink href="/admin/call-logs" icon={FileText}>
+            Call Logs
+          </NavLink>
+          <NavLink href="/admin/settings/dispositions" icon={Palette}>
+            Dispositions
           </NavLink>
           
           <div className="pt-4 pb-2">

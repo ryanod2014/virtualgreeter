@@ -13,6 +13,7 @@ export default async function DashboardPage() {
     <WorkbenchClient 
       agentProfile={auth.agentProfile}
       user={auth.profile}
+      organizationId={auth.organization.id}
     />
   );
 }

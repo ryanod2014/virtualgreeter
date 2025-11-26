@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import {
   Video,
   Users,
@@ -14,6 +14,7 @@ import { useWebRTC } from "@/features/webrtc/use-webrtc";
 import { IncomingCallModal } from "@/features/workbench/incoming-call-modal";
 import { ActiveCallStage } from "@/features/webrtc/active-call-stage";
 import { CobrowseViewer } from "@/features/cobrowse/CobrowseViewer";
+import { PostCallDispositionModal } from "@/features/workbench/post-call-disposition-modal";
 import { useIncomingCall } from "@/features/workbench/hooks/useIncomingCall";
 import { useIdleTimer } from "@/features/workbench/hooks/useIdleTimer";
 import { useHeartbeat } from "@/features/workbench/hooks/useHeartbeat";
@@ -23,11 +24,16 @@ import { TIMING } from "@ghost-greeter/domain";
 interface WorkbenchClientProps {
   agentProfile: AgentProfile | null;
   user: User;
+  organizationId: string;
 }
 
-export function WorkbenchClient({ agentProfile, user }: WorkbenchClientProps) {
+export function WorkbenchClient({ agentProfile, user, organizationId }: WorkbenchClientProps) {
   const agentId = agentProfile?.id ?? user.id;
   const displayName = agentProfile?.display_name ?? user.full_name;
+  
+  // Track ended call for disposition modal
+  const [endedCallId, setEndedCallId] = useState<string | null>(null);
+  const previousCallRef = useRef<string | null>(null);
   
   const {
     isConnected,
@@ -86,6 +92,20 @@ export function WorkbenchClient({ agentProfile, user }: WorkbenchClientProps) {
       stopRinging();
     }
   }, [incomingCall, startRinging, stopRinging]);
+
+  // Track when call ends to show disposition modal
+  useEffect(() => {
+    if (activeCall) {
+      // Store the database call log ID (not the generated callId)
+      console.log("[Workbench] Active call:", { callId: activeCall.callId, callLogId: activeCall.callLogId });
+      previousCallRef.current = activeCall.callLogId ?? null;
+    } else if (previousCallRef.current) {
+      // Call just ended - show disposition modal
+      console.log("[Workbench] Call ended, showing disposition modal for:", previousCallRef.current);
+      setEndedCallId(previousCallRef.current);
+      previousCallRef.current = null;
+    }
+  }, [activeCall]);
 
   // Initialize audio on first user interaction (for AudioContext)
   const handleFirstInteraction = useCallback(() => {
@@ -319,6 +339,14 @@ export function WorkbenchClient({ agentProfile, user }: WorkbenchClientProps) {
           </div>
         </div>
       )}
+
+      {/* Post-Call Disposition Modal */}
+      <PostCallDispositionModal
+        isOpen={!!endedCallId}
+        callLogId={endedCallId}
+        organizationId={organizationId}
+        onClose={() => setEndedCallId(null)}
+      />
     </>
   );
 }
