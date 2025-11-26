@@ -7,6 +7,7 @@ import {
   useCallback,
   useState,
   useRef,
+  useMemo,
   type ReactNode,
 } from "react";
 import type { Socket } from "socket.io-client";
@@ -174,7 +175,7 @@ export function SignalingProvider({
     };
   }, [handleFirstInteraction]);
 
-  const contextValue: SignalingContextType = {
+  const contextValue = useMemo<SignalingContextType>(() => ({
     isConnected,
     incomingCall,
     activeCall,
@@ -190,7 +191,23 @@ export function SignalingProvider({
     socket,
     isAudioReady,
     initializeAudio,
-  };
+  }), [
+    isConnected,
+    incomingCall,
+    activeCall,
+    stats,
+    cobrowse,
+    isMarkedAway,
+    awayReason,
+    handleAcceptCall,
+    handleRejectCall,
+    endCall,
+    setAway,
+    setBack,
+    socket,
+    isAudioReady,
+    initializeAudio,
+  ]);
 
   return (
     <SignalingContext.Provider value={contextValue}>

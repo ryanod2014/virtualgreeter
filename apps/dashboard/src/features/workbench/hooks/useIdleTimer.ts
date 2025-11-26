@@ -60,7 +60,6 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
   
   const lastActivityRef = useRef<number>(Date.now());
   const idleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const notificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onIdleRef = useRef(onIdle);
   const onActiveRef = useRef(onActive);
@@ -161,12 +160,7 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
         clearTimeout(idleTimeoutRef.current);
         idleTimeoutRef.current = null;
       }
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-      }
       clearNotification();
-      setTimeUntilIdle(timeout);
       return;
     }
 
@@ -178,13 +172,6 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
     // Start the initial timer
     resetTimer();
 
-    // Start countdown interval to update timeUntilIdle
-    countdownIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - lastActivityRef.current;
-      const remaining = Math.max(0, timeout - elapsed);
-      setTimeUntilIdle(remaining);
-    }, 1000);
-
     return () => {
       // Clean up
       ACTIVITY_EVENTS.forEach((event) => {
@@ -193,9 +180,6 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
       
       if (idleTimeoutRef.current) {
         clearTimeout(idleTimeoutRef.current);
-      }
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
       }
       clearNotification();
     };
