@@ -36,6 +36,7 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
   const [isMuted, setIsMuted] = useState(true);
   const [activeVideo, setActiveVideo] = useState<"wave" | "intro" | "loop">("wave");
   const [hasStartedWithAudio, setHasStartedWithAudio] = useState(false);
+  const [introReady, setIntroReady] = useState(false);
   
   const waveVideoRef = useRef<HTMLVideoElement>(null);
   const introVideoRef = useRef<HTMLVideoElement>(null);
@@ -92,31 +93,55 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
     });
   }, [switchToLoop]);
 
-  // When audioUnlocked becomes true, switch from wave to intro with audio
+  // When audioUnlocked becomes true AND intro is ready, switch to intro with audio
+  // If there's an intro URL, ALWAYS wait for it - never skip to loop
   useEffect(() => {
     if (!audioUnlocked || hasStartedWithAudio) return;
     
-    // Audio just got unlocked - switch to intro (or loop) with audio
-    setHasStartedWithAudio(true);
+    // If there's an intro URL, wait for it to be ready
+    if (introUrl) {
+      if (introReady && introVideoRef.current) {
+        setHasStartedWithAudio(true);
+        switchToIntro();
+      }
+      // If not ready yet, this effect will re-run when introReady becomes true
+      return;
+    }
     
-    if (introUrl && introVideoRef.current) {
-      switchToIntro();
-    } else if (loopUrl) {
+    // No intro URL - go straight to loop
+    if (loopUrl) {
+      setHasStartedWithAudio(true);
       switchToLoop();
     }
-  }, [audioUnlocked, hasStartedWithAudio, introUrl, loopUrl, switchToIntro, switchToLoop]);
+  }, [audioUnlocked, hasStartedWithAudio, introUrl, introReady, loopUrl, switchToIntro, switchToLoop]);
 
   // Handle intro video end -> switch to loop
   const handleIntroEnded = useCallback(() => {
     switchToLoop();
   }, [switchToLoop]);
 
-  // Preload intro and loop videos
+  // Preload intro video and track when it's ready
   useEffect(() => {
-    if (introUrl && introVideoRef.current) {
-      introVideoRef.current.src = introUrl;
-      introVideoRef.current.load();
+    const introVideo = introVideoRef.current;
+    if (!introUrl || !introVideo) return;
+    
+    const handleCanPlay = () => {
+      console.log("[VideoSequencer] ✅ Intro video ready to play");
+      setIntroReady(true);
+    };
+    
+    introVideo.addEventListener("canplaythrough", handleCanPlay);
+    introVideo.src = introUrl;
+    introVideo.load();
+    
+    // Check if already ready (cached)
+    if (introVideo.readyState >= 3) {
+      setIntroReady(true);
     }
+    
+    return () => {
+      introVideo.removeEventListener("canplaythrough", handleCanPlay);
+    };
   }, [introUrl]);
 
   useEffect(() => {
