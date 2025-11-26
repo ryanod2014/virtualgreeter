@@ -8,6 +8,7 @@ import {
   Video,
   VideoOff,
   Maximize2,
+  Minimize2,
   Clock,
   Loader2,
   Monitor,
@@ -46,9 +47,11 @@ export function ActiveCallStage({
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const screenShareRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Attach local stream to video element
   useEffect(() => {
@@ -58,11 +61,12 @@ export function ActiveCallStage({
   }, [localStream]);
 
   // Attach remote stream to video element
+  // Re-run when screen sharing state changes since the video element changes
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
-  }, [remoteStream]);
+  }, [remoteStream, isVisitorScreenSharing]);
 
   // Attach screen share stream to video element
   useEffect(() => {
@@ -104,8 +108,34 @@ export function ActiveCallStage({
     }
   };
 
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (err) {
+      console.error("Error toggling fullscreen:", err);
+    }
+  };
+
+  // Listen for fullscreen changes (e.g., user presses Escape)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
   return (
-    <div className="relative h-full min-h-[500px]">
+    <div ref={containerRef} className="relative h-full min-h-[500px] bg-background">
       {/* Main View - Screen Share or Remote Video */}
       <div className="absolute inset-0 rounded-2xl overflow-hidden bg-muted">
         {/* Screen Share (when active) */}
@@ -282,8 +312,16 @@ export function ActiveCallStage({
 
           <div className="w-px h-8 bg-border" />
 
-          <button className="w-12 h-12 rounded-xl bg-muted hover:bg-muted-foreground/10 flex items-center justify-center transition-colors">
-            <Maximize2 className="w-5 h-5" />
+          <button
+            onClick={toggleFullscreen}
+            className="w-12 h-12 rounded-xl bg-muted hover:bg-muted-foreground/10 flex items-center justify-center transition-colors"
+            title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-5 h-5" />
+            ) : (
+              <Maximize2 className="w-5 h-5" />
+            )}
           </button>
         </div>
       </div>

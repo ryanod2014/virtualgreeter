@@ -228,10 +228,18 @@ export function useWebRTC({
     }
   }, [isCallAccepted, agentId, initializeCall]);
 
-  // Cleanup when call ends
+  // Cleanup when call ends - reset all state even if peer was never created
   useEffect(() => {
-    if (!isCallAccepted && peerRef.current) {
-      cleanup();
+    if (!isCallAccepted) {
+      // Always reset the initializing flag when call is no longer accepted
+      // This ensures we can start a new call even if the previous one didn't fully initialize
+      isInitializingRef.current = false;
+      pendingSignalsRef.current = [];
+      
+      // Only run full cleanup if we have an active peer connection
+      if (peerRef.current) {
+        cleanup();
+      }
     }
   }, [isCallAccepted, cleanup]);
 

@@ -164,8 +164,11 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
     
     console.log("[Widget] Ending call:", callId);
     socketRef.current.emit(SOCKET_EVENTS.CALL_END, { callId });
+    // Reset all call-related state immediately to allow new calls
     setCallAccepted(false);
+    setCallRejected(false);
     setCurrentCallId(null);
+    currentRequestIdRef.current = null;
   }, []);
 
   // Cleanup on unmount

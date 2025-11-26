@@ -118,6 +118,26 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         return;
       }
 
+      // Check if this visitor has an active call that needs to be cleaned up first
+      // This handles the race condition where user ends call and quickly calls again
+      const existingCall = poolManager.getActiveCallByVisitorId(visitor.visitorId);
+      if (existingCall) {
+        console.log(`[Socket] Visitor ${visitor.visitorId} has existing call ${existingCall.callId}, cleaning up first`);
+        // End the existing call - this resets the agent status to "idle"
+        poolManager.endCall(existingCall.callId);
+        markCallEnded(existingCall.callId);
+        
+        // Notify the agent that the previous call ended
+        const previousAgent = poolManager.getAgent(existingCall.agentId);
+        if (previousAgent) {
+          const agentSocket = io.sockets.sockets.get(previousAgent.socketId);
+          agentSocket?.emit(SOCKET_EVENTS.CALL_ENDED, {
+            callId: existingCall.callId,
+            reason: "visitor_ended",
+          });
+        }
+      }
+
       let targetAgent = poolManager.getAgent(data.agentId);
       let targetAgentId = data.agentId;
 

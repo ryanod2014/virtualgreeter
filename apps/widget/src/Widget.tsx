@@ -6,6 +6,39 @@ import { useWebRTC } from "./features/webrtc/useWebRTC";
 import { useCobrowse } from "./features/cobrowse/useCobrowse";
 import type { AgentAssignedPayload } from "@ghost-greeter/domain";
 
+/**
+ * Unlocks browser audio permission by creating and resuming an AudioContext.
+ * Must be called during a user gesture (click/touch/keydown).
+ * Returns a promise that resolves when audio is unlocked.
+ */
+async function unlockAudio(): Promise<boolean> {
+  try {
+    // Create AudioContext and resume it - this unlocks audio for the session
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return false;
+    
+    const audioCtx = new AudioContextClass();
+    
+    // Resume if suspended (Chrome requires this)
+    if (audioCtx.state === "suspended") {
+      await audioCtx.resume();
+    }
+    
+    // Play a silent buffer to fully unlock on some browsers
+    const buffer = audioCtx.createBuffer(1, 1, 22050);
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    source.start(0);
+    
+    console.log("[Widget] 🔊 Audio permission unlocked");
+    return true;
+  } catch (err) {
+    console.warn("[Widget] Failed to unlock audio:", err);
+    return false;
+  }
+}
+
 interface WidgetConfig {
   orgId: string;
   serverUrl?: string;
@@ -22,6 +55,7 @@ type WidgetState = "hidden" | "minimized" | "open" | "waiting_for_agent" | "in_c
 export function Widget({ config }: WidgetProps) {
   const [state, setState] = useState<WidgetState>("hidden");
   const [hasInteracted, setHasInteracted] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [agent, setAgent] = useState<AgentAssignedPayload["agent"] | null>(null);
   const [handoffMessage, setHandoffMessage] = useState<string | null>(null);
   
@@ -112,18 +146,26 @@ export function Widget({ config }: WidgetProps) {
     isInCall: state === "in_call",
   });
 
-  // Listen for page interactions - connect but don't show widget yet
+  // Connect to signaling server immediately on mount - widget appears when agent is assigned
+  useEffect(() => {
+    connect();
+  }, [connect]);
+
+  // Listen for first click to unlock audio (for prerecorded video)
+  // Widget is already visible, but video is muted until user clicks anywhere
   useEffect(() => {
     if (hasInteracted) return;
 
-    const handleInteraction = () => {
+    const handleInteraction = async () => {
       setHasInteracted(true);
       
-      // Connect to signaling server - widget will show when agent is assigned
-      connect();
+      // Unlock audio permission - must happen during user gesture
+      // This allows the prerecorded video to play with sound
+      const unlocked = await unlockAudio();
+      setAudioUnlocked(unlocked);
     };
 
-    const events = ["click", "scroll", "touchstart"];
+    const events = ["click", "touchstart", "scroll"];
     events.forEach((event) => {
       window.addEventListener(event, handleInteraction, { once: true, passive: true });
     });
@@ -133,7 +175,7 @@ export function Widget({ config }: WidgetProps) {
         window.removeEventListener(event, handleInteraction);
       });
     };
-  }, [hasInteracted, connect]);
+  }, [hasInteracted]);
 
   // Show widget only when an agent is available/assigned
   useEffect(() => {
@@ -481,6 +523,7 @@ export function Widget({ config }: WidgetProps) {
               introUrl={agent?.introVideoUrl}
               loopUrl={agent?.loopVideoUrl}
               isLive={false}
+              audioUnlocked={audioUnlocked}
             />
           )}
 

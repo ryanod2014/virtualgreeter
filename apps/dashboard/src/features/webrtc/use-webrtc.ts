@@ -222,10 +222,17 @@ export function useWebRTC({
     }
   }, [isCallActive, visitorId, initializeCall]);
 
-  // Cleanup when call ends
+  // Cleanup when call ends - reset all state even if peer was never created
   useEffect(() => {
-    if (!isCallActive && peerRef.current) {
-      cleanup();
+    if (!isCallActive) {
+      // Always reset the remote stream ref when call is not active
+      // This ensures new incoming streams are recognized as camera (not screen share)
+      remoteStreamRef.current = null;
+      
+      // Only run full cleanup if we have an active peer connection
+      if (peerRef.current) {
+        cleanup();
+      }
     }
   }, [isCallActive, cleanup]);
 

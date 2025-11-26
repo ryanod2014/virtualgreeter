@@ -11,6 +11,8 @@ interface VideoSequencerProps {
   isConnecting?: boolean;
   /** Whether we're in a live call */
   isLive?: boolean;
+  /** Whether audio was already unlocked by parent (from earlier user click) */
+  audioUnlocked?: boolean;
 }
 
 type VideoState = "loading" | "wave" | "intro" | "loop" | "connecting" | "live" | "error";
@@ -29,61 +31,21 @@ type VideoState = "loading" | "wave" | "intro" | "loop" | "connecting" | "live" 
  * - Seamless transitions between all videos
  * - Looks like a live video feed (no play button overlay)
  */
-export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLive }: VideoSequencerProps) {
+export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLive, audioUnlocked = false }: VideoSequencerProps) {
   const [state, setState] = useState<VideoState>("loading");
   const [isMuted, setIsMuted] = useState(true);
   const [activeVideo, setActiveVideo] = useState<"wave" | "intro" | "loop">("wave");
-  const [hasInteracted, setHasInteracted] = useState(false);
+  const [hasStartedWithAudio, setHasStartedWithAudio] = useState(false);
   
   const waveVideoRef = useRef<HTMLVideoElement>(null);
   const introVideoRef = useRef<HTMLVideoElement>(null);
   const loopVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Handle user interaction - unmute and switch to intro
-  useEffect(() => {
-    if (hasInteracted) return;
-
-    const handleInteraction = () => {
-      setHasInteracted(true);
-      setIsMuted(false);
-      
-      // If we have an intro video, switch to it
-      if (introUrl && introVideoRef.current) {
-        // Pause wave video
-        if (waveVideoRef.current) {
-          waveVideoRef.current.pause();
-        }
-        
-        setState("intro");
-        setActiveVideo("intro");
-        introVideoRef.current.muted = false;
-        introVideoRef.current.currentTime = 0;
-        introVideoRef.current.play().catch((error) => {
-          console.error("Intro play failed:", error);
-          // Fallback to loop if intro fails
-          switchToLoop();
-        });
-      } else {
-        // No intro, go straight to loop
-        switchToLoop();
-      }
-    };
-
-    const events = ["click", "scroll", "touchstart", "keydown"];
-    events.forEach((event) => {
-      window.addEventListener(event, handleInteraction, { once: true, passive: true });
-    });
-
-    return () => {
-      events.forEach((event) => {
-        window.removeEventListener(event, handleInteraction);
-      });
-    };
-  }, [hasInteracted, introUrl]);
-
-  // Switch to loop video
+  // Switch to loop video (define first since switchToIntro depends on it)
   const switchToLoop = useCallback(() => {
     if (!loopVideoRef.current) return;
+    
+    console.log("[VideoSequencer] 🔊 Switching to loop with audio");
     
     // Pause other videos
     if (waveVideoRef.current) {
@@ -95,12 +57,54 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
     
     setState("loop");
     setActiveVideo("loop");
+    setIsMuted(false);
     loopVideoRef.current.muted = false;
     loopVideoRef.current.currentTime = 0;
     loopVideoRef.current.play().catch((error) => {
       console.error("Loop autoplay failed:", error);
     });
   }, []);
+
+  // Switch to intro video with audio
+  const switchToIntro = useCallback(() => {
+    if (!introVideoRef.current) {
+      // No intro, go straight to loop
+      switchToLoop();
+      return;
+    }
+    
+    console.log("[VideoSequencer] 🔊 Switching to intro with audio");
+    
+    // Pause wave video
+    if (waveVideoRef.current) {
+      waveVideoRef.current.pause();
+    }
+    
+    setState("intro");
+    setActiveVideo("intro");
+    setIsMuted(false);
+    introVideoRef.current.muted = false;
+    introVideoRef.current.currentTime = 0;
+    introVideoRef.current.play().catch((error) => {
+      console.error("Intro play failed:", error);
+      // Fallback to loop if intro fails
+      switchToLoop();
+    });
+  }, [switchToLoop]);
+
+  // When audioUnlocked becomes true, switch from wave to intro with audio
+  useEffect(() => {
+    if (!audioUnlocked || hasStartedWithAudio) return;
+    
+    // Audio just got unlocked - switch to intro (or loop) with audio
+    setHasStartedWithAudio(true);
+    
+    if (introUrl && introVideoRef.current) {
+      switchToIntro();
+    } else if (loopUrl) {
+      switchToLoop();
+    }
+  }, [audioUnlocked, hasStartedWithAudio, introUrl, loopUrl, switchToIntro, switchToLoop]);
 
   // Handle intro video end -> switch to loop
   const handleIntroEnded = useCallback(() => {
@@ -122,7 +126,8 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
     }
   }, [loopUrl]);
 
-  // Start playing wave video when URL is available (or fallback to old intro behavior)
+  // Start playing wave video MUTED when URLs are available
+  // Will switch to intro with audio when audioUnlocked becomes true
   useEffect(() => {
     const videoUrl = waveUrl || introUrl;
     const videoRef = waveVideoRef.current;
@@ -131,7 +136,7 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
     
     videoRef.src = videoUrl;
     videoRef.muted = true; // Must start muted for autoplay
-    videoRef.loop = true; // Loop until interaction
+    videoRef.loop = true; // Loop until audio is unlocked
     
     const playPromise = videoRef.play();
     
@@ -139,6 +144,7 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
       playPromise
         .then(() => {
           setState("wave");
+          setActiveVideo("wave");
         })
         .catch((error) => {
           console.warn("Autoplay prevented:", error);
