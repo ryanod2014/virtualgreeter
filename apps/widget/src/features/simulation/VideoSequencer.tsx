@@ -37,14 +37,21 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
   const [activeVideo, setActiveVideo] = useState<"wave" | "intro" | "loop">("wave");
   const [hasStartedWithAudio, setHasStartedWithAudio] = useState(false);
   const [introReady, setIntroReady] = useState(false);
+  const [introCompleted, setIntroCompleted] = useState(false);
   
   const waveVideoRef = useRef<HTMLVideoElement>(null);
   const introVideoRef = useRef<HTMLVideoElement>(null);
   const loopVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Switch to loop video (define first since switchToIntro depends on it)
+  // Switch to loop video - ONLY after intro has completed (or no intro exists)
   const switchToLoop = useCallback(() => {
     if (!loopVideoRef.current) return;
+    
+    // Safety check: don't switch to loop if intro exists and hasn't completed
+    if (introUrl && !introCompleted) {
+      console.warn("[VideoSequencer] ⚠️ Cannot switch to loop - intro not completed yet");
+      return;
+    }
     
     console.log("[VideoSequencer] 🔊 Switching to loop with audio");
     
@@ -64,13 +71,13 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
     loopVideoRef.current.play().catch((error) => {
       console.error("Loop autoplay failed:", error);
     });
-  }, []);
+  }, [introUrl, introCompleted]);
 
   // Switch to intro video with audio
   const switchToIntro = useCallback(() => {
     if (!introVideoRef.current) {
-      // No intro, go straight to loop
-      switchToLoop();
+      // No intro ref, mark as completed and go to loop
+      setIntroCompleted(true);
       return;
     }
     
@@ -86,12 +93,20 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
     setIsMuted(false);
     introVideoRef.current.muted = false;
     introVideoRef.current.currentTime = 0;
+    
+    // Play intro - do NOT fallback to loop on error, intro MUST complete
     introVideoRef.current.play().catch((error) => {
-      console.error("Intro play failed:", error);
-      // Fallback to loop if intro fails
-      switchToLoop();
+      console.error("Intro play failed, will retry:", error);
+      // Retry after a short delay instead of skipping to loop
+      setTimeout(() => {
+        if (introVideoRef.current && !introCompleted) {
+          introVideoRef.current.play().catch(e => {
+            console.error("Intro retry also failed:", e);
+          });
+        }
+      }, 100);
     });
-  }, [switchToLoop]);
+  }, [introCompleted]);
 
   // When audioUnlocked becomes true AND intro is ready, switch to intro with audio
   // If there's an intro URL, ALWAYS wait for it - never skip to loop
@@ -108,17 +123,25 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
       return;
     }
     
-    // No intro URL - go straight to loop
+    // No intro URL - mark intro as "completed" (nothing to play) and go to loop
     if (loopUrl) {
       setHasStartedWithAudio(true);
+      setIntroCompleted(true); // No intro to play
+    }
+  }, [audioUnlocked, hasStartedWithAudio, introUrl, introReady, loopUrl, switchToIntro]);
+
+  // When intro completes, switch to loop
+  useEffect(() => {
+    if (introCompleted && loopUrl) {
       switchToLoop();
     }
-  }, [audioUnlocked, hasStartedWithAudio, introUrl, introReady, loopUrl, switchToIntro, switchToLoop]);
+  }, [introCompleted, loopUrl, switchToLoop]);
 
-  // Handle intro video end -> switch to loop
+  // Handle intro video end -> mark complete and switch to loop
   const handleIntroEnded = useCallback(() => {
-    switchToLoop();
-  }, [switchToLoop]);
+    console.log("[VideoSequencer] ✅ Intro video finished playing");
+    setIntroCompleted(true);
+  }, []);
 
   // Preload intro video and track when it's ready
   useEffect(() => {
