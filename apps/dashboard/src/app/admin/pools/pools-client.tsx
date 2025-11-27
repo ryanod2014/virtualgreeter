@@ -967,23 +967,20 @@ export function PoolsClient({
     const domainCondition = conditions.find(c => c.type === "domain");
     const pathCondition = conditions.find(c => c.type === "path");
 
-    // Save rule - conditions stored in memory via signaling server sync
+    // Save rule with conditions and name to database
     const { data, error } = await supabase
       .from("pool_routing_rules")
       .insert({
         pool_id: poolId,
+        name: ruleName || null,
         domain_pattern: domainCondition?.value || "*",
         path_pattern: pathCondition?.value || "*",
+        conditions: conditions,
         priority: maxPriority + 1,
         is_active: true,
       })
       .select()
       .single();
-    
-    // Store conditions in local state for UI rendering
-    if (data) {
-      (data as RoutingRule).conditions = conditions;
-    }
 
     if (data && !error) {
       setPools(pools.map(p => {
@@ -1022,16 +1019,14 @@ export function PoolsClient({
     const { data, error } = await supabase
       .from("pool_routing_rules")
       .update({
+        name: ruleName || null,
         domain_pattern: domainCondition?.value || "*",
         path_pattern: pathCondition?.value || "*",
+        conditions: conditions,
       })
       .eq("id", ruleId)
       .select()
       .single();
-    
-    if (data) {
-      (data as RoutingRule).conditions = conditions;
-    }
 
     if (data && !error) {
       setPools(pools.map(p => {

@@ -82,7 +82,6 @@ export interface Database {
           domain: string;
           widget_config: WidgetConfig;
           is_active: boolean;
-          default_pool_id: string | null;
           created_at: string;
           updated_at: string;
         };

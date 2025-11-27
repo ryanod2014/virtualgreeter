@@ -126,7 +126,7 @@ export function DispositionsClient({
     const maxOrder = Math.max(0, ...dispositions.map((d) => d.display_order));
     const parsedValue = newValue ? parseFloat(newValue) : null;
 
-    const result = await supabase
+    const { data, error } = await supabase
       .from("dispositions")
       .insert({
         organization_id: organizationId,
@@ -138,9 +138,6 @@ export function DispositionsClient({
       })
       .select()
       .single();
-    
-    data = result.data;
-    error = result.error;
 
     if (data && !error) {
       // Ensure new fields have defaults in case migration isn't applied
