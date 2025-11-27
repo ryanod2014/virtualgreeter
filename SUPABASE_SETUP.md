@@ -70,7 +70,7 @@ By default, Supabase uses email confirmation. For development, you can disable t
 ### User Roles
 
 - **Admin**: Can manage organization, sites, agents, and view all analytics
-- **Agent**: Can only access their workbench and view their own stats
+- **Agent**: Can only access their bullpen and view their own stats
 
 ### Automatic Setup on Signup
 
@@ -94,7 +94,7 @@ All tables have RLS enabled:
 | `/login` | Public | Login page |
 | `/signup` | Public | Signup page |
 | `/onboarding` | Auth | Video upload wizard |
-| `/dashboard` | Agent/Admin | Agent workbench |
+| `/dashboard` | Agent/Admin | Agent bullpen |
 | `/admin` | Admin | Admin overview |
 | `/admin/agents` | Admin | Manage agents |
 | `/admin/sites` | Admin | Manage sites |

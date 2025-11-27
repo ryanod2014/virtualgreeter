@@ -2,9 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/actions";
 import Link from "next/link";
 import {
-  Palette,
   Building2,
-  Users,
   CreditCard,
   ChevronRight,
   Video,
@@ -15,6 +13,7 @@ export default async function SettingsPage() {
   if (!auth) redirect("/login");
   if (!auth.isAdmin) redirect("/dashboard");
 
+  // Settings page - updated
   return (
     <div className="p-8 max-w-4xl mx-auto">
       {/* Header */}
@@ -27,14 +26,6 @@ export default async function SettingsPage() {
 
       {/* Settings Grid */}
       <div className="space-y-4">
-        <SettingsCard
-          href="/admin/settings/dispositions"
-          icon={Palette}
-          title="Call Dispositions"
-          description="Define outcomes that agents can assign after each call"
-          color="purple"
-        />
-
         <SettingsCard
           href="/admin/settings/organization"
           icon={Building2}
@@ -49,16 +40,6 @@ export default async function SettingsPage() {
           title="Call Recording"
           description="Enable call recording and set retention policies"
           color="red"
-        />
-
-        <SettingsCard
-          href="#"
-          icon={Users}
-          title="Team Members"
-          description="Invite and manage team members"
-          color="green"
-          disabled
-          comingSoon
         />
 
         <SettingsCard

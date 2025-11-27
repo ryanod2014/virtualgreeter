@@ -7,6 +7,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Admin layout - recompile trigger
   const auth = await getCurrentUser();
 
   // Redirect if not logged in

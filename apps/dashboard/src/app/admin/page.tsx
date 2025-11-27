@@ -120,7 +120,7 @@ export default async function AdminOverviewPage() {
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
-      {/* Header */}
+        {/* Header */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/30">
@@ -128,12 +128,12 @@ export default async function AdminOverviewPage() {
             </div>
             <div>
               <h1 className="text-3xl font-bold">Quick Setup</h1>
-        <p className="text-muted-foreground">
+              <p className="text-muted-foreground">
                 {allComplete
                   ? "You're all set! Go live and start connecting with visitors."
                   : "Complete these steps to start receiving live video calls."}
-        </p>
-      </div>
+              </p>
+            </div>
           </div>
         </div>
 
@@ -198,8 +198,8 @@ export default async function AdminOverviewPage() {
                 Go Live
                 <Rocket className="w-5 h-5" />
               </Link>
-        </div>
-      </div>
+            </div>
+          </div>
         ) : (
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border-2 border-amber-500/30 p-8">
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
@@ -216,7 +216,7 @@ export default async function AdminOverviewPage() {
                     Complete the remaining steps to start receiving live video calls.
                   </p>
                 </div>
-    </div>
+              </div>
               <Link
                 href={nextStep.href}
                 className="flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-primary to-purple-600 text-white font-bold text-lg shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 hover:scale-105 transition-all"
@@ -251,7 +251,7 @@ function SetupStepCard({ step, isFirst }: { step: SetupStep; isFirst: boolean })
 
         <div className="relative p-6 flex items-center gap-6">
           {/* Step Number / Checkmark */}
-      <div
+          <div
             className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all ${
               step.isComplete
                 ? "bg-green-500 shadow-lg shadow-green-500/30"
@@ -293,8 +293,8 @@ function SetupStepCard({ step, isFirst }: { step: SetupStep; isFirst: boolean })
                 step.isComplete
                   ? "bg-green-500/10 text-green-500"
                   : "bg-muted/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-        }`}
-      >
+              }`}
+            >
               <Icon className="w-6 h-6" />
             </div>
             <ArrowRight
@@ -304,7 +304,7 @@ function SetupStepCard({ step, isFirst }: { step: SetupStep; isFirst: boolean })
                   : "text-muted-foreground group-hover:text-primary group-hover:translate-x-1"
               }`}
             />
-      </div>
+          </div>
         </div>
 
         {/* Highlight bar for incomplete first step */}

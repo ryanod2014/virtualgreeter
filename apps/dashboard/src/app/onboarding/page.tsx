@@ -178,14 +178,14 @@ export default function OnboardingPage() {
               </div>
               <h1 className="text-3xl font-bold mb-4">You're All Set! 🎉</h1>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                Your simulated presence is ready. Head to the workbench to go live
+                Your simulated presence is ready. Head to the bullpen to go live
                 and start converting visitors.
               </p>
               <button
                 onClick={handleComplete}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
               >
-                Go to Workbench
+                Go to Bullpen
                 <ArrowRight className="w-5 h-5" />
               </button>
             </div>

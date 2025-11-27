@@ -21,6 +21,7 @@ interface AdminSidebarProps {
 }
 
 export function AdminSidebar({ user, organization }: AdminSidebarProps) {
+  // Sidebar - updated order
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 border-r border-border bg-card/50 backdrop-blur-xl z-40">
       <div className="flex h-full flex-col">
@@ -52,23 +53,23 @@ export function AdminSidebar({ user, organization }: AdminSidebarProps) {
           <NavLink href="/admin" icon={Rocket}>
             Quick Setup
           </NavLink>
-          <NavLink href="/admin/pools" icon={Layers}>
-            Pools
+          <NavLink href="/admin/sites" icon={Code}>
+            Embed Code
           </NavLink>
           <NavLink href="/admin/agents" icon={Users}>
             Agents
           </NavLink>
-          <NavLink href="/admin/sites" icon={Code}>
-            Embed Code
+          <NavLink href="/admin/pools" icon={Layers}>
+            Pools
+          </NavLink>
+          <NavLink href="/admin/settings/dispositions" icon={Palette}>
+            Dispositions
           </NavLink>
           <NavLink href="/admin/analytics" icon={BarChart3}>
             Analytics
           </NavLink>
           <NavLink href="/admin/call-logs" icon={FileText}>
             Call Logs
-          </NavLink>
-          <NavLink href="/admin/settings/dispositions" icon={Palette}>
-            Dispositions
           </NavLink>
           
           <div className="pt-4 pb-2">
