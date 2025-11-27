@@ -44,11 +44,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Agent already deactivated" }, { status: 400 });
     }
 
-    // Prevent removing yourself
-    if (agent.user_id === user.id) {
-      return NextResponse.json({ error: "Cannot remove yourself" }, { status: 400 });
-    }
-
     // Soft delete the agent
     const { error: updateError } = await supabase
       .from("agent_profiles")

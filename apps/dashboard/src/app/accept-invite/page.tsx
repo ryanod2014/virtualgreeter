@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Ghost, Mail, Lock, User, Loader2, AlertCircle } from "lucide-react";
+import { Ghost, Mail, Lock, User, Loader2, AlertCircle, Video, Shield, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 function AcceptInviteContent() {
@@ -24,6 +24,7 @@ function AcceptInviteContent() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [willTakeCalls, setWillTakeCalls] = useState(true);
 
   // Fetch invite details
   useEffect(() => {
@@ -114,16 +115,38 @@ function AcceptInviteContent() {
         // User might have been created by trigger, continue anyway
       }
 
-      // 3. Create agent profile
-      const { error: profileError } = await supabase.from("agent_profiles").insert({
-        user_id: authData.user.id,
-        organization_id: invite.organization_id,
-        display_name: fullName,
-      });
+      // 3. Create agent profile ONLY if they will take calls OR if they're an agent role
+      const shouldCreateAgentProfile = invite.role === "agent" || willTakeCalls;
+      
+      if (shouldCreateAgentProfile) {
+        // If admin chose to take calls, we need to add a billing seat
+        // (Agent invites already have the seat charged on invite send)
+        if (invite.role === "admin" && willTakeCalls) {
+          try {
+            const seatResponse = await fetch("/api/billing/seats", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "add", quantity: 1 }),
+            });
+            if (!seatResponse.ok) {
+              console.error("Failed to add billing seat for admin agent");
+            }
+          } catch (err) {
+            console.error("Error adding seat:", err);
+          }
+        }
+        
+        const { error: profileError } = await supabase.from("agent_profiles").insert({
+          user_id: authData.user.id,
+          organization_id: invite.organization_id,
+          display_name: fullName,
+          is_active: true,
+        });
 
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
-        // Continue anyway
+        if (profileError) {
+          console.error("Profile creation error:", profileError);
+          // Continue anyway
+        }
       }
 
       // 4. Mark invite as accepted
@@ -132,8 +155,14 @@ function AcceptInviteContent() {
         .update({ accepted_at: new Date().toISOString() })
         .eq("id", invite.id);
 
-      // 5. Redirect to onboarding
-      window.location.href = "/onboarding";
+      // 5. Redirect based on role
+      if (shouldCreateAgentProfile) {
+        // Go to video onboarding if they're taking calls
+        window.location.href = "/onboarding";
+      } else {
+        // Admin-only, skip onboarding and go to admin dashboard
+        window.location.href = "/admin";
+      }
     } catch (err) {
       console.error("Signup error:", err);
       setError("An unexpected error occurred");
@@ -270,6 +299,49 @@ function AcceptInviteContent() {
                 />
               </div>
             </div>
+
+            {/* Admin role choice - only show for admins */}
+            {invite?.role === "admin" && (
+              <div className="space-y-3 pt-2">
+                <label className="text-sm font-medium">Will you also be taking calls?</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setWillTakeCalls(true)}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      willTakeCalls
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Phone className="w-4 h-4 text-primary" />
+                      <span className="font-medium text-sm">Yes, I'll take calls</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Uses an agent seat
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWillTakeCalls(false)}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      !willTakeCalls
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Shield className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium text-sm">No, admin only</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Free • manage only
+                    </p>
+                  </button>
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"

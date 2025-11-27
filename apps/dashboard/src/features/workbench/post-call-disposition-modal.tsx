@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle, X, Loader2 } from "lucide-react";
+import { CheckCircle, X, Loader2, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface Disposition {
   id: string;
   name: string;
   color: string;
+  fb_event_name?: string | null;
+  fb_event_enabled?: boolean;
+  value?: number | null;
 }
 
 interface PostCallDispositionModalProps {
@@ -41,7 +44,7 @@ export function PostCallDispositionModal({
     setIsLoading(true);
     const { data } = await supabase
       .from("dispositions")
-      .select("id, name, color")
+      .select("id, name, color, fb_event_name, fb_event_enabled, value")
       .eq("organization_id", organizationId)
       .eq("is_active", true)
       .order("display_order");
@@ -53,6 +56,7 @@ export function PostCallDispositionModal({
   const handleSelect = async (dispositionId: string) => {
     if (!callLogId || isSaving) return;
 
+    const selectedDisposition = dispositions.find((d) => d.id === dispositionId);
     console.log("[Disposition] Updating call log:", callLogId, "with disposition:", dispositionId);
     setSelectedId(dispositionId);
     setIsSaving(true);
@@ -70,6 +74,36 @@ export function PostCallDispositionModal({
         console.log("[Disposition] Update result:", data);
       }
 
+      // Fire Facebook Conversion API event if configured
+      if (selectedDisposition?.fb_event_enabled && selectedDisposition?.fb_event_name) {
+        console.log("[Disposition] Firing Facebook event:", selectedDisposition.fb_event_name);
+        try {
+          const fbResponse = await fetch("/api/facebook/capi", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              dispositionId,
+              callLogId,
+              pageUrl: window.location.href,
+              userAgent: navigator.userAgent,
+              // Get Facebook cookies if available
+              fbc: getCookie("_fbc"),
+              fbp: getCookie("_fbp"),
+            }),
+          });
+          
+          const fbResult = await fbResponse.json();
+          if (fbResult.fired) {
+            console.log("[Disposition] Facebook event fired:", fbResult.event_name, fbResult.event_id);
+          } else {
+            console.log("[Disposition] Facebook event not fired:", fbResult.reason || fbResult.error);
+          }
+        } catch (fbError) {
+          console.error("[Disposition] Failed to fire Facebook event:", fbError);
+          // Don't fail the disposition save if FB event fails
+        }
+      }
+
       // Short delay to show the checkmark
       await new Promise((resolve) => setTimeout(resolve, 500));
       onClose();
@@ -79,6 +113,15 @@ export function PostCallDispositionModal({
       setIsSaving(false);
       setSelectedId(null);
     }
+  };
+
+  // Helper to get cookie value
+  const getCookie = (name: string): string | undefined => {
+    if (typeof document === "undefined") return undefined;
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(";").shift();
+    return undefined;
   };
 
   const handleSkip = () => {
@@ -145,8 +188,14 @@ export function PostCallDispositionModal({
                   className="w-4 h-4 rounded-full flex-shrink-0"
                   style={{ backgroundColor: disposition.color }}
                 />
-                <span className="font-medium flex-1 text-left">
+                <span className="font-medium flex-1 text-left flex items-center gap-2">
                   {disposition.name}
+                  {disposition.fb_event_enabled && disposition.fb_event_name && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#1877F2]/10 text-[#1877F2] text-xs">
+                      <Zap className="w-3 h-3" />
+                      {disposition.fb_event_name}
+                    </span>
+                  )}
                 </span>
                 {selectedId === disposition.id && isSaving && (
                   <Loader2 className="w-5 h-5 animate-spin text-primary" />

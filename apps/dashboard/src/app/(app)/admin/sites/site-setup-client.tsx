@@ -1,0 +1,626 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Copy, Check, Code, ExternalLink, Sparkles, Monitor, Smartphone, Layout, Clock, Info, RotateCcw, CheckCircle2, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import type { WidgetSettings, WidgetSize, WidgetPosition, WidgetDevices } from "@ghost-greeter/domain/database.types";
+
+const DEFAULT_SETTINGS: WidgetSettings = {
+  size: "medium",
+  position: "bottom-right",
+  devices: "all",
+  trigger_delay: 3,
+};
+
+interface Props {
+  organizationId: string;
+  initialWidgetSettings: WidgetSettings;
+  initialEmbedVerified?: boolean;
+  initialVerifiedDomain?: string | null;
+}
+
+export function SiteSetupClient({ organizationId, initialWidgetSettings, initialEmbedVerified = false, initialVerifiedDomain = null }: Props) {
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [settings, setSettings] = useState<WidgetSettings>(initialWidgetSettings);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [customDelay, setCustomDelay] = useState<string>("");
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [isVerified, setIsVerified] = useState(initialEmbedVerified);
+  const [verifiedDomain, setVerifiedDomain] = useState<string | null>(initialVerifiedDomain);
+  const supabase = createClient();
+
+  // Poll for verification status every 5 seconds until verified
+  useEffect(() => {
+    if (isVerified) return;
+    
+    const checkVerification = async () => {
+      const { data } = await supabase
+        .from("organizations")
+        .select("embed_verified_at, embed_verified_domain")
+        .eq("id", organizationId)
+        .single();
+      
+      if (data?.embed_verified_at) {
+        setIsVerified(true);
+        setVerifiedDomain(data.embed_verified_domain);
+      }
+    };
+    
+    // Check immediately
+    checkVerification();
+    
+    // Then poll every 5 seconds
+    const interval = setInterval(checkVerification, 5000);
+    return () => clearInterval(interval);
+  }, [isVerified, organizationId, supabase]);
+
+  const presetDelays = [
+    { value: 0, label: "Instantly" },
+    { value: 3, label: "3 sec" },
+    { value: 10, label: "10 sec" },
+    { value: 30, label: "30 sec" },
+  ];
+
+  const isPresetDelay = presetDelays.some(d => d.value === settings.trigger_delay);
+
+  const handleResetToDefaults = () => {
+    setSettings(DEFAULT_SETTINGS);
+    setShowCustomInput(false);
+    setCustomDelay("");
+  };
+
+  const handleSaveSettings = async () => {
+    setSaving(true);
+    setSaved(false);
+
+    const { error } = await supabase
+      .from("organizations")
+      .update({ default_widget_settings: settings })
+      .eq("id", organizationId);
+
+    setSaving(false);
+    if (!error) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  };
+
+  const hasChanges = JSON.stringify(settings) !== JSON.stringify(initialWidgetSettings);
+
+  const embedCode = `<!-- Ghost-Greeter Widget -->
+<script>
+  (function(w,d,s,o,f,js,fjs){
+    w['GhostGreeter']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
+    js=d.createElement(s);fjs=d.getElementsByTagName(s)[0];
+    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
+  }(window,document,'script','gg','https://cdn.ghost-greeter.com/widget.js'));
+  gg('init', { orgId: '${organizationId}' });
+</script>`;
+
+  const copyEmbedCode = async () => {
+    await navigator.clipboard.writeText(embedCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const sizeLabels: Record<WidgetSize, { label: string; desc: string }> = {
+    small: { label: "Small", desc: "Compact" },
+    medium: { label: "Medium", desc: "Balanced" },
+    large: { label: "Large", desc: "Bold" },
+  };
+
+  const positionLabels: Record<WidgetPosition, string> = {
+    "top-left": "Top Left",
+    "top-right": "Top Right",
+    "center": "Center",
+    "bottom-left": "Bottom Left",
+    "bottom-right": "Bottom Right",
+  };
+
+  const deviceLabels: Record<WidgetDevices, { label: string; icons: React.ReactNode }> = {
+    all: { label: "All Devices", icons: <><Monitor className="w-4 h-4" /><Smartphone className="w-3.5 h-3.5" /></> },
+    desktop: { label: "Desktop Only", icons: <Monitor className="w-5 h-5" /> },
+    mobile: { label: "Mobile Only", icons: <Smartphone className="w-5 h-5" /> },
+  };
+
+  return (
+    <div className="p-8 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Embed Code</h1>
+        <p className="text-muted-foreground">
+          Configure your widget appearance and add it to your website
+        </p>
+      </div>
+
+      {/* Main Embed Code Card */}
+      <div className="glass rounded-2xl p-8 mb-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Code className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold">Your Widget Code</h2>
+            <p className="text-sm text-muted-foreground">Works on any website</p>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Code Block */}
+          <div className="relative">
+            <pre className="p-5 rounded-xl bg-[#0d1117] text-[#c9d1d9] font-mono text-sm overflow-x-auto whitespace-pre-wrap border border-[#30363d] h-full">
+              {embedCode}
+            </pre>
+            <button
+              onClick={copyEmbedCode}
+              className={`absolute top-4 right-4 flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                copiedCode 
+                  ? "bg-green-500/20 text-green-400 border border-green-500/30" 
+                  : "bg-white/10 text-white hover:bg-white/20 border border-white/10"
+              }`}
+            >
+              {copiedCode ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  Copy Code
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Instructions */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg">Where to add it</h3>
+            
+            <div className="grid gap-3">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/30">
+                <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 font-bold text-sm">
+                  1
+                </div>
+                <div>
+                  <div className="font-medium text-sm">Copy the code</div>
+                  <div className="text-xs text-muted-foreground">
+                    Click the "Copy Code" button
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/30">
+                <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 font-bold text-sm">
+                  2
+                </div>
+                <div>
+                  <div className="font-medium text-sm">
+                    Add to your site's header
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Use pools to control which pages show the widget
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/30">
+                <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 font-bold text-sm">
+                  3
+                </div>
+                <div>
+                  <div className="font-medium text-sm">That's it!</div>
+                  <div className="text-xs text-muted-foreground">
+                    Widget appears when agents are online
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Installation Status */}
+      <div className="mb-6">
+        {isVerified ? (
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/30">
+            <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+            <div>
+              <span className="text-green-600 dark:text-green-400 font-medium">Widget installed successfully!</span>
+              <span className="text-muted-foreground ml-1">Detected on <strong className="text-foreground">{verifiedDomain}</strong></span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+            <Loader2 className="w-5 h-5 text-amber-500 animate-spin flex-shrink-0" />
+            <div>
+              <span className="text-amber-600 dark:text-amber-400 font-medium">Waiting for installation...</span>
+              <span className="text-muted-foreground ml-1">Add the code to your site and visit a page to verify</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Widget Settings Section */}
+      <div className="glass rounded-2xl p-8 mb-6">
+        {/* Header with default badge */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
+              <Layout className="w-6 h-6 text-purple-500" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-semibold">Widget Settings</h2>
+                <span className="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary font-medium">
+                  Default
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">These settings apply to all pages on your site</p>
+            </div>
+          </div>
+          <button
+            onClick={handleSaveSettings}
+            disabled={!hasChanges || saving}
+            className={`px-5 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+              hasChanges
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            }`}
+          >
+            {saving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                Saving...
+              </>
+            ) : saved ? (
+              <>
+                <Check className="w-4 h-4" />
+                Saved!
+              </>
+            ) : (
+              "Save Changes"
+            )}
+          </button>
+        </div>
+
+        {/* Preview Panel - Above Settings */}
+        <div className="mb-8">
+          <div className="max-w-xl">
+            <div className="flex items-center mb-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Monitor className="w-4 h-4 text-muted-foreground" />
+                Preview
+                <span className="text-muted-foreground font-normal">Desktop & Mobile</span>
+              </label>
+            </div>
+            <WidgetPreview settings={settings} />
+          </div>
+        </div>
+
+        {/* Info callout */}
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 mb-6 max-w-xl">
+          <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <span className="font-medium text-blue-600 dark:text-blue-400">These are your default settings.</span>
+            <span className="text-muted-foreground"> Want different settings for specific pages? You can override these per-URL in </span>
+            <Link href="/admin/pools" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+              Pools → Widget Appearance
+            </Link>
+          </div>
+        </div>
+
+        <div className="space-y-6 max-w-md">
+          {/* Size */}
+          <div>
+            <label className="block text-sm font-medium mb-3">Size</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["small", "medium", "large"] as WidgetSize[]).map((size) => (
+                <button
+                  key={size}
+                  onClick={() => setSettings({ ...settings, size })}
+                  className={`p-3 rounded-xl border-2 transition-all ${
+                    settings.size === size
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <div className="flex justify-center mb-2">
+                    <div 
+                      className="bg-primary/60 rounded"
+                      style={{
+                        width: size === "small" ? 16 : size === "medium" ? 22 : 28,
+                        height: size === "small" ? 22 : size === "medium" ? 28 : 34,
+                      }}
+                    />
+                  </div>
+                  <div className="text-xs font-medium">{sizeLabels[size].label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Position */}
+          <div>
+            <label className="block text-sm font-medium mb-3">Position</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["top-left", "top-right", "center", "bottom-left", "bottom-right"] as WidgetPosition[]).map((pos) => {
+                const alignMap: Record<WidgetPosition, string> = {
+                  "top-left": "items-start justify-start",
+                  "top-right": "items-start justify-end",
+                  "center": "items-center justify-center",
+                  "bottom-left": "items-end justify-start",
+                  "bottom-right": "items-end justify-end",
+                };
+                return (
+                  <button
+                    key={pos}
+                    onClick={() => setSettings({ ...settings, position: pos })}
+                    className={`p-2 rounded-xl border-2 transition-all ${
+                      settings.position === pos
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className={`flex ${alignMap[pos]} h-8 bg-muted/30 rounded border border-dashed border-muted-foreground/30 p-1`}>
+                      <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
+                    </div>
+                    <div className="text-[10px] font-medium mt-1">{positionLabels[pos]}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Devices */}
+          <div>
+            <label className="block text-sm font-medium mb-3">Show On</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["all", "desktop", "mobile"] as WidgetDevices[]).map((device) => (
+                <button
+                  key={device}
+                  onClick={() => setSettings({ ...settings, devices: device })}
+                  className={`p-3 rounded-xl border-2 transition-all ${
+                    settings.devices === device
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <div className="flex justify-center items-center gap-1 mb-1.5 h-5 text-muted-foreground">
+                    {deviceLabels[device].icons}
+                  </div>
+                  <div className="text-xs font-medium">{deviceLabels[device].label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Trigger Delay - Buttons */}
+          <div>
+            <label className="block text-sm font-medium mb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              Show After
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {presetDelays.map((preset) => (
+                <button
+                  key={preset.value}
+                  onClick={() => {
+                    setSettings({ ...settings, trigger_delay: preset.value });
+                    setShowCustomInput(false);
+                    setCustomDelay("");
+                  }}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                    settings.trigger_delay === preset.value && !showCustomInput
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted hover:bg-muted/80 text-foreground"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  setShowCustomInput(true);
+                  setCustomDelay(isPresetDelay ? "" : String(settings.trigger_delay));
+                }}
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                  showCustomInput || (!isPresetDelay && settings.trigger_delay > 0)
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-muted/80 text-foreground"
+                }`}
+              >
+                Other
+              </button>
+            </div>
+            {(showCustomInput || (!isPresetDelay && settings.trigger_delay > 0)) && (
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="300"
+                  value={customDelay || (!isPresetDelay ? settings.trigger_delay : "")}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCustomDelay(val);
+                    if (val && !isNaN(parseInt(val))) {
+                      setSettings({ ...settings, trigger_delay: parseInt(val) });
+                    }
+                  }}
+                  placeholder="Enter seconds"
+                  className="w-32 px-3 py-2 rounded-lg bg-muted border border-border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <span className="text-sm text-muted-foreground">seconds</span>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              {settings.trigger_delay === 0 
+                ? "Widget appears immediately when page loads" 
+                : `Widget appears ${settings.trigger_delay} second${settings.trigger_delay > 1 ? 's' : ''} after page loads`}
+            </p>
+          </div>
+
+          {/* Reset to Defaults Button */}
+          <div className="pt-4 border-t border-border">
+            <button
+              onClick={handleResetToDefaults}
+              disabled={JSON.stringify(settings) === JSON.stringify(DEFAULT_SETTINGS)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reset to Default Settings
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Routing CTA */}
+      <div className="glass rounded-2xl p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg">Want different agents on different pages?</h3>
+              <p className="text-sm text-muted-foreground">
+                Use Agent Pools to show your sales team on pricing pages, support on help pages, etc.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/admin/pools"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors"
+          >
+            Configure Pools
+            <ExternalLink className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Widget Preview Component
+function WidgetPreview({ settings }: { settings: WidgetSettings }) {
+  // Scaled sizes that fit within the preview - max ~40% of container height
+  const sizeConfig: Record<WidgetSize, { desktop: { w: number; h: number }; mobile: { w: number; h: number } }> = {
+    small: { desktop: { w: 48, h: 64 }, mobile: { w: 28, h: 36 } },
+    medium: { desktop: { w: 64, h: 80 }, mobile: { w: 36, h: 44 } },
+    large: { desktop: { w: 80, h: 96 }, mobile: { w: 44, h: 52 } },
+  };
+
+  const positionClasses: Record<WidgetPosition, string> = {
+    "top-left": "top-2 left-2",
+    "top-right": "top-2 right-2",
+    "center": "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
+    "bottom-left": "bottom-2 left-2",
+    "bottom-right": "bottom-2 right-2",
+  };
+
+  const sizes = sizeConfig[settings.size];
+
+  // Desktop preview height (aspect-video = 56.25% of width, roughly 180px at full width)
+  const previewHeight = 180;
+
+  return (
+    <div className="flex gap-6">
+      {/* Desktop Preview */}
+      <div className={settings.devices === "mobile" ? "opacity-30" : ""}>
+        <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+          <Monitor className="w-3 h-3" />
+          Desktop
+          {settings.devices === "mobile" && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">Hidden</span>}
+        </div>
+        <div 
+          className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg overflow-hidden border border-border"
+          style={{ height: previewHeight, width: previewHeight * (16/9) }}
+        >
+          {/* Browser chrome */}
+          <div className="absolute top-0 left-0 right-0 h-5 bg-slate-700/50 flex items-center px-2 gap-1">
+            <div className="flex gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500/70" />
+              <div className="w-1.5 h-1.5 rounded-full bg-yellow-500/70" />
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500/70" />
+            </div>
+          </div>
+          
+          {/* Page content */}
+          <div className="absolute top-7 left-3 right-3 bottom-3">
+            <div className="space-y-1.5">
+              <div className="h-2 bg-white/10 rounded w-1/3" />
+              <div className="h-1.5 bg-white/5 rounded w-2/3" />
+              <div className="h-1.5 bg-white/5 rounded w-1/2" />
+            </div>
+          </div>
+
+          {/* Widget */}
+          {settings.devices !== "mobile" && (
+            <div className={`absolute ${positionClasses[settings.position]} transition-all duration-300`}>
+              <div 
+                className="bg-gradient-to-br from-primary via-primary to-primary/80 rounded-lg shadow-lg overflow-hidden transition-all duration-300"
+                style={{ width: sizes.desktop.w, height: sizes.desktop.h }}
+              >
+                <div className="h-2/3 bg-gradient-to-b from-white/30 to-white/10 flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full bg-white/40 border border-white/60" />
+                </div>
+                <div className="h-1/3 bg-black/20 flex items-center justify-center gap-1">
+                  <div className="w-3 h-3 rounded-full bg-white/20" />
+                  <div className="w-3 h-3 rounded-full bg-white/20" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile Preview - Same height as desktop */}
+      <div className={settings.devices === "desktop" ? "opacity-30" : ""}>
+        <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+          <Smartphone className="w-3 h-3" />
+          Mobile
+          {settings.devices === "desktop" && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">Hidden</span>}
+        </div>
+        <div style={{ height: previewHeight }}>
+          <div 
+            className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl overflow-hidden border-2 border-slate-600"
+            style={{ height: previewHeight, width: previewHeight * (9/19) }}
+          >
+            {/* Notch */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-2.5 bg-slate-900 rounded-b-lg" />
+            
+            {/* Page content */}
+            <div className="absolute top-6 left-2 right-2 bottom-4">
+              <div className="space-y-1">
+                <div className="h-1 bg-white/10 rounded w-2/3" />
+                <div className="h-0.5 bg-white/5 rounded w-full" />
+                <div className="h-0.5 bg-white/5 rounded w-3/4" />
+              </div>
+            </div>
+
+            {/* Widget */}
+            {settings.devices !== "desktop" && (
+              <div className={`absolute ${positionClasses[settings.position]} transition-all duration-300`}>
+                <div 
+                  className="bg-gradient-to-br from-primary via-primary to-primary/80 rounded shadow-lg overflow-hidden transition-all duration-300"
+                  style={{ width: sizes.mobile.w, height: sizes.mobile.h }}
+                >
+                  <div className="h-2/3 bg-gradient-to-b from-white/30 to-white/10 flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-white/40 border border-white/60" />
+                  </div>
+                  <div className="h-1/3 bg-black/20" />
+                </div>
+              </div>
+            )}
+
+            {/* Home indicator */}
+            <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-10 h-1 bg-white/30 rounded-full" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

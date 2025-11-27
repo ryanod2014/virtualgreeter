@@ -52,7 +52,13 @@ interface AgentProfileData {
   loopVideoUrl: string | null;
 }
 
-export function useSignaling(agentId: string, profile?: AgentProfileData): UseSignalingReturn {
+interface UseSignalingOptions {
+  profile?: AgentProfileData;
+  accessToken?: string | null;
+}
+
+export function useSignaling(agentId: string, options?: UseSignalingOptions): UseSignalingReturn {
+  const { profile, accessToken } = options ?? {};
   const [isConnected, setIsConnected] = useState(false);
   const [incomingCall, setIncomingCall] = useState<CallIncomingPayload | null>(null);
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
@@ -69,27 +75,27 @@ export function useSignaling(agentId: string, profile?: AgentProfileData): UseSi
 
   useEffect(() => {
     let isMounted = true;
+    let reconnectCount = 0;
     
-    // Initialize socket connection
+    // Initialize socket connection with robust reconnection
     const socket: Socket<ServerToDashboardEvents, DashboardToServerEvents> = io(SIGNALING_SERVER, {
       transports: ["websocket", "polling"],
-      reconnectionAttempts: 5,
+      reconnection: true,
+      reconnectionAttempts: Infinity, // Never stop trying
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000, // Cap at 10 seconds
+      randomizationFactor: 0.5, // Add jitter to prevent thundering herd
+      timeout: 20000, // Connection timeout
     });
 
     socketRef.current = socket;
 
-    socket.on("connect", () => {
-      console.log("[Signaling] Connected to server, socket ID:", socket.id);
-      if (isMounted) {
-        setIsConnected(true);
-      }
-
-      // Login as agent
+    // Helper to login agent
+    const loginAgent = () => {
       console.log("[Signaling] Logging in as agent:", agentId, "with profile:", profile);
       socket.emit(SOCKET_EVENTS.AGENT_LOGIN, {
         agentId,
-        token: "demo-token", // TODO: Use real Supabase JWT
+        token: accessToken ?? "demo-token", // Use Supabase JWT when available
         profile: profile ?? {
           displayName: "Agent",
           avatarUrl: null,
@@ -99,13 +105,49 @@ export function useSignaling(agentId: string, profile?: AgentProfileData): UseSi
           loopVideoUrl: null,
         },
       });
+    };
+
+    socket.on("connect", () => {
+      console.log("[Signaling] Connected to server, socket ID:", socket.id, "reconnectCount:", reconnectCount);
+      if (isMounted) {
+        setIsConnected(true);
+      }
+
+      // Always login on connect (handles both initial connect and reconnect)
+      loginAgent();
+      
+      // Reset reconnect count on successful connection
+      reconnectCount = 0;
     });
 
-    socket.on("disconnect", () => {
-      console.log("[Signaling] Disconnected from server");
+    socket.on("disconnect", (reason) => {
+      console.log("[Signaling] Disconnected from server, reason:", reason);
       if (isMounted) {
         setIsConnected(false);
       }
+      
+      // If server closed the connection, we need to manually reconnect
+      if (reason === "io server disconnect") {
+        console.log("[Signaling] Server disconnected us, attempting manual reconnect...");
+        socket.connect();
+      }
+    });
+
+    socket.io.on("reconnect_attempt", (attempt) => {
+      reconnectCount = attempt;
+      console.log("[Signaling] Reconnection attempt:", attempt);
+    });
+
+    socket.io.on("reconnect", (attempt) => {
+      console.log("[Signaling] Reconnected after", attempt, "attempts");
+    });
+
+    socket.io.on("reconnect_error", (error) => {
+      console.error("[Signaling] Reconnection error:", error);
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("[Signaling] Connection error:", error.message);
     });
 
     socket.on(SOCKET_EVENTS.LOGIN_SUCCESS, (data) => {
@@ -191,7 +233,7 @@ export function useSignaling(agentId: string, profile?: AgentProfileData): UseSi
       socket.emit(SOCKET_EVENTS.AGENT_LOGOUT);
       socket.disconnect();
     };
-  }, [agentId]);
+  }, [agentId, accessToken]);
 
   const acceptCall = useCallback((requestId: string) => {
     socketRef.current?.emit(SOCKET_EVENTS.CALL_ACCEPT, { requestId });

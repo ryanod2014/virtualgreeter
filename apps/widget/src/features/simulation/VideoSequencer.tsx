@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "preact/hooks";
+import { VIDEO_TIMING } from "../../constants";
 
 interface VideoSequencerProps {
   /** Plays on loop while muted (before user interaction) */
@@ -13,25 +14,36 @@ interface VideoSequencerProps {
   isLive?: boolean;
   /** Whether audio was already unlocked by parent (from earlier user click) */
   audioUnlocked?: boolean;
+  /** Called when a video error occurs */
+  onError?: (error: string) => void;
 }
 
 type VideoState = "loading" | "wave" | "intro" | "loop" | "connecting" | "live" | "error";
 
 /**
  * VideoSequencer - Handles the 3-part video sequence
- * 
+ *
  * Flow:
  * 1. Wave video plays on loop (muted) until user interaction grants audio permission
  * 2. After user interaction, intro video plays once with audio
  * 3. Loop video plays forever after intro finishes
- * 
+ *
  * Key features:
  * - Triple buffering (three video tags) to prevent black flash on switch
  * - Starts muted for autoplay, unmutes on first user interaction
  * - Seamless transitions between all videos
  * - Looks like a live video feed (no play button overlay)
+ * - Error recovery with retry capability
  */
-export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLive, audioUnlocked = false }: VideoSequencerProps) {
+export function VideoSequencer({
+  waveUrl,
+  introUrl,
+  loopUrl,
+  isConnecting,
+  isLive,
+  audioUnlocked = false,
+  onError,
+}: VideoSequencerProps) {
   const [state, setState] = useState<VideoState>("loading");
   const [isMuted, setIsMuted] = useState(true);
   const [activeVideo, setActiveVideo] = useState<"wave" | "intro" | "loop">("wave");
@@ -39,31 +51,42 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
   const [introReady, setIntroReady] = useState(false);
   const [introCompleted, setIntroCompleted] = useState(false);
   const [introStartedAt, setIntroStartedAt] = useState<number | null>(null);
-  
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
   const waveVideoRef = useRef<HTMLVideoElement>(null);
   const introVideoRef = useRef<HTMLVideoElement>(null);
   const loopVideoRef = useRef<HTMLVideoElement>(null);
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Switch to loop video - ONLY after intro has completed (or no intro exists)
+  /**
+   * Clear any pending load timeout
+   */
+  const clearLoadTimeout = useCallback(() => {
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Switch to loop video - ONLY after intro has completed (or no intro exists)
+   */
   const switchToLoop = useCallback(() => {
     if (!loopVideoRef.current) return;
-    
+
     // Safety check: don't switch to loop if intro exists and hasn't completed
     if (introUrl && !introCompleted) {
       console.warn("[VideoSequencer] ⚠️ Cannot switch to loop - intro not completed yet");
       return;
     }
-    
+
     console.log("[VideoSequencer] 🔊 Switching to loop with audio");
-    
+
     // Pause other videos
-    if (waveVideoRef.current) {
-      waveVideoRef.current.pause();
-    }
-    if (introVideoRef.current) {
-      introVideoRef.current.pause();
-    }
-    
+    waveVideoRef.current?.pause();
+    introVideoRef.current?.pause();
+
     setState("loop");
     setActiveVideo("loop");
     setIsMuted(false);
@@ -71,64 +94,113 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
     loopVideoRef.current.currentTime = 0;
     loopVideoRef.current.play().catch((error) => {
       console.error("Loop autoplay failed:", error);
+      // Try muted playback as fallback
+      if (loopVideoRef.current) {
+        loopVideoRef.current.muted = true;
+        loopVideoRef.current.play().catch(() => {
+          setLoadError("Failed to play video");
+          setState("error");
+        });
+      }
     });
   }, [introUrl, introCompleted]);
 
-  // Switch to intro video with audio
+  /**
+   * Switch to intro video with audio
+   */
   const switchToIntro = useCallback(() => {
     if (!introVideoRef.current) {
       // No intro ref, mark as completed and go to loop
       setIntroCompleted(true);
       return;
     }
-    
+
     console.log("[VideoSequencer] 🔊 Switching to intro with audio");
-    
+
     // Pause wave video
-    if (waveVideoRef.current) {
-      waveVideoRef.current.pause();
-    }
-    
+    waveVideoRef.current?.pause();
+
     setState("intro");
     setActiveVideo("intro");
     setIsMuted(false);
-    setIntroStartedAt(Date.now()); // Track when intro started
+    setIntroStartedAt(Date.now());
     introVideoRef.current.muted = false;
     introVideoRef.current.currentTime = 0;
-    
-    // Play intro - do NOT fallback to loop on error, intro MUST complete
-    introVideoRef.current.play().catch((error) => {
-      console.error("Intro play failed, will retry:", error);
-      // Retry after a short delay instead of skipping to loop
-      setTimeout(() => {
-        if (introVideoRef.current && !introCompleted) {
-          introVideoRef.current.play().catch(e => {
-            console.error("Intro retry also failed:", e);
-          });
-        }
-      }, 100);
-    });
+
+    // Play intro with retry logic
+    const playIntro = () => {
+      introVideoRef.current?.play().catch((error) => {
+        console.error("Intro play failed:", error);
+        
+        // Retry after a short delay
+        setTimeout(() => {
+          if (introVideoRef.current && !introCompleted) {
+            introVideoRef.current.play().catch((e) => {
+              console.error("Intro retry also failed:", e);
+              // Skip to loop as last resort
+              setIntroCompleted(true);
+            });
+          }
+        }, VIDEO_TIMING.INTRO_RETRY_DELAY);
+      });
+    };
+
+    playIntro();
   }, [introCompleted]);
 
+  /**
+   * Handle video load error with retry
+   */
+  const handleVideoError = useCallback(
+    (videoType: string) => {
+      console.error(`[VideoSequencer] ${videoType} video failed to load`);
+      
+      if (retryCount < 2) {
+        // Retry loading
+        setRetryCount((c) => c + 1);
+        console.log(`[VideoSequencer] Retrying ${videoType} video (attempt ${retryCount + 1})`);
+      } else {
+        const errorMsg = `Failed to load ${videoType} video`;
+        setLoadError(errorMsg);
+        setState("error");
+        onError?.(errorMsg);
+      }
+    },
+    [retryCount, onError]
+  );
+
+  /**
+   * Retry loading videos after error
+   */
+  const handleRetry = useCallback(() => {
+    setRetryCount(0);
+    setLoadError(null);
+    setState("loading");
+    
+    // Re-trigger video loading
+    if (waveVideoRef.current && (waveUrl || introUrl)) {
+      waveVideoRef.current.load();
+      waveVideoRef.current.play().catch(() => {});
+    }
+  }, [waveUrl, introUrl]);
+
   // When audioUnlocked becomes true AND intro is ready, switch to intro with audio
-  // If there's an intro URL, ALWAYS wait for it - never skip to loop
   useEffect(() => {
     if (!audioUnlocked || hasStartedWithAudio) return;
-    
+
     // If there's an intro URL, wait for it to be ready
     if (introUrl) {
       if (introReady && introVideoRef.current) {
         setHasStartedWithAudio(true);
         switchToIntro();
       }
-      // If not ready yet, this effect will re-run when introReady becomes true
       return;
     }
-    
+
     // No intro URL - mark intro as "completed" (nothing to play) and go to loop
     if (loopUrl) {
       setHasStartedWithAudio(true);
-      setIntroCompleted(true); // No intro to play
+      setIntroCompleted(true);
     }
   }, [audioUnlocked, hasStartedWithAudio, introUrl, introReady, loopUrl, switchToIntro]);
 
@@ -139,37 +211,41 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
     }
   }, [introCompleted, loopUrl, switchToLoop]);
 
-  // Handle intro video end -> mark complete and switch to loop
-  // Only accept if intro actually played (not a spurious event)
+  /**
+   * Handle intro video end -> mark complete and switch to loop
+   * Only accept if intro actually played (not a spurious event)
+   */
   const handleIntroEnded = useCallback(() => {
     const introVideo = introVideoRef.current;
-    
+
     // Safety checks to prevent premature completion:
     // 1. Intro must have started (introStartedAt is set)
-    // 2. At least 500ms must have passed since start
+    // 2. At least MIN_PLAY_DURATION must have passed since start
     // 3. Video must be near the end (currentTime close to duration)
-    
+
     if (!introStartedAt) {
       console.warn("[VideoSequencer] ⚠️ Ignoring ended event - intro never started");
       return;
     }
-    
+
     const timeSinceStart = Date.now() - introStartedAt;
-    if (timeSinceStart < 500) {
-      console.warn("[VideoSequencer] ⚠️ Ignoring ended event - too soon (${timeSinceStart}ms)");
+    if (timeSinceStart < VIDEO_TIMING.INTRO_MIN_PLAY_DURATION) {
+      console.warn(`[VideoSequencer] ⚠️ Ignoring ended event - too soon (${timeSinceStart}ms)`);
       return;
     }
-    
+
     if (introVideo) {
       const duration = introVideo.duration;
       const currentTime = introVideo.currentTime;
-      // Allow some tolerance (within 0.5s of end)
-      if (duration > 0 && currentTime < duration - 0.5) {
-        console.warn(`[VideoSequencer] ⚠️ Ignoring ended event - video not at end (${currentTime}/${duration})`);
+      // Allow some tolerance (within END_DETECTION_TOLERANCE of end)
+      if (duration > 0 && currentTime < duration - VIDEO_TIMING.END_DETECTION_TOLERANCE) {
+        console.warn(
+          `[VideoSequencer] ⚠️ Ignoring ended event - video not at end (${currentTime}/${duration})`
+        );
         return;
       }
     }
-    
+
     console.log("[VideoSequencer] ✅ Intro video finished playing");
     setIntroCompleted(true);
   }, [introStartedAt]);
@@ -178,26 +254,34 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
   useEffect(() => {
     const introVideo = introVideoRef.current;
     if (!introUrl || !introVideo) return;
-    
+
     const handleCanPlay = () => {
       console.log("[VideoSequencer] ✅ Intro video ready to play");
       setIntroReady(true);
+      clearLoadTimeout();
     };
-    
+
+    const handleError = () => {
+      handleVideoError("intro");
+    };
+
     introVideo.addEventListener("canplaythrough", handleCanPlay);
+    introVideo.addEventListener("error", handleError);
     introVideo.src = introUrl;
     introVideo.load();
-    
+
     // Check if already ready (cached)
     if (introVideo.readyState >= 3) {
       setIntroReady(true);
     }
-    
+
     return () => {
       introVideo.removeEventListener("canplaythrough", handleCanPlay);
+      introVideo.removeEventListener("error", handleError);
     };
-  }, [introUrl]);
+  }, [introUrl, handleVideoError, clearLoadTimeout]);
 
+  // Preload loop video
   useEffect(() => {
     if (loopUrl && loopVideoRef.current) {
       loopVideoRef.current.src = loopUrl;
@@ -206,19 +290,23 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
   }, [loopUrl]);
 
   // Start playing wave video MUTED when URLs are available
-  // Will switch to intro with audio when audioUnlocked becomes true
   useEffect(() => {
     const videoUrl = waveUrl || introUrl;
     const videoRef = waveVideoRef.current;
-    
+
     if (!videoUrl || !videoRef) return;
-    
+
+    const handleError = () => {
+      handleVideoError("wave");
+    };
+
+    videoRef.addEventListener("error", handleError);
     videoRef.src = videoUrl;
-    videoRef.muted = true; // Must start muted for autoplay
-    videoRef.loop = true; // Loop until audio is unlocked
-    
+    videoRef.muted = true;
+    videoRef.loop = true;
+
     const playPromise = videoRef.play();
-    
+
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
@@ -230,13 +318,16 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
           setState("wave");
         });
     }
-  }, [waveUrl, introUrl]);
 
-  // Handle connecting state change (show "Connecting..." overlay on loop video)
+    return () => {
+      videoRef.removeEventListener("error", handleError);
+    };
+  }, [waveUrl, introUrl, handleVideoError]);
+
+  // Handle connecting state change
   useEffect(() => {
     if (isConnecting && !isLive) {
       setState("connecting");
-      // Keep the loop video playing in background during connecting
     }
   }, [isConnecting, isLive]);
 
@@ -245,11 +336,18 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
     if (isLive) {
       setState("live");
       // Pause all videos when going live
-      if (waveVideoRef.current) waveVideoRef.current.pause();
-      if (introVideoRef.current) introVideoRef.current.pause();
-      if (loopVideoRef.current) loopVideoRef.current.pause();
+      waveVideoRef.current?.pause();
+      introVideoRef.current?.pause();
+      loopVideoRef.current?.pause();
     }
   }, [isLive]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearLoadTimeout();
+    };
+  }, [clearLoadTimeout]);
 
   return (
     <div className="gg-video-container">
@@ -260,25 +358,22 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
         playsInline
         muted
         loop
-        onError={() => setState("error")}
       />
-      
+
       {/* Intro Video (plays once with audio after interaction) */}
       <video
         ref={introVideoRef}
         className={`gg-video ${activeVideo !== "intro" ? "gg-video-hidden" : ""}`}
         playsInline
         onEnded={handleIntroEnded}
-        onError={() => setState("error")}
       />
-      
+
       {/* Loop Video (loops forever after intro) */}
       <video
         ref={loopVideoRef}
         className={`gg-video ${activeVideo !== "loop" ? "gg-video-hidden" : ""}`}
         playsInline
         loop
-        onError={() => setState("error")}
       />
 
       {/* Live Badge */}
@@ -293,7 +388,14 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
       {isMuted && state !== "loading" && state !== "error" && (
         <div className="gg-muted-overlay">
           <div className="gg-muted-icon-wrapper">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
               <line x1="23" y1="9" x2="17" y2="15" />
               <line x1="17" y1="9" x2="23" y2="15" />
@@ -315,7 +417,14 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
         <div className="gg-connecting-overlay">
           <div className="gg-connecting-content">
             <div className="gg-connecting-spinner">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
                 <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round">
                   <animateTransform
@@ -335,14 +444,41 @@ export function VideoSequencer({ waveUrl, introUrl, loopUrl, isConnecting, isLiv
         </div>
       )}
 
-      {/* Error state */}
+      {/* Error state with retry button */}
       {state === "error" && (
         <div className="gg-video-error">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="15" y1="9" x2="9" y2="15" />
-            <line x1="9" y1="9" x2="15" y2="15" />
-          </svg>
+          <div style={{ textAlign: "center" }}>
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+            {loadError && (
+              <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "8px" }}>{loadError}</p>
+            )}
+            <button
+              onClick={handleRetry}
+              style={{
+                marginTop: "12px",
+                padding: "8px 16px",
+                background: "#6366f1",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontSize: "13px",
+              }}
+            >
+              Retry
+            </button>
+          </div>
         </div>
       )}
     </div>

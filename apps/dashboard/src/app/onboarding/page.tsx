@@ -2,18 +2,51 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ghost, Upload, Check, ArrowRight, Loader2 } from "lucide-react";
+import { Ghost, Upload, Check, ArrowRight, Loader2, Video, Shield, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-type Step = "welcome" | "videos" | "complete";
+type Step = "welcome" | "role-choice" | "videos" | "complete";
 
 export default function OnboardingPage() {
   const [step, setStep] = useState<Step>("welcome");
   const [introVideo, setIntroVideo] = useState<File | null>(null);
   const [loopVideo, setLoopVideo] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
+  const [activateError, setActivateError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
+
+  // Handle "I'll take calls" choice - activate agent profile
+  // Note: First seat is included, so no billing charge needed for founding admin
+  const handleBecomeAgent = async () => {
+    setIsActivating(true);
+    setActivateError(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Activate agent profile (founding admin uses their included seat)
+      await supabase
+        .from("agent_profiles")
+        .update({ is_active: true })
+        .eq("user_id", user.id);
+
+      // Continue to video setup
+      setStep("videos");
+    } catch (error) {
+      console.error("Error activating as agent:", error);
+      setActivateError(error instanceof Error ? error.message : "Failed to activate. Please try again.");
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  // Handle admin-only choice - just go to admin dashboard
+  // (Agent profile is already inactive by default now)
+  const handleAdminOnly = () => {
+    router.push("/admin");
+  };
 
   const handleVideoUpload = async () => {
     if (!introVideo || !loopVideo) return;
@@ -96,9 +129,11 @@ export default function OnboardingPage() {
         {/* Progress */}
         <div className="flex items-center justify-center gap-4 mb-8">
           <ProgressDot active={step === "welcome"} completed={step !== "welcome"} />
-          <div className="w-12 h-0.5 bg-border" />
+          <div className="w-8 h-0.5 bg-border" />
+          <ProgressDot active={step === "role-choice"} completed={step === "videos" || step === "complete"} />
+          <div className="w-8 h-0.5 bg-border" />
           <ProgressDot active={step === "videos"} completed={step === "complete"} />
-          <div className="w-12 h-0.5 bg-border" />
+          <div className="w-8 h-0.5 bg-border" />
           <ProgressDot active={step === "complete"} completed={false} />
         </div>
 
@@ -112,12 +147,71 @@ export default function OnboardingPage() {
                 simulated live presence.
               </p>
               <button
-                onClick={() => setStep("videos")}
+                onClick={() => setStep("role-choice")}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
               >
                 Get Started
                 <ArrowRight className="w-5 h-5" />
               </button>
+            </div>
+          )}
+
+          {step === "role-choice" && (
+            <div className="text-center">
+              <h1 className="text-2xl font-bold mb-2">One quick question...</h1>
+              <p className="text-muted-foreground mb-8">
+                Will you be taking calls yourself, or just managing your team?
+              </p>
+
+              {activateError && (
+                <div className="mb-6 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm max-w-lg mx-auto">
+                  {activateError}
+                </div>
+              )}
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto mb-8">
+                <button
+                  onClick={handleBecomeAgent}
+                  disabled={isActivating}
+                  className="p-6 rounded-xl border-2 border-border hover:border-primary transition-all text-left group disabled:opacity-50"
+                >
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                    <Phone className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="font-semibold mb-1">
+                    {isActivating ? "Setting up..." : "I'll take calls"}
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Set up your videos and start greeting visitors yourself
+                  </p>
+                  <div className="text-xs text-primary font-medium flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    Uses your included seat ($297/mo)
+                  </div>
+                </button>
+                
+                <button
+                  onClick={handleAdminOnly}
+                  disabled={isActivating}
+                  className="p-6 rounded-xl border-2 border-border hover:border-primary transition-all text-left group disabled:opacity-50"
+                >
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4 group-hover:bg-muted/80 transition-colors">
+                    <Shield className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <div className="font-semibold mb-1">Admin only</div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Manage your team, sites, and view analytics
+                  </p>
+                  <div className="text-xs text-primary font-medium flex items-center gap-1">
+                    <Video className="w-3 h-3" />
+                    Invite an agent ($297/mo)
+                  </div>
+                </button>
+              </div>
+              
+              <p className="text-xs text-muted-foreground">
+                You can always change this later from your dashboard
+              </p>
             </div>
           )}
 

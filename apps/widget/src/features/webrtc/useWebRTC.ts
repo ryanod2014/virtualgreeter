@@ -2,11 +2,13 @@ import { useState, useEffect, useRef, useCallback } from "preact/hooks";
 import type { Socket } from "socket.io-client";
 import type { ServerToWidgetEvents, WidgetToServerEvents } from "@ghost-greeter/domain";
 import { SOCKET_EVENTS } from "@ghost-greeter/domain";
+import { CONNECTION_TIMING, ERROR_MESSAGES } from "../../constants";
 
 interface UseWebRTCOptions {
   socket: Socket<ServerToWidgetEvents, WidgetToServerEvents> | null;
   agentId: string | null;
   isCallAccepted: boolean;
+  onConnectionTimeout?: () => void;
 }
 
 interface UseWebRTCReturn {
@@ -20,6 +22,7 @@ interface UseWebRTCReturn {
   endCall: () => void;
   startScreenShare: () => Promise<boolean>;
   stopScreenShare: () => void;
+  retryConnection: () => void;
 }
 
 const ICE_SERVERS = [
@@ -34,6 +37,7 @@ export function useWebRTC({
   socket,
   agentId,
   isCallAccepted,
+  onConnectionTimeout,
 }: UseWebRTCOptions): UseWebRTCReturn {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -49,24 +53,87 @@ export function useWebRTC({
   const screenSendersRef = useRef<RTCRtpSender[]>([]);
   const pendingSignalsRef = useRef<SignalData[]>([]);
   const isInitializingRef = useRef(false);
+  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isUnmountingRef = useRef(false);
 
-  // Clean up function
+  // Store options in ref to avoid stale closures
+  const onConnectionTimeoutRef = useRef(onConnectionTimeout);
+  onConnectionTimeoutRef.current = onConnectionTimeout;
+
+  /**
+   * Clear any pending connection timeout
+   */
+  const clearConnectionTimeout = useCallback(() => {
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Start connection timeout timer
+   */
+  const startConnectionTimeout = useCallback(() => {
+    clearConnectionTimeout();
+    
+    connectionTimeoutRef.current = setTimeout(() => {
+      if (!isUnmountingRef.current && isConnecting && !isConnected) {
+        console.error("[WebRTC] Connection timeout - no response from agent");
+        setError(ERROR_MESSAGES.WEBRTC_FAILED);
+        setIsConnecting(false);
+        onConnectionTimeoutRef.current?.();
+      }
+    }, CONNECTION_TIMING.WEBRTC_CONNECTION_TIMEOUT);
+  }, [clearConnectionTimeout, isConnecting, isConnected]);
+
+  /**
+   * Stop all tracks in a media stream safely
+   */
+  const stopStreamTracks = useCallback((stream: MediaStream | null) => {
+    if (stream) {
+      stream.getTracks().forEach((track) => {
+        track.stop();
+        stream.removeTrack(track);
+      });
+    }
+  }, []);
+
+  /**
+   * Clean up all resources
+   */
   const cleanup = useCallback(() => {
+    clearConnectionTimeout();
+
+    // Close peer connection
     if (peerRef.current) {
-      peerRef.current.close();
+      // Remove event handlers before closing to prevent spurious events
+      peerRef.current.ontrack = null;
+      peerRef.current.onicecandidate = null;
+      peerRef.current.onconnectionstatechange = null;
+      peerRef.current.oniceconnectionstatechange = null;
+      
+      try {
+        peerRef.current.close();
+      } catch (e) {
+        // Ignore errors when closing already-closed connection
+      }
       peerRef.current = null;
     }
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
-      localStreamRef.current = null;
-    }
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach((track) => track.stop());
-      screenStreamRef.current = null;
-    }
+
+    // Stop local stream
+    stopStreamTracks(localStreamRef.current);
+    localStreamRef.current = null;
+
+    // Stop screen stream
+    stopStreamTracks(screenStreamRef.current);
+    screenStreamRef.current = null;
+
+    // Clear pending signals and refs
     screenSendersRef.current = [];
     pendingSignalsRef.current = [];
     isInitializingRef.current = false;
+
+    // Reset state
     setLocalStream(null);
     setRemoteStream(null);
     setScreenStream(null);
@@ -74,19 +141,21 @@ export function useWebRTC({
     setIsConnected(false);
     setIsScreenSharing(false);
     setError(null);
-  }, []);
+  }, [clearConnectionTimeout, stopStreamTracks]);
 
-  // Process a signal (offer or ICE candidate)
+  /**
+   * Process a signal (offer or ICE candidate) from the agent
+   */
   const processSignal = useCallback(async (pc: RTCPeerConnection, signal: SignalData) => {
     try {
       if (signal.type === "offer") {
         console.log("[WebRTC] Processing offer from agent");
         await pc.setRemoteDescription(new RTCSessionDescription(signal));
-        
+
         // Create and send answer
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        
+
         if (socket && agentId) {
           socket.emit(SOCKET_EVENTS.WEBRTC_SIGNAL, {
             targetId: agentId,
@@ -100,10 +169,16 @@ export function useWebRTC({
       }
     } catch (err) {
       console.error("[WebRTC] Error processing signal:", err);
+      // Don't set error state for ICE candidate failures - they're often transient
+      if (signal.type === "offer") {
+        setError(ERROR_MESSAGES.WEBRTC_FAILED);
+      }
     }
   }, [socket, agentId]);
 
-  // Initialize call (visitor is NOT the initiator - responds to agent)
+  /**
+   * Initialize the WebRTC call (visitor is NOT the initiator - responds to agent)
+   */
   const initializeCall = useCallback(async () => {
     if (!socket || !agentId || isInitializingRef.current) {
       return;
@@ -112,6 +187,9 @@ export function useWebRTC({
     isInitializingRef.current = true;
     setIsConnecting(true);
     setError(null);
+
+    // Start connection timeout
+    startConnectionTimeout();
 
     try {
       // Get local media with error handling
@@ -122,15 +200,21 @@ export function useWebRTC({
           audio: true,
         });
       } catch (mediaError) {
-        // Handle camera/mic permission errors
+        clearConnectionTimeout();
         const err = mediaError as DOMException;
+        
+        let errorMessage: string;
         if (err.name === "NotAllowedError") {
-          setError("Camera/microphone permission denied. Please allow access and try again.");
+          errorMessage = ERROR_MESSAGES.CAMERA_DENIED;
         } else if (err.name === "NotFoundError") {
-          setError("No camera or microphone found on this device.");
+          errorMessage = ERROR_MESSAGES.NO_CAMERA;
+        } else if (err.name === "NotReadableError") {
+          errorMessage = "Camera or microphone is being used by another application.";
         } else {
-          setError(`Media error: ${err.message}`);
+          errorMessage = `${ERROR_MESSAGES.MEDIA_ERROR} ${err.message}`;
         }
+        
+        setError(errorMessage);
         setIsConnecting(false);
         isInitializingRef.current = false;
         return;
@@ -150,11 +234,12 @@ export function useWebRTC({
 
       // Handle remote stream
       pc.ontrack = (event) => {
-        console.log("[WebRTC] Received remote track");
+        console.log("[WebRTC] Received remote track:", event.track.kind);
         if (event.streams[0]) {
           setRemoteStream(event.streams[0]);
           setIsConnected(true);
           setIsConnecting(false);
+          clearConnectionTimeout();
         }
       };
 
@@ -169,15 +254,42 @@ export function useWebRTC({
         }
       };
 
-      // Handle connection state
+      // Handle connection state changes
       pc.onconnectionstatechange = () => {
-        console.log("[WebRTC] Connection state:", pc.connectionState);
-        if (pc.connectionState === "connected") {
-          setIsConnected(true);
+        const state = pc.connectionState;
+        console.log("[WebRTC] Connection state:", state);
+        
+        switch (state) {
+          case "connected":
+            setIsConnected(true);
+            setIsConnecting(false);
+            clearConnectionTimeout();
+            break;
+          case "disconnected":
+            // Temporary disconnection - might recover
+            console.warn("[WebRTC] Connection temporarily disconnected");
+            break;
+          case "failed":
+            setError(ERROR_MESSAGES.WEBRTC_FAILED);
+            setIsConnecting(false);
+            clearConnectionTimeout();
+            break;
+          case "closed":
+            // Connection was closed intentionally
+            break;
+        }
+      };
+
+      // Handle ICE connection state for more granular feedback
+      pc.oniceconnectionstatechange = () => {
+        const state = pc.iceConnectionState;
+        console.log("[WebRTC] ICE connection state:", state);
+        
+        if (state === "failed") {
+          // ICE failed - connection won't work
+          setError(ERROR_MESSAGES.CONNECTION_FAILED);
           setIsConnecting(false);
-        } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-          setError("Connection failed. Please try again.");
-          setIsConnecting(false);
+          clearConnectionTimeout();
         }
       };
 
@@ -189,14 +301,27 @@ export function useWebRTC({
         }
         pendingSignalsRef.current = [];
       }
-
     } catch (err) {
       console.error("[WebRTC] Failed to initialize:", err);
-      setError(err instanceof Error ? err.message : "Failed to initialize call");
+      setError(err instanceof Error ? err.message : ERROR_MESSAGES.WEBRTC_FAILED);
       setIsConnecting(false);
       isInitializingRef.current = false;
+      clearConnectionTimeout();
     }
-  }, [socket, agentId, processSignal]);
+  }, [socket, agentId, processSignal, startConnectionTimeout, clearConnectionTimeout]);
+
+  /**
+   * Retry connection after failure
+   */
+  const retryConnection = useCallback(() => {
+    cleanup();
+    // Small delay before retrying
+    setTimeout(() => {
+      if (isCallAccepted && agentId && !isUnmountingRef.current) {
+        initializeCall();
+      }
+    }, 500);
+  }, [cleanup, isCallAccepted, agentId, initializeCall]);
 
   // Listen for incoming signals from agent
   useEffect(() => {
@@ -204,7 +329,7 @@ export function useWebRTC({
 
     const handleSignal = async (data: { targetId: string; signal: SignalData }) => {
       console.log("[WebRTC] Received signal from agent, type:", data.signal.type);
-      
+
       if (peerRef.current) {
         await processSignal(peerRef.current, data.signal);
       } else {
@@ -228,14 +353,13 @@ export function useWebRTC({
     }
   }, [isCallAccepted, agentId, initializeCall]);
 
-  // Cleanup when call ends - reset all state even if peer was never created
+  // Cleanup when call ends
   useEffect(() => {
     if (!isCallAccepted) {
-      // Always reset the initializing flag when call is no longer accepted
-      // This ensures we can start a new call even if the previous one didn't fully initialize
+      // Reset initializing flag when call is no longer accepted
       isInitializingRef.current = false;
       pendingSignalsRef.current = [];
-      
+
       // Only run full cleanup if we have an active peer connection
       if (peerRef.current) {
         cleanup();
@@ -246,15 +370,21 @@ export function useWebRTC({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      isUnmountingRef.current = true;
       cleanup();
     };
   }, [cleanup]);
 
+  /**
+   * End the call and clean up
+   */
   const endCall = useCallback(() => {
     cleanup();
   }, [cleanup]);
 
-  // Start screen sharing
+  /**
+   * Start screen sharing
+   */
   const startScreenShare = useCallback(async (): Promise<boolean> => {
     if (!peerRef.current || isScreenSharing) {
       return false;
@@ -263,9 +393,7 @@ export function useWebRTC({
     try {
       // Request screen share
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          cursor: "always",
-        },
+        video: true,
         audio: false,
       });
 
@@ -304,7 +432,9 @@ export function useWebRTC({
     }
   }, [socket, agentId, isScreenSharing]);
 
-  // Stop screen sharing
+  /**
+   * Stop screen sharing
+   */
   const stopScreenShare = useCallback(() => {
     if (!peerRef.current || !isScreenSharing) {
       return;
@@ -312,15 +442,17 @@ export function useWebRTC({
 
     // Remove screen share tracks from peer connection
     screenSendersRef.current.forEach((sender) => {
-      peerRef.current?.removeTrack(sender);
+      try {
+        peerRef.current?.removeTrack(sender);
+      } catch (e) {
+        // Track may already be removed
+      }
     });
     screenSendersRef.current = [];
 
     // Stop the screen stream
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach((track) => track.stop());
-      screenStreamRef.current = null;
-    }
+    stopStreamTracks(screenStreamRef.current);
+    screenStreamRef.current = null;
 
     setScreenStream(null);
     setIsScreenSharing(false);
@@ -335,9 +467,11 @@ export function useWebRTC({
           signal: offer,
         });
         console.log("[WebRTC] Sent renegotiation offer after stopping screen share");
+      }).catch((err) => {
+        console.error("[WebRTC] Failed to renegotiate after stopping screen share:", err);
       });
     }
-  }, [socket, agentId, isScreenSharing]);
+  }, [socket, agentId, isScreenSharing, stopStreamTracks]);
 
   return {
     localStream,
@@ -350,5 +484,6 @@ export function useWebRTC({
     endCall,
     startScreenShare,
     stopScreenShare,
+    retryConnection,
   };
 }

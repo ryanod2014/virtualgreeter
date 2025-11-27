@@ -33,6 +33,12 @@ import {
   getCallLogId,
 } from "../../lib/call-logger.js";
 import { verifyAgentToken, fetchAgentPoolMemberships } from "../../lib/auth.js";
+import {
+  startSession,
+  endSession,
+  recordStatusChange,
+} from "../../lib/session-tracker.js";
+import { recordEmbedVerification } from "../../lib/embed-tracker.js";
 
 // Track RNA (Ring-No-Answer) timeouts
 const rnaTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -57,6 +63,11 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
 
     socket.on(SOCKET_EVENTS.VISITOR_JOIN, (data: VisitorJoinPayload) => {
       console.log("[Socket] 👤 VISITOR_JOIN received:", { orgId: data.orgId, pageUrl: data.pageUrl });
+      
+      // Record embed verification (fire-and-forget, non-blocking)
+      recordEmbedVerification(data.orgId, data.pageUrl).catch(() => {
+        // Silently ignore - verification is best-effort
+      });
       
       const visitorId = data.visitorId ?? `visitor_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
       
@@ -270,6 +281,11 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         status: agentState.profile.status,
         poolCount: poolIds.length,
       });
+
+      // Start activity session tracking
+      if (verification.organizationId) {
+        await startSession(data.agentId, verification.organizationId);
+      }
       
       socket.emit(SOCKET_EVENTS.LOGIN_SUCCESS, { agentState });
       
@@ -301,10 +317,13 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       }
     });
 
-    socket.on(SOCKET_EVENTS.AGENT_STATUS, (data: AgentStatusPayload) => {
+    socket.on(SOCKET_EVENTS.AGENT_STATUS, async (data: AgentStatusPayload) => {
       const agent = poolManager.getAgentBySocketId(socket.id);
       if (agent) {
         poolManager.updateAgentStatus(agent.agentId, data.status);
+        
+        // Track status change for activity reporting
+        await recordStatusChange(agent.agentId, data.status, "manual");
         
         // If agent goes offline, reassign their visitors
         if (data.status === "offline") {
@@ -315,11 +334,14 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     });
 
     // Agent manually sets themselves as away (e.g., from idle timer)
-    socket.on(SOCKET_EVENTS.AGENT_AWAY, (data: AgentAwayPayload) => {
+    socket.on(SOCKET_EVENTS.AGENT_AWAY, async (data: AgentAwayPayload) => {
       const agent = poolManager.getAgentBySocketId(socket.id);
       if (agent) {
         console.log(`[Socket] Agent ${agent.agentId} marked as away, reason: ${data.reason}`);
         poolManager.updateAgentStatus(agent.agentId, "away");
+        
+        // Track away status for activity reporting
+        await recordStatusChange(agent.agentId, "away", data.reason);
         
         // Cancel any pending call requests for this agent
         const pendingRequests = poolManager.getWaitingRequestsForAgent(agent.agentId);
@@ -369,11 +391,14 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     });
 
     // Agent returns from away
-    socket.on(SOCKET_EVENTS.AGENT_BACK, () => {
+    socket.on(SOCKET_EVENTS.AGENT_BACK, async () => {
       const agent = poolManager.getAgentBySocketId(socket.id);
       if (agent) {
         console.log(`[Socket] Agent ${agent.agentId} is back from away`);
         poolManager.updateAgentStatus(agent.agentId, "idle");
+        
+        // Track status change for activity reporting
+        await recordStatusChange(agent.agentId, "idle", "back_from_away");
         
         // Check for waiting visitors
         const waitingRequest = poolManager.getNextWaitingRequest(agent.agentId);
@@ -395,7 +420,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       }
     });
 
-    socket.on(SOCKET_EVENTS.CALL_ACCEPT, (data: CallAcceptPayload) => {
+    socket.on(SOCKET_EVENTS.CALL_ACCEPT, async (data: CallAcceptPayload) => {
       // Clear RNA timeout since agent answered
       clearRNATimeout(data.requestId);
 
@@ -422,6 +447,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
 
       // Mark call as accepted in database
       markCallAccepted(data.requestId, activeCall.callId);
+      
+      // Track in_call status for activity reporting
+      await recordStatusChange(request.agentId, "in_call", "call_started");
 
       // Notify the visitor
       const visitor = poolManager.getVisitor(request.visitorId);
@@ -493,13 +521,16 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       }
     });
 
-    socket.on(SOCKET_EVENTS.CALL_END, (data: CallEndPayload) => {
+    socket.on(SOCKET_EVENTS.CALL_END, async (data: CallEndPayload) => {
       const call = poolManager.endCall(data.callId);
       if (call) {
         console.log("[Socket] Call ended:", data.callId, "by socket:", socket.id);
         
         // Mark call as completed in database
         markCallEnded(data.callId);
+        
+        // Track idle status for activity reporting (call ended)
+        await recordStatusChange(call.agentId, "idle", "call_ended");
         
         // Determine who ended the call
         const agent = poolManager.getAgentBySocketId(socket.id);
@@ -671,12 +702,15 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     // DISCONNECT
     // -------------------------------------------------------------------------
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       console.log(`[Socket] Disconnected: ${socket.id}`);
 
       // Check if this was an agent
       const agent = poolManager.getAgentBySocketId(socket.id);
       if (agent) {
+        // End the activity session
+        await endSession(agent.agentId, "disconnect");
+        
         // End any active call
         const activeCall = poolManager.getActiveCallByAgentId(agent.agentId);
         if (activeCall) {
@@ -733,6 +767,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         if (activeCall) {
           // Mark call as completed in database
           markCallEnded(activeCall.callId);
+          
+          // Track agent going back to idle for activity reporting
+          await recordStatusChange(activeCall.agentId, "idle", "call_ended");
           
           poolManager.endCall(activeCall.callId);
           const callAgent = poolManager.getAgent(activeCall.agentId);
@@ -803,6 +840,9 @@ function startRNATimeout(
     // Mark agent as away (they walked away from their desk)
     console.log(`[RNA] Marking agent ${agentId} as away due to RNA`);
     poolManager.updateAgentStatus(agentId, "away");
+    
+    // Track away status for activity reporting (fire and forget)
+    recordStatusChange(agentId, "away", "ring_no_answer");
 
     // Notify the agent they've been marked away
     const agentSocket = io.sockets.sockets.get(agent.socketId);

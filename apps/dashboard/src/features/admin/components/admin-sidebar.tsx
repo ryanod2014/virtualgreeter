@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -12,22 +13,56 @@ import {
   Video,
   LogOut,
   Code,
-  FileText,
   Palette,
+  ChevronDown,
+  Check,
 } from "lucide-react";
-import type { User, Organization } from "@ghost-greeter/domain/database.types";
+import type { User, Organization, AgentProfile } from "@ghost-greeter/domain/database.types";
+import type { ActiveCall } from "@ghost-greeter/domain";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 interface AdminSidebarProps {
   user: User;
   organization: Organization;
+  agentProfile?: AgentProfile | null;
+  isConnected?: boolean;
+  isReconnecting?: boolean;
+  isMarkedAway?: boolean;
+  activeCall?: ActiveCall | null;
+  onSetAway?: () => void;
+  onSetBack?: () => void;
 }
 
-export function AdminSidebar({ user, organization }: AdminSidebarProps) {
+export function AdminSidebar({ 
+  user, 
+  organization,
+  agentProfile,
+  isConnected = false,
+  isReconnecting = false,
+  isMarkedAway = false,
+  activeCall = null,
+  onSetAway,
+  onSetBack,
+}: AdminSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  
+  // Status dropdown
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close status dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
+        setStatusDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -59,6 +94,87 @@ export function AdminSidebar({ user, organization }: AdminSidebarProps) {
               </div>
             </div>
           </div>
+          
+          {/* Status indicator - prominently placed under org */}
+          {isConnected && !activeCall && onSetAway && onSetBack && (
+            <div className="relative" ref={statusDropdownRef}>
+              <button
+                onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border transition-all ${
+                  isMarkedAway
+                    ? "bg-muted/50 border-border hover:bg-muted"
+                    : "bg-green-500/10 border-green-500/30 hover:bg-green-500/20"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${isMarkedAway ? "bg-muted-foreground" : "bg-green-500 animate-pulse"}`} />
+                  <span className={`text-sm font-medium ${isMarkedAway ? "text-muted-foreground" : "text-green-500"}`}>
+                    {isMarkedAway ? "Away" : "Active"}
+                  </span>
+                </div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${statusDropdownOpen ? "rotate-180" : ""} ${isMarkedAway ? "text-muted-foreground" : "text-green-500"}`} />
+              </button>
+              
+              {/* Dropdown Menu */}
+              {statusDropdownOpen && (
+                <div className="absolute left-0 right-0 mt-1 rounded-lg border border-border bg-background shadow-lg z-50 overflow-hidden">
+                  <div className="p-1">
+                    <button
+                      onClick={() => {
+                        if (isMarkedAway) onSetBack();
+                        setStatusDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                        !isMarkedAway 
+                          ? "bg-green-500/10 text-green-500" 
+                          : "text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-green-500" />
+                      <span className="flex-1 text-left">Active</span>
+                      {!isMarkedAway && <Check className="w-4 h-4" />}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!isMarkedAway) onSetAway();
+                        setStatusDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                        isMarkedAway 
+                          ? "bg-muted text-muted-foreground" 
+                          : "text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+                      <span className="flex-1 text-left">Away</span>
+                      {isMarkedAway && <Check className="w-4 h-4 text-muted-foreground" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {activeCall && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/30">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+              </span>
+              <span className="text-sm font-medium text-primary">On Call</span>
+            </div>
+          )}
+          {isReconnecting && onSetAway && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-sm text-amber-500">Reconnecting...</span>
+            </div>
+          )}
+          {!isConnected && !isReconnecting && onSetAway && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border">
+              <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse" />
+              <span className="text-sm text-muted-foreground">Connecting...</span>
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
@@ -78,11 +194,8 @@ export function AdminSidebar({ user, organization }: AdminSidebarProps) {
           <NavLink href="/admin/settings/dispositions" icon={Palette} pathname={pathname}>
             Dispositions
           </NavLink>
-          <NavLink href="/admin/analytics" icon={BarChart3} pathname={pathname}>
-            Analytics
-          </NavLink>
-          <NavLink href="/admin/call-logs" icon={FileText} pathname={pathname}>
-            Call Logs
+          <NavLink href="/admin/calls" icon={BarChart3} pathname={pathname}>
+            Calls
           </NavLink>
           
           <div className="pt-4 pb-2">

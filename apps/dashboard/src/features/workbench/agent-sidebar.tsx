@@ -24,6 +24,7 @@ interface AgentSidebarProps {
   agentProfile: AgentProfile | null;
   isAdmin: boolean;
   isConnected?: boolean;
+  isReconnecting?: boolean;
   isMarkedAway?: boolean;
   activeCall?: ActiveCall | null;
   onSetAway?: () => void;
@@ -36,6 +37,7 @@ export function AgentSidebar({
   agentProfile, 
   isAdmin,
   isConnected = false,
+  isReconnecting = false,
   isMarkedAway = false,
   activeCall = null,
   onSetAway,
@@ -159,7 +161,13 @@ export function AgentSidebar({
               <span className="text-sm font-medium text-primary">On Call</span>
             </div>
           )}
-          {!isConnected && onSetAway && (
+          {isReconnecting && onSetAway && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-sm text-amber-500">Reconnecting...</span>
+            </div>
+          )}
+          {!isConnected && !isReconnecting && onSetAway && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border">
               <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse" />
               <span className="text-sm text-muted-foreground">Connecting...</span>

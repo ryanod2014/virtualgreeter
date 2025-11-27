@@ -36,6 +36,57 @@ export interface RecordingSettings {
   retention_days: number;
 }
 
+// Widget settings for organization (defaults) and pools (overrides)
+export type WidgetSize = "small" | "medium" | "large";
+export type WidgetPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left" | "center";
+export type WidgetDevices = "all" | "desktop" | "mobile";
+
+export interface WidgetSettings {
+  size: WidgetSize;
+  position: WidgetPosition;
+  devices: WidgetDevices;
+  trigger_delay: number; // seconds before widget appears
+}
+
+// Facebook integration settings for organization
+export interface FacebookSettings {
+  pixel_id: string | null;
+  capi_access_token: string | null;
+  test_event_code: string | null;
+  enabled: boolean;
+  pixel_base_code: string | null; // Full pixel init code for client-side
+  dataset_id: string | null; // For CAPI (usually same as pixel_id)
+}
+
+// Facebook standard event names
+export type FacebookEventName = 
+  | "Lead"
+  | "Purchase"
+  | "CompleteRegistration"
+  | "Contact"
+  | "Schedule"
+  | "SubmitApplication"
+  | "Subscribe"
+  | "ViewContent"
+  | "InitiateCheckout"
+  | "AddToCart"
+  | "Search"
+  | "FindLocation"
+  | "StartTrial"
+  | "CustomEvent";
+
+// Custom parameters for Facebook events
+export interface FacebookEventParams {
+  currency?: string;
+  value?: number;
+  content_name?: string;
+  content_category?: string;
+  content_ids?: string[];
+  content_type?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
 export interface RuleCondition {
   type: RuleConditionType;
   matchType: RuleMatchType;
@@ -67,6 +118,8 @@ export interface Database {
           max_agents: number;
           max_sites: number;
           recording_settings: RecordingSettings;
+          facebook_settings: FacebookSettings;
+          default_widget_settings: WidgetSettings;
           // Stripe billing fields
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
@@ -174,6 +227,10 @@ export interface Database {
           is_active: boolean;
           value: number | null;
           display_order: number;
+          // Facebook event fields
+          fb_event_name: string | null;
+          fb_event_enabled: boolean;
+          fb_event_params: FacebookEventParams | null;
           created_at: string;
           updated_at: string;
         };
@@ -193,6 +250,7 @@ export interface Database {
           example_loop_video_url: string | null;
           is_default: boolean;
           is_catch_all: boolean;
+          widget_settings: WidgetSettings | null; // null = use org defaults
           created_at: string;
           updated_at: string;
         };
@@ -282,6 +340,38 @@ export interface Database {
         Insert: Omit<Database["public"]["Tables"]["pause_history"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["pause_history"]["Insert"]>;
       };
+
+      agent_sessions: {
+        Row: {
+          id: string;
+          agent_id: string;
+          organization_id: string;
+          started_at: string;
+          ended_at: string | null;
+          duration_seconds: number | null;
+          idle_seconds: number;
+          in_call_seconds: number;
+          away_seconds: number;
+          ended_reason: "logout" | "disconnect" | "idle_timeout" | "server_restart" | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["agent_sessions"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["agent_sessions"]["Insert"]>;
+      };
+
+      agent_status_changes: {
+        Row: {
+          id: string;
+          session_id: string;
+          agent_id: string;
+          from_status: string;
+          to_status: "idle" | "in_call" | "away" | "offline";
+          changed_at: string;
+          reason: string | null;
+        };
+        Insert: Omit<Database["public"]["Tables"]["agent_status_changes"]["Row"], "id">;
+        Update: Partial<Database["public"]["Tables"]["agent_status_changes"]["Insert"]>;
+      };
     };
   };
 }
@@ -339,6 +429,12 @@ export type CancellationFeedbackInsert = Database["public"]["Tables"]["cancellat
 
 export type PauseHistory = Database["public"]["Tables"]["pause_history"]["Row"];
 export type PauseHistoryInsert = Database["public"]["Tables"]["pause_history"]["Insert"];
+
+export type AgentSession = Database["public"]["Tables"]["agent_sessions"]["Row"];
+export type AgentSessionInsert = Database["public"]["Tables"]["agent_sessions"]["Insert"];
+
+export type AgentStatusChange = Database["public"]["Tables"]["agent_status_changes"]["Row"];
+export type AgentStatusChangeInsert = Database["public"]["Tables"]["agent_status_changes"]["Insert"];
 
 // ----------------------------------------------------------------------------
 // AUTH SESSION TYPES

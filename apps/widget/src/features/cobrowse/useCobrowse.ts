@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from "preact/hooks";
 import type { Socket } from "socket.io-client";
 import type { ServerToWidgetEvents, WidgetToServerEvents } from "@ghost-greeter/domain";
 import { SOCKET_EVENTS } from "@ghost-greeter/domain";
+import { COBROWSE_TIMING } from "../../constants";
 
 interface UseCobrowseOptions {
   socket: Socket<ServerToWidgetEvents, WidgetToServerEvents> | null;
@@ -10,62 +11,85 @@ interface UseCobrowseOptions {
 
 /**
  * useCobrowse - Captures DOM, mouse position, and scroll for co-browsing
- * 
+ *
  * When in a call, this hook streams the visitor's screen to the agent:
  * - DOM snapshots (initial + on significant changes)
  * - Mouse position (throttled)
  * - Scroll position (throttled)
+ *
+ * All event listeners are properly cleaned up to prevent memory leaks.
  */
-export function useCobrowse({ socket, isInCall }: UseCobrowseOptions) {
+export function useCobrowse({ socket, isInCall }: UseCobrowseOptions): void {
   const lastSnapshotRef = useRef<string>("");
   const snapshotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mouseThrottleRef = useRef<number>(0);
   const scrollThrottleRef = useRef<number>(0);
+  const mutationObserverRef = useRef<MutationObserver | null>(null);
+  const isActiveRef = useRef(false);
 
-  // Capture DOM snapshot
+  // Store socket ref to avoid stale closures in event handlers
+  const socketRef = useRef(socket);
+  socketRef.current = socket;
+
+  /**
+   * Capture DOM snapshot and send to agent
+   */
   const captureSnapshot = useCallback(() => {
-    if (!socket || !isInCall) return;
+    if (!socketRef.current || !isActiveRef.current) return;
 
     try {
       // Clone the document to avoid modifying the original
       const docClone = document.cloneNode(true) as Document;
-      
+
       // Remove the widget itself from the snapshot
       const widgetElement = docClone.getElementById("ghost-greeter-widget");
-      if (widgetElement) {
-        widgetElement.remove();
-      }
+      widgetElement?.remove();
 
       // Remove scripts to prevent execution in the agent's view
       const scripts = docClone.querySelectorAll("script");
-      scripts.forEach(script => script.remove());
+      scripts.forEach((script) => script.remove());
 
       // Convert relative URLs to absolute for images, stylesheets, etc.
       const baseUrl = window.location.origin;
-      
+
       // Fix image sources
-      docClone.querySelectorAll("img").forEach(img => {
+      docClone.querySelectorAll("img").forEach((img) => {
         const src = img.getAttribute("src");
         if (src && !src.startsWith("http") && !src.startsWith("data:")) {
-          img.setAttribute("src", new URL(src, baseUrl).href);
+          try {
+            img.setAttribute("src", new URL(src, baseUrl).href);
+          } catch {
+            // Invalid URL, leave as-is
+          }
         }
       });
 
       // Fix stylesheet links
-      docClone.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+      docClone.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
         const href = link.getAttribute("href");
         if (href && !href.startsWith("http")) {
-          link.setAttribute("href", new URL(href, baseUrl).href);
+          try {
+            link.setAttribute("href", new URL(href, baseUrl).href);
+          } catch {
+            // Invalid URL, leave as-is
+          }
         }
       });
 
       // Fix background images in inline styles
-      docClone.querySelectorAll("[style]").forEach(el => {
+      docClone.querySelectorAll("[style]").forEach((el) => {
         const style = el.getAttribute("style");
         if (style && style.includes("url(")) {
-          const fixedStyle = style.replace(/url\(['"]?(?!data:)(?!http)([^'")\s]+)['"]?\)/g, (match, url) => {
-            return `url(${new URL(url, baseUrl).href})`;
-          });
+          const fixedStyle = style.replace(
+            /url\(['"]?(?!data:)(?!http)([^'")\s]+)['"]?\)/g,
+            (_match, url) => {
+              try {
+                return `url(${new URL(url, baseUrl).href})`;
+              } catch {
+                return _match;
+              }
+            }
+          );
           el.setAttribute("style", fixedStyle);
         }
       });
@@ -73,7 +97,7 @@ export function useCobrowse({ socket, isInCall }: UseCobrowseOptions) {
       // Serialize to HTML
       const html = docClone.documentElement.outerHTML;
 
-      // Only send if changed significantly (simple length check + hash)
+      // Only send if changed significantly (simple length check + prefix hash)
       const snapshotKey = `${html.length}-${html.slice(0, 500)}`;
       if (snapshotKey === lastSnapshotRef.current) {
         return;
@@ -90,63 +114,56 @@ export function useCobrowse({ socket, isInCall }: UseCobrowseOptions) {
         },
         timestamp: Date.now(),
       };
-      
-      console.log("[Cobrowse] Sending snapshot:", {
-        url: payload.url,
-        viewport: payload.viewport,
-        htmlLength: payload.html.length,
-      });
-      
-      socket.emit(SOCKET_EVENTS.COBROWSE_SNAPSHOT, payload);
+
+      socketRef.current.emit(SOCKET_EVENTS.COBROWSE_SNAPSHOT, payload);
     } catch (err) {
       console.error("[Cobrowse] Failed to capture snapshot:", err);
     }
-  }, [socket, isInCall]);
+  }, []);
 
-  // Send mouse position (throttled to reduce bandwidth)
+  /**
+   * Send mouse position (throttled to reduce bandwidth)
+   */
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!socket || !isInCall) return;
-    
+    if (!socketRef.current || !isActiveRef.current) return;
+
     const now = Date.now();
-    if (now - mouseThrottleRef.current < 50) return; // ~20fps for mouse (was 60)
+    if (now - mouseThrottleRef.current < COBROWSE_TIMING.MOUSE_THROTTLE) return;
     mouseThrottleRef.current = now;
 
-    const payload = {
+    socketRef.current.emit(SOCKET_EVENTS.COBROWSE_MOUSE, {
       x: e.clientX,
       y: e.clientY,
       timestamp: now,
-    };
-    
-    // Log every second
-    if (now % 1000 < 50) {
-      console.log("[Cobrowse] Sending mouse:", payload);
-    }
+    });
+  }, []);
 
-    socket.emit(SOCKET_EVENTS.COBROWSE_MOUSE, payload);
-  }, [socket, isInCall]);
-
-  // Send scroll position (throttled)
+  /**
+   * Send scroll position (throttled)
+   */
   const handleScroll = useCallback(() => {
-    if (!socket || !isInCall) return;
-    
+    if (!socketRef.current || !isActiveRef.current) return;
+
     const now = Date.now();
-    if (now - scrollThrottleRef.current < 100) return; // 10fps for scroll
+    if (now - scrollThrottleRef.current < COBROWSE_TIMING.SCROLL_THROTTLE) return;
     scrollThrottleRef.current = now;
 
-    socket.emit(SOCKET_EVENTS.COBROWSE_SCROLL, {
+    socketRef.current.emit(SOCKET_EVENTS.COBROWSE_SCROLL, {
       scrollX: window.scrollX,
       scrollY: window.scrollY,
       timestamp: now,
     });
-  }, [socket, isInCall]);
+  }, []);
 
-  // Send text selection
+  /**
+   * Send text selection
+   */
   const handleSelection = useCallback(() => {
-    if (!socket || !isInCall) return;
-    
+    if (!socketRef.current || !isActiveRef.current) return;
+
     const selection = window.getSelection();
     const text = selection?.toString() || "";
-    
+
     let rect = null;
     if (selection && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
@@ -161,40 +178,89 @@ export function useCobrowse({ socket, isInCall }: UseCobrowseOptions) {
       }
     }
 
-    socket.emit(SOCKET_EVENTS.COBROWSE_SELECTION, {
+    socketRef.current.emit(SOCKET_EVENTS.COBROWSE_SELECTION, {
       text,
       rect,
       timestamp: Date.now(),
     });
-  }, [socket, isInCall]);
+  }, []);
+
+  /**
+   * Handle form input changes
+   */
+  const handleInput = useCallback(() => {
+    if (!isActiveRef.current) return;
+    
+    // Delay snapshot to capture the change
+    setTimeout(captureSnapshot, COBROWSE_TIMING.INPUT_CAPTURE_DELAY);
+  }, [captureSnapshot]);
+
+  /**
+   * Handle window resize
+   */
+  const handleResize = useCallback(() => {
+    if (!isActiveRef.current) return;
+    
+    // Delay snapshot to let layout complete
+    setTimeout(captureSnapshot, COBROWSE_TIMING.RESIZE_CAPTURE_DELAY);
+  }, [captureSnapshot]);
+
+  /**
+   * Clean up all listeners and intervals
+   */
+  const cleanup = useCallback(() => {
+    isActiveRef.current = false;
+
+    // Clear snapshot interval
+    if (snapshotIntervalRef.current) {
+      clearInterval(snapshotIntervalRef.current);
+      snapshotIntervalRef.current = null;
+    }
+
+    // Disconnect mutation observer
+    if (mutationObserverRef.current) {
+      mutationObserverRef.current.disconnect();
+      mutationObserverRef.current = null;
+    }
+
+    // Remove event listeners (these are named function refs so safe to remove)
+    window.removeEventListener("mousemove", handleMouseMove);
+    window.removeEventListener("scroll", handleScroll);
+    window.removeEventListener("resize", handleResize);
+    document.removeEventListener("selectionchange", handleSelection);
+    document.removeEventListener("input", handleInput);
+    document.removeEventListener("change", handleInput);
+  }, [handleMouseMove, handleScroll, handleResize, handleSelection, handleInput]);
 
   // Start/stop co-browsing based on call state
   useEffect(() => {
     if (!socket || !isInCall) {
-      // Cleanup when not in call
-      if (snapshotIntervalRef.current) {
-        clearInterval(snapshotIntervalRef.current);
-        snapshotIntervalRef.current = null;
-      }
+      cleanup();
       return;
     }
+
+    isActiveRef.current = true;
 
     // Send initial snapshot
     captureSnapshot();
 
-    // Set up periodic snapshot capture (every 2 seconds for changes)
-    snapshotIntervalRef.current = setInterval(captureSnapshot, 2000);
+    // Set up periodic snapshot capture
+    snapshotIntervalRef.current = setInterval(captureSnapshot, COBROWSE_TIMING.SNAPSHOT_INTERVAL);
 
     // Set up DOM mutation observer for immediate updates on significant changes
-    const observer = new MutationObserver((mutations) => {
+    mutationObserverRef.current = new MutationObserver((mutations) => {
+      if (!isActiveRef.current) return;
+
       // Only trigger snapshot for significant changes
-      const hasSignificantChange = mutations.some(mutation => {
+      const hasSignificantChange = mutations.some((mutation) => {
         // Ignore text-only changes and attribute changes on small elements
         if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
           return true;
         }
-        if (mutation.type === "attributes" && 
-            (mutation.attributeName === "class" || mutation.attributeName === "style")) {
+        if (
+          mutation.type === "attributes" &&
+          (mutation.attributeName === "class" || mutation.attributeName === "style")
+        ) {
           return true;
         }
         return false;
@@ -205,7 +271,7 @@ export function useCobrowse({ socket, isInCall }: UseCobrowseOptions) {
       }
     });
 
-    observer.observe(document.body, {
+    mutationObserverRef.current.observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
@@ -215,34 +281,12 @@ export function useCobrowse({ socket, isInCall }: UseCobrowseOptions) {
     // Add event listeners
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleResize, { passive: true });
     document.addEventListener("selectionchange", handleSelection, { passive: true });
-
-    // Also capture on form interactions
-    const handleInput = () => {
-      setTimeout(captureSnapshot, 100); // Small delay to capture the change
-    };
     document.addEventListener("input", handleInput, { passive: true });
     document.addEventListener("change", handleInput, { passive: true });
 
-    // Capture on window resize (viewport change)
-    const handleResize = () => {
-      setTimeout(captureSnapshot, 200); // Small delay to let resize complete
-    };
-    window.addEventListener("resize", handleResize, { passive: true });
-
-    return () => {
-      if (snapshotIntervalRef.current) {
-        clearInterval(snapshotIntervalRef.current);
-        snapshotIntervalRef.current = null;
-      }
-      observer.disconnect();
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleResize);
-      document.removeEventListener("selectionchange", handleSelection);
-      document.removeEventListener("input", handleInput);
-      document.removeEventListener("change", handleInput);
-    };
-  }, [socket, isInCall, captureSnapshot, handleMouseMove, handleScroll, handleSelection]);
+    // Cleanup on effect change or unmount
+    return cleanup;
+  }, [socket, isInCall, captureSnapshot, handleMouseMove, handleScroll, handleResize, handleSelection, handleInput, cleanup]);
 }
-

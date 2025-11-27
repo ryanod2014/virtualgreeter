@@ -5,6 +5,7 @@ import { useSignaling } from "./features/signaling/useSignaling";
 import { useWebRTC } from "./features/webrtc/useWebRTC";
 import { useCobrowse } from "./features/cobrowse/useCobrowse";
 import type { AgentAssignedPayload } from "@ghost-greeter/domain";
+import { ARIA_LABELS, ANIMATION_TIMING, ERROR_MESSAGES, CONNECTION_TIMING } from "./constants";
 
 /**
  * Unlocks browser audio permission by creating and resuming an AudioContext.
@@ -13,24 +14,25 @@ import type { AgentAssignedPayload } from "@ghost-greeter/domain";
  */
 async function unlockAudio(): Promise<boolean> {
   try {
-    // Create AudioContext and resume it - this unlocks audio for the session
-    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return false;
-    
+
     const audioCtx = new AudioContextClass();
-    
+
     // Resume if suspended (Chrome requires this)
     if (audioCtx.state === "suspended") {
       await audioCtx.resume();
     }
-    
+
     // Play a silent buffer to fully unlock on some browsers
     const buffer = audioCtx.createBuffer(1, 1, 22050);
     const source = audioCtx.createBufferSource();
     source.buffer = buffer;
     source.connect(audioCtx.destination);
     source.start(0);
-    
+
     console.log("[Widget] 🔊 Audio permission unlocked");
     return true;
   } catch (err) {
@@ -50,7 +52,40 @@ interface WidgetProps {
   config: WidgetConfig;
 }
 
-type WidgetState = "hidden" | "minimized" | "open" | "waiting_for_agent" | "in_call";
+type WidgetState = "hidden" | "minimized" | "open" | "waiting_for_agent" | "call_timeout" | "in_call";
+
+/**
+ * ErrorToast - Displays dismissible error messages to the user
+ */
+function ErrorToast({
+  message,
+  onDismiss,
+}: {
+  message: string;
+  onDismiss: () => void;
+}) {
+  // Auto-dismiss after 5 seconds
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 5000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+
+  return (
+    <div className="gg-error-toast" role="alert" aria-live="polite">
+      <span>{message}</span>
+      <button
+        className="gg-error-toast-dismiss"
+        onClick={onDismiss}
+        aria-label="Dismiss error"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+  );
+}
 
 export function Widget({ config }: WidgetProps) {
   const [state, setState] = useState<WidgetState>("hidden");
@@ -58,7 +93,8 @@ export function Widget({ config }: WidgetProps) {
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [agent, setAgent] = useState<AgentAssignedPayload["agent"] | null>(null);
   const [handoffMessage, setHandoffMessage] = useState<string | null>(null);
-  
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   // Media state - starts as muted/off
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isMicOn, setIsMicOn] = useState(false);
@@ -69,18 +105,53 @@ export function Widget({ config }: WidgetProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+  } | null>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
+  const handoffTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isUnmountingRef = useRef(false);
+
+  /**
+   * Show error message to user
+   */
+  const showError = useCallback((message: string) => {
+    setErrorMessage(message);
+  }, []);
+
+  /**
+   * Dismiss error message
+   */
+  const dismissError = useCallback(() => {
+    setErrorMessage(null);
+  }, []);
+
+  /**
+   * Clean up preview stream tracks
+   */
+  const cleanupPreviewStream = useCallback(() => {
+    if (previewStream) {
+      previewStream.getTracks().forEach((track) => {
+        track.stop();
+        previewStream.removeTrack(track);
+      });
+      setPreviewStream(null);
+    }
+  }, [previewStream]);
 
   const {
     connect,
     requestCall,
     cancelCall,
     endCall: endSignalingCall,
-    isConnected,
+    isReconnecting,
     callAccepted,
-    visitorId,
     currentCallId,
+    connectionError,
     socket,
   } = useSignaling({
     serverUrl: config.serverUrl ?? "http://localhost:3001",
@@ -94,11 +165,16 @@ export function Widget({ config }: WidgetProps) {
       const newName = data.newAgent.displayName;
       setHandoffMessage(`${previousName} got pulled away. ${newName} is taking over.`);
       setAgent(data.newAgent);
-      // Clear message after 5 seconds
-      setTimeout(() => setHandoffMessage(null), 5000);
+
+      // Clear message after timeout
+      if (handoffTimeoutRef.current) {
+        clearTimeout(handoffTimeoutRef.current);
+      }
+      handoffTimeoutRef.current = setTimeout(() => {
+        setHandoffMessage(null);
+      }, ANIMATION_TIMING.HANDOFF_MESSAGE_DURATION);
     },
     onAgentUnavailable: () => {
-      // No agents available - hide the widget
       console.log("[Widget] No agents available - hiding widget");
       setAgent(null);
       setState("hidden");
@@ -106,19 +182,23 @@ export function Widget({ config }: WidgetProps) {
     onCallAccepted: () => setState("in_call"),
     onCallRejected: () => {
       // Agent temporarily unavailable - visitor keeps waiting
-      // This shouldn't normally trigger anymore since we queue visitors
       console.log("[Widget] Call rejected - but visitor keeps waiting");
     },
     onCallEnded: () => {
       console.log("[Widget] Call ended - resetting state");
       setState("open");
-      // Reset camera/mic state
       setIsCameraOn(false);
       setIsMicOn(false);
-      if (previewStream) {
-        previewStream.getTracks().forEach(track => track.stop());
-        setPreviewStream(null);
-      }
+      cleanupPreviewStream();
+    },
+    onConnectionError: (error) => {
+      showError(error);
+    },
+    onReconnecting: (attempt) => {
+      console.log(`[Widget] Reconnecting... attempt ${attempt}`);
+    },
+    onReconnected: () => {
+      dismissError();
     },
   });
 
@@ -126,19 +206,33 @@ export function Widget({ config }: WidgetProps) {
   const {
     localStream,
     remoteStream,
-    screenStream,
     isConnecting: webrtcConnecting,
     isConnected: webrtcConnected,
-    isScreenSharing,
     error: webrtcError,
     endCall: endWebRTCCall,
-    startScreenShare,
-    stopScreenShare,
+    retryConnection: retryWebRTCConnection,
   } = useWebRTC({
     socket,
     agentId: agent?.id ?? null,
     isCallAccepted: callAccepted,
+    onConnectionTimeout: () => {
+      showError(ERROR_MESSAGES.CALL_TIMEOUT);
+    },
   });
+
+  // Show WebRTC errors to user
+  useEffect(() => {
+    if (webrtcError) {
+      showError(webrtcError);
+    }
+  }, [webrtcError, showError]);
+
+  // Show connection errors to user
+  useEffect(() => {
+    if (connectionError) {
+      showError(connectionError);
+    }
+  }, [connectionError, showError]);
 
   // Co-browsing - streams DOM/mouse/scroll to agent during calls
   useCobrowse({
@@ -146,26 +240,23 @@ export function Widget({ config }: WidgetProps) {
     isInCall: state === "in_call",
   });
 
-  // Connect to signaling server immediately on mount - widget appears when agent is assigned
+  // Connect to signaling server immediately on mount
   useEffect(() => {
     connect();
   }, [connect]);
 
-  // Listen for first click to unlock audio (for prerecorded video)
-  // Widget is already visible, but video is muted until user clicks anywhere
+  // Listen for first click to unlock audio
   useEffect(() => {
     if (hasInteracted) return;
 
     const handleInteraction = async () => {
+      if (isUnmountingRef.current) return;
       setHasInteracted(true);
-      
-      // Unlock audio permission - must happen during user gesture
-      // This allows the prerecorded video to play with sound
       const unlocked = await unlockAudio();
       setAudioUnlocked(unlocked);
     };
 
-    const events = ["click", "touchstart", "scroll"];
+    const events = ["click", "touchstart", "scroll"] as const;
     events.forEach((event) => {
       window.addEventListener(event, handleInteraction, { once: true, passive: true });
     });
@@ -180,10 +271,11 @@ export function Widget({ config }: WidgetProps) {
   // Show widget only when an agent is available/assigned
   useEffect(() => {
     if (agent && state === "hidden") {
-      // Agent assigned - show widget after delay
       const timer = setTimeout(() => {
-        setState("open");
-      }, config.triggerDelay ?? 500);
+        if (!isUnmountingRef.current) {
+          setState("open");
+        }
+      }, config.triggerDelay ?? CONNECTION_TIMING.DEFAULT_TRIGGER_DELAY);
       return () => clearTimeout(timer);
     }
   }, [agent, state, config.triggerDelay]);
@@ -195,78 +287,124 @@ export function Widget({ config }: WidgetProps) {
     }
   }, [previewStream]);
 
-  // Cleanup preview stream on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
+      isUnmountingRef.current = true;
+
+      // Clean up handoff timeout
+      if (handoffTimeoutRef.current) {
+        clearTimeout(handoffTimeoutRef.current);
+      }
+
+      // Clean up preview stream
       if (previewStream) {
-        previewStream.getTracks().forEach(track => track.stop());
+        previewStream.getTracks().forEach((track) => track.stop());
       }
     };
   }, [previewStream]);
 
-  // Sync mic/camera state when call connects (localStream becomes available)
+  // Sync mic/camera state when call connects
   useEffect(() => {
     if (localStream && state === "in_call") {
-      // Check actual track states and sync UI
-      const hasEnabledVideo = localStream.getVideoTracks().some(t => t.enabled);
-      const hasEnabledAudio = localStream.getAudioTracks().some(t => t.enabled);
+      const hasEnabledVideo = localStream.getVideoTracks().some((t) => t.enabled);
+      const hasEnabledAudio = localStream.getAudioTracks().some((t) => t.enabled);
       setIsCameraOn(hasEnabledVideo);
       setIsMicOn(hasEnabledAudio);
     }
   }, [localStream, state]);
 
-  // Drag handling - can drag from anywhere except buttons
-  const handleDragStart = useCallback((e: MouseEvent | TouchEvent) => {
-    if (isFullscreen) return;
-    
-    // Don't start drag if clicking on a button or interactive element
-    const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('video') || target.closest('.gg-control-btn')) {
-      return;
-    }
-    
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
-    const widget = widgetRef.current;
-    if (!widget) return;
-    
-    const rect = widget.getBoundingClientRect();
-    
-    dragRef.current = {
-      startX: clientX,
-      startY: clientY,
-      initialX: rect.left,
-      initialY: rect.top,
-    };
-    
-    setIsDragging(true);
-  }, [isFullscreen]);
+  // Call request timeout - if waiting too long, show timeout UI
+  useEffect(() => {
+    if (state === "waiting_for_agent") {
+      // Clear any existing timeout
+      if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+      }
+      
+      // Set timeout for call request
+      callTimeoutRef.current = setTimeout(() => {
+        if (!isUnmountingRef.current) {
+          console.log("[Widget] Call request timeout - showing retry UI");
+          setState("call_timeout");
+        }
+      }, CONNECTION_TIMING.CALL_REQUEST_TIMEOUT);
 
-  const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!isDragging || !dragRef.current || isFullscreen) return;
-    
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
-    const deltaX = clientX - dragRef.current.startX;
-    const deltaY = clientY - dragRef.current.startY;
-    
-    const newX = dragRef.current.initialX + deltaX;
-    const newY = dragRef.current.initialY + deltaY;
-    
-    // Keep widget within viewport bounds
-    const widget = widgetRef.current;
-    if (!widget) return;
-    
-    const maxX = window.innerWidth - widget.offsetWidth;
-    const maxY = window.innerHeight - widget.offsetHeight;
-    
-    setPosition({
-      x: Math.max(0, Math.min(newX, maxX)),
-      y: Math.max(0, Math.min(newY, maxY)),
-    });
-  }, [isDragging, isFullscreen]);
+      return () => {
+        if (callTimeoutRef.current) {
+          clearTimeout(callTimeoutRef.current);
+          callTimeoutRef.current = null;
+        }
+      };
+    } else if (state === "in_call") {
+      // Clear timeout when call is accepted
+      if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+        callTimeoutRef.current = null;
+      }
+    }
+  }, [state]);
+
+  // Drag handling
+  const handleDragStart = useCallback(
+    (e: MouseEvent | TouchEvent) => {
+      if (isFullscreen) return;
+
+      // Don't start drag if clicking on a button or interactive element
+      const target = e.target as HTMLElement;
+      if (target.closest("button") || target.closest("video") || target.closest(".gg-control-btn")) {
+        return;
+      }
+
+      const touch = "touches" in e ? e.touches[0] : null;
+      const clientX = touch ? touch.clientX : (e as MouseEvent).clientX;
+      const clientY = touch ? touch.clientY : (e as MouseEvent).clientY;
+
+      const widget = widgetRef.current;
+      if (!widget) return;
+
+      const rect = widget.getBoundingClientRect();
+
+      dragRef.current = {
+        startX: clientX,
+        startY: clientY,
+        initialX: rect.left,
+        initialY: rect.top,
+      };
+
+      setIsDragging(true);
+    },
+    [isFullscreen]
+  );
+
+  const handleDragMove = useCallback(
+    (e: MouseEvent | TouchEvent) => {
+      if (!isDragging || !dragRef.current || isFullscreen) return;
+
+      const touch = "touches" in e ? e.touches[0] : null;
+      const clientX = touch ? touch.clientX : (e as MouseEvent).clientX;
+      const clientY = touch ? touch.clientY : (e as MouseEvent).clientY;
+
+      const deltaX = clientX - dragRef.current.startX;
+      const deltaY = clientY - dragRef.current.startY;
+
+      const newX = dragRef.current.initialX + deltaX;
+      const newY = dragRef.current.initialY + deltaY;
+
+      // Keep widget within viewport bounds
+      const widget = widgetRef.current;
+      if (!widget) return;
+
+      const maxX = window.innerWidth - widget.offsetWidth;
+      const maxY = window.innerHeight - widget.offsetHeight;
+
+      setPosition({
+        x: Math.max(0, Math.min(newX, maxX)),
+        y: Math.max(0, Math.min(newY, maxY)),
+      });
+    },
+    [isDragging, isFullscreen]
+  );
 
   const handleDragEnd = useCallback(() => {
     setIsDragging(false);
@@ -276,24 +414,23 @@ export function Widget({ config }: WidgetProps) {
   // Add/remove drag event listeners
   useEffect(() => {
     if (isDragging) {
-      window.addEventListener('mousemove', handleDragMove);
-      window.addEventListener('mouseup', handleDragEnd);
-      window.addEventListener('touchmove', handleDragMove);
-      window.addEventListener('touchend', handleDragEnd);
-      
+      window.addEventListener("mousemove", handleDragMove);
+      window.addEventListener("mouseup", handleDragEnd);
+      window.addEventListener("touchmove", handleDragMove);
+      window.addEventListener("touchend", handleDragEnd);
+
       return () => {
-        window.removeEventListener('mousemove', handleDragMove);
-        window.removeEventListener('mouseup', handleDragEnd);
-        window.removeEventListener('touchmove', handleDragMove);
-        window.removeEventListener('touchend', handleDragEnd);
+        window.removeEventListener("mousemove", handleDragMove);
+        window.removeEventListener("mouseup", handleDragEnd);
+        window.removeEventListener("touchmove", handleDragMove);
+        window.removeEventListener("touchend", handleDragEnd);
       };
     }
   }, [isDragging, handleDragMove, handleDragEnd]);
 
   // Toggle fullscreen
   const handleToggleFullscreen = useCallback(() => {
-    setIsFullscreen(prev => !prev);
-    // Reset position when entering fullscreen
+    setIsFullscreen((prev) => !prev);
     if (!isFullscreen) {
       setPosition(null);
     }
@@ -308,13 +445,13 @@ export function Widget({ config }: WidgetProps) {
     setState("open");
   }, []);
 
-  // Toggle camera - requests permission and starts call flow, or toggles during call
+  // Toggle camera
   const handleCameraToggle = useCallback(async () => {
     if (!agent) return;
 
     // During a call, toggle the localStream video tracks
     if (state === "in_call" && localStream) {
-      localStream.getVideoTracks().forEach(track => {
+      localStream.getVideoTracks().forEach((track) => {
         track.enabled = !isCameraOn;
       });
       setIsCameraOn(!isCameraOn);
@@ -323,56 +460,53 @@ export function Widget({ config }: WidgetProps) {
 
     if (isCameraOn) {
       // Turn off camera (pre-call)
-      if (previewStream) {
-        previewStream.getVideoTracks().forEach(track => {
-          track.enabled = false;
-        });
-      }
+      previewStream?.getVideoTracks().forEach((track) => {
+        track.enabled = false;
+      });
       setIsCameraOn(false);
       return;
     }
 
     try {
-      // Request camera permission
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
-        audio: isMicOn, // Include audio if mic is already on
+        audio: isMicOn,
       });
-      
+
       setPreviewStream(stream);
       setIsCameraOn(true);
-      
-      // If mic was already on, update its state with the new stream
+
       if (isMicOn) {
-        stream.getAudioTracks().forEach(track => {
+        stream.getAudioTracks().forEach((track) => {
           track.enabled = true;
         });
       }
-      
+
       // Start the call if not already waiting
       if (state === "open") {
-        console.log("[Widget] 📞 Starting call flow - agent:", agent?.id, "state:", state);
+        console.log("[Widget] 📞 Starting call flow - agent:", agent?.id);
         setState("waiting_for_agent");
         requestCall(agent.id);
       }
     } catch (err) {
       const error = err as DOMException;
       if (error.name === "NotAllowedError") {
-        // Permission denied - don't show alert, just keep muted state
-        console.log("Camera permission denied");
+        showError(ERROR_MESSAGES.CAMERA_DENIED);
       } else if (error.name === "NotFoundError") {
-        console.log("No camera found");
+        showError(ERROR_MESSAGES.NO_CAMERA);
+      } else {
+        showError(ERROR_MESSAGES.MEDIA_ERROR);
       }
     }
-  }, [agent, isCameraOn, isMicOn, previewStream, localStream, state, requestCall]);
+  }, [agent, isCameraOn, isMicOn, previewStream, localStream, state, requestCall, showError]);
 
-  // Toggle mic - requests permission and starts call flow, or toggles during call
+  // Toggle mic
   const handleMicToggle = useCallback(async () => {
     if (!agent) return;
 
     // During a call, toggle the localStream audio tracks
     if (state === "in_call" && localStream) {
-      localStream.getAudioTracks().forEach(track => {
+      localStream.getAudioTracks().forEach((track) => {
         track.enabled = !isMicOn;
       });
       setIsMicOn(!isMicOn);
@@ -381,36 +515,32 @@ export function Widget({ config }: WidgetProps) {
 
     if (isMicOn) {
       // Turn off mic (pre-call)
-      if (previewStream) {
-        previewStream.getAudioTracks().forEach(track => {
-          track.enabled = false;
-        });
-      }
+      previewStream?.getAudioTracks().forEach((track) => {
+        track.enabled = false;
+      });
       setIsMicOn(false);
       return;
     }
 
     try {
-      // If we already have a stream with video, just add audio
       if (previewStream && isCameraOn) {
         const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioStream.getAudioTracks().forEach(track => {
+        audioStream.getAudioTracks().forEach((track) => {
           previewStream.addTrack(track);
         });
         setIsMicOn(true);
       } else {
-        // Request mic (and camera if camera is on)
         const stream = await navigator.mediaDevices.getUserMedia({
           video: isCameraOn,
           audio: true,
         });
-        
+
         setPreviewStream(stream);
         setIsMicOn(true);
-        
+
         // Start the call if not already waiting
         if (state === "open") {
-          console.log("[Widget] 📞 Starting call flow (mic) - agent:", agent?.id, "state:", state);
+          console.log("[Widget] 📞 Starting call flow (mic) - agent:", agent?.id);
           setState("waiting_for_agent");
           requestCall(agent.id);
         }
@@ -418,84 +548,121 @@ export function Widget({ config }: WidgetProps) {
     } catch (err) {
       const error = err as DOMException;
       if (error.name === "NotAllowedError") {
-        console.log("Microphone permission denied");
+        showError(ERROR_MESSAGES.MIC_DENIED);
       } else if (error.name === "NotFoundError") {
-        console.log("No microphone found");
+        showError(ERROR_MESSAGES.NO_MIC);
+      } else {
+        showError(ERROR_MESSAGES.MEDIA_ERROR);
       }
     }
-  }, [agent, isMicOn, isCameraOn, previewStream, localStream, state, requestCall]);
+  }, [agent, isMicOn, isCameraOn, previewStream, localStream, state, requestCall, showError]);
 
   const handleCancelWaiting = useCallback(() => {
     cancelCall();
-    // Stop preview stream
-    if (previewStream) {
-      previewStream.getTracks().forEach(track => track.stop());
-      setPreviewStream(null);
-    }
+    cleanupPreviewStream();
     setIsCameraOn(false);
     setIsMicOn(false);
     setState("open");
-  }, [cancelCall, previewStream]);
+  }, [cancelCall, cleanupPreviewStream]);
+
+  // Retry call after timeout
+  const handleRetryCall = useCallback(() => {
+    if (!agent) return;
+    
+    console.log("[Widget] 🔄 Retrying call request");
+    setState("waiting_for_agent");
+    requestCall(agent.id);
+  }, [agent, requestCall]);
+
+  // Go back to widget after timeout (without keeping media)
+  const handleCancelTimeout = useCallback(() => {
+    cancelCall();
+    cleanupPreviewStream();
+    setIsCameraOn(false);
+    setIsMicOn(false);
+    setState("open");
+  }, [cancelCall, cleanupPreviewStream]);
 
   const handleEndCall = useCallback(() => {
-    // End call via signaling server
     if (currentCallId) {
       endSignalingCall(currentCallId);
     }
     endWebRTCCall();
-    // Stop preview stream
-    if (previewStream) {
-      previewStream.getTracks().forEach(track => track.stop());
-      setPreviewStream(null);
-    }
+    cleanupPreviewStream();
     setIsCameraOn(false);
     setIsMicOn(false);
     setState("open");
-  }, [currentCallId, endSignalingCall, endWebRTCCall, previewStream]);
+  }, [currentCallId, endSignalingCall, endWebRTCCall, cleanupPreviewStream]);
+
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        } else if (state === "open" || state === "in_call") {
+          handleMinimize();
+        }
+      }
+    },
+    [isFullscreen, state, handleMinimize]
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   // Don't render if hidden
   if (state === "hidden") return null;
 
   const configPosition = config.position ?? "bottom-right";
-  
+
   // Calculate widget style for positioning
   const widgetStyle: Record<string, string> = {};
-  if (isFullscreen) {
-    // Fullscreen styles handled by CSS class
-  } else if (position) {
-    // Custom dragged position
+  if (!isFullscreen && position) {
     widgetStyle.left = `${position.x}px`;
     widgetStyle.top = `${position.y}px`;
-    widgetStyle.right = 'auto';
-    widgetStyle.bottom = 'auto';
+    widgetStyle.right = "auto";
+    widgetStyle.bottom = "auto";
   }
 
   return (
-    <div 
+    <div
       ref={widgetRef}
-      className={`gg-widget ${configPosition} ${isFullscreen ? 'gg-fullscreen' : ''} ${isDragging ? 'gg-dragging' : ''}`}
+      className={`gg-widget ${configPosition} ${isFullscreen ? "gg-fullscreen" : ""} ${isDragging ? "gg-dragging" : ""}`}
       style={widgetStyle}
+      role="dialog"
+      aria-label={ARIA_LABELS.WIDGET}
+      aria-modal={isFullscreen}
     >
       {state === "minimized" ? (
-        <button className="gg-minimized" onClick={handleExpand}>
+        <button
+          className="gg-minimized"
+          onClick={handleExpand}
+          aria-label={ARIA_LABELS.EXPAND}
+        >
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
         </button>
       ) : (
-        <div 
+        <div
           className="gg-container"
           onMouseDown={handleDragStart}
           onTouchStart={handleDragStart}
         >
+          {/* Error Toast */}
+          {errorMessage && <ErrorToast message={errorMessage} onDismiss={dismissError} />}
+
           {/* Video Area */}
           <div className="gg-video-container">
             {/* Top right controls */}
             <div className="gg-video-controls">
-              <button 
-                className="gg-video-control-btn" 
+              <button
+                className="gg-video-control-btn"
                 onClick={handleToggleFullscreen}
-                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                aria-label={isFullscreen ? ARIA_LABELS.EXIT_FULLSCREEN : ARIA_LABELS.FULLSCREEN}
               >
                 {isFullscreen ? (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -508,24 +675,27 @@ export function Widget({ config }: WidgetProps) {
                 )}
               </button>
             </div>
+
             {/* Agent Video - Main view */}
-          {state === "in_call" ? (
-            <LiveCallView
-              localStream={localStream}
-              remoteStream={remoteStream}
-              isConnecting={webrtcConnecting}
-              isConnected={webrtcConnected}
-              error={webrtcError}
-            />
-          ) : (
-            <VideoSequencer
-              waveUrl={agent?.waveVideoUrl}
-              introUrl={agent?.introVideoUrl}
-              loopUrl={agent?.loopVideoUrl}
-              isLive={false}
-              audioUnlocked={audioUnlocked}
-            />
-          )}
+            {state === "in_call" ? (
+              <LiveCallView
+                localStream={localStream}
+                remoteStream={remoteStream}
+                isConnecting={webrtcConnecting}
+                isConnected={webrtcConnected}
+                error={webrtcError}
+                onRetry={retryWebRTCConnection}
+              />
+            ) : (
+              <VideoSequencer
+                waveUrl={agent?.waveVideoUrl}
+                introUrl={agent?.introVideoUrl}
+                loopUrl={agent?.loopVideoUrl}
+                isLive={false}
+                audioUnlocked={audioUnlocked}
+                onError={showError}
+              />
+            )}
 
             {/* Self-view Picture-in-Picture */}
             {state !== "in_call" && (
@@ -537,6 +707,7 @@ export function Widget({ config }: WidgetProps) {
                     autoPlay
                     playsInline
                     muted
+                    aria-label="Your camera preview"
                   />
                 ) : (
                   <div className="gg-self-placeholder">
@@ -548,7 +719,7 @@ export function Widget({ config }: WidgetProps) {
                 )}
                 {/* Camera off indicator */}
                 {!isCameraOn && (
-                  <div className="gg-self-camera-off">
+                  <div className="gg-self-camera-off" aria-label="Camera is off">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <line x1="1" y1="1" x2="23" y2="23" />
                       <path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34m-7.72-2.06a4 4 0 1 1-5.56-5.56" />
@@ -558,18 +729,58 @@ export function Widget({ config }: WidgetProps) {
               </div>
             )}
 
-            {/* Connecting indicator - overlay on video */}
+            {/* Connecting indicator */}
             {state === "waiting_for_agent" && (
-              <div className="gg-waiting-indicator">
+              <div className="gg-waiting-indicator" role="status" aria-live="polite">
                 <div className="gg-waiting-spinner" />
-                <span>Connecting...</span>
+                <span>Connecting you to {agent?.displayName ?? "an agent"}...</span>
+              </div>
+            )}
+
+            {/* Call timeout - connection taking too long */}
+            {state === "call_timeout" && (
+              <div className="gg-timeout-overlay" role="alert" aria-live="assertive">
+                <div className="gg-timeout-content">
+                  <div className="gg-timeout-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 6v6l4 2" />
+                    </svg>
+                  </div>
+                  <h3 className="gg-timeout-title">Taking longer than usual</h3>
+                  <p className="gg-timeout-message">
+                    Your internet connection might be slow. Let's try again!
+                  </p>
+                  <div className="gg-timeout-actions">
+                    <button 
+                      className="gg-btn gg-btn-primary" 
+                      onClick={handleRetryCall}
+                    >
+                      Try Again
+                    </button>
+                    <button 
+                      className="gg-btn gg-btn-secondary" 
+                      onClick={handleCancelTimeout}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
             {/* Agent handoff notification */}
             {handoffMessage && (
-              <div className="gg-handoff-message">
+              <div className="gg-handoff-message" role="status" aria-live="polite">
                 <span>{handoffMessage}</span>
+              </div>
+            )}
+
+            {/* Reconnecting indicator */}
+            {isReconnecting && (
+              <div className="gg-waiting-indicator" role="status" aria-live="polite">
+                <div className="gg-waiting-spinner" />
+                <span>Reconnecting...</span>
               </div>
             )}
           </div>
@@ -581,24 +792,25 @@ export function Widget({ config }: WidgetProps) {
               <svg width="12" height="12" viewBox="0 0 12 12" fill={agent ? "currentColor" : "#888"}>
                 <circle cx="6" cy="6" r="6" />
               </svg>
-              {!agent 
-                ? "Connecting..." 
-                : state === "in_call" 
-                ? "Live with you" 
-                : state === "waiting_for_agent"
+              {!agent
                 ? "Connecting..."
-                : "Joined you live"}
+                : state === "in_call"
+                  ? "Live with you"
+                  : state === "waiting_for_agent"
+                    ? "Connecting..."
+                    : "Joined you live"}
             </div>
           </div>
 
-          {/* Call Controls - Always visible like a real call interface */}
-          <div className="gg-call-controls">
+          {/* Call Controls */}
+          <div className="gg-call-controls" role="toolbar" aria-label="Call controls">
             {/* Mic Toggle */}
             <button
               className={`gg-control-btn ${isMicOn ? "gg-control-on" : "gg-control-off"}`}
               onClick={handleMicToggle}
               disabled={!agent}
-              title={isMicOn ? "Mute microphone" : "Unmute microphone"}
+              aria-label={isMicOn ? ARIA_LABELS.MIC_ON : ARIA_LABELS.MIC_OFF}
+              aria-pressed={isMicOn}
             >
               {isMicOn ? (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -619,31 +831,32 @@ export function Widget({ config }: WidgetProps) {
             </button>
 
             {/* Camera Toggle */}
-                <button 
+            <button
               className={`gg-control-btn ${isCameraOn ? "gg-control-on" : "gg-control-off"}`}
               onClick={handleCameraToggle}
-                  disabled={!agent}
-              title={isCameraOn ? "Turn off camera" : "Turn on camera"}
-                >
+              disabled={!agent}
+              aria-label={isCameraOn ? ARIA_LABELS.CAMERA_ON : ARIA_LABELS.CAMERA_OFF}
+              aria-pressed={isCameraOn}
+            >
               {isCameraOn ? (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                  </svg>
+                  <polygon points="23 7 16 12 23 17 23 7" />
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                </svg>
               ) : (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10" />
                   <line x1="1" y1="1" x2="23" y2="23" />
                 </svg>
               )}
-                </button>
+            </button>
 
             {/* End Call / Disconnect */}
             {(state === "waiting_for_agent" || state === "in_call") && (
               <button
                 className="gg-control-btn gg-control-end"
                 onClick={state === "in_call" ? handleEndCall : handleCancelWaiting}
-                title={state === "in_call" ? "End call" : "Disconnect"}
+                aria-label={state === "in_call" ? ARIA_LABELS.END_CALL : ARIA_LABELS.CANCEL_CALL}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />
@@ -653,6 +866,19 @@ export function Widget({ config }: WidgetProps) {
             )}
           </div>
 
+          {/* Powered By Footer */}
+          <a
+            href="https://ghostgreeter.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="gg-powered-by"
+            aria-label="Powered by GhostGreeter"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" opacity="0.6">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <span>Powered by <strong>GhostGreeter</strong></span>
+          </a>
         </div>
       )}
     </div>
