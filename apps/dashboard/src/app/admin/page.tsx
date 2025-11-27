@@ -1,220 +1,317 @@
 import { getCurrentUser } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 import {
+  Code,
   Users,
-  Globe,
-  Phone,
-  ArrowUpRight,
-  ArrowDownRight,
+  Layers,
+  Palette,
+  CheckCircle2,
+  Circle,
+  ArrowRight,
+  Rocket,
+  Sparkles,
+  AlertCircle,
 } from "lucide-react";
+
+interface SetupStep {
+  id: string;
+  number: number;
+  title: string;
+  description: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isComplete: boolean;
+  actionLabel: string;
+  completeLabel: string;
+}
 
 export default async function AdminOverviewPage() {
   const auth = await getCurrentUser();
   const supabase = await createClient();
 
-  // Fetch stats
-  const [agentsResult, sitesResult, callsResult] = await Promise.all([
-    supabase
-      .from("agent_profiles")
-      .select("id", { count: "exact" })
-      .eq("organization_id", auth!.organization.id),
+  // Fetch all required data for setup status
+  const [sitesResult, agentsResult, poolsResult, dispositionsResult] = await Promise.all([
     supabase
       .from("sites")
       .select("id", { count: "exact" })
       .eq("organization_id", auth!.organization.id),
     supabase
-      .from("call_logs")
+      .from("agent_profiles")
       .select("id", { count: "exact" })
       .eq("organization_id", auth!.organization.id),
+    supabase
+      .from("agent_pools")
+      .select("id, agent_pool_members(id)", { count: "exact" })
+      .eq("organization_id", auth!.organization.id),
+    supabase
+      .from("dispositions")
+      .select("id", { count: "exact" })
+      .eq("organization_id", auth!.organization.id)
+      .eq("is_active", true),
   ]);
 
-  const stats = {
-    agents: agentsResult.count ?? 0,
-    sites: sitesResult.count ?? 0,
-    calls: callsResult.count ?? 0,
-  };
+  // Check if pools have agents assigned
+  const poolsWithAgents = poolsResult.data?.filter(
+    (p: { agent_pool_members: { id: string }[] }) => p.agent_pool_members && p.agent_pool_members.length > 0
+  ) || [];
+
+  // Setup completion status
+  const hasEmbedCode = true; // They always have an embed code available
+  const hasAgents = (agentsResult.count ?? 0) > 0;
+  const hasPoolsWithAgents = poolsWithAgents.length > 0;
+  const hasDispositions = (dispositionsResult.count ?? 0) > 0;
+
+  // Define the 4 setup steps
+  const steps: SetupStep[] = [
+    {
+      id: "embed",
+      number: 1,
+      title: "Add Embed Code",
+      description: "Copy the widget code and paste it on your website before the closing </body> tag.",
+      href: "/admin/sites",
+      icon: Code,
+      isComplete: hasEmbedCode,
+      actionLabel: "Get Embed Code",
+      completeLabel: "Ready to embed",
+    },
+    {
+      id: "agents",
+      number: 2,
+      title: "Add Agents",
+      description: "Invite team members who will handle live video calls with your website visitors.",
+      href: "/admin/agents",
+      icon: Users,
+      isComplete: hasAgents,
+      actionLabel: "Invite Agents",
+      completeLabel: `${agentsResult.count} agent${(agentsResult.count ?? 0) !== 1 ? "s" : ""} added`,
+    },
+    {
+      id: "pools",
+      number: 3,
+      title: "Create Pools",
+      description: "Organize agents into pools and set up routing rules for different pages or domains.",
+      href: "/admin/pools",
+      icon: Layers,
+      isComplete: hasPoolsWithAgents,
+      actionLabel: "Set Up Pools",
+      completeLabel: `${poolsWithAgents.length} pool${poolsWithAgents.length !== 1 ? "s" : ""} configured`,
+    },
+    {
+      id: "dispositions",
+      number: 4,
+      title: "Setup Dispositions",
+      description: "Define call outcomes like 'Interested', 'Follow Up', 'Not Qualified' to track conversions.",
+      href: "/admin/settings/dispositions",
+      icon: Palette,
+      isComplete: hasDispositions,
+      actionLabel: "Create Dispositions",
+      completeLabel: `${dispositionsResult.count} disposition${(dispositionsResult.count ?? 0) !== 1 ? "s" : ""} active`,
+    },
+  ];
+
+  const completedSteps = steps.filter((s) => s.isComplete).length;
+  const allComplete = completedSteps === steps.length;
+  const progress = (completedSteps / steps.length) * 100;
+
+  // Find the first incomplete step for the CTA
+  const nextStep = steps.find((s) => !s.isComplete) || steps[0];
 
   return (
-    <div className="p-8">
+    <div className="min-h-screen p-8">
+      <div className="max-w-4xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/30">
+              <Rocket className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">Quick Setup</h1>
         <p className="text-muted-foreground">
-          Welcome back, {auth!.profile.full_name.split(" ")[0]}! Here's your overview.
+                {allComplete
+                  ? "You're all set! Go live and start connecting with visitors."
+                  : "Complete these steps to start receiving live video calls."}
         </p>
       </div>
+          </div>
+        </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <StatCard
-          title="Total Agents"
-          value={stats.agents}
-          icon={Users}
-          trend={+12}
-          color="primary"
-        />
-        <StatCard
-          title="Active Sites"
-          value={stats.sites}
-          icon={Globe}
-          trend={+5}
-          color="success"
-        />
-        <StatCard
-          title="Calls This Month"
-          value={stats.calls}
-          icon={Phone}
-          trend={+23}
-          color="accent"
-        />
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium">
+              {completedSteps} of {steps.length} steps complete
+            </span>
+            {allComplete ? (
+              <span className="flex items-center gap-2 text-sm font-medium text-green-500">
+                <Sparkles className="w-4 h-4" />
+                Ready to go live!
+              </span>
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                {steps.length - completedSteps} step{steps.length - completedSteps !== 1 ? "s" : ""} remaining
+              </span>
+            )}
+          </div>
+          <div className="h-3 bg-muted rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ease-out ${
+                allComplete
+                  ? "bg-gradient-to-r from-green-500 to-emerald-400"
+                  : "bg-gradient-to-r from-primary to-purple-500"
+              }`}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Setup Steps */}
+        <div className="space-y-4 mb-10">
+          {steps.map((step, index) => (
+            <SetupStepCard key={step.id} step={step} isFirst={index === 0} />
+          ))}
+        </div>
+
+        {/* Go Live CTA */}
+        {allComplete ? (
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-transparent border-2 border-green-500/30 p-8">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="relative flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-green-500/30">
+                  <CheckCircle2 className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
+                    Setup Complete!
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Your widget is ready. Go to the Agent Dashboard to start taking calls.
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold text-lg shadow-lg shadow-green-500/30 hover:shadow-xl hover:shadow-green-500/40 hover:scale-105 transition-all"
+              >
+                Go Live
+                <Rocket className="w-5 h-5" />
+              </Link>
+        </div>
       </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass rounded-2xl p-6">
-          <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-          <div className="space-y-3">
-            <QuickAction
-              href="/admin/agents"
-              title="Add New Agent"
-              description="Invite team members to handle calls"
-            />
-            <QuickAction
-              href="/admin/sites"
-              title="Add New Site"
-              description="Set up the widget on another website"
-            />
-            <QuickAction
-              href="/dashboard"
-              title="Go Live"
-              description="Start handling calls in the workbench"
-            />
+        ) : (
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border-2 border-amber-500/30 p-8">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="relative flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                  <AlertCircle className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-amber-600 dark:text-amber-400 mb-1">
+                    Almost There!
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Complete the remaining steps to start receiving live video calls.
+                  </p>
+                </div>
+    </div>
+              <Link
+                href={nextStep.href}
+                className="flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-primary to-purple-600 text-white font-bold text-lg shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 hover:scale-105 transition-all"
+              >
+                {nextStep.actionLabel}
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+            </div>
           </div>
-        </div>
-
-        <div className="glass rounded-2xl p-6">
-          <h2 className="text-xl font-semibold mb-4">Getting Started</h2>
-          <div className="space-y-4">
-            <SetupStep
-              number={1}
-              title="Upload your videos"
-              description="Record your intro and loop videos"
-              completed={!!auth?.agentProfile?.intro_video_url}
-            />
-            <SetupStep
-              number={2}
-              title="Add your first site"
-              description="Get the embed code for your website"
-              completed={stats.sites > 0}
-            />
-            <SetupStep
-              number={3}
-              title="Make your first call"
-              description="Connect with a visitor live"
-              completed={stats.calls > 0}
-            />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  trend,
-  color,
-}: {
-  title: string;
-  value: number | string;
-  icon: React.ComponentType<{ className?: string }>;
-  trend: number;
-  color: "primary" | "success" | "accent" | "warning";
-}) {
-  const colorMap = {
-    primary: "text-primary bg-primary/10",
-    success: "text-green-500 bg-green-500/10",
-    accent: "text-purple-500 bg-purple-500/10",
-    warning: "text-amber-500 bg-amber-500/10",
-  };
-
-  const isPositive = trend > 0;
+function SetupStepCard({ step, isFirst }: { step: SetupStep; isFirst: boolean }) {
+  const Icon = step.icon;
 
   return (
-    <div className="glass rounded-xl p-6">
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorMap[color]}`}>
-          <Icon className="w-6 h-6" />
-        </div>
-        <div className={`flex items-center gap-1 text-sm ${isPositive ? "text-green-500" : "text-red-500"}`}>
-          {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-          {Math.abs(trend)}%
-        </div>
-      </div>
-      <div className="text-3xl font-bold mb-1">{value}</div>
-      <div className="text-sm text-muted-foreground">{title}</div>
-    </div>
-  );
-}
-
-function QuickAction({
-  href,
-  title,
-  description,
-}: {
-  href: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <a
-      href={href}
-      className="block p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors group"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="font-medium group-hover:text-primary transition-colors">
-            {title}
-          </div>
-          <div className="text-sm text-muted-foreground">{description}</div>
-        </div>
-        <ArrowUpRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-      </div>
-    </a>
-  );
-}
-
-function SetupStep({
-  number,
-  title,
-  description,
-  completed,
-}: {
-  number: number;
-  title: string;
-  description: string;
-  completed: boolean;
-}) {
-  return (
-    <div className="flex items-start gap-4">
+    <Link href={step.href} className="block group">
       <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-          completed
-            ? "bg-green-500/20 text-green-500"
-            : "bg-muted text-muted-foreground"
+        className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-200 ${
+          step.isComplete
+            ? "border-green-500/30 bg-green-500/5 hover:border-green-500/50"
+            : "border-border bg-card hover:border-primary/50 hover:bg-primary/5"
         }`}
       >
-        {completed ? "✓" : number}
+        {/* Glowing effect for incomplete first step */}
+        {!step.isComplete && isFirst && (
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-purple-500/10 animate-pulse" />
+        )}
+
+        <div className="relative p-6 flex items-center gap-6">
+          {/* Step Number / Checkmark */}
+      <div
+            className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all ${
+              step.isComplete
+                ? "bg-green-500 shadow-lg shadow-green-500/30"
+                : "bg-gradient-to-br from-primary/20 to-primary/10 group-hover:from-primary/30 group-hover:to-primary/20"
+            }`}
+          >
+            {step.isComplete ? (
+              <CheckCircle2 className="w-7 h-7 text-white" />
+            ) : (
+              <span className="text-2xl font-bold text-primary">{step.number}</span>
+            )}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-1">
+              <h3
+                className={`text-lg font-semibold transition-colors ${
+                  step.isComplete
+                    ? "text-green-600 dark:text-green-400"
+                    : "group-hover:text-primary"
+                }`}
+              >
+                {step.title}
+              </h3>
+              {step.isComplete && (
+                <span className="px-2.5 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-medium border border-green-500/20">
+                  {step.completeLabel}
+                </span>
+              )}
+            </div>
+            <p className="text-muted-foreground text-sm">{step.description}</p>
+          </div>
+
+          {/* Icon / Action */}
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <div
+              className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
+                step.isComplete
+                  ? "bg-green-500/10 text-green-500"
+                  : "bg-muted/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+        }`}
+      >
+              <Icon className="w-6 h-6" />
+            </div>
+            <ArrowRight
+              className={`w-5 h-5 transition-all ${
+                step.isComplete
+                  ? "text-green-500"
+                  : "text-muted-foreground group-hover:text-primary group-hover:translate-x-1"
+              }`}
+            />
       </div>
-      <div>
-        <div className={`font-medium ${completed ? "line-through text-muted-foreground" : ""}`}>
-          {title}
         </div>
-        <div className="text-sm text-muted-foreground">{description}</div>
+
+        {/* Highlight bar for incomplete first step */}
+        {!step.isComplete && isFirst && (
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-purple-500" />
+        )}
       </div>
-    </div>
+    </Link>
   );
 }
-

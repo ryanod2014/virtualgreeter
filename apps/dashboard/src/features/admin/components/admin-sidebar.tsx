@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   Ghost,
-  LayoutDashboard,
+  Rocket,
   Users,
   Layers,
   BarChart3,
@@ -49,8 +49,8 @@ export function AdminSidebar({ user, organization }: AdminSidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
-          <NavLink href="/admin" icon={LayoutDashboard}>
-            Overview
+          <NavLink href="/admin" icon={Rocket}>
+            Quick Setup
           </NavLink>
           <NavLink href="/admin/pools" icon={Layers}>
             Pools
