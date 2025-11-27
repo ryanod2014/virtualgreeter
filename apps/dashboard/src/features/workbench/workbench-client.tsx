@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   Video,
   Users,
@@ -9,10 +8,7 @@ import {
   Coffee,
   Camera,
   RefreshCw,
-  Circle,
   Phone,
-  Shield,
-  Loader2,
   ArrowRight,
 } from "lucide-react";
 import { useWebRTC } from "@/features/webrtc/use-webrtc";
@@ -31,69 +27,13 @@ interface WorkbenchClientProps {
   isAdmin?: boolean;
 }
 
-export function WorkbenchClient({ agentProfile, user, organizationId, isAdmin = false }: WorkbenchClientProps) {
+export function WorkbenchClient({ agentProfile, user, organizationId }: WorkbenchClientProps) {
   const displayName = agentProfile?.display_name ?? user.full_name;
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const supabase = createClient();
-  const router = useRouter();
-  
-  // State for "not an agent" activation flow
-  const [isActivating, setIsActivating] = useState(false);
-  const [activateError, setActivateError] = useState<string | null>(null);
   
   // Check if this user is an active agent
   const isActiveAgent = agentProfile?.is_active === true;
-  
-  // Handle becoming an active agent
-  const handleBecomeAgent = async () => {
-    setIsActivating(true);
-    setActivateError(null);
-    
-    try {
-      // First, add a billing seat
-      const seatResponse = await fetch("/api/billing/seats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "add", quantity: 1 }),
-      });
-      
-      if (!seatResponse.ok) {
-        const seatError = await seatResponse.json();
-        throw new Error(seatError.error || "Failed to add billing seat");
-      }
-      
-      if (agentProfile) {
-        // They have a profile but it's inactive - reactivate it
-        const { error } = await supabase
-          .from("agent_profiles")
-          .update({ is_active: true })
-          .eq("id", agentProfile.id);
-        
-        if (error) throw error;
-      } else {
-        // They don't have a profile - create one
-        const { error } = await supabase
-          .from("agent_profiles")
-          .insert({
-            user_id: user.id,
-            organization_id: organizationId,
-            display_name: user.full_name,
-            is_active: true,
-          });
-        
-        if (error) throw error;
-      }
-      
-      // Refresh the page to get the new agent profile
-      router.refresh();
-      window.location.reload();
-    } catch (error) {
-      console.error("Error activating as agent:", error);
-      setActivateError(error instanceof Error ? error.message : "Failed to activate. Please try again.");
-    } finally {
-      setIsActivating(false);
-    }
-  };
   
   // Fetch recording settings
   const [recordingSettings, setRecordingSettings] = useState<RecordingSettings>({
@@ -240,69 +180,17 @@ export function WorkbenchClient({ agentProfile, user, organizationId, isAdmin = 
               </div>
               
               <h2 className="text-2xl font-bold mb-3">You're not set up to take calls</h2>
-              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                {isAdmin 
-                  ? "As an admin, you can manage your team without being a call-taking agent. Want to start taking calls yourself?"
-                  : "You need to be an active agent to take calls and appear in the bullpen."
-                }
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                Configure your agent profile to start receiving live video calls from website visitors.
               </p>
 
-              {activateError && (
-                <div className="mb-6 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-                  {activateError}
-                </div>
-              )}
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button
-                  onClick={handleBecomeAgent}
-                  disabled={isActivating}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  {isActivating ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Activating...
-                    </>
-                  ) : (
-                    <>
-                      <Phone className="w-5 h-5" />
-                      Become an Agent
-                    </>
-                  )}
-                </button>
-                
-                {isAdmin && (
-                  <a
-                    href="/admin"
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-muted hover:bg-muted/80 font-medium transition-colors"
-                  >
-                    <Shield className="w-5 h-5" />
-                    Go to Admin Panel
-                  </a>
-                )}
-              </div>
-
-              <div className="mt-8 p-4 rounded-xl bg-muted/50 text-left">
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <Video className="w-4 h-4 text-primary" />
-                  What happens when you become an agent?
-                </h3>
-                <ul className="text-sm text-muted-foreground space-y-2">
-                  <li className="flex items-start gap-2">
-                    <ArrowRight className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
-                    <span>Uses a seat ($297/mo base includes 1, +$297 per additional)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <ArrowRight className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
-                    <span>Upload your intro & loop videos for simulated presence</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <ArrowRight className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
-                    <span>Start receiving live video calls from website visitors</span>
-                  </li>
-                </ul>
-              </div>
+              <a
+                href="/admin/agents"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
+              >
+                Agent Settings
+                <ArrowRight className="w-5 h-5" />
+              </a>
             </div>
           </div>
         </div>
