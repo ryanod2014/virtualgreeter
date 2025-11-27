@@ -32,6 +32,7 @@ import {
   markCallCancelled,
   getCallLogId,
 } from "../../lib/call-logger.js";
+import { verifyAgentToken, fetchAgentPoolMemberships } from "../../lib/auth.js";
 
 // Track RNA (Ring-No-Answer) timeouts
 const rnaTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -228,11 +229,28 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     // -------------------------------------------------------------------------
 
     socket.on(SOCKET_EVENTS.AGENT_LOGIN, async (data: AgentLoginPayload) => {
-      // TODO: Verify token with Supabase
-      // Use profile from login payload
+      // Verify the agent's token
+      const verification = await verifyAgentToken(data.token, data.agentId);
+      
+      if (!verification.valid) {
+        console.error("[Socket] ❌ AGENT_LOGIN failed - invalid token:", verification.error);
+        socket.emit(SOCKET_EVENTS.ERROR, {
+          code: ERROR_CODES.AUTH_INVALID_TOKEN,
+          message: verification.error ?? "Authentication failed",
+        });
+        return;
+      }
+
+      // Fetch and set agent's pool memberships
+      const poolIds = await fetchAgentPoolMemberships(data.agentId);
+      if (poolIds.length > 0) {
+        poolManager.setAgentPoolMemberships(data.agentId, poolIds);
+      }
+
+      // Use profile from login payload (already verified ownership via token)
       const profile: AgentProfile = {
         id: data.agentId,
-        userId: data.agentId,
+        userId: verification.userId ?? data.agentId,
         displayName: data.profile.displayName,
         avatarUrl: data.profile.avatarUrl,
         waveVideoUrl: data.profile.waveVideoUrl,
@@ -250,6 +268,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         agentId: data.agentId,
         socketId: socket.id,
         status: agentState.profile.status,
+        poolCount: poolIds.length,
       });
       
       socket.emit(SOCKET_EVENTS.LOGIN_SUCCESS, { agentState });

@@ -72,6 +72,7 @@ export function DispositionsClient({
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
   const [newValue, setNewValue] = useState("");
+  const [newIsPrimary, setNewIsPrimary] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("");
@@ -123,8 +124,26 @@ export function DispositionsClient({
   const handleAdd = async () => {
     if (!newName.trim()) return;
 
-    const maxOrder = Math.max(0, ...dispositions.map((d) => d.display_order));
     const parsedValue = newValue ? parseFloat(newValue) : null;
+    
+    // If making primary, add at position 0 and shift others
+    // Otherwise add at the end
+    const newDisplayOrder = newIsPrimary ? 0 : Math.max(0, ...dispositions.map((d) => d.display_order)) + 1;
+
+    // If making primary, shift all existing dispositions first
+    if (newIsPrimary && dispositions.length > 0) {
+      const updates = dispositions.map((d, index) => ({
+        id: d.id,
+        display_order: index + 1,
+      }));
+
+      for (const update of updates) {
+        await supabase
+          .from("dispositions")
+          .update({ display_order: update.display_order })
+          .eq("id", update.id);
+      }
+    }
 
     const { data, error } = await supabase
       .from("dispositions")
@@ -133,23 +152,35 @@ export function DispositionsClient({
         name: newName.trim(),
         color: newColor,
         value: parsedValue,
-        display_order: maxOrder + 1,
+        display_order: newDisplayOrder,
         is_active: true,
       })
       .select()
       .single();
 
     if (data && !error) {
-      // Ensure new fields have defaults in case migration isn't applied
+      // Normalize data with proper value field
       const normalizedData = {
         ...data,
-        is_primary: data.is_primary ?? false,
         value: parsedValue ?? data.value ?? null,
       };
-      setDispositions([...dispositions, normalizedData]);
+      
+      // If primary, add at start; otherwise add at end
+      if (newIsPrimary) {
+        // Update existing dispositions' display_order in local state
+        const shiftedDispositions = dispositions.map((d, index) => ({
+          ...d,
+          display_order: index + 1,
+        }));
+        setDispositions([normalizedData, ...shiftedDispositions]);
+      } else {
+        setDispositions([...dispositions, normalizedData]);
+      }
+      
       setNewName("");
       setNewColor(PRESET_COLORS[0]);
       setNewValue("");
+      setNewIsPrimary(false);
       setIsAdding(false);
     } else if (error) {
       console.error('Failed to add disposition:', error);
@@ -292,15 +323,23 @@ export function DispositionsClient({
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Color</label>
+              <div className={newIsPrimary ? "opacity-40 pointer-events-none" : ""}>
+                <label className="block text-sm font-medium mb-2">
+                  Color
+                  {newIsPrimary && (
+                    <span className="text-muted-foreground font-normal ml-2 text-xs">
+                      (primary uses trophy icon)
+                    </span>
+                  )}
+                </label>
                 <div className="flex gap-2 flex-wrap">
                   {PRESET_COLORS.map((color) => (
                     <button
                       key={color}
                       onClick={() => setNewColor(color)}
+                      disabled={newIsPrimary}
                       className={`w-8 h-8 rounded-lg transition-all ${
-                        newColor === color
+                        !newIsPrimary && newColor === color
                           ? "ring-2 ring-offset-2 ring-primary"
                           : ""
                       }`}
@@ -331,6 +370,33 @@ export function DispositionsClient({
                 </p>
               </div>
             </div>
+            
+            {/* Make Primary Toggle */}
+            <button
+              type="button"
+              onClick={() => setNewIsPrimary(!newIsPrimary)}
+              className={`flex items-center gap-3 w-full p-3 rounded-xl border transition-all ${
+                newIsPrimary 
+                  ? "bg-amber-500/10 border-amber-500/50 text-amber-500" 
+                  : "bg-muted/30 border-border hover:bg-muted/50"
+              }`}
+            >
+              <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${
+                newIsPrimary 
+                  ? "bg-amber-500 border-amber-500" 
+                  : "border-muted-foreground/30"
+              }`}>
+                {newIsPrimary && <Check className="w-3.5 h-3.5 text-white" />}
+              </div>
+              <Trophy className={`w-4 h-4 ${newIsPrimary ? "text-amber-500" : "text-muted-foreground"}`} />
+              <div className="text-left">
+                <span className="font-medium">Make this the primary disposition</span>
+                <p className={`text-xs ${newIsPrimary ? "text-amber-500/70" : "text-muted-foreground"}`}>
+                  Primary disposition is your main conversion goal
+                </p>
+              </div>
+            </button>
+
             <div className="flex gap-3">
               <button
                 onClick={handleAdd}
@@ -344,6 +410,7 @@ export function DispositionsClient({
                   setIsAdding(false);
                   setNewName("");
                   setNewValue("");
+                  setNewIsPrimary(false);
                 }}
                 className="px-6 py-2 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80"
               >

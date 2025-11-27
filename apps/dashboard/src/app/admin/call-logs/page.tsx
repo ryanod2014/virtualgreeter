@@ -111,7 +111,7 @@ export default async function CallLogsPage({ searchParams }: Props) {
     .order("created_at", { ascending: false })
     .limit(1000);
 
-  const uniqueUrls = [...new Set(urlData?.map((u) => u.page_url) ?? [])];
+  const uniqueUrls = Array.from(new Set(urlData?.map((u) => u.page_url) ?? []));
 
   return (
     <CallLogsClient

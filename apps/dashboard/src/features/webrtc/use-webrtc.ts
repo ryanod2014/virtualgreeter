@@ -255,10 +255,11 @@ export function useWebRTC({
 
     try {
       // Request screen share
+      // Note: cursor is a valid option for getDisplayMedia but not in MediaTrackConstraints types
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           cursor: "always",
-        },
+        } as MediaTrackConstraints,
         audio: true, // Include audio for demos
       });
 

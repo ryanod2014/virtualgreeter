@@ -2,7 +2,7 @@
 // AGENT STATS CALCULATION UTILITY
 // ============================================================================
 
-import type { CallStatus } from "@ghost-greeter/domain";
+import type { CallStatus } from "@ghost-greeter/domain/database.types";
 
 export interface CallLogForStats {
   id: string;

@@ -14,10 +14,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify user is admin
+    // Verify user is admin and get org details
     const { data: profile } = await supabase
       .from("users")
-      .select("role, organization_id, organization:organizations(name)")
+      .select("role, organization_id, organization:organizations(name, seat_count, stripe_subscription_item_id)")
       .eq("id", user.id)
       .single();
 
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and name are required" }, { status: 400 });
     }
 
-    // Check if user already exists in this org
+    // Check if user already exists in this org (including deactivated)
     const { data: existingUser } = await supabase
       .from("users")
       .select("id")
@@ -56,6 +56,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "An invite has already been sent to this email" }, { status: 400 });
     }
 
+    // === ADD SEAT TO BILLING ===
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const seatResponse = await fetch(`${baseUrl}/api/billing/seats`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        // Forward auth cookie
+        "Cookie": request.headers.get("cookie") || "",
+      },
+      body: JSON.stringify({ action: "add", quantity: 1 }),
+    });
+
+    if (!seatResponse.ok) {
+      const seatError = await seatResponse.json();
+      return NextResponse.json(
+        { error: seatError.error || "Failed to add billing seat" },
+        { status: 400 }
+      );
+    }
+
     // Generate secure token
     const token = crypto.randomUUID();
 
@@ -74,13 +94,25 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (inviteError) {
+      // Rollback the seat charge
+      await fetch(`${baseUrl}/api/billing/seats`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Cookie": request.headers.get("cookie") || "",
+        },
+        body: JSON.stringify({ action: "remove", quantity: 1 }),
+      });
+      
       console.error("Failed to create invite:", inviteError);
       return NextResponse.json({ error: "Failed to create invite" }, { status: 500 });
     }
 
     // Send email
-    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invite?token=${token}`;
-    const orgName = (profile.organization as { name: string })?.name || "Ghost-Greeter";
+    const inviteUrl = `${baseUrl}/accept-invite?token=${token}`;
+    // Handle Supabase returning organization as array due to join
+    const org = Array.isArray(profile.organization) ? profile.organization[0] : profile.organization;
+    const orgName = (org as { name: string })?.name || "Ghost-Greeter";
 
     if (resend) {
       try {
@@ -145,5 +177,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-
-

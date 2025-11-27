@@ -12,6 +12,21 @@ export type AgentStatus = "offline" | "idle" | "in_simulation" | "in_call";
 
 export type CallStatus = "pending" | "accepted" | "rejected" | "completed" | "missed";
 
+export type CancellationReason = 
+  | "reps_not_using"
+  | "not_enough_reps"
+  | "low_website_traffic"
+  | "low_roi_per_call"
+  | "too_expensive"
+  | "not_enough_features"
+  | "switched_to_competitor"
+  | "technical_issues"
+  | "difficult_to_use"
+  | "business_closed"
+  | "other";
+
+export type SubscriptionStatus = "active" | "paused" | "cancelled";
+
 export type RuleMatchType = "is_exactly" | "contains" | "does_not_contain" | "starts_with" | "ends_with";
 export type RuleConditionType = "domain" | "path" | "query_param";
 
@@ -52,6 +67,18 @@ export interface Database {
           max_agents: number;
           max_sites: number;
           recording_settings: RecordingSettings;
+          // Stripe billing fields
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          stripe_subscription_item_id: string | null;
+          billing_email: string | null;
+          seat_count: number;
+          // Subscription pause fields
+          subscription_status: SubscriptionStatus;
+          paused_at: string | null;
+          pause_ends_at: string | null;
+          pause_months: number | null;
+          pause_reason: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -102,6 +129,10 @@ export interface Database {
           status: AgentStatus;
           max_simultaneous_simulations: number;
           is_available: boolean;
+          // Soft delete fields
+          is_active: boolean;
+          deactivated_at: string | null;
+          deactivated_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -114,7 +145,8 @@ export interface Database {
           id: string;
           organization_id: string;
           site_id: string;
-          agent_id: string;
+          agent_id: string | null; // Nullable - agent may be soft-deleted
+          pool_id: string | null;
           visitor_id: string;
           status: CallStatus;
           page_url: string;
@@ -200,21 +232,6 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["agent_pool_members"]["Insert"]>;
       };
 
-      site_path_rules: {
-        Row: {
-          id: string;
-          site_id: string;
-          path_pattern: string;
-          pool_id: string;
-          priority: number;
-          is_active: boolean;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<Database["public"]["Tables"]["site_path_rules"]["Row"], "id" | "created_at" | "updated_at">;
-        Update: Partial<Database["public"]["Tables"]["site_path_rules"]["Insert"]>;
-      };
-
       invites: {
         Row: {
           id: string;
@@ -230,6 +247,40 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["invites"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["invites"]["Insert"]>;
+      };
+
+      cancellation_feedback: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          primary_reason: CancellationReason;
+          additional_reasons: CancellationReason[];
+          detailed_feedback: string | null;
+          competitor_name: string | null;
+          would_return: boolean | null;
+          return_conditions: string | null;
+          agent_count: number;
+          monthly_cost: number;
+          subscription_duration_days: number;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["cancellation_feedback"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["cancellation_feedback"]["Insert"]>;
+      };
+
+      pause_history: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          action: "paused" | "resumed" | "extended";
+          pause_months: number | null;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["pause_history"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["pause_history"]["Insert"]>;
       };
     };
   };
@@ -274,9 +325,6 @@ export type AgentPoolInsert = Database["public"]["Tables"]["agent_pools"]["Inser
 export type AgentPoolMember = Database["public"]["Tables"]["agent_pool_members"]["Row"];
 export type AgentPoolMemberInsert = Database["public"]["Tables"]["agent_pool_members"]["Insert"];
 
-export type SitePathRule = Database["public"]["Tables"]["site_path_rules"]["Row"];
-export type SitePathRuleInsert = Database["public"]["Tables"]["site_path_rules"]["Insert"];
-
 export type PoolRoutingRule = Database["public"]["Tables"]["pool_routing_rules"]["Row"];
 export type PoolRoutingRuleInsert = Database["public"]["Tables"]["pool_routing_rules"]["Insert"];
 
@@ -285,6 +333,12 @@ export type DispositionInsert = Database["public"]["Tables"]["dispositions"]["In
 
 export type Invite = Database["public"]["Tables"]["invites"]["Row"];
 export type InviteInsert = Database["public"]["Tables"]["invites"]["Insert"];
+
+export type CancellationFeedback = Database["public"]["Tables"]["cancellation_feedback"]["Row"];
+export type CancellationFeedbackInsert = Database["public"]["Tables"]["cancellation_feedback"]["Insert"];
+
+export type PauseHistory = Database["public"]["Tables"]["pause_history"]["Row"];
+export type PauseHistoryInsert = Database["public"]["Tables"]["pause_history"]["Insert"];
 
 // ----------------------------------------------------------------------------
 // AUTH SESSION TYPES

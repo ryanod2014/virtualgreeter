@@ -25,7 +25,7 @@ export default async function SettingsPage() {
       </div>
 
       {/* Settings Grid */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         <SettingsCard
           href="/admin/settings/organization"
           icon={Building2}
@@ -43,13 +43,11 @@ export default async function SettingsPage() {
         />
 
         <SettingsCard
-          href="#"
+          href="/admin/settings/billing"
           icon={CreditCard}
           title="Billing"
           description="Manage your subscription and payment methods"
           color="amber"
-          disabled
-          comingSoon
         />
       </div>
     </div>
@@ -115,6 +113,6 @@ function SettingsCard({
     return content;
   }
 
-  return <Link href={href}>{content}</Link>;
+  return <Link href={href} className="block">{content}</Link>;
 }
 

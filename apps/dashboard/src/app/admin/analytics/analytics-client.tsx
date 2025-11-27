@@ -36,18 +36,25 @@ interface Disposition {
   color: string;
 }
 
+interface Pool {
+  id: string;
+  name: string;
+}
+
 interface FilterParams {
   from?: string;
   to?: string;
   agent?: string;
   status?: string;
   disposition?: string;
+  pool?: string;
 }
 
 interface Props {
   calls: CallLogForStats[];
   dispositions: DispositionForStats[];
   agents: Agent[];
+  pools: Pool[];
   dateRange: { from: string; to: string };
   currentFilters: FilterParams;
 }
@@ -56,6 +63,7 @@ export function AnalyticsClient({
   calls,
   dispositions,
   agents,
+  pools,
   dateRange,
   currentFilters,
 }: Props) {
@@ -70,6 +78,7 @@ export function AnalyticsClient({
     dispositions: currentFilters.disposition?.split(",").filter(Boolean) ?? [],
     agents: currentFilters.agent?.split(",").filter(Boolean) ?? [],
     statuses: currentFilters.status?.split(",").filter(Boolean) ?? [],
+    pools: currentFilters.pool?.split(",").filter(Boolean) ?? [],
   });
 
   const applyFilters = () => {
@@ -83,6 +92,7 @@ export function AnalyticsClient({
     if (filters.dispositions.length > 0) params.set("disposition", filters.dispositions.join(","));
     if (filters.agents.length > 0) params.set("agent", filters.agents.join(","));
     if (filters.statuses.length > 0) params.set("status", filters.statuses.join(","));
+    if (filters.pools.length > 0) params.set("pool", filters.pools.join(","));
 
     router.push(`${pathname}?${params.toString()}`);
   };
@@ -92,6 +102,7 @@ export function AnalyticsClient({
       dispositions: [],
       agents: [],
       statuses: [],
+      pools: [],
     });
     const params = new URLSearchParams();
     params.set("from", dateRange.from.split("T")[0]);
@@ -102,7 +113,8 @@ export function AnalyticsClient({
   const hasActiveFilters =
     filters.dispositions.length > 0 ||
     filters.agents.length > 0 ||
-    filters.statuses.length > 0;
+    filters.statuses.length > 0 ||
+    filters.pools.length > 0;
 
   const handleDateRangeChange = (from: Date, to: Date) => {
     const params = new URLSearchParams();
@@ -113,6 +125,7 @@ export function AnalyticsClient({
     if (filters.dispositions.length > 0) params.set("disposition", filters.dispositions.join(","));
     if (filters.agents.length > 0) params.set("agent", filters.agents.join(","));
     if (filters.statuses.length > 0) params.set("status", filters.statuses.join(","));
+    if (filters.pools.length > 0) params.set("pool", filters.pools.join(","));
 
     router.push(`${pathname}?${params.toString()}`);
   };
@@ -136,6 +149,11 @@ export function AnalyticsClient({
     value: a.id,
     label: a.display_name,
     icon: <User className="w-3 h-3 text-primary" />,
+  }));
+
+  const poolOptions = pools.map((p) => ({
+    value: p.id,
+    label: p.name,
   }));
 
   return (
@@ -181,7 +199,18 @@ export function AnalyticsClient({
         {/* Expanded Filters */}
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-border">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {/* Pool */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Agent Pool</label>
+                <MultiSelectDropdown
+                  options={poolOptions}
+                  selected={filters.pools}
+                  onChange={(selected) => setFilters({ ...filters, pools: selected })}
+                  placeholder="All Pools"
+                />
+              </div>
+
               {/* Agent */}
               <div>
                 <label className="block text-sm font-medium mb-1">Agent</label>

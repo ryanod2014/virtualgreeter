@@ -9,13 +9,15 @@ import {
   UserPlus,
   Layers,
   X,
-  MoreVertical,
   Video,
   Circle,
   BarChart3,
   Loader2,
   Mail,
   Shield,
+  CreditCard,
+  UserMinus,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -36,6 +38,7 @@ interface Agent {
   user_id: string;
   display_name: string;
   status: string;
+  wave_video_url: string | null;
   intro_video_url: string | null;
   loop_video_url: string | null;
   max_simultaneous_simulations: number;
@@ -61,17 +64,36 @@ interface PendingInvite {
   created_at: string;
 }
 
+interface BillingInfo {
+  totalSeats: number;
+  activeAgents: number;
+  pendingInvites: number;
+  pricePerSeat: number;
+  monthlyCost: number;
+}
+
 interface Props {
   agents: Agent[];
   pools: Pool[];
   agentStats: Record<string, AgentStats>;
   organizationId: string;
   pendingInvites?: PendingInvite[];
+  currentUserId: string;
+  billingInfo: BillingInfo;
 }
 
-export function AgentsClient({ agents: initialAgents, pools, agentStats, organizationId, pendingInvites: initialInvites = [] }: Props) {
+export function AgentsClient({ 
+  agents: initialAgents, 
+  pools, 
+  agentStats, 
+  organizationId, 
+  pendingInvites: initialInvites = [], 
+  currentUserId,
+  billingInfo: initialBillingInfo,
+}: Props) {
   const [agents, setAgents] = useState(initialAgents);
   const [pendingInvites, setPendingInvites] = useState(initialInvites);
+  const [billingInfo, setBillingInfo] = useState(initialBillingInfo);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [isAddingAgent, setIsAddingAgent] = useState(false);
   const [newAgentEmail, setNewAgentEmail] = useState("");
@@ -80,13 +102,28 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
   const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState(false);
+  
+  // New state for confirmations
+  const [showInviteConfirm, setShowInviteConfirm] = useState(false);
+  const [agentToRemove, setAgentToRemove] = useState<Agent | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const supabase = createClient();
 
-  // Send invite
-  const handleSendInvite = async () => {
+  // Updated billing calculations
+  const newMonthlyCost = (billingInfo.totalSeats + 1) * billingInfo.pricePerSeat;
+  const costIncrease = billingInfo.pricePerSeat;
+
+  // Show confirmation before sending invite
+  const handleInviteClick = () => {
     if (!newAgentEmail || !newAgentName) return;
-    
+    setShowInviteConfirm(true);
+  };
+
+  // Actually send the invite after confirmation
+  const handleConfirmInvite = async () => {
+    setShowInviteConfirm(false);
     setIsInviting(true);
     setInviteError(null);
     setInviteSuccess(false);
@@ -110,7 +147,7 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
         return;
       }
 
-      // Add to pending invites list
+      // Update local state
       setPendingInvites([
         ...pendingInvites,
         {
@@ -123,9 +160,16 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
         },
       ]);
 
+      // Update billing info
+      setBillingInfo({
+        ...billingInfo,
+        totalSeats: billingInfo.totalSeats + 1,
+        pendingInvites: billingInfo.pendingInvites + 1,
+        monthlyCost: billingInfo.monthlyCost + billingInfo.pricePerSeat,
+      });
+
       setInviteSuccess(true);
       
-      // Reset form after short delay
       setTimeout(() => {
         setIsAddingAgent(false);
         setNewAgentEmail("");
@@ -141,16 +185,71 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
     }
   };
 
-  // Revoke invite
+  // Revoke invite with seat credit
   const handleRevokeInvite = async (inviteId: string) => {
-    const { error } = await supabase.from("invites").delete().eq("id", inviteId);
-    if (!error) {
-      setPendingInvites(pendingInvites.filter(i => i.id !== inviteId));
+    try {
+      const response = await fetch("/api/invites/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteId }),
+      });
+
+      if (response.ok) {
+        setPendingInvites(pendingInvites.filter(i => i.id !== inviteId));
+        setBillingInfo({
+          ...billingInfo,
+          totalSeats: billingInfo.totalSeats - 1,
+          pendingInvites: billingInfo.pendingInvites - 1,
+          monthlyCost: billingInfo.monthlyCost - billingInfo.pricePerSeat,
+        });
+      }
+    } catch (error) {
+      console.error("Revoke error:", error);
     }
   };
 
-  const getAgentPools = (agent: Agent) => {
-    return agent.agent_pool_members.map(m => m.pool);
+  // Remove agent (soft delete)
+  const handleRemoveAgent = async () => {
+    if (!agentToRemove) return;
+    
+    setIsRemoving(true);
+    setRemoveError(null);
+
+    try {
+      const response = await fetch("/api/agents/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentProfileId: agentToRemove.id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setRemoveError(data.error || "Failed to remove agent");
+        setIsRemoving(false);
+        return;
+      }
+
+      // Update local state
+      setAgents(agents.filter(a => a.id !== agentToRemove.id));
+      setBillingInfo({
+        ...billingInfo,
+        totalSeats: billingInfo.totalSeats - 1,
+        activeAgents: billingInfo.activeAgents - 1,
+        monthlyCost: billingInfo.monthlyCost - billingInfo.pricePerSeat,
+      });
+
+      if (selectedAgent?.id === agentToRemove.id) {
+        setSelectedAgent(null);
+      }
+
+      setAgentToRemove(null);
+    } catch (error) {
+      console.error("Remove error:", error);
+      setRemoveError("An unexpected error occurred");
+    } finally {
+      setIsRemoving(false);
+    }
   };
 
   const getAgentStats = (agentId: string): AgentStats => {
@@ -192,21 +291,22 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
       .single();
 
     if (data && !error) {
+      const membership = data as unknown as PoolMembership;
+      
       setAgents(agents.map(a => {
         if (a.id === agentId) {
           return {
             ...a,
-            agent_pool_members: [...a.agent_pool_members, data as PoolMembership],
+            agent_pool_members: [...a.agent_pool_members, membership],
           };
         }
         return a;
       }));
       
-      // Update selected agent if needed
       if (selectedAgent?.id === agentId) {
         setSelectedAgent({
           ...selectedAgent,
-          agent_pool_members: [...selectedAgent.agent_pool_members, data as PoolMembership],
+          agent_pool_members: [...selectedAgent.agent_pool_members, membership],
         });
       }
     }
@@ -227,7 +327,6 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
         return a;
       }));
 
-      // Update selected agent if needed
       if (selectedAgent?.id === agentId) {
         setSelectedAgent({
           ...selectedAgent,
@@ -244,12 +343,12 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      {/* Header with Billing Info */}
+      <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Agents</h1>
+          <h1 className="text-3xl font-bold mb-2">Team</h1>
           <p className="text-muted-foreground">
-            Manage your agents and assign them to pools
+            Manage your team members and billing
           </p>
         </div>
         <button
@@ -257,32 +356,108 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
         >
           <UserPlus className="w-5 h-5" />
-          Add Agent
+          Add Team Member
         </button>
+      </div>
+
+      {/* Billing Summary Card */}
+      <div className="glass rounded-2xl p-5 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-primary/10">
+              <CreditCard className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold">{billingInfo.totalSeats}</span>
+                <span className="text-muted-foreground">seats</span>
+                <span className="text-muted-foreground">×</span>
+                <span className="font-medium">${billingInfo.pricePerSeat}/mo</span>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {billingInfo.activeAgents} active agent{billingInfo.activeAgents !== 1 ? 's' : ''}
+                {billingInfo.pendingInvites > 0 && (
+                  <> + {billingInfo.pendingInvites} pending invite{billingInfo.pendingInvites !== 1 ? 's' : ''}</>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-primary">
+              ${billingInfo.monthlyCost.toLocaleString()}
+              <span className="text-lg font-normal text-primary/70">/mo</span>
+            </div>
+            <Link 
+              href="/admin/settings/billing" 
+              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              Manage billing →
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Add Agent Modal */}
       {isAddingAgent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="glass rounded-2xl p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Invite New Team Member</h3>
-              <button
-                onClick={() => {
-                  setIsAddingAgent(false);
-                  setNewAgentEmail("");
-                  setNewAgentName("");
-                  setNewAgentRole("agent");
-                  setInviteError(null);
-                  setInviteSuccess(false);
-                }}
-                className="p-1 rounded-lg hover:bg-muted transition-colors"
-              >
-                <X className="w-5 h-5 text-muted-foreground" />
-              </button>
-            </div>
+            {/* Show confirmation or form */}
+            {showInviteConfirm ? (
+              <>
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <CreditCard className="w-8 h-8 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">Confirm New Seat</h3>
+                  <p className="text-muted-foreground">
+                    Adding {newAgentName} will increase your billing.
+                  </p>
+                </div>
 
-            {inviteSuccess ? (
+                <div className="p-4 rounded-xl bg-muted/30 mb-6 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Current</span>
+                    <span>{billingInfo.totalSeats} seats × ${billingInfo.pricePerSeat} = <strong>${billingInfo.monthlyCost.toLocaleString()}/mo</strong></span>
+                  </div>
+                  <div className="flex justify-between text-sm text-primary font-medium">
+                    <span>New</span>
+                    <span>{billingInfo.totalSeats + 1} seats × ${billingInfo.pricePerSeat} = <strong>${newMonthlyCost.toLocaleString()}/mo</strong></span>
+                  </div>
+                  <hr className="border-border" />
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Change</span>
+                    <span className="text-amber-500">+${costIncrease}/mo (prorated this cycle)</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleConfirmInvite}
+                    disabled={isInviting}
+                    className="flex-1 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isInviting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Confirm & Send Invite
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setShowInviteConfirm(false)}
+                    disabled={isInviting}
+                    className="px-6 py-3 rounded-lg bg-muted hover:bg-muted/80 disabled:opacity-50"
+                  >
+                    Back
+                  </button>
+                </div>
+              </>
+            ) : inviteSuccess ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
                   <CheckCircle className="w-8 h-8 text-green-500" />
@@ -293,104 +468,9 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {inviteError && (
-                  <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-                    {inviteError}
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="email"
-                      placeholder="agent@company.com"
-                      value={newAgentEmail}
-                      onChange={(e) => setNewAgentEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-                      autoFocus
-                      disabled={isInviting}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Display Name</label>
-                  <input
-                    type="text"
-                    placeholder="John Smith"
-                    value={newAgentName}
-                    onChange={(e) => setNewAgentName(e.target.value)}
-                    className="w-full px-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-                    disabled={isInviting}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    They can change this after accepting the invite
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Role</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setNewAgentRole("agent")}
-                      disabled={isInviting}
-                      className={`p-3 rounded-lg border-2 transition-all text-left ${
-                        newAgentRole === "agent"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Users className="w-4 h-4" />
-                        <span className="font-medium">Agent</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Can take calls and view their own stats
-                      </p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewAgentRole("admin")}
-                      disabled={isInviting}
-                      className={`p-3 rounded-lg border-2 transition-all text-left ${
-                        newAgentRole === "admin"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Shield className="w-4 h-4" />
-                        <span className="font-medium">Admin</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Full access to settings and team management
-                      </p>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={handleSendInvite}
-                    disabled={!newAgentEmail || !newAgentName || isInviting}
-                    className="flex-1 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {isInviting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Mail className="w-4 h-4" />
-                        Send Invite
-                      </>
-                    )}
-                  </button>
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Invite New Team Member</h3>
                   <button
                     onClick={() => {
                       setIsAddingAgent(false);
@@ -399,14 +479,194 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
                       setNewAgentRole("agent");
                       setInviteError(null);
                     }}
-                    disabled={isInviting}
-                    className="px-6 py-2 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-50"
+                    className="p-1 rounded-lg hover:bg-muted transition-colors"
                   >
-                    Cancel
+                    <X className="w-5 h-5 text-muted-foreground" />
                   </button>
                 </div>
+
+                <div className="space-y-4">
+                  {inviteError && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                      {inviteError}
+                    </div>
+                  )}
+
+                  {/* Email field */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input
+                        type="email"
+                        placeholder="agent@company.com"
+                        value={newAgentEmail}
+                        onChange={(e) => setNewAgentEmail(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  {/* Name field */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Display Name</label>
+                    <input
+                      type="text"
+                      placeholder="John Smith"
+                      value={newAgentName}
+                      onChange={(e) => setNewAgentName(e.target.value)}
+                      className="w-full px-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
+                    />
+                  </div>
+
+                  {/* Role selection */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Role</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setNewAgentRole("agent")}
+                        className={`p-3 rounded-lg border-2 transition-all text-left ${
+                          newAgentRole === "agent"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Users className="w-4 h-4" />
+                          <span className="font-medium">Agent</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Can take calls and view their own stats
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewAgentRole("admin")}
+                        className={`p-3 rounded-lg border-2 transition-all text-left ${
+                          newAgentRole === "admin"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Shield className="w-4 h-4" />
+                          <span className="font-medium">Admin</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Full access to settings and team management
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Cost preview */}
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm">
+                    <div className="flex items-center gap-2 text-amber-600 mb-1">
+                      <CreditCard className="w-4 h-4" />
+                      <span className="font-medium">Billing Impact</span>
+                    </div>
+                    <p className="text-amber-600/80">
+                      Adding a team member will add +${billingInfo.pricePerSeat}/mo to your subscription.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={handleInviteClick}
+                      disabled={!newAgentEmail || !newAgentName}
+                      className="flex-1 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Continue
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsAddingAgent(false);
+                        setNewAgentEmail("");
+                        setNewAgentName("");
+                        setNewAgentRole("agent");
+                        setInviteError(null);
+                      }}
+                      className="px-6 py-2 rounded-lg bg-muted hover:bg-muted/80"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Remove Agent Confirmation Modal */}
+      {agentToRemove && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="glass rounded-2xl p-6 w-full max-w-md mx-4">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+                <UserMinus className="w-8 h-8 text-destructive" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Remove Team Member?</h3>
+              <p className="text-muted-foreground">
+                {agentToRemove.display_name} will be removed from your team.
+              </p>
+            </div>
+
+            {removeError && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm mb-4">
+                {removeError}
               </div>
             )}
+
+            <div className="p-4 rounded-xl bg-muted/30 mb-6 space-y-3">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <strong>Call history preserved</strong>
+                  <p className="text-muted-foreground">All call logs and recordings will be kept.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CreditCard className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <strong>Billing reduced</strong>
+                  <p className="text-muted-foreground">Your next invoice will be ${billingInfo.pricePerSeat} less (prorated credit applied).</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleRemoveAgent}
+                disabled={isRemoving}
+                className="flex-1 px-6 py-3 rounded-lg bg-destructive text-destructive-foreground font-medium hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isRemoving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Removing...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Remove Member
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setAgentToRemove(null);
+                  setRemoveError(null);
+                }}
+                disabled={isRemoving}
+                className="px-6 py-3 rounded-lg bg-muted hover:bg-muted/80 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -417,7 +677,7 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
           <div className="glass rounded-2xl overflow-hidden">
             {/* Table Header */}
             <div className="grid grid-cols-12 gap-4 p-4 bg-muted/30 text-sm font-medium text-muted-foreground border-b border-border">
-              <div className="col-span-4">Agent</div>
+              <div className="col-span-4">Team Member</div>
               <div className="col-span-2">Status</div>
               <div className="col-span-3">Pools</div>
               <div className="col-span-2">Calls (30d)</div>
@@ -428,7 +688,8 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
             <div className="divide-y divide-border">
               {agents.map((agent) => {
                 const stats = getAgentStats(agent.id);
-                const agentPools = getAgentPools(agent);
+                const agentPools = agent.agent_pool_members.map(m => m.pool);
+                const isCurrentUser = agent.user_id === currentUserId;
 
                 return (
                   <div
@@ -444,7 +705,12 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
                         <Users className="w-5 h-5 text-primary" />
                       </div>
                       <div>
-                        <div className="font-medium">{agent.display_name}</div>
+                        <div className="font-medium flex items-center gap-2">
+                          {agent.display_name}
+                          {isCurrentUser && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">You</span>
+                          )}
+                        </div>
                         <div className="text-sm text-muted-foreground">{agent.user?.email}</div>
                       </div>
                     </div>
@@ -498,9 +764,18 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
                       >
                         <BarChart3 className="w-4 h-4" />
                       </Link>
-                      <button className="p-2 rounded-lg hover:bg-muted transition-colors">
-                        <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                      </button>
+                      {!isCurrentUser && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAgentToRemove(agent);
+                          }}
+                          className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+                          title="Remove from team"
+                        >
+                          <UserMinus className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -509,16 +784,16 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
               {agents.length === 0 && pendingInvites.length === 0 && (
                 <div className="p-12 text-center">
                   <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-lg font-semibold mb-2">No agents yet</h3>
+                  <h3 className="text-lg font-semibold mb-2">No team members yet</h3>
                   <p className="text-muted-foreground mb-4">
-                    Invite your first agent to get started
+                    Invite your first team member to get started
                   </p>
                   <button
                     onClick={() => setIsAddingAgent(true)}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium"
                   >
                     <UserPlus className="w-5 h-5" />
-                    Add Agent
+                    Add Team Member
                   </button>
                 </div>
               )}
@@ -528,7 +803,7 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
                 <>
                   <div className="px-4 py-2 bg-muted/20 border-t border-border">
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Pending Invites ({pendingInvites.length})
+                      Pending Invites ({pendingInvites.length}) — Counts toward billing
                     </span>
                   </div>
                   {pendingInvites.map((invite) => (
@@ -576,7 +851,7 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
                         <button
                           onClick={() => handleRevokeInvite(invite.id)}
                           className="p-2 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground"
-                          title="Revoke invite"
+                          title="Revoke invite (credit refunded)"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -672,12 +947,20 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
               </div>
 
               {/* Video Status */}
-              <div>
+              <div className="mb-6">
                 <h4 className="font-medium mb-3 flex items-center gap-2">
                   <Video className="w-4 h-4" />
                   Videos
                 </h4>
                 <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                    <span className="text-muted-foreground">Wave Video</span>
+                    {selectedAgent.wave_video_url ? (
+                      <span className="text-green-500">✓ Uploaded</span>
+                    ) : (
+                      <span className="text-yellow-500">Not set</span>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
                     <span className="text-muted-foreground">Intro Video</span>
                     {selectedAgent.intro_video_url ? (
@@ -696,12 +979,23 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
                   </div>
                 </div>
               </div>
+
+              {/* Remove button */}
+              {selectedAgent.user_id !== currentUserId && (
+                <button
+                  onClick={() => setAgentToRemove(selectedAgent)}
+                  className="w-full px-4 py-2 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors flex items-center justify-center gap-2"
+                >
+                  <UserMinus className="w-4 h-4" />
+                  Remove from Team
+                </button>
+              )}
             </div>
           ) : (
             <div className="glass rounded-2xl p-12 text-center">
               <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-muted-foreground">
-                Select an agent to view details
+                Select a team member to view details
               </p>
             </div>
           )}
@@ -710,4 +1004,3 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
     </div>
   );
 }
-

@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import { Server } from "socket.io";
 import { setupSocketHandlers } from "./features/signaling/socket-handlers.js";
 import { PoolManager } from "./features/routing/pool-manager.js";
@@ -23,12 +24,35 @@ const app = express();
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json());
 
+// Rate limiting configuration
+const RATE_LIMIT_ENABLED = process.env["RATE_LIMIT_ENABLED"] !== "false";
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env["RATE_LIMIT_WINDOW_MS"] ?? "60000", 10);
+const RATE_LIMIT_MAX_REQUESTS = parseInt(process.env["RATE_LIMIT_MAX_REQUESTS"] ?? "100", 10);
+
+// Apply rate limiting to API endpoints
+if (RATE_LIMIT_ENABLED) {
+  const apiLimiter = rateLimit({
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    max: RATE_LIMIT_MAX_REQUESTS,
+    message: { error: "Too many requests, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+    // Skip rate limiting for health checks
+    skip: (req) => req.path === "/health",
+  });
+  
+  app.use("/api", apiLimiter);
+  console.log(`📊 Rate limiting enabled: ${RATE_LIMIT_MAX_REQUESTS} requests per ${RATE_LIMIT_WINDOW_MS}ms`);
+}
+
 // Health check endpoint
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: Date.now() });
 });
 
 // API: Update organization configuration (path rules for pools)
+// Note: In production, this should verify the request comes from an authorized source
+// For now, we trust internal dashboard requests
 app.post("/api/config/org", (req, res) => {
   const { orgId, defaultPoolId, pathRules } = req.body;
   
@@ -37,7 +61,14 @@ app.post("/api/config/org", (req, res) => {
     return;
   }
 
+  // Validate pathRules structure
+  if (pathRules && !Array.isArray(pathRules)) {
+    res.status(400).json({ error: "pathRules must be an array" });
+    return;
+  }
+
   poolManager.setOrgConfig(orgId, defaultPoolId ?? null, pathRules ?? []);
+  console.log(`[API] Org config updated: ${orgId} with ${pathRules?.length ?? 0} rules`);
   res.json({ success: true });
 });
 
@@ -51,6 +82,7 @@ app.post("/api/config/agent-pools", (req, res) => {
   }
 
   poolManager.setAgentPoolMemberships(agentId, poolIds);
+  console.log(`[API] Agent ${agentId} pool memberships updated: ${poolIds.length} pools`);
   res.json({ success: true });
 });
 

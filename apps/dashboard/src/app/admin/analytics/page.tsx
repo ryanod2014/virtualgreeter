@@ -10,6 +10,7 @@ interface Props {
     agent?: string;
     status?: string;
     disposition?: string;
+    pool?: string;
   }>;
 }
 
@@ -77,6 +78,12 @@ export default async function AnalyticsPage({ searchParams }: Props) {
       query = query.in("disposition_id", dispositionIds);
     }
   }
+  if (params.pool) {
+    const poolIds = params.pool.split(",").filter(Boolean);
+    if (poolIds.length > 0) {
+      query = query.in("pool_id", poolIds);
+    }
+  }
 
   const { data: calls } = await query;
 
@@ -94,11 +101,18 @@ export default async function AnalyticsPage({ searchParams }: Props) {
     .eq("organization_id", auth.organization.id)
     .order("display_name");
 
+  const { data: pools } = await supabase
+    .from("agent_pools")
+    .select("id, name")
+    .eq("organization_id", auth.organization.id)
+    .order("name");
+
   return (
     <AnalyticsClient
       calls={calls ?? []}
       dispositions={dispositions ?? []}
       agents={agents ?? []}
+      pools={pools ?? []}
       dateRange={{ from: fromDate.toISOString(), to: toDate.toISOString() }}
       currentFilters={params}
     />
