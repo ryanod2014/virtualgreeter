@@ -95,8 +95,8 @@ export function AdminSidebar({
             </div>
           </div>
           
-          {/* Status indicator - only show for admins who are also agents */}
-          {agentProfile && isConnected && !activeCall && onSetAway && onSetBack && (
+          {/* Status indicator - only show for admins who are active agents */}
+          {agentProfile?.is_active && isConnected && !activeCall && onSetAway && onSetBack && (
             <div className="relative" ref={statusDropdownRef}>
               <button
                 onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}

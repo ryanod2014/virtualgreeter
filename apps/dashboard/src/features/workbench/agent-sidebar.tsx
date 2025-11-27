@@ -93,8 +93,8 @@ export function AgentSidebar({
             </div>
           </div>
           
-          {/* Status indicator - only show if agent can take calls */}
-          {agentProfile && isConnected && !activeCall && onSetAway && onSetBack && (
+          {/* Status indicator - only show if agent is active and can take calls */}
+          {agentProfile?.is_active && isConnected && !activeCall && onSetAway && onSetBack && (
             <div className="relative" ref={statusDropdownRef}>
               <button
                 onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
