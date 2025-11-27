@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle, X, Loader2, Zap } from "lucide-react";
+import { CheckCircle, X, Loader2, Zap, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface Disposition {
@@ -173,7 +173,7 @@ export function PostCallDispositionModal({
           </div>
         ) : (
           <div className="space-y-2 mb-6">
-            {dispositions.map((disposition) => (
+            {dispositions.map((disposition, index) => (
               <button
                 key={disposition.id}
                 onClick={() => handleSelect(disposition.id)}
@@ -184,10 +184,14 @@ export function PostCallDispositionModal({
                     : "bg-muted/30 border-2 border-transparent hover:bg-muted/50"
                 } ${isSaving && selectedId !== disposition.id ? "opacity-50" : ""}`}
               >
-                <span
-                  className="w-4 h-4 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: disposition.color }}
-                />
+                {index === 0 ? (
+                  <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                ) : (
+                  <span
+                    className="w-4 h-4 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: disposition.color }}
+                  />
+                )}
                 <span className="font-medium flex-1 text-left flex items-center gap-2">
                   {disposition.name}
                   {disposition.fb_event_enabled && disposition.fb_event_name && (
