@@ -148,6 +148,14 @@ export default async function CallsPage({ searchParams }: Props) {
     teamSessions?.reduce((acc, s) => acc + s.in_call_seconds, 0) ?? 0;
   const teamActiveSeconds = teamIdleSeconds + teamInCallSeconds;
 
+  // Fetch pageview count for the date range
+  const { count: pageviewCount } = await supabase
+    .from("widget_pageviews")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", auth.organization.id)
+    .gte("created_at", fromDate.toISOString())
+    .lte("created_at", toDate.toISOString());
+
   return (
     <CallsClient
       calls={calls ?? []}
@@ -160,6 +168,7 @@ export default async function CallsPage({ searchParams }: Props) {
         activeSeconds: teamActiveSeconds,
         inCallSeconds: teamInCallSeconds,
       }}
+      pageviewCount={pageviewCount ?? 0}
     />
   );
 }

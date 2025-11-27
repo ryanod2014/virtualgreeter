@@ -89,6 +89,7 @@ export interface ActiveCall {
 export interface WidgetToServerEvents {
   "visitor:join": (data: VisitorJoinPayload) => void;
   "visitor:interaction": (data: VisitorInteractionPayload) => void;
+  "widget:pageview": (data: WidgetPageviewPayload) => void;
   "call:request": (data: CallRequestPayload) => void;
   "call:cancel": (data: CallCancelPayload) => void;
   "call:end": (data: CallEndPayload) => void;
@@ -156,6 +157,10 @@ export interface VisitorJoinPayload {
 export interface VisitorInteractionPayload {
   interactionType: "click" | "scroll" | "mousemove";
   timestamp: number;
+}
+
+export interface WidgetPageviewPayload {
+  agentId: string;
 }
 
 export interface CallRequestPayload {

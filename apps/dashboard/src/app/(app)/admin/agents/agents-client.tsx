@@ -19,6 +19,9 @@ import {
   CreditCard,
   UserMinus,
   Trash2,
+  ChevronDown,
+  ChevronUp,
+  Play,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -32,6 +35,9 @@ interface Pool {
 interface PoolMembership {
   id: string;
   pool: Pool;
+  wave_video_url: string | null;
+  intro_video_url: string | null;
+  loop_video_url: string | null;
 }
 
 interface Agent {
@@ -120,6 +126,9 @@ export function AgentsClient({
   const [agentToRemove, setAgentToRemove] = useState<Agent | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  
+  // State for expanded pool videos
+  const [expandedPoolId, setExpandedPoolId] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -136,23 +145,32 @@ export function AgentsClient({
     setInviteError(null);
     
     try {
-      // Activate or create agent profile
-      const { data: existingProfile } = await supabase
+      // Check for existing profile in this organization (including inactive ones)
+      // Use maybeSingle() to handle cases where profile might not exist
+      const { data: existingProfile, error: fetchError } = await supabase
         .from("agent_profiles")
-        .select("id, display_name")
+        .select("id, display_name, is_active")
         .eq("user_id", currentUserId)
-        .single();
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error("Error fetching existing profile:", fetchError);
+        throw fetchError;
+      }
 
       let agentProfileId: string;
       let displayName = currentUserName;
 
       if (existingProfile) {
-        // Reactivate existing profile
-        const { error } = await supabase
-          .from("agent_profiles")
-          .update({ is_active: true })
-          .eq("id", existingProfile.id);
-        if (error) throw error;
+        // Profile exists - reactivate it if inactive
+        if (!existingProfile.is_active) {
+          const { error } = await supabase
+            .from("agent_profiles")
+            .update({ is_active: true, deactivated_at: null, deactivated_by: null })
+            .eq("id", existingProfile.id);
+          if (error) throw error;
+        }
         agentProfileId = existingProfile.id;
         displayName = existingProfile.display_name;
       } else {
@@ -169,6 +187,42 @@ export function AgentsClient({
           .single();
         if (error) throw error;
         agentProfileId = newProfile.id;
+      }
+
+      // Find the catch-all pool and add agent to it
+      const catchAllPool = pools.find(p => p.is_catch_all);
+      let poolMembership: PoolMembership | null = null;
+      
+      if (catchAllPool) {
+        // Check if already a member
+        const { data: existingMembership } = await supabase
+          .from("agent_pool_members")
+          .select("id")
+          .eq("agent_profile_id", agentProfileId)
+          .eq("pool_id", catchAllPool.id)
+          .maybeSingle();
+
+        if (!existingMembership) {
+          // Add to catch-all pool
+          const { data: newMembership } = await supabase
+            .from("agent_pool_members")
+            .insert({
+              agent_profile_id: agentProfileId,
+              pool_id: catchAllPool.id,
+            })
+            .select("id")
+            .single();
+
+          if (newMembership) {
+            poolMembership = {
+              id: newMembership.id,
+              pool: catchAllPool,
+              wave_video_url: null,
+              intro_video_url: null,
+              loop_video_url: null,
+            };
+          }
+        }
       }
 
       // Add to local agents list
@@ -188,7 +242,7 @@ export function AgentsClient({
         loop_video_url: null,
         max_simultaneous_simulations: 25,
         user: userData || { email: "", full_name: currentUserName },
-        agent_pool_members: [],
+        agent_pool_members: poolMembership ? [poolMembership] : [],
       };
 
       setAgents([...agents, newAgent]);
@@ -1205,38 +1259,133 @@ export function AgentsClient({
                 )}
               </div>
 
-              {/* Video Status */}
+              {/* Video Status - Per Pool */}
               <div className="mb-6">
                 <h4 className="font-medium mb-3 flex items-center gap-2">
                   <Video className="w-4 h-4" />
-                  Videos
+                  Videos by Pool
                 </h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                    <span className="text-muted-foreground">Wave Video</span>
-                    {selectedAgent.wave_video_url ? (
-                      <span className="text-green-500">✓ Uploaded</span>
-                    ) : (
-                      <span className="text-yellow-500">Not set</span>
-                    )}
+                {selectedAgent.agent_pool_members.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">
+                    Assign to a pool to record videos
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedAgent.agent_pool_members.map((membership) => {
+                      const hasWave = !!membership.wave_video_url;
+                      const hasIntro = !!membership.intro_video_url;
+                      const hasLoop = !!membership.loop_video_url;
+                      const videoCount = [hasWave, hasIntro, hasLoop].filter(Boolean).length;
+                      const isComplete = videoCount === 3;
+                      const isMissing = videoCount === 0;
+                      const hasAnyVideo = videoCount > 0;
+                      const isExpanded = expandedPoolId === membership.id;
+                      
+                      return (
+                        <div 
+                          key={membership.id}
+                          className="rounded-lg bg-muted/30 border border-border/50 overflow-hidden"
+                        >
+                          {/* Pool Header - Clickable if has videos */}
+                          <button
+                            onClick={() => hasAnyVideo && setExpandedPoolId(isExpanded ? null : membership.id)}
+                            disabled={!hasAnyVideo}
+                            className={`w-full p-3 text-left ${hasAnyVideo ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default'} transition-colors`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Layers className="w-3 h-3 text-muted-foreground" />
+                                <span className="font-medium text-sm">{membership.pool.name}</span>
+                                {hasAnyVideo && (
+                                  isExpanded ? (
+                                    <ChevronUp className="w-3 h-3 text-muted-foreground" />
+                                  ) : (
+                                    <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                                  )
+                                )}
+                              </div>
+                              {isComplete ? (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 font-medium">
+                                  Ready
+                                </span>
+                              ) : isMissing ? (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 font-medium">
+                                  No videos
+                                </span>
+                              ) : (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-500 font-medium">
+                                  {3 - videoCount} missing
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs">
+                              <span className={hasWave ? "text-green-500" : "text-muted-foreground/50"}>
+                                {hasWave ? <Check className="w-3 h-3 inline mr-1" /> : <X className="w-3 h-3 inline mr-1" />}
+                                Wave
+                              </span>
+                              <span className={hasIntro ? "text-green-500" : "text-muted-foreground/50"}>
+                                {hasIntro ? <Check className="w-3 h-3 inline mr-1" /> : <X className="w-3 h-3 inline mr-1" />}
+                                Intro
+                              </span>
+                              <span className={hasLoop ? "text-green-500" : "text-muted-foreground/50"}>
+                                {hasLoop ? <Check className="w-3 h-3 inline mr-1" /> : <X className="w-3 h-3 inline mr-1" />}
+                                Loop
+                              </span>
+                            </div>
+                          </button>
+                          
+                          {/* Expanded Video Players */}
+                          {isExpanded && hasAnyVideo && (
+                            <div className="px-3 pb-3 space-y-3 border-t border-border/50 pt-3">
+                              {hasWave && (
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <Play className="w-3 h-3 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-muted-foreground">Wave Video</span>
+                                  </div>
+                                  <video
+                                    src={membership.wave_video_url!}
+                                    controls
+                                    className="w-full rounded-lg bg-black aspect-video"
+                                    preload="metadata"
+                                  />
+                                </div>
+                              )}
+                              {hasIntro && (
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <Play className="w-3 h-3 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-muted-foreground">Intro Video</span>
+                                  </div>
+                                  <video
+                                    src={membership.intro_video_url!}
+                                    controls
+                                    className="w-full rounded-lg bg-black aspect-video"
+                                    preload="metadata"
+                                  />
+                                </div>
+                              )}
+                              {hasLoop && (
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <Play className="w-3 h-3 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-muted-foreground">Loop Video</span>
+                                  </div>
+                                  <video
+                                    src={membership.loop_video_url!}
+                                    controls
+                                    className="w-full rounded-lg bg-black aspect-video"
+                                    preload="metadata"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                    <span className="text-muted-foreground">Intro Video</span>
-                    {selectedAgent.intro_video_url ? (
-                      <span className="text-green-500">✓ Uploaded</span>
-                    ) : (
-                      <span className="text-yellow-500">Not set</span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                    <span className="text-muted-foreground">Loop Video</span>
-                    {selectedAgent.loop_video_url ? (
-                      <span className="text-green-500">✓ Uploaded</span>
-                    ) : (
-                      <span className="text-yellow-500">Not set</span>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Remove button */}

@@ -31,6 +31,7 @@ interface UseSignalingReturn {
   requestCall: (agentId: string) => void;
   cancelCall: () => void;
   endCall: (callId: string) => void;
+  trackPageview: (agentId: string) => void;
   isConnected: boolean;
   isReconnecting: boolean;
   visitorId: string | null;
@@ -294,6 +295,23 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
     currentRequestIdRef.current = null;
   }, []);
 
+  /**
+   * Track a pageview when widget popup is shown
+   */
+  const trackPageview = useCallback((agentId: string) => {
+    if (!socketRef.current) {
+      console.log("[Widget] Cannot track pageview - socket not initialized");
+      return;
+    }
+    if (!socketRef.current.connected) {
+      console.log("[Widget] Cannot track pageview - socket disconnected");
+      return;
+    }
+
+    console.log("[Widget] 👁️ Tracking pageview for agent:", agentId);
+    socketRef.current.emit(SOCKET_EVENTS.WIDGET_PAGEVIEW, { agentId });
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -331,6 +349,7 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
     requestCall,
     cancelCall,
     endCall,
+    trackPageview,
     isConnected,
     isReconnecting,
     visitorId,

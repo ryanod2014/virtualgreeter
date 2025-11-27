@@ -6,6 +6,7 @@ import type {
   ServerToDashboardEvents,
   VisitorJoinPayload,
   VisitorInteractionPayload,
+  WidgetPageviewPayload,
   AgentLoginPayload,
   AgentStatusPayload,
   AgentAwayPayload,
@@ -39,6 +40,7 @@ import {
   recordStatusChange,
 } from "../../lib/session-tracker.js";
 import { recordEmbedVerification } from "../../lib/embed-tracker.js";
+import { recordPageview } from "../../lib/pageview-logger.js";
 
 // Track RNA (Ring-No-Answer) timeouts
 const rnaTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -118,6 +120,32 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       if (visitor && !visitor.interactedAt) {
         poolManager.updateVisitorState(visitor.visitorId, "watching_simulation");
       }
+    });
+
+    // Track pageviews when widget popup is shown to visitor
+    socket.on(SOCKET_EVENTS.WIDGET_PAGEVIEW, (data: WidgetPageviewPayload) => {
+      const visitor = poolManager.getVisitorBySocketId(socket.id);
+      if (!visitor) {
+        console.log("[Socket] Pageview received but no visitor found for socket:", socket.id);
+        return;
+      }
+
+      // Get the agent to find the pool they're in
+      const agent = poolManager.getAgent(data.agentId);
+      const poolId = agent ? poolManager.getAgentPrimaryPool(data.agentId) : null;
+
+      // Record the pageview (fire-and-forget, non-blocking)
+      recordPageview({
+        visitorId: visitor.visitorId,
+        agentId: data.agentId,
+        orgId: visitor.orgId,
+        pageUrl: visitor.pageUrl,
+        poolId,
+      }).catch(() => {
+        // Silently ignore - pageview tracking is best-effort
+      });
+
+      console.log(`[Socket] 👁️ WIDGET_PAGEVIEW recorded for visitor ${visitor.visitorId}`);
     });
 
     socket.on(SOCKET_EVENTS.CALL_REQUEST, (data: CallRequestPayload) => {

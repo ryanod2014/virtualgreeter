@@ -372,6 +372,20 @@ export interface Database {
         Insert: Omit<Database["public"]["Tables"]["agent_status_changes"]["Row"], "id">;
         Update: Partial<Database["public"]["Tables"]["agent_status_changes"]["Insert"]>;
       };
+
+      widget_pageviews: {
+        Row: {
+          id: string;
+          organization_id: string;
+          pool_id: string | null;
+          visitor_id: string;
+          page_url: string;
+          agent_id: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["widget_pageviews"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["widget_pageviews"]["Insert"]>;
+      };
     };
   };
 }
@@ -435,6 +449,9 @@ export type AgentSessionInsert = Database["public"]["Tables"]["agent_sessions"][
 
 export type AgentStatusChange = Database["public"]["Tables"]["agent_status_changes"]["Row"];
 export type AgentStatusChangeInsert = Database["public"]["Tables"]["agent_status_changes"]["Insert"];
+
+export type WidgetPageview = Database["public"]["Tables"]["widget_pageviews"]["Row"];
+export type WidgetPageviewInsert = Database["public"]["Tables"]["widget_pageviews"]["Insert"];
 
 // ----------------------------------------------------------------------------
 // AUTH SESSION TYPES

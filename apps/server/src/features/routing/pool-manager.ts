@@ -335,6 +335,16 @@ export class PoolManager {
     return agents;
   }
 
+  /**
+   * Get the primary pool for an agent (first pool they belong to)
+   * Used for analytics tracking
+   */
+  getAgentPrimaryPool(agentId: string): string | null {
+    const poolIds = this.agentPools.get(agentId);
+    if (!poolIds || poolIds.size === 0) return null;
+    return [...poolIds][0] ?? null;
+  }
+
   // ---------------------------------------------------------------------------
   // AGENT MANAGEMENT
   // ---------------------------------------------------------------------------

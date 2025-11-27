@@ -8,6 +8,7 @@ export const SOCKET_EVENTS = {
   VISITOR_JOIN: "visitor:join",
   VISITOR_INTERACTION: "visitor:interaction",
   VISITOR_DISCONNECT: "visitor:disconnect",
+  WIDGET_PAGEVIEW: "widget:pageview",
   
   // Dashboard -> Server
   AGENT_LOGIN: "agent:login",

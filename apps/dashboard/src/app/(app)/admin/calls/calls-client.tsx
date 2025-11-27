@@ -25,6 +25,8 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
+  Eye,
+  ArrowRightLeft,
 } from "lucide-react";
 import {
   calculateAgentStats,
@@ -83,6 +85,7 @@ interface Props {
     activeSeconds: number;
     inCallSeconds: number;
   };
+  pageviewCount: number;
 }
 
 export function CallsClient({
@@ -93,6 +96,7 @@ export function CallsClient({
   dateRange,
   currentFilters,
   teamActivity,
+  pageviewCount,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -508,7 +512,14 @@ export function CallsClient({
       )}
 
       {/* Main Stats Grid - Clickable for quick filtering */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+        <StatCard
+          title="Pageviews"
+          value={pageviewCount}
+          subtitle="Widget popups shown"
+          icon={Eye}
+          color="slate"
+        />
         <StatCard
           title="Total Rings"
           value={stats.totalRings}
@@ -534,8 +545,16 @@ export function CallsClient({
         <StatCard
           title="Answer Rate"
           value={`${stats.answerPercentage.toFixed(1)}%`}
+          subtitle="Rings → Answers"
           icon={TrendingUp}
           color="purple"
+        />
+        <StatCard
+          title="Conversion Rate"
+          value={pageviewCount > 0 ? `${((stats.totalRings / pageviewCount) * 100).toFixed(1)}%` : "0%"}
+          subtitle="Pageviews → Calls"
+          icon={ArrowRightLeft}
+          color="cyan"
         />
       </div>
 

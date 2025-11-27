@@ -25,12 +25,13 @@ export default async function AgentStatsPage({ params, searchParams }: Props) {
     : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   // Fetch agent profile
+  // Specify FK explicitly because agent_profiles has multiple FKs to users (user_id, deactivated_by)
   const { data: agent } = await supabase
     .from("agent_profiles")
     .select(
       `
       *,
-      user:users(email, full_name)
+      user:users!agent_profiles_user_id_fkey(email, full_name)
     `
     )
     .eq("id", agentId)

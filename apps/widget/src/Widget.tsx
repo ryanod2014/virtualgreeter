@@ -148,6 +148,7 @@ export function Widget({ config }: WidgetProps) {
     requestCall,
     cancelCall,
     endCall: endSignalingCall,
+    trackPageview,
     isReconnecting,
     callAccepted,
     currentCallId,
@@ -274,11 +275,13 @@ export function Widget({ config }: WidgetProps) {
       const timer = setTimeout(() => {
         if (!isUnmountingRef.current) {
           setState("open");
+          // Track pageview when widget popup is shown to visitor
+          trackPageview(agent.id);
         }
       }, config.triggerDelay ?? CONNECTION_TIMING.DEFAULT_TRIGGER_DELAY);
       return () => clearTimeout(timer);
     }
-  }, [agent, state, config.triggerDelay]);
+  }, [agent, state, config.triggerDelay, trackPageview]);
 
   // Update self video when preview stream changes
   useEffect(() => {

@@ -2,6 +2,9 @@ import { getCurrentUser } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/server";
 import { AgentsClient } from "./agents-client";
 
+// Force dynamic rendering to ensure fresh data
+export const dynamic = "force-dynamic";
+
 const PRICE_PER_SEAT = 297;
 const BASE_SUBSCRIPTION = 297; // Minimum $297/mo includes 1 seat
 const INCLUDED_SEATS = 1;
@@ -10,8 +13,9 @@ export default async function AgentsPage() {
   const auth = await getCurrentUser();
   const supabase = await createClient();
 
-  // Fetch ACTIVE agents with their pool memberships
-  const { data: agents } = await supabase
+  // Fetch ACTIVE agents with their pool memberships and per-pool video URLs
+  // Specify FK explicitly because agent_profiles has multiple FKs to users (user_id, deactivated_by)
+  const { data: agents, error: agentsError } = await supabase
     .from("agent_profiles")
     .select(`
       id,
@@ -23,15 +27,22 @@ export default async function AgentsPage() {
       loop_video_url,
       max_simultaneous_simulations,
       is_active,
-      user:users(email, full_name),
+      user:users!agent_profiles_user_id_fkey(email, full_name),
       agent_pool_members(
         id,
+        wave_video_url,
+        intro_video_url,
+        loop_video_url,
         pool:agent_pools(id, name, is_catch_all)
       )
     `)
     .eq("organization_id", auth!.organization.id)
     .eq("is_active", true) // Only active agents
     .order("display_name");
+
+  if (agentsError) {
+    console.error("[AgentsPage] Query error:", agentsError.message);
+  }
 
   // Fetch all pools for assignment dropdown
   const { data: pools } = await supabase
@@ -84,11 +95,17 @@ export default async function AgentsPage() {
   const additionalSeats = Math.max(0, totalAgents - INCLUDED_SEATS);
   const monthlyCost = BASE_SUBSCRIPTION + (additionalSeats * PRICE_PER_SEAT);
 
-  // Transform agents to fix Supabase join type
+  // Transform agents to fix Supabase join type and include pool video URLs
   const transformedAgents = (agents ?? []).map(agent => ({
     ...agent,
     user: Array.isArray(agent.user) ? agent.user[0] : agent.user,
-    agent_pool_members: (agent.agent_pool_members ?? []).map((m: { id: string; pool: unknown }) => ({
+    agent_pool_members: (agent.agent_pool_members ?? []).map((m: { 
+      id: string; 
+      pool: unknown;
+      wave_video_url: string | null;
+      intro_video_url: string | null;
+      loop_video_url: string | null;
+    }) => ({
       ...m,
       pool: Array.isArray(m.pool) ? m.pool[0] : m.pool,
     })),
