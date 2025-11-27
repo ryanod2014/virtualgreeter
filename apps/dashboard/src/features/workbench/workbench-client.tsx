@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import {
   Video,
   Users,
@@ -8,13 +8,16 @@ import {
   Coffee,
   Camera,
   RefreshCw,
+  Circle,
 } from "lucide-react";
 import { useWebRTC } from "@/features/webrtc/use-webrtc";
+import { useCallRecording } from "@/features/webrtc/use-call-recording";
 import { ActiveCallStage } from "@/features/webrtc/active-call-stage";
 import { CobrowseViewer } from "@/features/cobrowse/CobrowseViewer";
 import { useSignalingContext } from "@/features/signaling/signaling-provider";
 import { useCameraPreview } from "@/features/workbench/hooks/use-camera-preview";
-import type { AgentProfile, User } from "@ghost-greeter/domain/database.types";
+import { createClient } from "@/lib/supabase/client";
+import type { AgentProfile, User, RecordingSettings } from "@ghost-greeter/domain/database.types";
 
 interface WorkbenchClientProps {
   agentProfile: AgentProfile | null;
@@ -25,6 +28,30 @@ interface WorkbenchClientProps {
 export function WorkbenchClient({ agentProfile, user, organizationId }: WorkbenchClientProps) {
   const displayName = agentProfile?.display_name ?? user.full_name;
   const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const supabase = createClient();
+  
+  // Fetch recording settings
+  const [recordingSettings, setRecordingSettings] = useState<RecordingSettings>({
+    enabled: false,
+    retention_days: 30,
+  });
+
+  useEffect(() => {
+    async function fetchRecordingSettings() {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("recording_settings")
+        .eq("id", organizationId)
+        .single();
+      
+      console.log("[Recording] Fetched settings:", data?.recording_settings, "Error:", error);
+      
+      if (data?.recording_settings) {
+        setRecordingSettings(data.recording_settings);
+      }
+    }
+    fetchRecordingSettings();
+  }, [organizationId]); // eslint-disable-line react-hooks/exhaustive-deps
   
   const {
     isConnected,
@@ -53,6 +80,58 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
     visitorId: activeCall?.visitorId ?? null,
     isCallActive: !!activeCall,
   });
+
+  // Call recording
+  const {
+    isRecording,
+    recordingError,
+    startRecording,
+    stopRecording,
+  } = useCallRecording({
+    organizationId,
+    callLogId: activeCall?.callLogId ?? null,
+    isRecordingEnabled: recordingSettings.enabled,
+  });
+
+  // Start recording when WebRTC is connected
+  const hasStartedRecording = useRef(false);
+  useEffect(() => {
+    console.log("[Recording] Check start conditions:", {
+      webrtcConnected,
+      hasLocalStream: !!localStream,
+      hasRemoteStream: !!remoteStream,
+      recordingEnabled: recordingSettings.enabled,
+      isRecording,
+      hasStarted: hasStartedRecording.current,
+      callLogId: activeCall?.callLogId,
+    });
+    
+    if (
+      webrtcConnected &&
+      localStream &&
+      remoteStream &&
+      recordingSettings.enabled &&
+      !isRecording &&
+      !hasStartedRecording.current &&
+      activeCall
+    ) {
+      console.log("[Recording] ✅ Starting recording for call:", activeCall.callLogId);
+      hasStartedRecording.current = true;
+      startRecording(localStream, remoteStream);
+    }
+  }, [webrtcConnected, localStream, remoteStream, recordingSettings.enabled, isRecording, activeCall, startRecording]);
+
+  // Stop recording and reset flag when call ends
+  const prevActiveCall = useRef(activeCall);
+  useEffect(() => {
+    if (prevActiveCall.current && !activeCall && isRecording) {
+      stopRecording();
+    }
+    if (!activeCall) {
+      hasStartedRecording.current = false;
+    }
+    prevActiveCall.current = activeCall;
+  }, [activeCall, isRecording, stopRecording]);
 
   // Camera preview when active but not on a call
   const shouldShowPreview = isConnected && !isMarkedAway && !activeCall;
@@ -152,6 +231,7 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
               isConnected={webrtcConnected}
               isVisitorScreenSharing={isVisitorScreenSharing}
               isAgentScreenSharing={isAgentScreenSharing}
+              isRecording={isRecording}
               onStartScreenShare={startScreenShare}
               onStopScreenShare={stopScreenShare}
               onEndCall={endCall}

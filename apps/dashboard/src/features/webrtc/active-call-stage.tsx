@@ -26,6 +26,7 @@ interface ActiveCallStageProps {
   isConnected: boolean;
   isVisitorScreenSharing: boolean;
   isAgentScreenSharing: boolean;
+  isRecording?: boolean;
   onStartScreenShare: () => Promise<boolean>;
   onStopScreenShare: () => void;
   onEndCall: (callId: string) => void;
@@ -40,6 +41,7 @@ export function ActiveCallStage({
   isConnected,
   isVisitorScreenSharing,
   isAgentScreenSharing,
+  isRecording,
   onStartScreenShare,
   onStopScreenShare,
   onEndCall,
@@ -251,6 +253,15 @@ export function ActiveCallStage({
           <div className="glass rounded-full px-4 py-2 flex items-center gap-2 bg-green-500/20">
             <MonitorUp className="w-4 h-4 text-green-500" />
             <span className="text-sm font-medium text-green-500">You're Sharing</span>
+          </div>
+        )}
+        {isRecording && (
+          <div className="glass rounded-full px-4 py-2 flex items-center gap-2 bg-red-500/20">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+            </span>
+            <span className="text-sm font-medium text-red-500">Recording</span>
           </div>
         )}
       </div>

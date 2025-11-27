@@ -22,12 +22,20 @@ export default async function PoolsPage() {
     .order("is_catch_all", { ascending: false })
     .order("created_at", { ascending: true });
 
-  // Fetch all agents for the organization
+  // Fetch all agents for the organization (including their videos for defaults)
   const { data: agents } = await supabase
     .from("agent_profiles")
-    .select("id, display_name")
+    .select("id, display_name, wave_video_url, intro_video_url, loop_video_url")
     .eq("organization_id", auth!.organization.id)
     .order("display_name", { ascending: true });
+
+  // Find the first agent with videos to use as global defaults
+  const agentWithVideos = agents?.find(a => a.wave_video_url || a.intro_video_url || a.loop_video_url);
+  const defaultVideos = {
+    wave: agentWithVideos?.wave_video_url || null,
+    intro: agentWithVideos?.intro_video_url || null,
+    loop: agentWithVideos?.loop_video_url || null,
+  };
 
   // Calculate visitor counts per PATH in last 30 days
   const thirtyDaysAgo = new Date();
@@ -64,6 +72,7 @@ export default async function PoolsPage() {
       agents={agents ?? []}
       organizationId={auth!.organization.id}
       pathsWithVisitors={pathsWithVisitors}
+      defaultVideos={defaultVideos}
     />
   );
 }

@@ -9,6 +9,7 @@
 ALTER TABLE public.agent_pools 
   ADD COLUMN IF NOT EXISTS intro_script TEXT DEFAULT 'Hey, do you mind turning on your mic real fast? Quick question for you.',
   ADD COLUMN IF NOT EXISTS example_wave_video_url TEXT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS example_intro_video_url TEXT DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS example_loop_video_url TEXT DEFAULT NULL;
 
 -- Add video columns to agent_pool_members (agent's recorded videos PER pool)

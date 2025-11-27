@@ -15,6 +15,12 @@ export type CallStatus = "pending" | "accepted" | "rejected" | "completed" | "mi
 export type RuleMatchType = "is_exactly" | "contains" | "does_not_contain" | "starts_with" | "ends_with";
 export type RuleConditionType = "domain" | "path" | "query_param";
 
+// Recording settings for organization
+export interface RecordingSettings {
+  enabled: boolean;
+  retention_days: number;
+}
+
 export interface RuleCondition {
   type: RuleConditionType;
   matchType: RuleMatchType;
@@ -45,6 +51,7 @@ export interface Database {
           plan: SubscriptionPlan;
           max_agents: number;
           max_sites: number;
+          recording_settings: RecordingSettings;
           created_at: string;
           updated_at: string;
         };
@@ -150,6 +157,7 @@ export interface Database {
           description: string | null;
           intro_script: string;
           example_wave_video_url: string | null;
+          example_intro_video_url: string | null;
           example_loop_video_url: string | null;
           is_default: boolean;
           is_catch_all: boolean;

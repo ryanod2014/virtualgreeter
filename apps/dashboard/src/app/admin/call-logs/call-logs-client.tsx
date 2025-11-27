@@ -13,10 +13,11 @@ import {
   ExternalLink,
   User,
   FileText,
-  X,
+  X as XIcon,
   CheckCircle,
   PhoneMissed,
   PhoneOff,
+  Video,
 } from "lucide-react";
 import { formatShortDuration } from "@/lib/stats/agent-stats";
 import { DateRangePicker } from "@/lib/components/date-range-picker";
@@ -78,6 +79,8 @@ export function CallLogsClient({
   const [showFilters, setShowFilters] = useState(false);
   const [urlSearch, setUrlSearch] = useState(currentFilters.url ?? "");
   const [playingCallId, setPlayingCallId] = useState<string | null>(null);
+  const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
+  const [videoModalCallId, setVideoModalCallId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Filter state
@@ -147,17 +150,51 @@ export function CallLogsClient({
   };
 
   const handlePlayRecording = (callId: string, recordingUrl: string) => {
-    if (playingCallId === callId) {
-      audioRef.current?.pause();
-      setPlayingCallId(null);
+    // Check if it's a video recording (webm)
+    const isVideo = recordingUrl.includes('.webm') || recordingUrl.includes('video');
+    
+    if (isVideo) {
+      // Open video in modal
+      setVideoModalUrl(recordingUrl);
+      setVideoModalCallId(callId);
     } else {
-      if (audioRef.current) {
-        audioRef.current.pause();
+      // Handle audio recordings
+      if (playingCallId === callId) {
+        audioRef.current?.pause();
+        setPlayingCallId(null);
+      } else {
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        audioRef.current = new Audio(recordingUrl);
+        audioRef.current.play();
+        audioRef.current.onended = () => setPlayingCallId(null);
+        setPlayingCallId(callId);
       }
-      audioRef.current = new Audio(recordingUrl);
-      audioRef.current.play();
-      audioRef.current.onended = () => setPlayingCallId(null);
-      setPlayingCallId(callId);
+    }
+  };
+
+  const closeVideoModal = () => {
+    setVideoModalUrl(null);
+    setVideoModalCallId(null);
+  };
+
+  const handleDownload = async (url: string, filename?: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename || `recording-${Date.now()}.webm`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Fallback: open in new tab
+      window.open(url, '_blank');
     }
   };
 
@@ -165,6 +202,62 @@ export function CallLogsClient({
     <div className="p-8">
       {/* Hidden audio element */}
       <audio ref={audioRef} className="hidden" />
+
+      {/* Video Recording Modal */}
+      {videoModalUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={closeVideoModal}
+          />
+
+          {/* Modal */}
+          <div className="relative glass rounded-2xl p-6 max-w-4xl w-full mx-4 animate-fade-in">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-red-500/10">
+                  <Video className="w-5 h-5 text-red-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Call Recording</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Replay the recorded video call
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeVideoModal}
+                className="p-2 rounded-lg hover:bg-muted transition-colors"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Video Player */}
+            <div className="aspect-video rounded-xl overflow-hidden bg-black">
+              <video
+                src={videoModalUrl}
+                controls
+                autoPlay
+                className="w-full h-full"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => handleDownload(videoModalUrl, `call-recording-${videoModalCallId}.webm`)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="mb-8">
@@ -324,7 +417,7 @@ export function CallLogsClient({
                     onClick={clearFilters}
                     className="px-4 py-2 rounded-lg bg-muted hover:bg-muted/80"
                   >
-                    <X className="w-4 h-4" />
+                    <XIcon className="w-4 h-4" />
                   </button>
                 )}
               </div>
@@ -381,6 +474,7 @@ export function CallLogsClient({
                       handlePlayRecording(call.id, call.recording_url);
                     }
                   }}
+                  onDownload={handleDownload}
                 />
               ))}
             </tbody>
@@ -405,10 +499,12 @@ function CallLogRow({
   call,
   isPlaying,
   onPlayToggle,
+  onDownload,
 }: {
   call: CallLogWithRelations;
   isPlaying: boolean;
   onPlayToggle: () => void;
+  onDownload: (url: string, filename?: string) => void;
 }) {
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -512,23 +608,35 @@ function CallLogRow({
       <td className="px-6 py-4">
         {call.recording_url ? (
           <div className="flex items-center gap-2">
+            {call.recording_url.includes('.webm') || call.recording_url.includes('video') ? (
+              <button
+                onClick={onPlayToggle}
+                className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors flex items-center gap-1.5"
+                title="Play video recording"
+              >
+                <Video className="w-4 h-4" />
+                <Play className="w-3 h-3" />
+              </button>
+            ) : (
+              <button
+                onClick={onPlayToggle}
+                className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                title={isPlaying ? "Pause audio" : "Play audio recording"}
+              >
+                {isPlaying ? (
+                  <Pause className="w-4 h-4" />
+                ) : (
+                  <Play className="w-4 h-4" />
+                )}
+              </button>
+            )}
             <button
-              onClick={onPlayToggle}
-              className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
-            >
-              {isPlaying ? (
-                <Pause className="w-4 h-4" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
-            </button>
-            <a
-              href={call.recording_url}
-              download
+              onClick={() => onDownload(call.recording_url!, `call-recording-${call.id}.webm`)}
               className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              title="Download recording"
             >
               <Download className="w-4 h-4" />
-            </a>
+            </button>
           </div>
         ) : (
           <span className="text-sm text-muted-foreground">-</span>

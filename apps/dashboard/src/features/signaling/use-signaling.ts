@@ -68,6 +68,8 @@ export function useSignaling(agentId: string, profile?: AgentProfileData): UseSi
   const socketRef = useRef<Socket<ServerToDashboardEvents, DashboardToServerEvents> | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+    
     // Initialize socket connection
     const socket: Socket<ServerToDashboardEvents, DashboardToServerEvents> = io(SIGNALING_SERVER, {
       transports: ["websocket", "polling"],
@@ -79,7 +81,9 @@ export function useSignaling(agentId: string, profile?: AgentProfileData): UseSi
 
     socket.on("connect", () => {
       console.log("[Signaling] Connected to server, socket ID:", socket.id);
-      setIsConnected(true);
+      if (isMounted) {
+        setIsConnected(true);
+      }
 
       // Login as agent
       console.log("[Signaling] Logging in as agent:", agentId, "with profile:", profile);
@@ -99,7 +103,9 @@ export function useSignaling(agentId: string, profile?: AgentProfileData): UseSi
 
     socket.on("disconnect", () => {
       console.log("[Signaling] Disconnected from server");
-      setIsConnected(false);
+      if (isMounted) {
+        setIsConnected(false);
+      }
     });
 
     socket.on(SOCKET_EVENTS.LOGIN_SUCCESS, (data) => {
@@ -181,6 +187,7 @@ export function useSignaling(agentId: string, profile?: AgentProfileData): UseSi
     });
 
     return () => {
+      isMounted = false;
       socket.emit(SOCKET_EVENTS.AGENT_LOGOUT);
       socket.disconnect();
     };

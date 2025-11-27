@@ -7,6 +7,7 @@ import {
   Users,
   CreditCard,
   ChevronRight,
+  Video,
 } from "lucide-react";
 
 export default async function SettingsPage() {
@@ -40,6 +41,14 @@ export default async function SettingsPage() {
           title="Organization"
           description="Update your organization name, logo, and details"
           color="blue"
+        />
+
+        <SettingsCard
+          href="/admin/settings/recordings"
+          icon={Video}
+          title="Call Recording"
+          description="Enable call recording and set retention policies"
+          color="red"
         />
 
         <SettingsCard
@@ -79,7 +88,7 @@ function SettingsCard({
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
-  color: "purple" | "blue" | "green" | "amber";
+  color: "purple" | "blue" | "green" | "amber" | "red";
   disabled?: boolean;
   comingSoon?: boolean;
 }) {
@@ -88,6 +97,7 @@ function SettingsCard({
     blue: "text-blue-500 bg-blue-500/10",
     green: "text-green-500 bg-green-500/10",
     amber: "text-amber-500 bg-amber-500/10",
+    red: "text-red-500 bg-red-500/10",
   };
 
   const content = (

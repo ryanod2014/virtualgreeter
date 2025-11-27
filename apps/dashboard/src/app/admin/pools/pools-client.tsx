@@ -19,6 +19,10 @@ import {
   Video,
   Upload,
   Loader2,
+  Play,
+  Square,
+  Camera,
+  Library,
 } from "lucide-react";
 import { useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -69,6 +73,7 @@ interface Pool {
   description: string | null;
   intro_script: string;
   example_wave_video_url: string | null;
+  example_intro_video_url: string | null;
   example_loop_video_url: string | null;
   is_default: boolean;
   is_catch_all: boolean;
@@ -81,11 +86,18 @@ interface PathWithVisitors {
   visitorCount: number;
 }
 
+interface DefaultVideos {
+  wave: string | null;
+  intro: string | null;
+  loop: string | null;
+}
+
 interface Props {
   pools: Pool[];
   agents: Agent[];
   organizationId: string;
   pathsWithVisitors: PathWithVisitors[];
+  defaultVideos: DefaultVideos;
 }
 
 // ============================================================================
@@ -497,6 +509,227 @@ function RuleDisplay({ rule, onDelete, onEdit }: RuleDisplayProps) {
 }
 
 // ============================================================================
+// VIDEO RECORDER MODAL COMPONENT
+// ============================================================================
+
+interface VideoRecorderModalProps {
+  isOpen: boolean;
+  type: "wave" | "intro" | "loop";
+  script?: string;
+  onSave: (blob: Blob) => void;
+  onClose: () => void;
+}
+
+function VideoRecorderModal({ isOpen, type, script, onSave, onClose }: VideoRecorderModalProps) {
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [hasPermission, setHasPermission] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  const typeLabels = {
+    wave: "Wave Video",
+    intro: "Intro Video", 
+    loop: "Loop Video"
+  };
+
+  const typeDescriptions = {
+    wave: "Wave and look engaged - this grabs attention",
+    intro: "Read the script naturally - plays with audio",
+    loop: "Smile and wait patiently - this loops"
+  };
+
+  // Initialize camera when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    navigator.mediaDevices.getUserMedia({
+      video: { width: 1280, height: 720, facingMode: "user" },
+      audio: true,
+    }).then(stream => {
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setHasPermission(true);
+    }).catch(err => {
+      console.error("Camera access denied:", err);
+    });
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
+      setHasPermission(false);
+      setRecordedBlob(null);
+      setIsRecording(false);
+    };
+  }, [isOpen]);
+
+  const startRecording = () => {
+    setCountdown(3);
+    let count = 3;
+    const interval = setInterval(() => {
+      count--;
+      setCountdown(count);
+      if (count === 0) {
+        clearInterval(interval);
+        setCountdown(null);
+        beginRecording();
+      }
+    }, 1000);
+  };
+
+  const beginRecording = () => {
+    if (!streamRef.current) return;
+    
+    chunksRef.current = [];
+    const recorder = new MediaRecorder(streamRef.current, {
+      mimeType: "video/webm;codecs=vp9",
+    });
+    
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+    
+    recorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      setRecordedBlob(blob);
+    };
+    
+    mediaRecorderRef.current = recorder;
+    recorder.start();
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current?.state !== "inactive") {
+      mediaRecorderRef.current?.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const handleSave = () => {
+    if (recordedBlob) {
+      onSave(recordedBlob);
+    }
+  };
+
+  const handleRetry = () => {
+    setRecordedBlob(null);
+    if (videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="bg-background rounded-2xl max-w-2xl w-full p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold">Record {typeLabels[type]}</h3>
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <p className="text-muted-foreground mb-4">{typeDescriptions[type]}</p>
+
+        {/* Script display for intro */}
+        {type === "intro" && script && (
+          <div className="mb-4 p-4 rounded-xl bg-primary/10 border border-primary/20">
+            <div className="text-xs text-primary font-medium mb-1">Read this script:</div>
+            <p className="text-lg">"{script}"</p>
+          </div>
+        )}
+
+        {/* Video preview */}
+        <div className="relative aspect-video rounded-xl overflow-hidden bg-black mb-4">
+          {recordedBlob ? (
+            <video
+              src={URL.createObjectURL(recordedBlob)}
+              controls
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover scale-x-[-1]"
+            />
+          )}
+          
+          {/* Countdown overlay */}
+          {countdown !== null && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <span className="text-7xl font-bold text-white animate-pulse">{countdown}</span>
+            </div>
+          )}
+          
+          {/* Recording indicator */}
+          {isRecording && (
+            <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1 rounded-lg bg-red-500 text-white">
+              <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              REC
+            </div>
+          )}
+        </div>
+
+        {/* Controls */}
+        <div className="flex justify-center gap-3">
+          {!recordedBlob ? (
+            <>
+              {!isRecording ? (
+                <button
+                  onClick={startRecording}
+                  disabled={!hasPermission || countdown !== null}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Camera className="w-5 h-5" />
+                  Start Recording
+                </button>
+              ) : (
+                <button
+                  onClick={stopRecording}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600"
+                >
+                  <Square className="w-5 h-5" />
+                  Stop Recording
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleRetry}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl border border-border hover:bg-muted"
+              >
+                Retry
+              </button>
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90"
+              >
+                <Check className="w-5 h-5" />
+                Save Video
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // MAIN POOLS CLIENT COMPONENT
 // ============================================================================
 
@@ -504,6 +737,7 @@ export function PoolsClient({
   pools: initialPools, 
   agents,
   organizationId,
+  defaultVideos,
 }: Props) {
   const [pools, setPools] = useState(initialPools);
   const [expandedPools, setExpandedPools] = useState<Set<string>>(new Set([initialPools[0]?.id]));
@@ -515,7 +749,8 @@ export function PoolsClient({
   const [addingAgentToPool, setAddingAgentToPool] = useState<string | null>(null);
   const [editingScriptPoolId, setEditingScriptPoolId] = useState<string | null>(null);
   const [editingScriptText, setEditingScriptText] = useState("");
-  const [uploadingVideo, setUploadingVideo] = useState<{ poolId: string; type: "wave" | "loop" } | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState<{ poolId: string; type: "wave" | "intro" | "loop" } | null>(null);
+  const [recordingVideo, setRecordingVideo] = useState<{ poolId: string; type: "wave" | "intro" | "loop" } | null>(null);
 
   const waveInputRef = useRef<HTMLInputElement>(null);
   const loopInputRef = useRef<HTMLInputElement>(null);
@@ -567,6 +802,45 @@ export function PoolsClient({
   const getAvailableAgents = (pool: Pool) => {
     const memberIds = pool.agent_pool_members.map(m => m.agent_profile_id);
     return agents.filter(a => !memberIds.includes(a.id));
+  };
+
+  // Get available videos from other pools for reuse
+  const getAvailableVideos = (currentPoolId: string, type: "wave" | "intro" | "loop") => {
+    const fieldMap = {
+      wave: "example_wave_video_url" as const,
+      intro: "example_intro_video_url" as const,
+      loop: "example_loop_video_url" as const,
+    };
+    const field = fieldMap[type];
+    
+    return pools
+      .filter(p => p.id !== currentPoolId && p[field])
+      .map(p => ({
+        poolId: p.id,
+        poolName: p.name,
+        url: p[field]!,
+      }));
+  };
+
+  // Select video from library (reuse from another pool)
+  const handleSelectVideoFromLibrary = async (poolId: string, type: "wave" | "intro" | "loop", videoUrl: string) => {
+    const fieldMap = {
+      wave: "example_wave_video_url",
+      intro: "example_intro_video_url",
+      loop: "example_loop_video_url"
+    };
+    const updateField = fieldMap[type];
+    
+    const { error } = await supabase
+      .from("agent_pools")
+      .update({ [updateField]: videoUrl })
+      .eq("id", poolId);
+
+    if (!error) {
+      setPools(pools.map(p => 
+        p.id === poolId ? { ...p, [updateField]: videoUrl } : p
+      ));
+    }
   };
 
   const togglePoolExpanded = (poolId: string) => {
@@ -806,7 +1080,7 @@ export function PoolsClient({
   };
 
   // Example video upload
-  const handleUploadExampleVideo = async (poolId: string, type: "wave" | "loop", file: File) => {
+  const handleUploadExampleVideo = async (poolId: string, type: "wave" | "intro" | "loop", file: File) => {
     setUploadingVideo({ poolId, type });
     
     try {
@@ -828,7 +1102,12 @@ export function PoolsClient({
       const videoUrl = urlData.publicUrl;
 
       // Update pool with the video URL
-      const updateField = type === "wave" ? "example_wave_video_url" : "example_loop_video_url";
+      const fieldMap = {
+        wave: "example_wave_video_url",
+        intro: "example_intro_video_url", 
+        loop: "example_loop_video_url"
+      };
+      const updateField = fieldMap[type];
       const { error: updateError } = await supabase
         .from("agent_pools")
         .update({ [updateField]: videoUrl })
@@ -850,8 +1129,13 @@ export function PoolsClient({
     }
   };
 
-  const handleRemoveExampleVideo = async (poolId: string, type: "wave" | "loop") => {
-    const updateField = type === "wave" ? "example_wave_video_url" : "example_loop_video_url";
+  const handleRemoveExampleVideo = async (poolId: string, type: "wave" | "intro" | "loop") => {
+    const fieldMap = {
+      wave: "example_wave_video_url",
+      intro: "example_intro_video_url",
+      loop: "example_loop_video_url"
+    };
+    const updateField = fieldMap[type];
     
     const { error } = await supabase
       .from("agent_pools")
@@ -862,6 +1146,52 @@ export function PoolsClient({
       setPools(pools.map(p => 
         p.id === poolId ? { ...p, [updateField]: null } : p
       ));
+    }
+  };
+
+  // Save recorded video blob
+  const handleSaveRecordedVideo = async (poolId: string, type: "wave" | "intro" | "loop", blob: Blob) => {
+    setUploadingVideo({ poolId, type });
+    
+    try {
+      const path = `${organizationId}/pools/${poolId}/example-${type}-${Date.now()}.webm`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("videos")
+        .upload(path, blob, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: "video/webm",
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from("videos").getPublicUrl(path);
+      const videoUrl = urlData.publicUrl;
+
+      const fieldMap = {
+        wave: "example_wave_video_url",
+        intro: "example_intro_video_url",
+        loop: "example_loop_video_url"
+      };
+      const updateField = fieldMap[type];
+      
+      const { error: updateError } = await supabase
+        .from("agent_pools")
+        .update({ [updateField]: videoUrl })
+        .eq("id", poolId);
+
+      if (updateError) throw updateError;
+
+      setPools(pools.map(p => 
+        p.id === poolId ? { ...p, [updateField]: videoUrl } : p
+      ));
+    } catch (error) {
+      console.error("Failed to save recorded video:", error);
+      alert("Failed to save video. Please try again.");
+    } finally {
+      setUploadingVideo(null);
+      setRecordingVideo(null);
     }
   };
 
@@ -1088,63 +1418,6 @@ export function PoolsClient({
                     )}
                   </div>
 
-                  {/* Intro Script Section */}
-                  <div className="p-6 border-b border-border">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h4 className="font-semibold flex items-center gap-2">
-                          <MessageSquare className="w-4 h-4 text-primary" />
-                          Intro Script
-                        </h4>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          What agents say to visitors in their intro video
-                        </p>
-                      </div>
-                      {editingScriptPoolId !== pool.id && (
-                        <button
-                          onClick={() => handleStartEditScript(pool)}
-                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          Edit
-                        </button>
-                      )}
-                    </div>
-
-                    {editingScriptPoolId === pool.id ? (
-                      <div className="space-y-4">
-                        <textarea
-                          value={editingScriptText}
-                          onChange={(e) => setEditingScriptText(e.target.value)}
-                          placeholder="Enter the script agents should read..."
-                          rows={3}
-                          className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary outline-none resize-none"
-                          autoFocus
-                        />
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => handleSaveScript(pool.id)}
-                            disabled={!editingScriptText.trim()}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                          >
-                            <Check className="w-4 h-4" />
-                            Save Script
-                          </button>
-                          <button
-                            onClick={handleCancelEditScript}
-                            className="px-4 py-2 rounded-xl bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
-                        <p className="text-lg leading-relaxed">"{pool.intro_script}"</p>
-                      </div>
-                    )}
-                  </div>
-
                   {/* Video Sequence Section */}
                   <div className="p-6 border-b border-border">
                     <div className="mb-4">
@@ -1153,7 +1426,7 @@ export function PoolsClient({
                         Video Sequence
                       </h4>
                       <p className="text-sm text-muted-foreground mt-1">
-                        The 3-part video flow agents will record for this pool
+                        Example videos agents will model when recording
                       </p>
                     </div>
 
@@ -1168,64 +1441,81 @@ export function PoolsClient({
                           Grabs attention, plays muted
                         </p>
                         
-                        {pool.example_wave_video_url ? (
-                          <div className="space-y-2">
-                            <video 
-                              src={pool.example_wave_video_url} 
-                              controls 
-                              className="w-full rounded-lg aspect-video object-cover bg-black"
-                            />
-                            <div className="flex gap-2">
-                              <label className="flex-1 text-center text-xs text-primary hover:underline cursor-pointer">
-                                <input
-                                  type="file"
-                                  accept="video/*"
-                                  className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) handleUploadExampleVideo(pool.id, "wave", file);
-                                  }}
-                                />
-                                Replace
-                              </label>
-                              <button
-                                onClick={() => handleRemoveExampleVideo(pool.id, "wave")}
-                                className="flex-1 text-xs text-destructive hover:underline"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <div className="aspect-video rounded-lg bg-black/50 flex items-center justify-center">
-                              <span className="text-xs text-muted-foreground">Default wave</span>
-                            </div>
-                            <label className="flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors">
-                              <input
-                                type="file"
-                                accept="video/*"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) handleUploadExampleVideo(pool.id, "wave", file);
-                                }}
-                                disabled={uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "wave"}
-                              />
-                              {uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "wave" ? (
-                                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                        {(() => {
+                          const videoUrl = pool.example_wave_video_url || defaultVideos.wave;
+                          const isDefault = !pool.example_wave_video_url && defaultVideos.wave;
+                          
+                          return (
+                            <div className="space-y-2">
+                              {/* Video Preview */}
+                              {videoUrl ? (
+                                <div className="relative">
+                                  <video 
+                                    src={videoUrl} 
+                                    controls 
+                                    className="w-full rounded-lg aspect-video object-cover bg-black"
+                                  />
+                                  {isDefault && (
+                                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-primary/80 text-primary-foreground text-[10px] font-medium">
+                                      Default
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
-                                <>
-                                  <Upload className="w-4 h-4 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">Upload custom</span>
-                                </>
+                                <div className="aspect-video rounded-lg bg-black/50 flex items-center justify-center border-2 border-dashed border-border">
+                                  <span className="text-xs text-muted-foreground">No video set</span>
+                                </div>
                               )}
-                            </label>
-                          </div>
-                        )}
+
+                              {/* Stacked Buttons - 1 per line */}
+                              <div className="space-y-1.5 text-xs">
+                                <button
+                                  onClick={() => setRecordingVideo({ poolId: pool.id, type: "wave" })}
+                                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-colors"
+                                >
+                                  <Camera className="w-3 h-3" /> Record
+                                </button>
+                                <label className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-colors cursor-pointer">
+                                  <input type="file" accept="video/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleUploadExampleVideo(pool.id, "wave", file); }} disabled={uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "wave"} />
+                                  {uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "wave" ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Upload className="w-3 h-3" /> Upload</>}
+                                </label>
+                                {/* Re-use Dropdown */}
+                                <div className="relative">
+                                  <select
+                                    className="w-full px-3 py-2 rounded-lg bg-background border border-border text-xs font-medium focus:border-primary outline-none cursor-pointer appearance-none pr-8 text-center"
+                                    defaultValue=""
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        handleSelectVideoFromLibrary(pool.id, "wave", e.target.value);
+                                      }
+                                    }}
+                                  >
+                                    <option value="" disabled>
+                                      Re-use from pool...
+                                    </option>
+                                    {getAvailableVideos(pool.id, "wave").map((v) => (
+                                      <option key={v.poolId} value={v.url}>
+                                        {v.poolName}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <Library className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                                </div>
+                                {pool.example_wave_video_url && (
+                                  <button 
+                                    onClick={() => handleRemoveExampleVideo(pool.id, "wave")} 
+                                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
+                                  >
+                                    <Trash2 className="w-3 h-3" /> Remove
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
-                      {/* 2. Intro/Script */}
+                      {/* 2. Intro/Speak */}
                       <div className="p-4 rounded-xl border border-primary/30 bg-gradient-to-b from-primary/10 to-transparent">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground">2</div>
@@ -1235,14 +1525,121 @@ export function PoolsClient({
                           Plays with audio
                         </p>
                         
-                        <div className="aspect-video rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-center p-3">
-                          <p className="text-xs text-center leading-relaxed">
-                            "{pool.intro_script.length > 80 ? pool.intro_script.slice(0, 80) + '...' : pool.intro_script}"
-                          </p>
-                        </div>
-                        <p className="text-xs text-muted-foreground text-center mt-2">
-                          Agents read this script
-                        </p>
+                        {(() => {
+                          const videoUrl = pool.example_intro_video_url || defaultVideos.intro;
+                          const isDefault = !pool.example_intro_video_url && defaultVideos.intro;
+                          
+                          return (
+                            <div className="space-y-2">
+                              {/* Video Preview */}
+                              {videoUrl ? (
+                                <div className="relative">
+                                  <video 
+                                    src={videoUrl} 
+                                    controls 
+                                    className="w-full rounded-lg aspect-video object-cover bg-black"
+                                  />
+                                  {isDefault && (
+                                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-primary/80 text-primary-foreground text-[10px] font-medium">
+                                      Default
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="aspect-video rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-center">
+                                  <span className="text-xs text-muted-foreground">No video set</span>
+                                </div>
+                              )}
+
+                              {/* Stacked Buttons - 1 per line */}
+                              <div className="space-y-1.5 text-xs">
+                                <button
+                                  onClick={() => setRecordingVideo({ poolId: pool.id, type: "intro" })}
+                                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-primary/30 hover:bg-primary/10 transition-colors"
+                                >
+                                  <Camera className="w-3 h-3" /> Record
+                                </button>
+                                <label className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-primary/30 hover:bg-primary/10 transition-colors cursor-pointer">
+                                  <input type="file" accept="video/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleUploadExampleVideo(pool.id, "intro", file); }} disabled={uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "intro"} />
+                                  {uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "intro" ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Upload className="w-3 h-3" /> Upload</>}
+                                </label>
+                                {/* Re-use Dropdown */}
+                                <div className="relative">
+                                  <select
+                                    className="w-full px-3 py-2 rounded-lg bg-background border border-primary/30 text-xs font-medium focus:border-primary outline-none cursor-pointer appearance-none pr-8 text-center"
+                                    defaultValue=""
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        handleSelectVideoFromLibrary(pool.id, "intro", e.target.value);
+                                      }
+                                    }}
+                                  >
+                                    <option value="" disabled>
+                                      Re-use from pool...
+                                    </option>
+                                    {getAvailableVideos(pool.id, "intro").map((v) => (
+                                      <option key={v.poolId} value={v.url}>
+                                        {v.poolName}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <Library className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                                </div>
+                                {pool.example_intro_video_url && (
+                                  <button 
+                                    onClick={() => handleRemoveExampleVideo(pool.id, "intro")} 
+                                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
+                                  >
+                                    <Trash2 className="w-3 h-3" /> Remove
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Inline Script Editor */}
+                              <div className="pt-2 border-t border-primary/20">
+                                <div className="flex items-center gap-1 mb-1.5">
+                                  <MessageSquare className="w-3 h-3 text-primary" />
+                                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Script</span>
+                                </div>
+                                {editingScriptPoolId === pool.id ? (
+                                  <div className="space-y-2">
+                                    <textarea
+                                      value={editingScriptText}
+                                      onChange={(e) => setEditingScriptText(e.target.value)}
+                                      placeholder="Enter script..."
+                                      rows={2}
+                                      className="w-full px-2 py-1.5 rounded-lg bg-background border border-border focus:border-primary outline-none resize-none text-xs"
+                                      autoFocus
+                                    />
+                                    <div className="flex gap-1.5">
+                                      <button
+                                        onClick={() => handleSaveScript(pool.id)}
+                                        disabled={!editingScriptText.trim()}
+                                        className="flex-1 flex items-center justify-center gap-1 py-1 rounded-lg bg-primary text-primary-foreground text-[10px] font-medium hover:bg-primary/90 disabled:opacity-50"
+                                      >
+                                        <Check className="w-3 h-3" /> Save
+                                      </button>
+                                      <button
+                                        onClick={handleCancelEditScript}
+                                        className="flex-1 py-1 rounded-lg bg-muted text-muted-foreground text-[10px] hover:bg-muted/80"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => handleStartEditScript(pool)}
+                                    className="w-full text-left p-2 rounded-lg bg-primary/5 border border-primary/20 hover:border-primary/40 transition-colors group"
+                                  >
+                                    <p className="text-xs leading-relaxed">"{pool.intro_script}"</p>
+                                    <span className="text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">Click to edit</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* 3. Loop Example */}
@@ -1255,64 +1652,92 @@ export function PoolsClient({
                           Smiles while waiting
                         </p>
                         
-                        {pool.example_loop_video_url ? (
-                          <div className="space-y-2">
-                            <video 
-                              src={pool.example_loop_video_url} 
-                              controls 
-                              className="w-full rounded-lg aspect-video object-cover bg-black"
-                            />
-                            <div className="flex gap-2">
-                              <label className="flex-1 text-center text-xs text-primary hover:underline cursor-pointer">
-                                <input
-                                  type="file"
-                                  accept="video/*"
-                                  className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) handleUploadExampleVideo(pool.id, "loop", file);
-                                  }}
-                                />
-                                Replace
-                              </label>
-                              <button
-                                onClick={() => handleRemoveExampleVideo(pool.id, "loop")}
-                                className="flex-1 text-xs text-destructive hover:underline"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <div className="aspect-video rounded-lg bg-black/50 flex items-center justify-center">
-                              <span className="text-xs text-muted-foreground">Default smile</span>
-                            </div>
-                            <label className="flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors">
-                              <input
-                                type="file"
-                                accept="video/*"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) handleUploadExampleVideo(pool.id, "loop", file);
-                                }}
-                                disabled={uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "loop"}
-                              />
-                              {uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "loop" ? (
-                                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                        {(() => {
+                          const videoUrl = pool.example_loop_video_url || defaultVideos.loop;
+                          const isDefault = !pool.example_loop_video_url && defaultVideos.loop;
+                          
+                          return (
+                            <div className="space-y-2">
+                              {/* Video Preview */}
+                              {videoUrl ? (
+                                <div className="relative">
+                                  <video 
+                                    src={videoUrl} 
+                                    controls 
+                                    className="w-full rounded-lg aspect-video object-cover bg-black"
+                                  />
+                                  {isDefault && (
+                                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-primary/80 text-primary-foreground text-[10px] font-medium">
+                                      Default
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
-                                <>
-                                  <Upload className="w-4 h-4 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">Upload custom</span>
-                                </>
+                                <div className="aspect-video rounded-lg bg-black/50 flex items-center justify-center border-2 border-dashed border-border">
+                                  <span className="text-xs text-muted-foreground">No video set</span>
+                                </div>
                               )}
-                            </label>
-                          </div>
-                        )}
+
+                              {/* Stacked Buttons - 1 per line */}
+                              <div className="space-y-1.5 text-xs">
+                                <button
+                                  onClick={() => setRecordingVideo({ poolId: pool.id, type: "loop" })}
+                                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-colors"
+                                >
+                                  <Camera className="w-3 h-3" /> Record
+                                </button>
+                                <label className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-colors cursor-pointer">
+                                  <input type="file" accept="video/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleUploadExampleVideo(pool.id, "loop", file); }} disabled={uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "loop"} />
+                                  {uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "loop" ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Upload className="w-3 h-3" /> Upload</>}
+                                </label>
+                                {/* Re-use Dropdown */}
+                                <div className="relative">
+                                  <select
+                                    className="w-full px-3 py-2 rounded-lg bg-background border border-border text-xs font-medium focus:border-primary outline-none cursor-pointer appearance-none pr-8 text-center"
+                                    defaultValue=""
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        handleSelectVideoFromLibrary(pool.id, "loop", e.target.value);
+                                      }
+                                    }}
+                                  >
+                                    <option value="" disabled>
+                                      Re-use from pool...
+                                    </option>
+                                    {getAvailableVideos(pool.id, "loop").map((v) => (
+                                      <option key={v.poolId} value={v.url}>
+                                        {v.poolName}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <Library className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                                </div>
+                                {pool.example_loop_video_url && (
+                                  <button 
+                                    onClick={() => handleRemoveExampleVideo(pool.id, "loop")} 
+                                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
+                                  >
+                                    <Trash2 className="w-3 h-3" /> Remove
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
+
+                  {/* Video Recorder Modal */}
+                  {recordingVideo?.poolId === pool.id && (
+                    <VideoRecorderModal
+                      isOpen={true}
+                      type={recordingVideo.type}
+                      script={recordingVideo.type === "intro" ? pool.intro_script : undefined}
+                      onSave={(blob) => handleSaveRecordedVideo(pool.id, recordingVideo.type, blob)}
+                      onClose={() => setRecordingVideo(null)}
+                    />
+                  )}
 
                   {/* Agents Section */}
                   <div className="p-6 bg-muted/10">
