@@ -60,6 +60,24 @@ app.get("/api/stats", (_req, res) => {
   res.json(stats);
 });
 
+// API: Test URL matching (for debugging)
+app.get("/api/test-match", (req, res) => {
+  const { orgId, url } = req.query;
+  
+  if (!orgId || !url || typeof orgId !== "string" || typeof url !== "string") {
+    res.status(400).json({ error: "orgId and url query params are required" });
+    return;
+  }
+
+  const matchedPoolId = poolManager.matchPathToPool(orgId, url);
+  res.json({ 
+    orgId,
+    url,
+    matchedPoolId,
+    timestamp: Date.now()
+  });
+});
+
 // Create HTTP server
 const httpServer = createServer(app);
 

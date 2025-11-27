@@ -15,7 +15,7 @@ export default async function PoolsPage() {
       agent_pool_members(
         id,
         agent_profile_id,
-        agent_profiles(id, display_name, avatar_url)
+        agent_profiles(id, display_name)
       )
     `)
     .eq("organization_id", auth!.organization.id)
@@ -25,7 +25,7 @@ export default async function PoolsPage() {
   // Fetch all agents for the organization
   const { data: agents } = await supabase
     .from("agent_profiles")
-    .select("id, display_name, avatar_url")
+    .select("id, display_name")
     .eq("organization_id", auth!.organization.id)
     .order("display_name", { ascending: true });
 

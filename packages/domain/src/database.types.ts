@@ -12,6 +12,23 @@ export type AgentStatus = "offline" | "idle" | "in_simulation" | "in_call";
 
 export type CallStatus = "pending" | "accepted" | "rejected" | "completed" | "missed";
 
+export type RuleMatchType = "is_exactly" | "contains" | "does_not_contain" | "starts_with" | "ends_with";
+export type RuleConditionType = "domain" | "path" | "query_param";
+
+export interface RuleCondition {
+  type: RuleConditionType;
+  matchType: RuleMatchType;
+  value: string;
+  paramName?: string; // For query_param type: the parameter name (e.g., "utm_source")
+}
+
+// Condition groups allow OR logic between groups
+// All conditions within a group use AND logic
+// Multiple groups use OR logic between them
+export interface RuleConditionGroup {
+  conditions: RuleCondition[];
+}
+
 // ----------------------------------------------------------------------------
 // DATABASE TABLES
 // ----------------------------------------------------------------------------
@@ -131,6 +148,9 @@ export interface Database {
           organization_id: string;
           name: string;
           description: string | null;
+          intro_script: string;
+          example_wave_video_url: string | null;
+          example_loop_video_url: string | null;
           is_default: boolean;
           is_catch_all: boolean;
           created_at: string;
@@ -144,8 +164,11 @@ export interface Database {
         Row: {
           id: string;
           pool_id: string;
+          name: string | null;
           domain_pattern: string;
           path_pattern: string;
+          conditions: RuleCondition[];
+          condition_groups: RuleConditionGroup[]; // For OR logic: groups are ORed, conditions within groups are ANDed
           priority: number;
           is_active: boolean;
           created_at: string;
@@ -160,6 +183,9 @@ export interface Database {
           id: string;
           pool_id: string;
           agent_profile_id: string;
+          wave_video_url: string | null;
+          intro_video_url: string | null;
+          loop_video_url: string | null;
           created_at: string;
         };
         Insert: Omit<Database["public"]["Tables"]["agent_pool_members"]["Row"], "id" | "created_at">;
@@ -179,6 +205,23 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["site_path_rules"]["Row"], "id" | "created_at" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["site_path_rules"]["Insert"]>;
+      };
+
+      invites: {
+        Row: {
+          id: string;
+          organization_id: string;
+          email: string;
+          full_name: string;
+          role: UserRole;
+          token: string;
+          invited_by: string;
+          expires_at: string;
+          accepted_at: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["invites"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["invites"]["Insert"]>;
       };
     };
   };
@@ -231,6 +274,9 @@ export type PoolRoutingRuleInsert = Database["public"]["Tables"]["pool_routing_r
 
 export type Disposition = Database["public"]["Tables"]["dispositions"]["Row"];
 export type DispositionInsert = Database["public"]["Tables"]["dispositions"]["Insert"];
+
+export type Invite = Database["public"]["Tables"]["invites"]["Row"];
+export type InviteInsert = Database["public"]["Tables"]["invites"]["Insert"];
 
 // ----------------------------------------------------------------------------
 // AUTH SESSION TYPES

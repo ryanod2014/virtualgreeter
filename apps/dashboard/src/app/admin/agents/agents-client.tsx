@@ -3,8 +3,6 @@
 import { useState } from "react";
 import {
   Users,
-  Plus,
-  Trash2,
   Phone,
   Clock,
   CheckCircle,
@@ -15,6 +13,9 @@ import {
   Video,
   Circle,
   BarChart3,
+  Loader2,
+  Mail,
+  Shield,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -51,21 +52,102 @@ interface AgentStats {
   totalDuration: number;
 }
 
+interface PendingInvite {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  expires_at: string;
+  created_at: string;
+}
+
 interface Props {
   agents: Agent[];
   pools: Pool[];
   agentStats: Record<string, AgentStats>;
   organizationId: string;
+  pendingInvites?: PendingInvite[];
 }
 
-export function AgentsClient({ agents: initialAgents, pools, agentStats, organizationId }: Props) {
+export function AgentsClient({ agents: initialAgents, pools, agentStats, organizationId, pendingInvites: initialInvites = [] }: Props) {
   const [agents, setAgents] = useState(initialAgents);
+  const [pendingInvites, setPendingInvites] = useState(initialInvites);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [isAddingAgent, setIsAddingAgent] = useState(false);
   const [newAgentEmail, setNewAgentEmail] = useState("");
   const [newAgentName, setNewAgentName] = useState("");
+  const [newAgentRole, setNewAgentRole] = useState<"admin" | "agent">("agent");
+  const [isInviting, setIsInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
 
   const supabase = createClient();
+
+  // Send invite
+  const handleSendInvite = async () => {
+    if (!newAgentEmail || !newAgentName) return;
+    
+    setIsInviting(true);
+    setInviteError(null);
+    setInviteSuccess(false);
+
+    try {
+      const response = await fetch("/api/invites/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: newAgentEmail,
+          fullName: newAgentName,
+          role: newAgentRole,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setInviteError(data.error || "Failed to send invite");
+        setIsInviting(false);
+        return;
+      }
+
+      // Add to pending invites list
+      setPendingInvites([
+        ...pendingInvites,
+        {
+          id: data.invite.id,
+          email: data.invite.email,
+          full_name: newAgentName,
+          role: newAgentRole,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      setInviteSuccess(true);
+      
+      // Reset form after short delay
+      setTimeout(() => {
+        setIsAddingAgent(false);
+        setNewAgentEmail("");
+        setNewAgentName("");
+        setNewAgentRole("agent");
+        setInviteSuccess(false);
+      }, 1500);
+    } catch (error) {
+      console.error("Invite error:", error);
+      setInviteError("An unexpected error occurred");
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  // Revoke invite
+  const handleRevokeInvite = async (inviteId: string) => {
+    const { error } = await supabase.from("invites").delete().eq("id", inviteId);
+    if (!error) {
+      setPendingInvites(pendingInvites.filter(i => i.id !== inviteId));
+    }
+  };
 
   const getAgentPools = (agent: Agent) => {
     return agent.agent_pool_members.map(m => m.pool);
@@ -183,52 +265,148 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
       {isAddingAgent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="glass rounded-2xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">Invite New Agent</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <input
-                  type="email"
-                  placeholder="agent@company.com"
-                  value={newAgentEmail}
-                  onChange={(e) => setNewAgentEmail(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Display Name</label>
-                <input
-                  type="text"
-                  placeholder="John Smith"
-                  value={newAgentName}
-                  onChange={(e) => setNewAgentName(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-                />
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    // TODO: Implement invite logic
-                    alert("Agent invite functionality coming soon!");
-                    setIsAddingAgent(false);
-                  }}
-                  className="flex-1 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90"
-                >
-                  Send Invite
-                </button>
-                <button
-                  onClick={() => {
-                    setIsAddingAgent(false);
-                    setNewAgentEmail("");
-                    setNewAgentName("");
-                  }}
-                  className="px-6 py-2 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80"
-                >
-                  Cancel
-                </button>
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Invite New Team Member</h3>
+              <button
+                onClick={() => {
+                  setIsAddingAgent(false);
+                  setNewAgentEmail("");
+                  setNewAgentName("");
+                  setNewAgentRole("agent");
+                  setInviteError(null);
+                  setInviteSuccess(false);
+                }}
+                className="p-1 rounded-lg hover:bg-muted transition-colors"
+              >
+                <X className="w-5 h-5 text-muted-foreground" />
+              </button>
             </div>
+
+            {inviteSuccess ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-green-500" />
+                </div>
+                <h4 className="font-semibold text-lg mb-2">Invite Sent!</h4>
+                <p className="text-muted-foreground">
+                  An email has been sent to {newAgentEmail}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {inviteError && (
+                  <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                    {inviteError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="email"
+                      placeholder="agent@company.com"
+                      value={newAgentEmail}
+                      onChange={(e) => setNewAgentEmail(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
+                      autoFocus
+                      disabled={isInviting}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Display Name</label>
+                  <input
+                    type="text"
+                    placeholder="John Smith"
+                    value={newAgentName}
+                    onChange={(e) => setNewAgentName(e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
+                    disabled={isInviting}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    They can change this after accepting the invite
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Role</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setNewAgentRole("agent")}
+                      disabled={isInviting}
+                      className={`p-3 rounded-lg border-2 transition-all text-left ${
+                        newAgentRole === "agent"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Users className="w-4 h-4" />
+                        <span className="font-medium">Agent</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Can take calls and view their own stats
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewAgentRole("admin")}
+                      disabled={isInviting}
+                      className={`p-3 rounded-lg border-2 transition-all text-left ${
+                        newAgentRole === "admin"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Shield className="w-4 h-4" />
+                        <span className="font-medium">Admin</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Full access to settings and team management
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={handleSendInvite}
+                    disabled={!newAgentEmail || !newAgentName || isInviting}
+                    className="flex-1 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isInviting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-4 h-4" />
+                        Send Invite
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsAddingAgent(false);
+                      setNewAgentEmail("");
+                      setNewAgentName("");
+                      setNewAgentRole("agent");
+                      setInviteError(null);
+                    }}
+                    disabled={isInviting}
+                    className="px-6 py-2 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -328,7 +506,7 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
                 );
               })}
 
-              {agents.length === 0 && (
+              {agents.length === 0 && pendingInvites.length === 0 && (
                 <div className="p-12 text-center">
                   <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                   <h3 className="text-lg font-semibold mb-2">No agents yet</h3>
@@ -343,6 +521,69 @@ export function AgentsClient({ agents: initialAgents, pools, agentStats, organiz
                     Add Agent
                   </button>
                 </div>
+              )}
+
+              {/* Pending Invites */}
+              {pendingInvites.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-muted/20 border-t border-border">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Pending Invites ({pendingInvites.length})
+                    </span>
+                  </div>
+                  {pendingInvites.map((invite) => (
+                    <div
+                      key={invite.id}
+                      className="grid grid-cols-12 gap-4 p-4 items-center bg-muted/5 border-t border-border"
+                    >
+                      {/* Invite Info */}
+                      <div className="col-span-4 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                          <Mail className="w-5 h-5 text-yellow-500" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{invite.full_name}</div>
+                          <div className="text-sm text-muted-foreground">{invite.email}</div>
+                        </div>
+                      </div>
+
+                      {/* Status */}
+                      <div className="col-span-2">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-yellow-500/10 text-yellow-600 text-xs font-medium">
+                          <Circle className="w-1.5 h-1.5 fill-current" />
+                          Pending
+                        </span>
+                      </div>
+
+                      {/* Role */}
+                      <div className="col-span-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          invite.role === 'admin'
+                            ? "bg-purple-500/10 text-purple-500"
+                            : "bg-primary/10 text-primary"
+                        }`}>
+                          {invite.role === 'admin' ? 'Admin' : 'Agent'}
+                        </span>
+                      </div>
+
+                      {/* Expires */}
+                      <div className="col-span-2 text-sm text-muted-foreground">
+                        Expires {new Date(invite.expires_at).toLocaleDateString()}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="col-span-1 flex justify-end">
+                        <button
+                          onClick={() => handleRevokeInvite(invite.id)}
+                          className="p-2 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground"
+                          title="Revoke invite"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           </div>

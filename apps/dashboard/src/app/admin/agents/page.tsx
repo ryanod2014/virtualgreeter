@@ -28,6 +28,15 @@ export default async function AgentsPage() {
     .order("is_catch_all", { ascending: false })
     .order("name");
 
+  // Fetch pending invites
+  const { data: pendingInvites } = await supabase
+    .from("invites")
+    .select("id, email, full_name, role, expires_at, created_at")
+    .eq("organization_id", auth!.organization.id)
+    .is("accepted_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
+
   // Fetch call stats for agents (last 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -57,6 +66,7 @@ export default async function AgentsPage() {
       pools={pools ?? []}
       agentStats={agentStats}
       organizationId={auth!.organization.id}
+      pendingInvites={pendingInvites ?? []}
     />
   );
 }

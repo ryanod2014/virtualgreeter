@@ -9,111 +9,88 @@ import {
   Square,
   Check,
   ArrowRight,
+  ArrowLeft,
   RotateCcw,
   Loader2,
   Mic,
   Volume2,
-  ExternalLink,
+  ChevronDown,
+  Users,
+  Upload,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-type RecordingStage = "loading" | "has-videos" | "intro" | "mimic" | "countdown-mimic" | "recording-mimic" | "script" | "countdown-script" | "recording-script" | "smile" | "countdown-smile" | "recording-smile" | "review" | "uploading" | "complete";
+// Default example videos (fall back to these if pool doesn't have custom ones)
+const DEFAULT_WAVE_EXAMPLE = "/examples/wave-example.mp4";
+const DEFAULT_LOOP_EXAMPLE = "/examples/loop-example.mp4";
 
-// Example video URL - this should be replaced with your actual example video
-const EXAMPLE_VIDEO_URL = "/example-intro.mp4";
-
-interface ExistingVideos {
-  waveVideoUrl: string | null;
-  introVideoUrl: string | null;
-  loopVideoUrl: string | null;
+// Types
+interface PoolWithVideos {
+  id: string;
+  name: string;
+  intro_script: string;
+  example_wave_video_url: string | null;
+  example_loop_video_url: string | null;
+  // Agent's recorded videos for this pool
+  membership_id: string;
+  wave_video_url: string | null;
+  intro_video_url: string | null;
+  loop_video_url: string | null;
 }
+
+interface ExistingVideo {
+  poolId: string;
+  poolName: string;
+  url: string;
+  script?: string; // For intro videos, the script it was recorded with
+}
+
+type VideoType = "wave" | "intro" | "loop";
+type RecordingStage = 
+  | "pool-list" 
+  | "select-videos" 
+  | "record-wave" 
+  | "countdown-wave" 
+  | "recording-wave"
+  | "record-intro" 
+  | "countdown-intro" 
+  | "recording-intro"
+  | "record-loop" 
+  | "countdown-loop" 
+  | "recording-loop"
+  | "review" 
+  | "uploading" 
+  | "complete";
 
 export default function VideosPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // State
-  const [stage, setStage] = useState<RecordingStage>("loading");
-  const [existingVideos, setExistingVideos] = useState<ExistingVideos | null>(null);
-  const [countdown, setCountdown] = useState(3);
-  const [hasAudioPermission, setHasAudioPermission] = useState(false);
-  const [recordedVideos, setRecordedVideos] = useState<{
-    mimic: Blob | null;
-    script: Blob | null;
-    smile: Blob | null;
-  }>({
-    mimic: null,
-    script: null,
-    smile: null,
-  });
+  // Core state
+  const [isLoading, setIsLoading] = useState(true);
+  const [stage, setStage] = useState<RecordingStage>("pool-list");
+  const [pools, setPools] = useState<PoolWithVideos[]>([]);
+  const [selectedPool, setSelectedPool] = useState<PoolWithVideos | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Video selection state (null = record new, string = use existing URL)
+  const [selectedWaveVideo, setSelectedWaveVideo] = useState<string | null>(null);
+  const [selectedIntroVideo, setSelectedIntroVideo] = useState<string | null>(null);
+  const [selectedLoopVideo, setSelectedLoopVideo] = useState<string | null>(null);
+  const [uploadingVideoType, setUploadingVideoType] = useState<VideoType | null>(null);
+
+  // Recording state
+  const [countdown, setCountdown] = useState(3);
+  const [hasPermission, setHasPermission] = useState(false);
+  const [recordedBlobs, setRecordedBlobs] = useState<{
+    wave: Blob | null;
+    intro: Blob | null;
+    loop: Blob | null;
+  }>({ wave: null, intro: null, loop: null });
   const [uploadProgress, setUploadProgress] = useState(0);
-  // Track which single video is being re-recorded (null = recording all)
-  const [rerecordingVideo, setRerecordingVideo] = useState<"mimic" | "script" | "smile" | null>(null);
-
-  // Load existing videos on mount
-  useEffect(() => {
-    const loadExistingVideos = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          console.log("[Videos] No user found, showing intro");
-          setStage("intro");
-          return;
-        }
-
-        console.log("[Videos] Loading agent profile for user:", user.id);
-        
-        // First try to get profile with all video columns
-        const { data: agentProfile, error: profileError } = await supabase
-          .from("agent_profiles")
-          .select("wave_video_url, intro_video_url, loop_video_url")
-          .eq("user_id", user.id)
-          .single();
-
-        if (profileError) {
-          console.error("[Videos] Error loading profile:", profileError);
-          // If columns don't exist, try with basic columns
-          const { data: fallbackProfile } = await supabase
-            .from("agent_profiles")
-            .select("intro_video_url, loop_video_url")
-            .eq("user_id", user.id)
-            .single();
-          
-          if (fallbackProfile && (fallbackProfile.intro_video_url || fallbackProfile.loop_video_url)) {
-            setExistingVideos({
-              waveVideoUrl: null,
-              introVideoUrl: fallbackProfile.intro_video_url,
-              loopVideoUrl: fallbackProfile.loop_video_url,
-            });
-            setStage("has-videos");
-            return;
-          }
-          setStage("intro");
-          return;
-        }
-
-        console.log("[Videos] Agent profile loaded:", agentProfile);
-
-        if (agentProfile && (agentProfile.wave_video_url || agentProfile.intro_video_url || agentProfile.loop_video_url)) {
-          setExistingVideos({
-            waveVideoUrl: agentProfile.wave_video_url,
-            introVideoUrl: agentProfile.intro_video_url,
-            loopVideoUrl: agentProfile.loop_video_url,
-          });
-          setStage("has-videos");
-        } else {
-          console.log("[Videos] No videos found, showing intro");
-          setStage("intro");
-        }
-      } catch (err) {
-        console.error("[Videos] Error loading existing videos:", err);
-        setStage("intro");
-      }
-    };
-
-    loadExistingVideos();
-  }, [supabase]);
+  const [agentProfileId, setAgentProfileId] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   // Refs
   const webcamRef = useRef<HTMLVideoElement>(null);
@@ -123,30 +100,137 @@ export default function VideosPage() {
   const chunksRef = useRef<Blob[]>([]);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize webcam
+  // Load pools and agent data
   useEffect(() => {
-    const initWebcam = async () => {
+    const loadData = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720, facingMode: "user" },
-          audio: true,
-        });
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push("/login");
+          return;
+        }
+        setUserId(user.id);
+
+        // Get agent profile
+        const { data: profile } = await supabase
+          .from("agent_profiles")
+          .select("id, organization_id")
+          .eq("user_id", user.id)
+          .single();
+
+        if (!profile) {
+          setError("Agent profile not found");
+          setIsLoading(false);
+          return;
+        }
+
+        setAgentProfileId(profile.id);
+        setOrgId(profile.organization_id);
+
+        // Get pools the agent is a member of, with their video settings
+        const { data: poolData, error: poolError } = await supabase
+          .from("agent_pool_members")
+          .select(`
+            id,
+            wave_video_url,
+            intro_video_url,
+            loop_video_url,
+            agent_pools (
+              id,
+              name,
+              intro_script,
+              example_wave_video_url,
+              example_loop_video_url
+            )
+          `)
+          .eq("agent_profile_id", profile.id);
+
+        if (poolError) {
+          console.error("Error loading pools:", poolError);
+          setError("Failed to load pools");
+          setIsLoading(false);
+          return;
+        }
+
+        // Transform into our PoolWithVideos format
+        const transformedPools: PoolWithVideos[] = (poolData || [])
+          .filter(m => m.agent_pools)
+          .map(m => {
+            // Supabase returns single object for belongsTo relation
+            const pool = m.agent_pools as unknown as {
+              id: string;
+              name: string;
+              intro_script: string | null;
+              example_wave_video_url: string | null;
+              example_loop_video_url: string | null;
+            };
+            return {
+              id: pool.id,
+              name: pool.name,
+              intro_script: pool.intro_script || "Hey, do you mind turning on your mic real fast? Quick question for you.",
+              example_wave_video_url: pool.example_wave_video_url,
+              example_loop_video_url: pool.example_loop_video_url,
+              membership_id: m.id,
+              wave_video_url: m.wave_video_url,
+              intro_video_url: m.intro_video_url,
+              loop_video_url: m.loop_video_url,
+            };
+          });
+
+        setPools(transformedPools);
+        setIsLoading(false);
+      } catch (err) {
+        console.error("Error loading data:", err);
+        setError("Failed to load data");
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [supabase, router]);
+
+  // Initialize webcam when entering recording stages
+  useEffect(() => {
+    const needsWebcam = stage.includes("record") || stage.includes("countdown") || stage.includes("recording");
+    
+    if (needsWebcam && !streamRef.current) {
+      navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720, facingMode: "user" },
+        audio: true,
+      }).then(stream => {
         streamRef.current = stream;
         if (webcamRef.current) {
           webcamRef.current.srcObject = stream;
         }
-        setHasAudioPermission(true);
-      } catch (err) {
+        setHasPermission(true);
+      }).catch(err => {
         console.error("Failed to access webcam:", err);
-        setError("Please allow camera and microphone access to record your intro videos.");
-      }
-    };
-
-    initWebcam();
+        setError("Please allow camera and microphone access");
+      });
+    }
 
     return () => {
+      // Cleanup webcam when leaving recording flow
+      if (!needsWebcam && streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+        setHasPermission(false);
+      }
+    };
+  }, [stage]);
+
+  // Re-attach stream to video element when stage changes
+  useEffect(() => {
+    if (streamRef.current && webcamRef.current && !webcamRef.current.srcObject) {
+      webcamRef.current.srcObject = streamRef.current;
+    }
+  }, [stage]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current.getTracks().forEach(track => track.stop());
       }
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
@@ -154,16 +238,94 @@ export default function VideosPage() {
     };
   }, []);
 
-  // Re-attach stream when video element changes (stage transitions unmount/remount the video element)
-  useEffect(() => {
-    if (streamRef.current && webcamRef.current && !webcamRef.current.srcObject) {
-      webcamRef.current.srcObject = streamRef.current;
-    }
-  }, [stage]);
+  // Get existing videos for dropdown options
+  const getExistingVideos = (type: VideoType): ExistingVideo[] => {
+    return pools
+      .filter(p => {
+        if (type === "wave") return p.wave_video_url;
+        if (type === "intro") return p.intro_video_url;
+        if (type === "loop") return p.loop_video_url;
+        return false;
+      })
+      .map(p => ({
+        poolId: p.id,
+        poolName: p.name,
+        url: type === "wave" ? p.wave_video_url! : type === "intro" ? p.intro_video_url! : p.loop_video_url!,
+        script: type === "intro" ? p.intro_script : undefined,
+      }));
+  };
 
-  // Start countdown before recording
-  const startCountdown = useCallback((nextStage: RecordingStage, recordingStage: RecordingStage) => {
-    setStage(nextStage);
+  // Check if pool has all videos
+  const poolHasAllVideos = (pool: PoolWithVideos) => {
+    return pool.wave_video_url && pool.intro_video_url && pool.loop_video_url;
+  };
+
+  // Start recording for a pool
+  const startPoolRecording = (pool: PoolWithVideos) => {
+    setSelectedPool(pool);
+    setSelectedWaveVideo(null);
+    setSelectedIntroVideo(null);
+    setSelectedLoopVideo(null);
+    setRecordedBlobs({ wave: null, intro: null, loop: null });
+    setStage("select-videos");
+  };
+
+  // Proceed from video selection to recording
+  const proceedToRecording = () => {
+    // Figure out what we need to record
+    if (selectedWaveVideo === null) {
+      setStage("record-wave");
+    } else if (selectedIntroVideo === null) {
+      setStage("record-intro");
+    } else if (selectedLoopVideo === null) {
+      setStage("record-loop");
+    } else {
+      // All selected from existing, go to review
+      setStage("review");
+    }
+  };
+
+  // Handle video upload
+  const handleVideoUpload = async (type: VideoType, file: File) => {
+    if (!selectedPool || !userId || !orgId) return;
+
+    setUploadingVideoType(type);
+    
+    try {
+      const path = `${orgId}/${userId}/pools/${selectedPool.id}/${type}-${Date.now()}.${file.name.split('.').pop()}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("videos")
+        .upload(path, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("videos").getPublicUrl(path);
+      const videoUrl = data.publicUrl;
+
+      // Set the selected video to the uploaded URL
+      if (type === "wave") setSelectedWaveVideo(videoUrl);
+      else if (type === "intro") setSelectedIntroVideo(videoUrl);
+      else if (type === "loop") setSelectedLoopVideo(videoUrl);
+      
+    } catch (error) {
+      console.error("Upload failed:", error);
+      setError("Failed to upload video. Please try again.");
+    } finally {
+      setUploadingVideoType(null);
+    }
+  };
+
+  // Start countdown
+  const startCountdown = (type: VideoType) => {
+    const countdownStage = `countdown-${type}` as RecordingStage;
+    const recordingStage = `recording-${type}` as RecordingStage;
+    
+    setStage(countdownStage);
     setCountdown(3);
 
     let count = 3;
@@ -174,13 +336,13 @@ export default function VideosPage() {
         if (countdownIntervalRef.current) {
           clearInterval(countdownIntervalRef.current);
         }
-        startRecording(recordingStage);
+        startRecording(type, recordingStage);
       }
     }, 1000);
-  }, []);
+  };
 
   // Start recording
-  const startRecording = useCallback((recordingStage: RecordingStage) => {
+  const startRecording = (type: VideoType, recordingStage: RecordingStage) => {
     if (!streamRef.current) return;
 
     setStage(recordingStage);
@@ -198,902 +360,441 @@ export default function VideosPage() {
 
     mediaRecorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      const videoType = recordingStage.replace("recording-", "") as "mimic" | "script" | "smile";
-      setRecordedVideos((prev) => ({ ...prev, [videoType]: blob }));
+      setRecordedBlobs(prev => ({ ...prev, [type]: blob }));
     };
 
     mediaRecorderRef.current = mediaRecorder;
     mediaRecorder.start();
 
-    // If recording mimic, play the example video
-    if (recordingStage === "recording-mimic" && exampleVideoRef.current) {
+    // Play example video for wave and loop
+    if ((type === "wave" || type === "loop") && exampleVideoRef.current) {
       exampleVideoRef.current.currentTime = 0;
       exampleVideoRef.current.play();
     }
-  }, []);
+  };
 
-  // Stop recording
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
+  // Stop recording and move to next step
+  const stopRecording = () => {
+    if (mediaRecorderRef.current?.state !== "inactive") {
+      mediaRecorderRef.current?.stop();
     }
     if (exampleVideoRef.current) {
       exampleVideoRef.current.pause();
     }
-  }, []);
+  };
 
-  // Handle next after recording
-  const handleNextRecording = useCallback(() => {
+  const handleStopAndNext = (currentType: VideoType) => {
     stopRecording();
     
-    // If re-recording a single video, go to single video review
-    if (rerecordingVideo) {
-      setStage("review");
-      return;
-    }
-    
-    if (stage === "recording-mimic") {
-      setStage("script");
-    } else if (stage === "recording-script") {
-      setStage("smile");
-    } else if (stage === "recording-smile") {
-      setStage("review");
-    }
-  }, [stage, stopRecording, rerecordingVideo]);
+    // Small delay to let the blob be created
+    setTimeout(() => {
+      if (currentType === "wave") {
+        if (selectedIntroVideo === null) {
+          setStage("record-intro");
+        } else if (selectedLoopVideo === null) {
+          setStage("record-loop");
+        } else {
+          setStage("review");
+        }
+      } else if (currentType === "intro") {
+        if (selectedLoopVideo === null) {
+          setStage("record-loop");
+        } else {
+          setStage("review");
+        }
+      } else {
+        setStage("review");
+      }
+    }, 100);
+  };
 
-  // Start re-recording a specific video from has-videos stage
-  const startRerecordSingle = useCallback((type: "mimic" | "script" | "smile") => {
-    setRerecordingVideo(type);
-    setRecordedVideos(prev => ({ ...prev, [type]: null }));
-    if (type === "mimic") {
-      setStage("mimic");
-    } else if (type === "script") {
-      setStage("script");
-    } else {
-      setStage("smile");
-    }
-  }, []);
-
-  // Redo a specific recording (during full recording flow)
-  const redoRecording = useCallback((type: "mimic" | "script" | "smile") => {
-    setRecordedVideos((prev) => ({ ...prev, [type]: null }));
-    if (type === "mimic") {
-      setStage("mimic");
-    } else if (type === "script") {
-      setStage("script");
-    } else {
-      setStage("smile");
-    }
-  }, []);
-
-  // Upload a single re-recorded video
-  const uploadSingleVideo = useCallback(async () => {
-    if (!rerecordingVideo || !recordedVideos[rerecordingVideo]) {
-      setError("No video to upload.");
-      return;
-    }
+  // Upload videos for the selected pool
+  const uploadVideos = async () => {
+    if (!selectedPool || !userId || !orgId) return;
 
     setStage("uploading");
     setUploadProgress(0);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      let waveUrl = selectedWaveVideo;
+      let introUrl = selectedIntroVideo;
+      let loopUrl = selectedLoopVideo;
 
-      const { data: profile } = await supabase
-        .from("users")
-        .select("organization_id")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile) throw new Error("Profile not found");
-
-      const orgId = profile.organization_id;
-      const videoBlob = recordedVideos[rerecordingVideo]!;
-
-      // Determine path and field based on video type
-      let videoPath: string;
-      let dbField: string;
-      
-      switch (rerecordingVideo) {
-        case "mimic":
-          videoPath = `${orgId}/${user.id}/wave-intro.webm`;
-          dbField = "wave_video_url";
-          break;
-        case "script":
-          videoPath = `${orgId}/${user.id}/intro.webm`;
-          dbField = "intro_video_url";
-          break;
-        case "smile":
-          videoPath = `${orgId}/${user.id}/loop.webm`;
-          dbField = "loop_video_url";
-          break;
+      // Upload recorded blobs
+      if (recordedBlobs.wave) {
+        setUploadProgress(10);
+        const path = `${orgId}/${userId}/pools/${selectedPool.id}/wave.webm`;
+        await supabase.storage.from("videos").upload(path, recordedBlobs.wave, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: "video/webm",
+        });
+        const { data } = supabase.storage.from("videos").getPublicUrl(path);
+        waveUrl = data.publicUrl;
       }
 
-      setUploadProgress(30);
-
-      // Upload the video
-      await supabase.storage.from("videos").upload(videoPath, videoBlob, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: "video/webm",
-      });
-
-      setUploadProgress(60);
-
-      // Get public URL
-      const { data: videoUrl } = supabase.storage.from("videos").getPublicUrl(videoPath);
-
-      setUploadProgress(80);
-
-      // Update only this field in agent profile
-      const { error: updateError } = await supabase
-        .from("agent_profiles")
-        .update({ [dbField]: videoUrl.publicUrl })
-        .eq("user_id", user.id);
-
-      if (updateError) {
-        throw updateError;
+      if (recordedBlobs.intro) {
+        setUploadProgress(40);
+        const path = `${orgId}/${userId}/pools/${selectedPool.id}/intro.webm`;
+        await supabase.storage.from("videos").upload(path, recordedBlobs.intro, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: "video/webm",
+        });
+        const { data } = supabase.storage.from("videos").getPublicUrl(path);
+        introUrl = data.publicUrl;
       }
 
-      setUploadProgress(100);
-
-      // Update existing videos state with new URL
-      setExistingVideos(prev => {
-        if (!prev) return prev;
-        const fieldMap: Record<string, keyof ExistingVideos> = {
-          mimic: "waveVideoUrl",
-          script: "introVideoUrl", 
-          smile: "loopVideoUrl"
-        };
-        return {
-          ...prev,
-          [fieldMap[rerecordingVideo]]: videoUrl.publicUrl
-        };
-      });
-
-      // Reset and go back to has-videos
-      setRerecordingVideo(null);
-      setRecordedVideos({ mimic: null, script: null, smile: null });
-      setStage("has-videos");
-
-    } catch (err) {
-      console.error("[Videos] Upload error:", err);
-      setError("Failed to upload video. Please try again.");
-      setStage("review");
-    }
-  }, [rerecordingVideo, recordedVideos, supabase]);
-
-  // Upload all videos
-  const uploadVideos = useCallback(async () => {
-    if (!recordedVideos.mimic || !recordedVideos.script || !recordedVideos.smile) {
-      setError("Please record all three videos before uploading.");
-      return;
-    }
-
-    setStage("uploading");
-    setUploadProgress(0);
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      // Get user's organization ID
-      const { data: profile } = await supabase
-        .from("users")
-        .select("organization_id")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile) throw new Error("Profile not found");
-
-      const orgId = profile.organization_id;
-
-      // Convert webm to mp4 would require server-side processing
-      // For now, upload as webm and handle in the player
-
-      // Upload mimic video (plays on loop muted until audio permission)
-      setUploadProgress(10);
-      const mimicPath = `${orgId}/${user.id}/wave-intro.webm`;
-      await supabase.storage.from("videos").upload(mimicPath, recordedVideos.mimic, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: "video/webm",
-      });
-
-      // Upload script video (plays with audio after permission)
-      setUploadProgress(40);
-      const scriptPath = `${orgId}/${user.id}/intro.webm`;
-      await supabase.storage.from("videos").upload(scriptPath, recordedVideos.script, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: "video/webm",
-      });
-
-      // Upload smile video (loops forever)
-      setUploadProgress(70);
-      const smilePath = `${orgId}/${user.id}/loop.webm`;
-      await supabase.storage.from("videos").upload(smilePath, recordedVideos.smile, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: "video/webm",
-      });
-
-      // Get public URLs
-      const { data: mimicUrl } = supabase.storage.from("videos").getPublicUrl(mimicPath);
-      const { data: scriptUrl } = supabase.storage.from("videos").getPublicUrl(scriptPath);
-      const { data: smileUrl } = supabase.storage.from("videos").getPublicUrl(smilePath);
-
-      console.log("[Videos] Video URLs:", {
-        wave: mimicUrl.publicUrl,
-        intro: scriptUrl.publicUrl,
-        loop: smileUrl.publicUrl,
-      });
+      if (recordedBlobs.loop) {
+        setUploadProgress(70);
+        const path = `${orgId}/${userId}/pools/${selectedPool.id}/loop.webm`;
+        await supabase.storage.from("videos").upload(path, recordedBlobs.loop, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: "video/webm",
+        });
+        const { data } = supabase.storage.from("videos").getPublicUrl(path);
+        loopUrl = data.publicUrl;
+      }
 
       setUploadProgress(90);
 
-      // Update agent profile with new video URLs
+      // Update agent_pool_members with video URLs
       const { error: updateError } = await supabase
-        .from("agent_profiles")
+        .from("agent_pool_members")
         .update({
-          wave_video_url: mimicUrl.publicUrl,
-          intro_video_url: scriptUrl.publicUrl,
-          loop_video_url: smileUrl.publicUrl,
+          wave_video_url: waveUrl,
+          intro_video_url: introUrl,
+          loop_video_url: loopUrl,
         })
-        .eq("user_id", user.id);
+        .eq("id", selectedPool.membership_id);
 
-      if (updateError) {
-        console.error("[Videos] Update error:", updateError);
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
-      console.log("[Videos] Profile updated successfully");
+      // Update local state
+      setPools(prev => prev.map(p => 
+        p.id === selectedPool.id 
+          ? { ...p, wave_video_url: waveUrl, intro_video_url: introUrl, loop_video_url: loopUrl }
+          : p
+      ));
+
       setUploadProgress(100);
       setStage("complete");
     } catch (err) {
-      console.error("[Videos] Upload error:", err);
+      console.error("Upload error:", err);
       setError("Failed to upload videos. Please try again.");
       setStage("review");
     }
-  }, [recordedVideos, supabase]);
+  };
 
-  // Render based on stage
+  // Get example video URL for current recording
+  const getExampleUrl = (type: VideoType) => {
+    if (!selectedPool) return DEFAULT_WAVE_EXAMPLE;
+    if (type === "wave") return selectedPool.example_wave_video_url || DEFAULT_WAVE_EXAMPLE;
+    if (type === "loop") return selectedPool.example_loop_video_url || DEFAULT_LOOP_EXAMPLE;
+    return null;
+  };
+
+  // Render
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background p-8">
-      {/* Background effects */}
+      {/* Background */}
       <div className="fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-purple-900/5" />
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Ghost className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold">Pre-recorded Intro</h1>
+            <h1 className="text-3xl font-bold">Record Videos</h1>
           </div>
           <p className="text-muted-foreground">
-            Record your intro videos to greet visitors before you go live
+            Record intro videos for each team you're on
           </p>
         </div>
 
-        {/* Progress Steps - only show when recording */}
-        {!["loading", "has-videos"].includes(stage) && (
-          <div className="flex items-center justify-center gap-4 mb-8">
-            <ProgressStep 
-              step={1} 
-              label="Wave" 
-              active={stage.includes("mimic")} 
-              completed={recordedVideos.mimic !== null} 
-            />
-            <div className="w-12 h-0.5 bg-border" />
-            <ProgressStep 
-              step={2} 
-              label="Speak" 
-              active={stage.includes("script")} 
-              completed={recordedVideos.script !== null} 
-            />
-            <div className="w-12 h-0.5 bg-border" />
-            <ProgressStep 
-              step={3} 
-              label="Smile" 
-              active={stage.includes("smile")} 
-              completed={recordedVideos.smile !== null} 
-            />
-            <div className="w-12 h-0.5 bg-border" />
-            <ProgressStep 
-              step={4} 
-              label="Done" 
-              active={stage === "review" || stage === "uploading" || stage === "complete"} 
-              completed={stage === "complete"} 
-            />
-          </div>
-        )}
-
-        {/* Error Display */}
+        {/* Error */}
         {error && (
           <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-center">
             {error}
+            <button onClick={() => setError(null)} className="ml-2 underline">Dismiss</button>
           </div>
         )}
 
         {/* Main Content */}
         <div className="glass rounded-2xl p-8">
-          {/* Loading Stage */}
-          {stage === "loading" && (
-            <div className="text-center py-12">
-              <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading your videos...</p>
+          
+          {/* Pool List */}
+          {stage === "pool-list" && (
+            <div>
+              <h2 className="text-xl font-semibold mb-6">Your Teams</h2>
+              
+              {pools.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>You're not assigned to any teams yet.</p>
+                  <p className="text-sm">Contact your admin to get added to a team.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {pools.map(pool => (
+                    <div
+                      key={pool.id}
+                      className="flex items-center justify-between p-4 rounded-xl border border-border hover:border-primary/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-lg">{pool.name}</div>
+                        <div className="text-sm text-muted-foreground mt-1 line-clamp-1">
+                          Script: "{pool.intro_script}"
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          {pool.wave_video_url && (
+                            <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-600 rounded">Wave ✓</span>
+                          )}
+                          {pool.intro_video_url && (
+                            <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-600 rounded">Intro ✓</span>
+                          )}
+                          {pool.loop_video_url && (
+                            <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-600 rounded">Loop ✓</span>
+                          )}
+                          {!pool.wave_video_url && !pool.intro_video_url && !pool.loop_video_url && (
+                            <span className="text-xs px-2 py-0.5 bg-yellow-500/20 text-yellow-600 rounded">No videos</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => startPoolRecording(pool)}
+                        className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
+                      >
+                        {poolHasAllVideos(pool) ? "Re-record" : "Record"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-8 pt-6 border-t border-border">
+                <button
+                  onClick={() => router.push("/dashboard")}
+                  className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Workbench
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Has Existing Videos Stage */}
-          {stage === "has-videos" && existingVideos && (
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
-                <Check className="w-10 h-10 text-green-500" />
-              </div>
-              <h2 className="text-2xl font-bold mb-4">Your Intro Videos Are Ready!</h2>
-              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                Your pre-recorded intro is active and will be shown to visitors.
+          {/* Select Videos (Dropdowns) */}
+          {stage === "select-videos" && selectedPool && (
+            <div>
+              <button
+                onClick={() => setStage("pool-list")}
+                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to teams
+              </button>
+
+              <h2 className="text-xl font-semibold mb-2">Recording for: {selectedPool.name}</h2>
+              <p className="text-muted-foreground mb-8">
+                Select existing videos or record new ones
               </p>
-              
-              <div className="grid grid-cols-3 gap-6 mb-8">
-                <div className="text-center">
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-black mb-2 group">
-                    {existingVideos.waveVideoUrl ? (
-                      <>
-                        <video
-                          src={existingVideos.waveVideoUrl}
-                          controls
-                          playsInline
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          onClick={() => startRerecordSingle("mimic")}
-                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                        >
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/20 text-white text-sm font-medium">
-                            <RotateCcw className="w-4 h-4" />
-                            Re-record
-                          </div>
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => startRerecordSingle("mimic")}
-                        className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground text-sm hover:bg-muted/50 transition-colors"
-                      >
-                        <Play className="w-6 h-6 mb-1" />
-                        Record
-                      </button>
-                    )}
-                  </div>
-                  <div className="font-medium text-sm">1. Wave</div>
-                  <div className="text-xs text-muted-foreground">Loops while muted</div>
-                </div>
-                <div className="text-center">
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-black mb-2 group">
-                    {existingVideos.introVideoUrl ? (
-                      <>
-                        <video
-                          src={existingVideos.introVideoUrl}
-                          controls
-                          playsInline
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          onClick={() => startRerecordSingle("script")}
-                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                        >
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/20 text-white text-sm font-medium">
-                            <RotateCcw className="w-4 h-4" />
-                            Re-record
-                          </div>
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => startRerecordSingle("script")}
-                        className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground text-sm hover:bg-muted/50 transition-colors"
-                      >
-                        <Play className="w-6 h-6 mb-1" />
-                        Record
-                      </button>
-                    )}
-                  </div>
-                  <div className="font-medium text-sm">2. Speak</div>
-                  <div className="text-xs text-muted-foreground">Plays with audio</div>
-                </div>
-                <div className="text-center">
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-black mb-2 group">
-                    {existingVideos.loopVideoUrl ? (
-                      <>
-                        <video
-                          src={existingVideos.loopVideoUrl}
-                          controls
-                          playsInline
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          onClick={() => startRerecordSingle("smile")}
-                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                        >
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/20 text-white text-sm font-medium">
-                            <RotateCcw className="w-4 h-4" />
-                            Re-record
-                          </div>
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => startRerecordSingle("smile")}
-                        className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground text-sm hover:bg-muted/50 transition-colors"
-                      >
-                        <Play className="w-6 h-6 mb-1" />
-                        Record
-                      </button>
-                    )}
-                  </div>
-                  <div className="font-medium text-sm">3. Smile</div>
-                  <div className="text-xs text-muted-foreground">Loops forever</div>
-                </div>
+
+              <div className="space-y-6">
+                {/* Wave Video Selection */}
+                <VideoSelector
+                  label="1. Wave Video"
+                  description="Grabs attention, plays while muted"
+                  existingVideos={getExistingVideos("wave")}
+                  selectedUrl={selectedWaveVideo}
+                  onSelect={setSelectedWaveVideo}
+                  onUpload={(file) => handleVideoUpload("wave", file)}
+                  isUploading={uploadingVideoType === "wave"}
+                />
+
+                {/* Intro Video Selection */}
+                <VideoSelector
+                  label="2. Intro Video"
+                  description="Your script - plays with audio"
+                  existingVideos={getExistingVideos("intro").filter(v => v.script === selectedPool.intro_script)}
+                  selectedUrl={selectedIntroVideo}
+                  onSelect={setSelectedIntroVideo}
+                  onUpload={(file) => handleVideoUpload("intro", file)}
+                  isUploading={uploadingVideoType === "intro"}
+                  currentScript={selectedPool.intro_script}
+                />
+
+                {/* Loop Video Selection */}
+                <VideoSelector
+                  label="3. Loop Video"
+                  description="Smiling/waiting, loops forever"
+                  existingVideos={getExistingVideos("loop")}
+                  selectedUrl={selectedLoopVideo}
+                  onSelect={setSelectedLoopVideo}
+                  onUpload={(file) => handleVideoUpload("loop", file)}
+                  isUploading={uploadingVideoType === "loop"}
+                />
               </div>
 
-              <div className="flex items-center justify-center gap-4">
+              <div className="flex justify-end mt-8">
                 <button
-                  onClick={() => {
-                    setExistingVideos(null);
-                    setStage("intro");
-                  }}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-border text-foreground font-medium hover:bg-muted transition-colors"
-                >
-                  <RotateCcw className="w-5 h-5" />
-                  Record New Videos
-                </button>
-                <button
-                  onClick={() => router.push("/dashboard")}
+                  onClick={proceedToRecording}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
                 >
-                  Go to Workbench
+                  Continue
                   <ArrowRight className="w-5 h-5" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* Intro Stage */}
-          {stage === "intro" && (
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
-                <Video className="w-10 h-10 text-primary" />
-              </div>
-              <h2 className="text-2xl font-bold mb-4">Let's Record Your Intro</h2>
-              <p className="text-muted-foreground mb-6 max-w-lg mx-auto">
-                You'll record 3 short clips that create a seamless experience for visitors:
-              </p>
-              <div className="grid grid-cols-3 gap-4 mb-8 text-left max-w-2xl mx-auto">
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <div className="text-primary font-semibold mb-1">1. Wave</div>
-                  <div className="text-sm text-muted-foreground">
-                    Mimic the example – wave and look engaged
-                  </div>
-                </div>
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <div className="text-primary font-semibold mb-1">2. Speak</div>
-                  <div className="text-sm text-muted-foreground">
-                    Read the script asking visitors to unmute
-                  </div>
-                </div>
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <div className="text-primary font-semibold mb-1">3. Smile</div>
-                  <div className="text-sm text-muted-foreground">
-                    Just sit and smile – loops while waiting
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => setStage("mimic")}
-                disabled={!hasAudioPermission}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {hasAudioPermission ? (
-                  <>
-                    Start Recording
-                    <ArrowRight className="w-5 h-5" />
-                  </>
-                ) : (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Waiting for camera...
-                  </>
-                )}
-              </button>
-            </div>
+          {/* Record Wave */}
+          {(stage === "record-wave" || stage === "countdown-wave" || stage === "recording-wave") && selectedPool && (
+            <RecordingView
+              title="Part 1: Wave & Engage"
+              description="Mimic the example - wave and look engaged!"
+              stage={stage}
+              countdown={countdown}
+              exampleUrl={getExampleUrl("wave")}
+              webcamRef={webcamRef}
+              exampleVideoRef={exampleVideoRef}
+              hasPermission={hasPermission}
+              onStartRecording={() => startCountdown("wave")}
+              onStopRecording={() => handleStopAndNext("wave")}
+            />
           )}
 
-          {/* Mimic Stage - Instructions */}
-          {stage === "mimic" && (
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-4">Part 1: Wave & Engage</h2>
-              <p className="text-muted-foreground mb-6">
-                You'll see yourself and an example video side-by-side. Mimic what you see!
-              </p>
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
-                  <video
-                    ref={webcamRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover scale-x-[-1]"
-                  />
-                  <div className="absolute top-3 left-3 px-2 py-1 rounded bg-black/50 text-white text-sm font-medium">
-                    Your Camera
-                  </div>
-                </div>
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
-                  <video
-                    ref={exampleVideoRef}
-                    src={EXAMPLE_VIDEO_URL}
-                    playsInline
-                    loop
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 left-3 px-2 py-1 rounded bg-black/50 text-white text-sm font-medium">
-                    Example
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Play className="w-16 h-16 text-white/80" />
-                  </div>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground mb-6">
-                Wave, smile, and look like you're about to say something important!
-              </p>
-              <button
-                onClick={() => startCountdown("countdown-mimic", "recording-mimic")}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
-              >
-                <Play className="w-5 h-5" />
-                Start Recording
-              </button>
-            </div>
+          {/* Record Intro */}
+          {(stage === "record-intro" || stage === "countdown-intro" || stage === "recording-intro") && selectedPool && (
+            <RecordingView
+              title="Part 2: Say Your Script"
+              description="Read the script naturally, like talking to a visitor"
+              stage={stage}
+              countdown={countdown}
+              script={selectedPool.intro_script}
+              webcamRef={webcamRef}
+              exampleVideoRef={exampleVideoRef}
+              hasPermission={hasPermission}
+              onStartRecording={() => startCountdown("intro")}
+              onStopRecording={() => handleStopAndNext("intro")}
+            />
           )}
 
-          {/* Countdown for Mimic */}
-          {stage === "countdown-mimic" && (
-            <CountdownOverlay countdown={countdown} />
+          {/* Record Loop */}
+          {(stage === "record-loop" || stage === "countdown-loop" || stage === "recording-loop") && selectedPool && (
+            <RecordingView
+              title="Part 3: Waiting Smile"
+              description="Just sit and smile naturally - this loops while waiting"
+              stage={stage}
+              countdown={countdown}
+              exampleUrl={getExampleUrl("loop")}
+              webcamRef={webcamRef}
+              exampleVideoRef={exampleVideoRef}
+              hasPermission={hasPermission}
+              onStartRecording={() => startCountdown("loop")}
+              onStopRecording={() => handleStopAndNext("loop")}
+            />
           )}
 
-          {/* Recording Mimic */}
-          {stage === "recording-mimic" && (
+          {/* Review */}
+          {stage === "review" && selectedPool && (
             <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-red-500 font-semibold">Recording</span>
-              </div>
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-black ring-4 ring-red-500/50">
-                  <video
-                    ref={webcamRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover scale-x-[-1]"
-                  />
-                  <div className="absolute top-3 left-3 px-2 py-1 rounded bg-red-500 text-white text-sm font-medium flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                    REC
-                  </div>
-                </div>
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
-                  <video
-                    ref={exampleVideoRef}
-                    src={EXAMPLE_VIDEO_URL}
-                    autoPlay
-                    playsInline
-                    loop
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 left-3 px-2 py-1 rounded bg-black/50 text-white text-sm font-medium">
-                    Follow Along
-                  </div>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground mb-6">
-                Mimic the example video – wave, smile, look engaged!
-              </p>
-              <button
-                onClick={handleNextRecording}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
-              >
-                <Square className="w-5 h-5" />
-                Stop & Continue
-              </button>
-            </div>
-          )}
+              <h2 className="text-2xl font-bold mb-4">Review Your Videos</h2>
+              <p className="text-muted-foreground mb-8">for {selectedPool.name}</p>
 
-          {/* Script Stage - Instructions */}
-          {stage === "script" && (
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-4">Part 2: Ask to Unmute</h2>
-              <p className="text-muted-foreground mb-6">
-                Read the script below naturally, like you're talking to a real visitor
-              </p>
-              <div className="relative aspect-video max-w-2xl mx-auto rounded-xl overflow-hidden bg-black mb-6">
-                <video
-                  ref={webcamRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover scale-x-[-1]"
+              <div className="grid grid-cols-3 gap-4 mb-8">
+                <VideoPreviewCard
+                  label="1. Wave"
+                  blob={recordedBlobs.wave}
+                  existingUrl={selectedWaveVideo}
                 />
-                <div className="absolute top-3 left-3 px-2 py-1 rounded bg-black/50 text-white text-sm font-medium">
-                  Your Camera
-                </div>
-              </div>
-              <div className="max-w-lg mx-auto p-6 rounded-xl bg-primary/10 border border-primary/20 mb-6">
-                <div className="flex items-center gap-2 text-primary mb-3">
-                  <Mic className="w-5 h-5" />
-                  <span className="font-semibold">Your Script</span>
-                </div>
-                <p className="text-xl font-medium leading-relaxed">
-                  "Hey, do you mind turning on your mic real fast? Quick question for you."
-                </p>
-              </div>
-              <button
-                onClick={() => startCountdown("countdown-script", "recording-script")}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
-              >
-                <Play className="w-5 h-5" />
-                Start Recording
-              </button>
-            </div>
-          )}
-
-          {/* Countdown for Script */}
-          {stage === "countdown-script" && (
-            <CountdownOverlay countdown={countdown} />
-          )}
-
-          {/* Recording Script */}
-          {stage === "recording-script" && (
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-red-500 font-semibold">Recording</span>
-              </div>
-              <div className="relative aspect-video max-w-2xl mx-auto rounded-xl overflow-hidden bg-black ring-4 ring-red-500/50 mb-6">
-                <video
-                  ref={webcamRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover scale-x-[-1]"
+                <VideoPreviewCard
+                  label="2. Intro"
+                  blob={recordedBlobs.intro}
+                  existingUrl={selectedIntroVideo}
                 />
-                <div className="absolute top-3 left-3 px-2 py-1 rounded bg-red-500 text-white text-sm font-medium flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  REC
-                </div>
-              </div>
-              <div className="max-w-lg mx-auto p-6 rounded-xl bg-primary/10 border border-primary/20 mb-6">
-                <div className="flex items-center gap-2 text-primary mb-3">
-                  <Volume2 className="w-5 h-5" />
-                  <span className="font-semibold">Read This</span>
-                </div>
-                <p className="text-2xl font-medium leading-relaxed">
-                  "Hey, do you mind turning on your mic real fast? Quick question for you."
-                </p>
-              </div>
-              <button
-                onClick={handleNextRecording}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
-              >
-                <Square className="w-5 h-5" />
-                Stop & Continue
-              </button>
-            </div>
-          )}
-
-          {/* Smile Stage - Instructions */}
-          {stage === "smile" && (
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-4">Part 3: Waiting Smile</h2>
-              <p className="text-muted-foreground mb-6">
-                Just sit there and smile naturally. This loops while waiting for a response.
-              </p>
-              <div className="relative aspect-video max-w-2xl mx-auto rounded-xl overflow-hidden bg-black mb-6">
-                <video
-                  ref={webcamRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover scale-x-[-1]"
+                <VideoPreviewCard
+                  label="3. Loop"
+                  blob={recordedBlobs.loop}
+                  existingUrl={selectedLoopVideo}
                 />
-                <div className="absolute top-3 left-3 px-2 py-1 rounded bg-black/50 text-white text-sm font-medium">
-                  Your Camera
-                </div>
               </div>
-              <p className="text-sm text-muted-foreground mb-6">
-                Look friendly and attentive, like you're waiting for them to respond 😊
-              </p>
-              <button
-                onClick={() => startCountdown("countdown-smile", "recording-smile")}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
-              >
-                <Play className="w-5 h-5" />
-                Start Recording
-              </button>
+
+              <div className="flex justify-center gap-4">
+                <button
+                  onClick={() => setStage("select-videos")}
+                  className="px-6 py-3 rounded-lg border border-border hover:bg-muted transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4 inline mr-2" />
+                  Start Over
+                </button>
+                <button
+                  onClick={uploadVideos}
+                  className="px-8 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  <Check className="w-5 h-5 inline mr-2" />
+                  Save Videos
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Countdown for Smile */}
-          {stage === "countdown-smile" && (
-            <CountdownOverlay countdown={countdown} />
-          )}
-
-          {/* Recording Smile */}
-          {stage === "recording-smile" && (
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-red-500 font-semibold">Recording</span>
-              </div>
-              <div className="relative aspect-video max-w-2xl mx-auto rounded-xl overflow-hidden bg-black ring-4 ring-red-500/50 mb-6">
-                <video
-                  ref={webcamRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover scale-x-[-1]"
-                />
-                <div className="absolute top-3 left-3 px-2 py-1 rounded bg-red-500 text-white text-sm font-medium flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  REC
-                </div>
-              </div>
-              <p className="text-lg text-muted-foreground mb-6">
-                😊 Keep smiling naturally...
-              </p>
-              <button
-                onClick={handleNextRecording}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
-              >
-                <Square className="w-5 h-5" />
-                Stop & Finish
-              </button>
-            </div>
-          )}
-
-          {/* Review Stage */}
-          {stage === "review" && (
-            <div className="text-center">
-              {rerecordingVideo ? (
-                // Single video re-recording review
-                <>
-                  <h2 className="text-2xl font-bold mb-4">Review Your Recording</h2>
-                  <p className="text-muted-foreground mb-8">
-                    Make sure you're happy with the recording before saving
-                  </p>
-                  <div className="max-w-md mx-auto mb-8">
-                    <VideoPreview
-                      label={
-                        rerecordingVideo === "mimic" ? "1. Wave" :
-                        rerecordingVideo === "script" ? "2. Speak" : "3. Smile"
-                      }
-                      blob={recordedVideos[rerecordingVideo]}
-                      onRedo={() => {
-                        if (rerecordingVideo === "mimic") setStage("mimic");
-                        else if (rerecordingVideo === "script") setStage("script");
-                        else setStage("smile");
-                      }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-center gap-4">
-                    <button
-                      onClick={() => {
-                        setRerecordingVideo(null);
-                        setRecordedVideos({ mimic: null, script: null, smile: null });
-                        setStage("has-videos");
-                      }}
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-border text-foreground font-medium hover:bg-muted transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={uploadSingleVideo}
-                      disabled={!recordedVideos[rerecordingVideo]}
-                      className="inline-flex items-center gap-2 px-8 py-4 rounded-lg bg-primary text-primary-foreground font-semibold text-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Check className="w-6 h-6" />
-                      Save Video
-                    </button>
-                  </div>
-                </>
-              ) : (
-                // Full recording flow review
-                <>
-                  <h2 className="text-2xl font-bold mb-4">Review Your Videos</h2>
-                  <p className="text-muted-foreground mb-8">
-                    Make sure you're happy with each recording before uploading
-                  </p>
-                  <div className="grid grid-cols-3 gap-6 mb-8">
-                    <VideoPreview
-                      label="1. Wave"
-                      blob={recordedVideos.mimic}
-                      onRedo={() => redoRecording("mimic")}
-                    />
-                    <VideoPreview
-                      label="2. Speak"
-                      blob={recordedVideos.script}
-                      onRedo={() => redoRecording("script")}
-                    />
-                    <VideoPreview
-                      label="3. Smile"
-                      blob={recordedVideos.smile}
-                      onRedo={() => redoRecording("smile")}
-                    />
-                  </div>
-                  <button
-                    onClick={uploadVideos}
-                    disabled={!recordedVideos.mimic || !recordedVideos.script || !recordedVideos.smile}
-                    className="inline-flex items-center gap-2 px-8 py-4 rounded-lg bg-primary text-primary-foreground font-semibold text-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Check className="w-6 h-6" />
-                    Save & Upload Videos
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Uploading Stage */}
+          {/* Uploading */}
           {stage === "uploading" && (
             <div className="text-center py-12">
               <Loader2 className="w-16 h-16 text-primary animate-spin mx-auto mb-6" />
-              <h2 className="text-2xl font-bold mb-4">Uploading Your Videos</h2>
+              <h2 className="text-2xl font-bold mb-4">Uploading...</h2>
               <div className="max-w-md mx-auto">
                 <div className="h-3 bg-muted rounded-full overflow-hidden mb-2">
                   <div 
-                    className="h-full bg-primary transition-all duration-300 ease-out"
+                    className="h-full bg-primary transition-all duration-300"
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>
-                <p className="text-muted-foreground">{uploadProgress}% complete</p>
+                <p className="text-muted-foreground">{uploadProgress}%</p>
               </div>
             </div>
           )}
 
-          {/* Complete Stage */}
-          {stage === "complete" && (
+          {/* Complete */}
+          {stage === "complete" && selectedPool && (
             <div className="text-center py-8">
               <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
                 <Check className="w-10 h-10 text-green-500" />
               </div>
-              <h2 className="text-3xl font-bold mb-4">Videos Saved! 🎉</h2>
-              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                Your pre-recorded intro is ready. Visitors will see these videos until you connect live.
+              <h2 className="text-3xl font-bold mb-4">Done! 🎉</h2>
+              <p className="text-muted-foreground mb-8">
+                Videos saved for {selectedPool.name}
               </p>
-              <div className="flex items-center justify-center gap-4">
+              <div className="flex justify-center gap-4">
                 <button
                   onClick={() => {
-                    setRecordedVideos({ mimic: null, script: null, smile: null });
-                    setStage("intro");
+                    setSelectedPool(null);
+                    setStage("pool-list");
                   }}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-border text-foreground font-medium hover:bg-muted transition-colors"
+                  className="px-6 py-3 rounded-lg border border-border hover:bg-muted transition-colors"
                 >
-                  <RotateCcw className="w-5 h-5" />
-                  Record New Videos
+                  Record More Teams
                 </button>
                 <button
                   onClick={() => router.push("/dashboard")}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
+                  className="px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
                 >
                   Go to Workbench
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-5 h-5 inline ml-2" />
                 </button>
               </div>
             </div>
@@ -1104,79 +805,290 @@ export default function VideosPage() {
   );
 }
 
-function ProgressStep({ step, label, active, completed }: { 
-  step: number; 
-  label: string; 
-  active: boolean; 
-  completed: boolean; 
+// Video Selector Dropdown with Upload
+function VideoSelector({
+  label,
+  description,
+  existingVideos,
+  selectedUrl,
+  onSelect,
+  onUpload,
+  isUploading,
+  currentScript,
+}: {
+  label: string;
+  description: string;
+  existingVideos: ExistingVideo[];
+  selectedUrl: string | null;
+  onSelect: (url: string | null) => void;
+  onUpload: (file: File) => void;
+  isUploading?: boolean;
+  currentScript?: string;
 }) {
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div
-        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
-          completed
-            ? "bg-green-500 text-white"
-            : active
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted text-muted-foreground"
-        }`}
-      >
-        {completed ? <Check className="w-5 h-5" /> : step}
-      </div>
-      <span className={`text-sm font-medium ${active || completed ? "text-foreground" : "text-muted-foreground"}`}>
-        {label}
-      </span>
-    </div>
-  );
-}
+  const [isOpen, setIsOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-function CountdownOverlay({ countdown }: { countdown: number }) {
+  const getSelectedLabel = () => {
+    if (selectedUrl === null) return "Record New";
+    if (selectedUrl === "uploading") return "Uploading...";
+    const existing = existingVideos.find(v => v.url === selectedUrl);
+    if (existing) return existing.poolName;
+    return "Uploaded Video";
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onUpload(file);
+      setIsOpen(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-      <div className="text-center">
-        <div className="text-9xl font-bold text-white animate-pulse">
-          {countdown}
+    <div className="p-4 rounded-xl border border-border">
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <div className="font-medium">{label}</div>
+          <div className="text-sm text-muted-foreground">{description}</div>
         </div>
-        <p className="text-2xl text-white/80 mt-4">Get ready...</p>
       </div>
-    </div>
-  );
-}
 
-function VideoPreview({ label, blob, onRedo }: { 
-  label: string; 
-  blob: Blob | null; 
-  onRedo: () => void; 
-}) {
-  const videoUrl = blob ? URL.createObjectURL(blob) : null;
+      {currentScript && (
+        <div className="mb-3 p-3 rounded-lg bg-primary/10 border border-primary/20">
+          <div className="text-xs text-primary font-medium mb-1">Script for this team:</div>
+          <div className="text-sm">"{currentScript}"</div>
+        </div>
+      )}
 
-  return (
-    <div className="text-center">
-      <div className="relative aspect-video rounded-xl overflow-hidden bg-black mb-3">
-        {videoUrl ? (
-          <video
-            src={videoUrl}
-            controls
-            playsInline
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-            No recording
+      <div className="relative">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          disabled={isUploading}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-background hover:border-primary/50 transition-colors disabled:opacity-50"
+        >
+          <span className={selectedUrl === null ? "text-primary font-medium" : ""}>
+            {isUploading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Uploading...
+              </span>
+            ) : getSelectedLabel()}
+          </span>
+          <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        </button>
+
+        {isOpen && !isUploading && (
+          <div className="absolute z-10 w-full mt-2 py-2 rounded-lg border border-border bg-background shadow-lg">
+            <button
+              onClick={() => { onSelect(null); setIsOpen(false); }}
+              className={`w-full px-4 py-2 text-left hover:bg-muted transition-colors ${selectedUrl === null ? "text-primary font-medium bg-primary/5" : ""}`}
+            >
+              🎬 Record New
+            </button>
+            
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full px-4 py-2 text-left hover:bg-muted transition-colors flex items-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Upload Video
+            </button>
+            
+            {existingVideos.length > 0 && (
+              <>
+                <div className="border-t border-border my-2" />
+                <div className="px-4 py-1 text-xs text-muted-foreground">Use existing from:</div>
+                {existingVideos.map(video => (
+                  <button
+                    key={video.poolId}
+                    onClick={() => { onSelect(video.url); setIsOpen(false); }}
+                    className={`w-full px-4 py-2 text-left hover:bg-muted transition-colors ${selectedUrl === video.url ? "text-primary font-medium bg-primary/5" : ""}`}
+                  >
+                    {video.poolName}
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
-      <div className="font-medium mb-2">{label}</div>
-      {blob && (
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+
+      {selectedUrl && selectedUrl !== "uploading" && (
+        <div className="mt-3">
+          <video 
+            src={selectedUrl} 
+            controls 
+            className="w-full rounded-lg max-h-32 object-cover"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Recording View Component
+function RecordingView({
+  title,
+  description,
+  stage,
+  countdown,
+  exampleUrl,
+  script,
+  webcamRef,
+  exampleVideoRef,
+  hasPermission,
+  onStartRecording,
+  onStopRecording,
+}: {
+  title: string;
+  description: string;
+  stage: string;
+  countdown: number;
+  exampleUrl?: string | null;
+  script?: string;
+  webcamRef: React.RefObject<HTMLVideoElement>;
+  exampleVideoRef: React.RefObject<HTMLVideoElement>;
+  hasPermission: boolean;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
+}) {
+  const isCountdown = stage.includes("countdown");
+  const isRecording = stage.includes("recording-");
+
+  // Countdown overlay
+  if (isCountdown) {
+    return (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div className="text-center">
+          <div className="text-9xl font-bold text-white animate-pulse">{countdown}</div>
+          <p className="text-2xl text-white/80 mt-4">Get ready...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-center">
+      <h2 className="text-2xl font-bold mb-2">{title}</h2>
+      <p className="text-muted-foreground mb-6">{description}</p>
+
+      {/* Video Grid */}
+      <div className={exampleUrl ? "grid grid-cols-2 gap-6 mb-6" : "max-w-2xl mx-auto mb-6"}>
+        <div className={`relative aspect-video rounded-xl overflow-hidden bg-black ${isRecording ? "ring-4 ring-red-500/50" : ""}`}>
+          <video
+            ref={webcamRef}
+            autoPlay
+            muted
+            playsInline
+            className="w-full h-full object-cover scale-x-[-1]"
+          />
+          <div className={`absolute top-3 left-3 px-2 py-1 rounded text-white text-sm font-medium ${isRecording ? "bg-red-500 flex items-center gap-1" : "bg-black/50"}`}>
+            {isRecording && <div className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+            {isRecording ? "REC" : "Your Camera"}
+          </div>
+        </div>
+
+        {exampleUrl && (
+          <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
+            <video
+              ref={exampleVideoRef}
+              src={exampleUrl}
+              playsInline
+              loop
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute top-3 left-3 px-2 py-1 rounded bg-black/50 text-white text-sm font-medium">
+              {isRecording ? "Follow Along" : "Example"}
+            </div>
+            {!isRecording && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Play className="w-16 h-16 text-white/80" />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Script display for intro */}
+      {script && (
+        <div className="max-w-lg mx-auto p-6 rounded-xl bg-primary/10 border border-primary/20 mb-6">
+          <div className="flex items-center gap-2 text-primary mb-3">
+            {isRecording ? <Volume2 className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            <span className="font-semibold">{isRecording ? "Read This" : "Your Script"}</span>
+          </div>
+          <p className={`font-medium leading-relaxed ${isRecording ? "text-2xl" : "text-xl"}`}>
+            "{script}"
+          </p>
+        </div>
+      )}
+
+      {/* Action Button */}
+      {isRecording ? (
         <button
-          onClick={onRedo}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          onClick={onStopRecording}
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
         >
-          <RotateCcw className="w-4 h-4" />
-          Redo
+          <Square className="w-5 h-5" />
+          Stop & Continue
+        </button>
+      ) : (
+        <button
+          onClick={onStartRecording}
+          disabled={!hasPermission}
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+        >
+          {hasPermission ? (
+            <>
+              <Play className="w-5 h-5" />
+              Start Recording
+            </>
+          ) : (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Waiting for camera...
+            </>
+          )}
         </button>
       )}
     </div>
   );
 }
 
+// Video Preview Card
+function VideoPreviewCard({
+  label,
+  blob,
+  existingUrl,
+}: {
+  label: string;
+  blob: Blob | null;
+  existingUrl: string | null;
+}) {
+  const videoUrl = blob ? URL.createObjectURL(blob) : existingUrl;
+
+  return (
+    <div className="text-center">
+      <div className="relative aspect-video rounded-xl overflow-hidden bg-black mb-2">
+        {videoUrl ? (
+          <video src={videoUrl} controls playsInline className="w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
+            No video
+          </div>
+        )}
+      </div>
+      <div className="font-medium text-sm">{label}</div>
+      <div className="text-xs text-muted-foreground">
+        {blob ? "New recording" : existingUrl ? "Using existing" : "Missing"}
+      </div>
+    </div>
+  );
+}

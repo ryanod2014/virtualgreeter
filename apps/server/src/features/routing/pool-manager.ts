@@ -7,12 +7,28 @@ import type {
 } from "@ghost-greeter/domain";
 
 /**
+ * Rule condition types for flexible matching
+ */
+type RuleMatchType = "is_exactly" | "contains" | "does_not_contain" | "starts_with" | "ends_with";
+type RuleConditionType = "domain" | "path" | "query_param";
+
+interface RuleCondition {
+  type: RuleConditionType;
+  matchType: RuleMatchType;
+  value: string;
+  paramName?: string; // For query_param type
+}
+
+
+/**
  * Path routing rule for mapping URL patterns to agent pools
  */
 interface PathRule {
   id: string;
   orgId: string;
   pathPattern: string;
+  domainPattern: string;
+  conditions: RuleCondition[];
   poolId: string;
   priority: number;
   isActive: boolean;
@@ -123,27 +139,149 @@ export class PoolManager {
     const config = this.orgConfigs.get(orgId);
     if (!config) return null;
 
-    // Extract path from URL
-    let path: string;
-    try {
-      const url = new URL(pageUrl);
-      path = url.pathname;
-    } catch {
-      // If not a valid URL, treat it as a path
-      path = pageUrl.startsWith("/") ? pageUrl : `/${pageUrl}`;
-    }
+    // Parse URL components
+    const urlContext = this.parseUrlContext(pageUrl);
 
-    // Check each rule in priority order
+    // Check each rule in priority order (rules are ORed - first match wins)
     for (const rule of config.pathRules) {
-      if (this.matchPathPattern(path, rule.pathPattern)) {
-        console.log(`[PoolManager] Path "${path}" matched rule "${rule.pathPattern}" -> pool ${rule.poolId}`);
-        return rule.poolId;
+      // Use conditions if available (AND logic within a rule)
+      if (rule.conditions && rule.conditions.length > 0) {
+        if (this.matchConditions(urlContext, rule.conditions)) {
+          console.log(`[PoolManager] URL "${pageUrl}" matched conditions -> pool ${rule.poolId}`);
+          return rule.poolId;
+        }
+      } 
+      // Fallback to legacy pattern matching
+      else {
+        const domainMatches = rule.domainPattern === "*" || 
+          this.matchDomainPattern(urlContext.domain, rule.domainPattern);
+        const pathMatches = this.matchPathPattern(urlContext.path, rule.pathPattern);
+        
+        if (domainMatches && pathMatches) {
+          console.log(`[PoolManager] Path "${urlContext.path}" matched rule "${rule.pathPattern}" -> pool ${rule.poolId}`);
+          return rule.poolId;
+        }
       }
     }
 
     // Fall back to default pool
-    console.log(`[PoolManager] Path "${path}" using default pool: ${config.defaultPoolId}`);
+    console.log(`[PoolManager] URL "${pageUrl}" using default pool: ${config.defaultPoolId}`);
     return config.defaultPoolId;
+  }
+
+  /**
+   * Parse URL into components for matching
+   */
+  private parseUrlContext(pageUrl: string): { domain: string; path: string; queryParams: Map<string, string> } {
+    let domain = "";
+    let path = "/";
+    const queryParams = new Map<string, string>();
+
+    try {
+      const url = new URL(pageUrl);
+      domain = url.hostname;
+      path = url.pathname;
+      
+      // Parse query parameters
+      url.searchParams.forEach((value, key) => {
+        queryParams.set(key.toLowerCase(), value);
+      });
+    } catch {
+      // If not a valid URL, treat it as a path
+      path = pageUrl.startsWith("/") ? pageUrl : `/${pageUrl}`;
+      
+      // Try to extract query params from path
+      const queryIndex = path.indexOf("?");
+      if (queryIndex !== -1) {
+        const queryString = path.substring(queryIndex + 1);
+        path = path.substring(0, queryIndex);
+        
+        queryString.split("&").forEach(param => {
+          const [key, value] = param.split("=");
+          if (key) {
+            queryParams.set(key.toLowerCase(), value || "");
+          }
+        });
+      }
+    }
+
+    return { domain, path, queryParams };
+  }
+
+  /**
+   * Match conditions against URL context (all conditions must match - AND logic)
+   */
+  private matchConditions(urlContext: { domain: string; path: string; queryParams: Map<string, string> }, conditions: RuleCondition[]): boolean {
+    // All conditions must match (AND logic)
+    return conditions.every(condition => this.matchCondition(urlContext, condition));
+  }
+
+  /**
+   * Match a single condition against URL context
+   */
+  private matchCondition(urlContext: { domain: string; path: string; queryParams: Map<string, string> }, condition: RuleCondition): boolean {
+    let testValue: string;
+    
+    switch (condition.type) {
+      case "domain":
+        testValue = urlContext.domain;
+        break;
+      case "path":
+        testValue = urlContext.path;
+        break;
+      case "query_param":
+        // For query params, we need to get the specific parameter value
+        const paramName = condition.paramName?.toLowerCase() || "";
+        testValue = urlContext.queryParams.get(paramName) || "";
+        
+        // Special case: if checking "contains" or "is_exactly" and param doesn't exist, it's a non-match
+        if (!urlContext.queryParams.has(paramName) && condition.matchType !== "does_not_contain") {
+          return false;
+        }
+        break;
+      default:
+        return false;
+    }
+
+    const normalizedValue = testValue.toLowerCase();
+    const normalizedConditionValue = condition.value.toLowerCase();
+
+    switch (condition.matchType) {
+      case "is_exactly":
+        return normalizedValue === normalizedConditionValue;
+      case "contains":
+        return normalizedValue.includes(normalizedConditionValue);
+      case "does_not_contain":
+        return !normalizedValue.includes(normalizedConditionValue);
+      case "starts_with":
+        return normalizedValue.startsWith(normalizedConditionValue);
+      case "ends_with":
+        return normalizedValue.endsWith(normalizedConditionValue);
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Match a domain against a pattern (legacy support)
+   */
+  private matchDomainPattern(domain: string, pattern: string): boolean {
+    if (pattern === "*") return true;
+    
+    domain = domain.toLowerCase();
+    pattern = pattern.toLowerCase();
+
+    // Exact match
+    if (pattern === domain) return true;
+
+    // Wildcard subdomain matching (*.example.com)
+    if (pattern.startsWith("*.")) {
+      const baseDomain = pattern.slice(2);
+      return domain === baseDomain || domain.endsWith("." + baseDomain);
+    }
+
+    // Contains matching
+    return domain.includes(pattern);
   }
 
   /**

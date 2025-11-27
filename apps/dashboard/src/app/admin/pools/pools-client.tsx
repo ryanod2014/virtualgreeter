@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Users,
   Plus,
@@ -11,14 +11,42 @@ import {
   Layers,
   UserPlus,
   X,
+  Route,
+  Filter,
+  Pencil,
+  MessageSquare,
+  Check,
+  Video,
+  Upload,
+  Loader2,
 } from "lucide-react";
+import { useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+
+// Signaling server URL for syncing config
+const SIGNALING_SERVER = process.env.NEXT_PUBLIC_SIGNALING_SERVER ?? "http://localhost:3001";
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+type RuleMatchType = "is_exactly" | "contains" | "does_not_contain" | "starts_with" | "ends_with";
+type RuleConditionType = "domain" | "path" | "query_param";
+
+interface RuleCondition {
+  type: RuleConditionType;
+  matchType: RuleMatchType;
+  value: string;
+  paramName?: string; // For query_param type
+}
 
 interface RoutingRule {
   id: string;
   pool_id: string;
+  name: string | null;
   domain_pattern: string;
   path_pattern: string;
+  conditions: RuleCondition[];
   priority: number;
   is_active: boolean;
 }
@@ -26,7 +54,6 @@ interface RoutingRule {
 interface Agent {
   id: string;
   display_name: string;
-  avatar_url: string | null;
 }
 
 interface PoolMember {
@@ -40,6 +67,9 @@ interface Pool {
   organization_id: string;
   name: string;
   description: string | null;
+  intro_script: string;
+  example_wave_video_url: string | null;
+  example_loop_video_url: string | null;
   is_default: boolean;
   is_catch_all: boolean;
   pool_routing_rules: RoutingRule[];
@@ -58,11 +88,422 @@ interface Props {
   pathsWithVisitors: PathWithVisitors[];
 }
 
+// ============================================================================
+// RULE CONDITION BUILDER COMPONENT
+// ============================================================================
+
+interface RuleConditionRowProps {
+  condition: RuleCondition;
+  index: number;
+  onUpdate: (index: number, condition: RuleCondition) => void;
+  onRemove: (index: number) => void;
+  isOnly: boolean;
+}
+
+function RuleConditionRow({ condition, index, onUpdate, onRemove, isOnly }: RuleConditionRowProps) {
+  const matchTypeLabels: Record<RuleMatchType, string> = {
+    is_exactly: "is exactly",
+    contains: "contains",
+    does_not_contain: "does not contain",
+    starts_with: "starts with",
+    ends_with: "ends with",
+  };
+
+  const getPlaceholder = () => {
+    switch (condition.type) {
+      case "domain": return "example.com";
+      case "path": return "/pricing";
+      case "query_param": return "google";
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/30 border border-border/50 group flex-wrap">
+      {/* AND label for non-first conditions */}
+      {index > 0 && (
+        <span className="text-xs font-semibold text-primary/70 bg-primary/10 px-2 py-0.5 rounded uppercase tracking-wider">
+          AND
+        </span>
+      )}
+      
+      {/* Type selector */}
+      <select
+        value={condition.type}
+        onChange={(e) => {
+          const newType = e.target.value as RuleConditionType;
+          onUpdate(index, { 
+            ...condition, 
+            type: newType,
+            paramName: newType === "query_param" ? (condition.paramName || "utm_source") : undefined
+          });
+        }}
+        className="px-3 py-2 rounded-lg bg-background border border-border text-sm font-medium focus:border-primary outline-none cursor-pointer"
+      >
+        <option value="domain">Domain</option>
+        <option value="path">Path</option>
+        <option value="query_param">Query Param</option>
+      </select>
+
+      {/* Parameter name input for query_param type */}
+      {condition.type === "query_param" && (
+        <input
+          type="text"
+          value={condition.paramName || ""}
+          onChange={(e) => onUpdate(index, { ...condition, paramName: e.target.value })}
+          placeholder="utm_source"
+          className="w-28 px-3 py-2 rounded-lg bg-background border border-border text-sm font-mono focus:border-primary outline-none"
+        />
+      )}
+
+      {/* Match type selector */}
+      <select
+        value={condition.matchType}
+        onChange={(e) => onUpdate(index, { ...condition, matchType: e.target.value as RuleMatchType })}
+        className="px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary outline-none cursor-pointer"
+      >
+        {Object.entries(matchTypeLabels).map(([value, label]) => (
+          <option key={value} value={value}>{label}</option>
+        ))}
+      </select>
+
+      {/* Value input */}
+      <input
+        type="text"
+        value={condition.value}
+        onChange={(e) => onUpdate(index, { ...condition, value: e.target.value })}
+        placeholder={getPlaceholder()}
+        className="flex-1 px-3 py-2 rounded-lg bg-background border border-border text-sm font-mono focus:border-primary outline-none min-w-[140px]"
+      />
+
+      {/* Remove button */}
+      {!isOnly && (
+        <button
+          onClick={() => onRemove(index)}
+          className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
+          title="Remove condition"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// RULE BUILDER COMPONENT
+// ============================================================================
+
+interface RuleBuilderProps {
+  poolName: string;
+  onSave: (conditions: RuleCondition[], ruleName: string) => void;
+  onCancel: () => void;
+  existingRule?: RoutingRule; // For editing
+}
+
+function RuleBuilder({ poolName, onSave, onCancel, existingRule }: RuleBuilderProps) {
+  // Simple list of AND conditions for a single rule
+  const [conditions, setConditions] = useState<RuleCondition[]>(() => {
+    if (existingRule?.conditions && existingRule.conditions.length > 0) {
+      return existingRule.conditions;
+    }
+    // Fallback to legacy patterns if no conditions
+    if (existingRule) {
+      const legacyConditions: RuleCondition[] = [];
+      if (existingRule.domain_pattern && existingRule.domain_pattern !== "*") {
+        legacyConditions.push({ type: "domain", matchType: "contains", value: existingRule.domain_pattern });
+      }
+      if (existingRule.path_pattern && existingRule.path_pattern !== "*") {
+        legacyConditions.push({ type: "path", matchType: "contains", value: existingRule.path_pattern });
+      }
+      if (legacyConditions.length > 0) return legacyConditions;
+    }
+    return [{ type: "domain", matchType: "contains", value: "" }];
+  });
+  const [ruleName, setRuleName] = useState(existingRule?.name || "");
+  
+  const isEditing = !!existingRule;
+
+  const addCondition = () => {
+    setConditions([...conditions, { type: "path", matchType: "contains", value: "" }]);
+  };
+
+  const updateCondition = (index: number, condition: RuleCondition) => {
+    const newConditions = [...conditions];
+    newConditions[index] = condition;
+    setConditions(newConditions);
+  };
+
+  const removeCondition = (index: number) => {
+    if (conditions.length > 1) {
+      setConditions(conditions.filter((_, i) => i !== index));
+    }
+  };
+
+  const hasValidConditions = conditions.some(c => c.value.trim() !== "" || (c.type === "query_param" && c.paramName?.trim()));
+
+  // Generate preview text
+  const generatePreview = () => {
+    const validConditions = conditions.filter(c => c.value.trim() !== "");
+    
+    if (validConditions.length === 0) return "All traffic (no conditions set)";
+
+    const matchTypeLabels: Record<RuleMatchType, string> = {
+      is_exactly: "=",
+      contains: "contains",
+      does_not_contain: "excludes",
+      starts_with: "starts with",
+      ends_with: "ends with",
+    };
+
+    return validConditions.map((c, i) => {
+      const prefix = i > 0 ? " AND " : "";
+      const typeLabel = c.type === "query_param" ? `?${c.paramName}` : c.type;
+      return `${prefix}${typeLabel} ${matchTypeLabels[c.matchType]} "${c.value}"`;
+    }).join("");
+  };
+
+  return (
+    <div className="bg-gradient-to-b from-primary/5 to-transparent border-2 border-primary/20 rounded-2xl p-6">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isEditing ? 'bg-amber-500/20' : 'bg-primary/20'}`}>
+          {isEditing ? <Pencil className="w-5 h-5 text-amber-500" /> : <Filter className="w-5 h-5 text-primary" />}
+        </div>
+        <div>
+          <h4 className="font-semibold text-lg">{isEditing ? 'Edit Routing Rule' : 'Create Routing Rule'}</h4>
+          <p className="text-sm text-muted-foreground">Define when visitors should be routed to this pool</p>
+        </div>
+      </div>
+
+      {/* Rule Name */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium mb-2 text-muted-foreground">
+          Rule Name (optional)
+        </label>
+        <input
+          type="text"
+          value={ruleName}
+          onChange={(e) => setRuleName(e.target.value)}
+          placeholder="e.g., Pricing page visitors, Enterprise customers..."
+          className="w-full px-4 py-2.5 rounded-xl bg-background border border-border focus:border-primary outline-none"
+        />
+      </div>
+
+      {/* Conditions */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium mb-3 text-muted-foreground">
+          Conditions <span className="text-xs font-normal">(all must match)</span>
+        </label>
+        <div className="space-y-3">
+          {conditions.map((condition, index) => (
+            <RuleConditionRow
+              key={index}
+              condition={condition}
+              index={index}
+              onUpdate={updateCondition}
+              onRemove={removeCondition}
+              isOnly={conditions.length === 1}
+            />
+          ))}
+        </div>
+        
+        {/* Add AND condition button */}
+        <button
+          onClick={addCondition}
+          className="mt-3 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+        >
+          <Plus className="w-3 h-3" />
+          Add condition (AND)
+        </button>
+      </div>
+
+      {/* Preview */}
+      <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-2">
+          <Route className="w-4 h-4" />
+          <span className="text-sm font-semibold">Rule Preview</span>
+        </div>
+        <p className="text-sm">
+          Route to <span className="font-semibold text-primary">"{poolName}"</span> when:
+        </p>
+        <code className="block mt-2 text-sm bg-background/50 rounded-lg px-3 py-2 font-mono">
+          {generatePreview()}
+        </code>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <button
+          onClick={() => {
+            const filteredConditions = conditions.filter(c => c.value.trim() !== "" || (c.type === "query_param" && c.paramName?.trim()));
+            onSave(filteredConditions, ruleName);
+          }}
+          disabled={!hasValidConditions}
+          className={`flex-1 px-6 py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+            isEditing 
+              ? 'bg-amber-500 text-white hover:bg-amber-600' 
+              : 'bg-primary text-primary-foreground hover:bg-primary/90'
+          }`}
+        >
+          {isEditing ? 'Update Rule' : 'Save Rule'}
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-6 py-3 rounded-xl bg-muted text-muted-foreground font-medium hover:bg-muted/80 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// RULE DISPLAY COMPONENT
+// ============================================================================
+
+interface RuleDisplayProps {
+  rule: RoutingRule;
+  onDelete: () => void;
+  onEdit: () => void;
+}
+
+function RuleDisplay({ rule, onDelete, onEdit }: RuleDisplayProps) {
+  const matchTypeLabels: Record<RuleMatchType, string> = {
+    is_exactly: "is exactly",
+    contains: "contains",
+    does_not_contain: "doesn't contain",
+    starts_with: "starts with",
+    ends_with: "ends with",
+  };
+
+  const matchTypeColors: Record<RuleMatchType, string> = {
+    is_exactly: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    contains: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+    does_not_contain: "bg-red-500/10 text-red-500 border-red-500/20",
+    starts_with: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+    ends_with: "bg-pink-500/10 text-pink-500 border-pink-500/20",
+  };
+
+  const getTypeColor = (type: RuleConditionType) => {
+    switch (type) {
+      case "domain": return "bg-violet-500/10 text-violet-500 border-violet-500/20";
+      case "path": return "bg-cyan-500/10 text-cyan-500 border-cyan-500/20";
+      case "query_param": return "bg-orange-500/10 text-orange-500 border-orange-500/20";
+    }
+  };
+
+  const getTypeLabel = (condition: RuleCondition) => {
+    if (condition.type === "query_param") {
+      return `?${condition.paramName || "param"}`;
+    }
+    return condition.type;
+  };
+
+  // Get conditions from rule
+  const conditions = rule.conditions && rule.conditions.length > 0 ? rule.conditions : [];
+
+  // Fallback to legacy patterns if no conditions
+  const hasLegacyPatterns = conditions.length === 0 && 
+    (rule.domain_pattern !== "*" || rule.path_pattern !== "*");
+
+  return (
+    <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/50 group hover:border-border transition-colors">
+      <div className="flex-1">
+        {/* Rule name if present */}
+        {rule.name && (
+          <div className="text-sm font-medium mb-2">{rule.name}</div>
+        )}
+        
+        {/* Conditions display */}
+        <div className="flex flex-wrap items-center gap-2">
+          {conditions.length > 0 ? (
+            conditions.map((condition, idx) => (
+              <div key={idx} className="flex items-center gap-1.5 flex-wrap">
+                {idx > 0 && (
+                  <span className="text-xs font-semibold text-muted-foreground px-1">AND</span>
+                )}
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${getTypeColor(condition.type)}`}>
+                  {condition.type === "domain" ? <Globe className="w-3 h-3" /> : <Route className="w-3 h-3" />}
+                  {getTypeLabel(condition)}
+                </span>
+                <span className={`inline-flex items-center px-2 py-1 rounded-lg border text-xs font-semibold ${matchTypeColors[condition.matchType]}`}>
+                  {matchTypeLabels[condition.matchType]}
+                </span>
+                <code className="px-2 py-1 rounded-lg bg-background text-xs font-mono border border-border">
+                  {condition.value}
+                </code>
+              </div>
+            ))
+          ) : hasLegacyPatterns ? (
+            // Legacy display for old rules
+            <>
+              {rule.domain_pattern !== "*" && (
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-500 border border-violet-500/20 text-xs font-medium">
+                    <Globe className="w-3 h-3" />
+                    domain
+                  </span>
+                  <span className="inline-flex items-center px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-semibold">
+                    contains
+                  </span>
+                  <code className="px-2 py-1 rounded-lg bg-background text-xs font-mono border border-border">
+                    {rule.domain_pattern}
+                  </code>
+                </div>
+              )}
+              {rule.path_pattern !== "*" && (
+                <div className="flex items-center gap-1.5">
+                  {rule.domain_pattern !== "*" && (
+                    <span className="text-xs font-semibold text-muted-foreground px-1">AND</span>
+                  )}
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 text-xs font-medium">
+                    <Route className="w-3 h-3" />
+                    path
+                  </span>
+                  <span className="inline-flex items-center px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-semibold">
+                    contains
+                  </span>
+                  <code className="px-2 py-1 rounded-lg bg-background text-xs font-mono border border-border">
+                    {rule.path_pattern}
+                  </code>
+                </div>
+              )}
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">All traffic</span>
+          )}
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all ml-4">
+        <button
+          onClick={onEdit}
+          className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+          title="Edit rule"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
+        <button
+          onClick={onDelete}
+          className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          title="Delete rule"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// MAIN POOLS CLIENT COMPONENT
+// ============================================================================
+
 export function PoolsClient({ 
   pools: initialPools, 
   agents,
   organizationId,
-  pathsWithVisitors,
 }: Props) {
   const [pools, setPools] = useState(initialPools);
   const [expandedPools, setExpandedPools] = useState<Set<string>>(new Set([initialPools[0]?.id]));
@@ -70,16 +511,57 @@ export function PoolsClient({
   const [newPoolName, setNewPoolName] = useState("");
   const [newPoolDescription, setNewPoolDescription] = useState("");
   const [addingRuleToPool, setAddingRuleToPool] = useState<string | null>(null);
-  const [newRulePath, setNewRulePath] = useState("");
-  const [showPathDropdown, setShowPathDropdown] = useState(false);
+  const [editingRule, setEditingRule] = useState<{ poolId: string; rule: RoutingRule } | null>(null);
   const [addingAgentToPool, setAddingAgentToPool] = useState<string | null>(null);
+  const [editingScriptPoolId, setEditingScriptPoolId] = useState<string | null>(null);
+  const [editingScriptText, setEditingScriptText] = useState("");
+  const [uploadingVideo, setUploadingVideo] = useState<{ poolId: string; type: "wave" | "loop" } | null>(null);
+
+  const waveInputRef = useRef<HTMLInputElement>(null);
+  const loopInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClient();
 
-  // Filter paths based on input - show matching paths as user types
-  const filteredPaths = pathsWithVisitors.filter(p => 
-    newRulePath === "" || p.path.toLowerCase().includes(newRulePath.toLowerCase())
-  );
+  // Sync pool config to signaling server
+  const syncConfigToServer = useCallback(async (currentPools: Pool[]) => {
+    try {
+      // Find the catch-all pool (default)
+      const catchAllPool = currentPools.find(p => p.is_catch_all);
+      
+      // Convert routing rules to the format expected by the server
+      const pathRules = currentPools.flatMap(pool => 
+        pool.pool_routing_rules.map(rule => ({
+          id: rule.id,
+          orgId: organizationId,
+          pathPattern: rule.path_pattern,
+          domainPattern: rule.domain_pattern,
+          conditions: rule.conditions || [],
+          poolId: pool.id,
+          priority: rule.priority,
+          isActive: rule.is_active,
+        }))
+      );
+
+      await fetch(`${SIGNALING_SERVER}/api/config/org`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: organizationId,
+          defaultPoolId: catchAllPool?.id ?? null,
+          pathRules,
+        }),
+      });
+      
+      console.log("[Pools] Config synced to signaling server");
+    } catch (error) {
+      console.error("[Pools] Failed to sync config:", error);
+    }
+  }, [organizationId]);
+
+  // Sync config on initial load and when pools change
+  useEffect(() => {
+    syncConfigToServer(pools);
+  }, [pools, syncConfigToServer]);
 
   // Get agents not already in a specific pool
   const getAvailableAgents = (pool: Pool) => {
@@ -101,6 +583,8 @@ export function PoolsClient({
   const handleAddPool = async () => {
     if (!newPoolName.trim()) return;
 
+    console.log("[Pools] Creating pool:", { name: newPoolName, organizationId });
+
     const { data, error } = await supabase
       .from("agent_pools")
       .insert({
@@ -113,16 +597,28 @@ export function PoolsClient({
       .select(`
         *,
         pool_routing_rules(*),
-        agent_pool_members(id, agent_profile_id, agent_profiles(id, display_name, avatar_url))
+        agent_pool_members(id, agent_profile_id, agent_profiles(id, display_name))
       `)
       .single();
 
-    if (data && !error) {
+    if (error) {
+      console.error("[Pools] Error creating pool:", error);
+      // Better error message for duplicate names
+      if (error.code === "23505" || error.message.includes("duplicate key")) {
+        alert(`A pool named "${newPoolName}" already exists. Please choose a different name.`);
+      } else {
+        alert(`Failed to create pool: ${error.message}`);
+      }
+      return;
+    }
+
+    if (data) {
+      console.log("[Pools] Pool created successfully:", data);
       setPools([...pools, data]);
       setNewPoolName("");
       setNewPoolDescription("");
       setIsAddingPool(false);
-      setExpandedPools(new Set([...expandedPools, data.id]));
+      setExpandedPools(new Set([...Array.from(expandedPools), data.id]));
     }
   };
 
@@ -187,23 +683,33 @@ export function PoolsClient({
   };
 
   // Routing rule management
-  const handleAddRoutingRule = async (poolId: string) => {
+  const handleAddRoutingRule = async (poolId: string, conditions: RuleCondition[], ruleName: string) => {
     const pool = pools.find(p => p.id === poolId);
     if (!pool) return;
 
     const maxPriority = Math.max(0, ...pool.pool_routing_rules.map(r => r.priority));
 
+    // Extract legacy patterns for backwards compatibility
+    const domainCondition = conditions.find(c => c.type === "domain");
+    const pathCondition = conditions.find(c => c.type === "path");
+
+    // Save rule - conditions stored in memory via signaling server sync
     const { data, error } = await supabase
       .from("pool_routing_rules")
       .insert({
         pool_id: poolId,
-        domain_pattern: "*",
-        path_pattern: newRulePath || "*",
+        domain_pattern: domainCondition?.value || "*",
+        path_pattern: pathCondition?.value || "*",
         priority: maxPriority + 1,
         is_active: true,
       })
       .select()
       .single();
+    
+    // Store conditions in local state for UI rendering
+    if (data) {
+      (data as RoutingRule).conditions = conditions;
+    }
 
     if (data && !error) {
       setPools(pools.map(p => {
@@ -216,7 +722,6 @@ export function PoolsClient({
         return p;
       }));
       setAddingRuleToPool(null);
-      setNewRulePath("");
     }
   };
 
@@ -235,92 +740,181 @@ export function PoolsClient({
     }
   };
 
+  const handleUpdateRoutingRule = async (poolId: string, ruleId: string, conditions: RuleCondition[], ruleName: string) => {
+    // Extract legacy patterns for backwards compatibility
+    const domainCondition = conditions.find(c => c.type === "domain");
+    const pathCondition = conditions.find(c => c.type === "path");
+
+    const { data, error } = await supabase
+      .from("pool_routing_rules")
+      .update({
+        domain_pattern: domainCondition?.value || "*",
+        path_pattern: pathCondition?.value || "*",
+      })
+      .eq("id", ruleId)
+      .select()
+      .single();
+    
+    if (data) {
+      (data as RoutingRule).conditions = conditions;
+    }
+
+    if (data && !error) {
+      setPools(pools.map(p => {
+        if (p.id === poolId) {
+          return {
+            ...p,
+            pool_routing_rules: p.pool_routing_rules.map(r => 
+              r.id === ruleId ? data : r
+            ),
+          };
+        }
+        return p;
+      }));
+      setEditingRule(null);
+    }
+  };
+
   const getMemberCount = (pool: Pool) => {
     return pool.agent_pool_members?.length ?? 0;
+  };
+
+  // Intro script management
+  const handleStartEditScript = (pool: Pool) => {
+    setEditingScriptPoolId(pool.id);
+    setEditingScriptText(pool.intro_script);
+  };
+
+  const handleSaveScript = async (poolId: string) => {
+    const { error } = await supabase
+      .from("agent_pools")
+      .update({ intro_script: editingScriptText })
+      .eq("id", poolId);
+
+    if (!error) {
+      setPools(pools.map(p => 
+        p.id === poolId ? { ...p, intro_script: editingScriptText } : p
+      ));
+      setEditingScriptPoolId(null);
+      setEditingScriptText("");
+    }
+  };
+
+  const handleCancelEditScript = () => {
+    setEditingScriptPoolId(null);
+    setEditingScriptText("");
+  };
+
+  // Example video upload
+  const handleUploadExampleVideo = async (poolId: string, type: "wave" | "loop", file: File) => {
+    setUploadingVideo({ poolId, type });
+    
+    try {
+      const path = `${organizationId}/pools/${poolId}/example-${type}.${file.name.split('.').pop()}`;
+      
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from("videos")
+        .upload(path, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage.from("videos").getPublicUrl(path);
+      const videoUrl = urlData.publicUrl;
+
+      // Update pool with the video URL
+      const updateField = type === "wave" ? "example_wave_video_url" : "example_loop_video_url";
+      const { error: updateError } = await supabase
+        .from("agent_pools")
+        .update({ [updateField]: videoUrl })
+        .eq("id", poolId);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setPools(pools.map(p => 
+        p.id === poolId 
+          ? { ...p, [updateField]: videoUrl }
+          : p
+      ));
+    } catch (error) {
+      console.error("Failed to upload example video:", error);
+      alert("Failed to upload video. Please try again.");
+    } finally {
+      setUploadingVideo(null);
+    }
+  };
+
+  const handleRemoveExampleVideo = async (poolId: string, type: "wave" | "loop") => {
+    const updateField = type === "wave" ? "example_wave_video_url" : "example_loop_video_url";
+    
+    const { error } = await supabase
+      .from("agent_pools")
+      .update({ [updateField]: null })
+      .eq("id", poolId);
+
+    if (!error) {
+      setPools(pools.map(p => 
+        p.id === poolId ? { ...p, [updateField]: null } : p
+      ));
+    }
   };
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold mb-2">Agent Pools</h1>
           <p className="text-muted-foreground">
-            Show different agents on different pages of your website
+            Route visitors to different agents based on domain and page rules
           </p>
         </div>
         <button
           onClick={() => setIsAddingPool(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
         >
           <Plus className="w-5 h-5" />
           New Pool
         </button>
       </div>
 
-      {/* How it works - Simple explanation */}
-      <div className="mb-8 p-5 rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20">
-        <h3 className="font-semibold mb-4 text-lg">🎯 How Pools Work (3 Simple Steps)</h3>
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 font-bold text-sm">1</div>
-            <div>
-              <div className="font-medium">Create a Pool</div>
-              <div className="text-sm text-muted-foreground">Name it like "Sales Team" or "Support Squad"</div>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 font-bold text-sm">2</div>
-            <div>
-              <div className="font-medium">Add Page Rules</div>
-              <div className="text-sm text-muted-foreground">Example: "/pricing" or "/contact"</div>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 font-bold text-sm">3</div>
-            <div>
-              <div className="font-medium">Assign Agents</div>
-              <div className="text-sm text-muted-foreground">Add team members to each pool</div>
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 pt-4 border-t border-primary/20 text-sm text-muted-foreground">
-          <strong>Example:</strong> Create a "Sales" pool → Add rule for "/pricing" → Assign your best closers → 
-          Now when someone visits your pricing page, they'll see your sales team!
-        </div>
-      </div>
-
       {/* Add Pool Form */}
       {isAddingPool && (
-        <div className="glass rounded-2xl p-6 mb-6">
+        <div className="bg-gradient-to-b from-muted/50 to-transparent border border-border rounded-2xl p-6 mb-8">
           <h3 className="text-lg font-semibold mb-4">Create New Pool</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Pool Name</label>
+              <label className="block text-sm font-medium mb-2 text-muted-foreground">Pool Name</label>
               <input
                 type="text"
                 placeholder="e.g., Sales Team, Support, Enterprise"
                 value={newPoolName}
                 onChange={(e) => setNewPoolName(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
+                className="w-full px-4 py-2.5 rounded-xl bg-background border border-border focus:border-primary outline-none"
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Description (optional)</label>
+              <label className="block text-sm font-medium mb-2 text-muted-foreground">Description (optional)</label>
               <input
                 type="text"
                 placeholder="What is this pool for?"
                 value={newPoolDescription}
                 onChange={(e) => setNewPoolDescription(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
+                className="w-full px-4 py-2.5 rounded-xl bg-background border border-border focus:border-primary outline-none"
               />
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 pt-2">
               <button
                 onClick={handleAddPool}
                 disabled={!newPoolName.trim()}
-                className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
               >
                 Create Pool
               </button>
@@ -330,7 +924,7 @@ export function PoolsClient({
                   setNewPoolName("");
                   setNewPoolDescription("");
                 }}
-                className="px-6 py-2 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80"
+                className="px-6 py-2.5 rounded-xl bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
               >
                 Cancel
               </button>
@@ -346,10 +940,10 @@ export function PoolsClient({
           const memberCount = getMemberCount(pool);
 
           return (
-            <div key={pool.id} className="glass rounded-2xl overflow-hidden">
+            <div key={pool.id} className="bg-gradient-to-b from-muted/30 to-transparent border border-border rounded-2xl overflow-hidden">
               {/* Pool Header */}
               <div
-                className="flex items-center justify-between p-5 cursor-pointer hover:bg-muted/30 transition-colors"
+                className="flex items-center justify-between p-5 cursor-pointer hover:bg-muted/20 transition-colors"
                 onClick={() => togglePoolExpanded(pool.id)}
               >
                 <div className="flex items-center gap-4">
@@ -358,15 +952,15 @@ export function PoolsClient({
                   ) : (
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   )}
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
                     <Layers className="w-5 h-5 text-primary" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-lg">{pool.name}</span>
                       {pool.is_catch_all && (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary font-medium">
-                          Default
+                        <span className="px-2.5 py-0.5 rounded-full text-xs bg-emerald-500/10 text-emerald-500 font-medium border border-emerald-500/20">
+                          Catch All
                         </span>
                       )}
                     </div>
@@ -377,12 +971,12 @@ export function PoolsClient({
                 </div>
                 <div className="flex items-center gap-6">
                   <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Agents</div>
-                    <div className="font-semibold">{memberCount}</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Agents</div>
+                    <div className="font-semibold text-lg">{memberCount}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Rules</div>
-                    <div className="font-semibold">{pool.pool_routing_rules.length}</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Rules</div>
+                    <div className="font-semibold text-lg">{pool.pool_routing_rules.length}</div>
                   </div>
                   {!pool.is_catch_all && (
                     <button
@@ -402,30 +996,30 @@ export function PoolsClient({
               {isExpanded && (
                 <div className="border-t border-border">
                   {/* Routing Rules Section */}
-                  <div className="p-5 border-b border-border">
+                  <div className="p-6 border-b border-border">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h4 className="font-medium flex items-center gap-2">
-                          <Globe className="w-4 h-4 text-primary" />
-                          Which website pages should use this pool?
+                        <h4 className="font-semibold flex items-center gap-2">
+                          <Route className="w-4 h-4 text-primary" />
+                          Routing Rules
                         </h4>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Add the website URLs where you want these agents to appear
+                          Define which visitors should be routed to this pool
                         </p>
                       </div>
                     </div>
 
                     {pool.is_catch_all ? (
-                      <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                            <span className="text-green-500 text-lg">✓</span>
+                      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5">
+                        <div className="flex items-start gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                            <Globe className="w-5 h-5 text-emerald-500" />
                           </div>
                           <div>
-                            <h5 className="font-medium text-green-400">Default Pool - Always Active</h5>
+                            <h5 className="font-semibold text-emerald-600 dark:text-emerald-400">Default Catch-All Pool</h5>
                             <p className="text-sm text-muted-foreground mt-1">
-                              This pool catches ALL visitors that don't match any other pool's rules. 
-                              You don't need to add any URLs here.
+                              This pool automatically catches all visitors that don't match any other pool's rules. 
+                              No routing rules are needed.
                             </p>
                           </div>
                         </div>
@@ -434,212 +1028,302 @@ export function PoolsClient({
                       <>
                         {/* Current Rules */}
                         {pool.pool_routing_rules.length > 0 && (
-                          <div className="space-y-2 mb-4">
-                            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                              Active Rules
-                            </div>
+                          <div className="space-y-3 mb-6">
                             {pool.pool_routing_rules
                               .sort((a, b) => b.priority - a.priority)
                               .map((rule) => (
-                                <div
-                                  key={rule.id}
-                                  className="flex items-center justify-between p-3 rounded-xl bg-muted/30 group"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-green-500">●</span>
-                                    <span className="text-sm">
-                                      {rule.domain_pattern === "*" ? "Any website" : rule.domain_pattern}
-                                    </span>
-                                    <span className="text-muted-foreground mx-1">→</span>
-                                    <code className="px-2 py-1 rounded bg-primary/10 text-primary font-mono text-sm">
-                                      {rule.path_pattern === "*" ? "all pages" : rule.path_pattern}
-                                    </code>
-                                  </div>
-                                  <button
-                                    onClick={() => handleDeleteRoutingRule(pool.id, rule.id)}
-                                    className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
-                                    title="Remove this rule"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
+                                editingRule?.poolId === pool.id && editingRule?.rule.id === rule.id ? (
+                                  <RuleBuilder
+                                    key={rule.id}
+                                    poolName={pool.name}
+                                    existingRule={rule}
+                                    onSave={(conditions, ruleName) => handleUpdateRoutingRule(pool.id, rule.id, conditions, ruleName)}
+                                    onCancel={() => setEditingRule(null)}
+                                  />
+                                ) : (
+                                  <RuleDisplay
+                                    key={rule.id}
+                                    rule={rule}
+                                    onDelete={() => handleDeleteRoutingRule(pool.id, rule.id)}
+                                    onEdit={() => setEditingRule({ poolId: pool.id, rule })}
+                                  />
+                                )
                               ))}
                           </div>
                         )}
 
                         {/* Add Rule Section */}
                         {addingRuleToPool === pool.id ? (
-                          <div className="bg-primary/5 border-2 border-primary/20 border-dashed rounded-xl p-5">
-                            <h5 className="font-semibold text-lg mb-2">Add a Page Rule</h5>
-                            <p className="text-sm text-muted-foreground mb-4">
-                              Type a page path to see matching pages with visitor counts
-                            </p>
-                            
-                            {/* Path Input with Autocomplete */}
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium mb-2">
-                                Which page(s) should use this pool?
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  placeholder="Start typing... e.g. /pricing, /contact"
-                                  value={newRulePath}
-                                  onChange={(e) => setNewRulePath(e.target.value)}
-                                  onFocus={() => setShowPathDropdown(true)}
-                                  onBlur={() => setTimeout(() => setShowPathDropdown(false), 200)}
-                                  className="w-full px-4 py-3 rounded-lg bg-background border border-border focus:border-primary outline-none font-mono text-lg"
-                                  autoFocus
-                                />
-                                {newRulePath === "" && (
-                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                                    All pages
-                                  </span>
-                                )}
-                                
-                                {/* Dropdown with paths and visitor counts */}
-                                {showPathDropdown && (
-                                  <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-64 overflow-auto">
-                                    {/* All pages option */}
-                                    <div
-                                      className={`px-4 py-3 hover:bg-muted cursor-pointer border-b border-border flex justify-between items-center ${
-                                        newRulePath === "" ? "bg-primary/10" : ""
-                                      }`}
-                                      onClick={() => {
-                                        setNewRulePath("");
-                                        setShowPathDropdown(false);
-                                      }}
-                                    >
-                                      <div>
-                                        <div className="font-medium">All pages</div>
-                                        <div className="text-xs text-muted-foreground">Match every page on your website</div>
-                                      </div>
-                                      <div className="text-sm text-muted-foreground">
-                                        {pathsWithVisitors.reduce((sum, p) => sum + p.visitorCount, 0).toLocaleString()} total
-                                      </div>
-                                    </div>
-                                    
-                                    {filteredPaths.length > 0 ? (
-                                      <>
-                                        <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/50 border-b border-border flex justify-between">
-                                          <span>Pages detected (last 30 days)</span>
-                                          <span>Visitors</span>
-                                        </div>
-                                        {filteredPaths.slice(0, 10).map((item) => (
-                                          <div
-                                            key={item.path}
-                                            className={`px-4 py-3 hover:bg-muted cursor-pointer flex justify-between items-center ${
-                                              newRulePath === item.path ? "bg-primary/10" : ""
-                                            }`}
-                                            onClick={() => {
-                                              setNewRulePath(item.path);
-                                              setShowPathDropdown(false);
-                                            }}
-                                          >
-                                            <code className="font-mono text-sm">{item.path}</code>
-                                            <div className="flex items-center gap-2">
-                                              <span className={`text-sm font-medium ${item.visitorCount > 10 ? "text-green-500" : "text-muted-foreground"}`}>
-                                                {item.visitorCount.toLocaleString()}
-                                              </span>
-                                              <span className={item.visitorCount > 0 ? "text-green-500" : "text-muted-foreground"}>
-                                                {item.visitorCount > 10 ? "●" : item.visitorCount > 0 ? "◐" : "○"}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        ))}
-                                        {filteredPaths.length > 10 && (
-                                          <div className="px-4 py-2 text-xs text-muted-foreground text-center bg-muted/30">
-                                            +{filteredPaths.length - 10} more paths...
-                                          </div>
-                                        )}
-                                      </>
-                                    ) : newRulePath !== "" ? (
-                                      <div className="px-4 py-3 text-sm text-muted-foreground">
-                                        No matching pages found. You can still use "{newRulePath}" as a custom path.
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-2">
-                                💡 <strong>Tip:</strong> Add <code className="bg-muted px-1 rounded">*</code> at the end for wildcards. 
-                                Example: <code className="bg-muted px-1 rounded">/pricing*</code> matches /pricing, /pricing-enterprise, etc.
-                              </p>
-                            </div>
-
-                            {/* Preview */}
-                            <div className="mb-4 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-                              <div className="text-xs font-medium text-green-500 mb-1">✓ This rule will:</div>
-                              <div className="text-sm">
-                                Show agents from <strong>"{pool.name}"</strong> when visitors are on{" "}
-                                <code className="px-2 py-0.5 rounded bg-background font-mono">
-                                  {newRulePath === "" ? "any page" : newRulePath}
-                                </code>
-                              </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-3">
-                              <button
-                                onClick={() => handleAddRoutingRule(pool.id)}
-                                className="flex-1 px-4 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-lg"
-                              >
-                                ✓ Save This Rule
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setAddingRuleToPool(null);
-                                  setNewRulePath("");
-                                  setShowPathDropdown(false);
-                                }}
-                                className="px-4 py-3 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
+                          <RuleBuilder
+                            poolName={pool.name}
+                            onSave={(conditions, ruleName) => handleAddRoutingRule(pool.id, conditions, ruleName)}
+                            onCancel={() => setAddingRuleToPool(null)}
+                          />
+                        ) : !editingRule ? (
                           <button
                             onClick={() => setAddingRuleToPool(pool.id)}
                             className="w-full p-6 rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all group"
                           >
                             {pool.pool_routing_rules.length === 0 ? (
                               <div className="text-center">
-                                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/20 transition-colors">
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/20 transition-colors">
                                   <Plus className="w-6 h-6 text-primary" />
                                 </div>
                                 <div className="font-semibold text-lg group-hover:text-primary transition-colors">
-                                  Add Your First Page Rule
+                                  Add Your First Routing Rule
                                 </div>
                                 <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                                  Click here to choose which pages on your website should show agents from this pool
+                                  Define conditions to route visitors to this pool based on domain or page path
                                 </p>
-                                <div className="mt-3 text-xs text-muted-foreground">
-                                  Examples: /pricing, /contact, /demo, /checkout
-                                </div>
                               </div>
                             ) : (
                               <div className="flex items-center justify-center gap-2 text-muted-foreground group-hover:text-primary">
                                 <Plus className="w-5 h-5" />
-                                <span className="font-medium">Add Another Page Rule</span>
+                                <span className="font-medium">Add Another Rule</span>
                               </div>
                             )}
                           </button>
-                        )}
+                        ) : null}
                       </>
                     )}
                   </div>
 
+                  {/* Intro Script Section */}
+                  <div className="p-6 border-b border-border">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="font-semibold flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4 text-primary" />
+                          Intro Script
+                        </h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          What agents say to visitors in their intro video
+                        </p>
+                      </div>
+                      {editingScriptPoolId !== pool.id && (
+                        <button
+                          onClick={() => handleStartEditScript(pool)}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Edit
+                        </button>
+                      )}
+                    </div>
+
+                    {editingScriptPoolId === pool.id ? (
+                      <div className="space-y-4">
+                        <textarea
+                          value={editingScriptText}
+                          onChange={(e) => setEditingScriptText(e.target.value)}
+                          placeholder="Enter the script agents should read..."
+                          rows={3}
+                          className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary outline-none resize-none"
+                          autoFocus
+                        />
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleSaveScript(pool.id)}
+                            disabled={!editingScriptText.trim()}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                          >
+                            <Check className="w-4 h-4" />
+                            Save Script
+                          </button>
+                          <button
+                            onClick={handleCancelEditScript}
+                            className="px-4 py-2 rounded-xl bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+                        <p className="text-lg leading-relaxed">"{pool.intro_script}"</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Video Sequence Section */}
+                  <div className="p-6 border-b border-border">
+                    <div className="mb-4">
+                      <h4 className="font-semibold flex items-center gap-2">
+                        <Video className="w-4 h-4 text-primary" />
+                        Video Sequence
+                      </h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        The 3-part video flow agents will record for this pool
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      {/* 1. Wave Example */}
+                      <div className="p-4 rounded-xl border border-border bg-gradient-to-b from-muted/30 to-transparent">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">1</div>
+                          <div className="text-sm font-medium">Wave</div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Grabs attention, plays muted
+                        </p>
+                        
+                        {pool.example_wave_video_url ? (
+                          <div className="space-y-2">
+                            <video 
+                              src={pool.example_wave_video_url} 
+                              controls 
+                              className="w-full rounded-lg aspect-video object-cover bg-black"
+                            />
+                            <div className="flex gap-2">
+                              <label className="flex-1 text-center text-xs text-primary hover:underline cursor-pointer">
+                                <input
+                                  type="file"
+                                  accept="video/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleUploadExampleVideo(pool.id, "wave", file);
+                                  }}
+                                />
+                                Replace
+                              </label>
+                              <button
+                                onClick={() => handleRemoveExampleVideo(pool.id, "wave")}
+                                className="flex-1 text-xs text-destructive hover:underline"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="aspect-video rounded-lg bg-black/50 flex items-center justify-center">
+                              <span className="text-xs text-muted-foreground">Default wave</span>
+                            </div>
+                            <label className="flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors">
+                              <input
+                                type="file"
+                                accept="video/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleUploadExampleVideo(pool.id, "wave", file);
+                                }}
+                                disabled={uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "wave"}
+                              />
+                              {uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "wave" ? (
+                                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                              ) : (
+                                <>
+                                  <Upload className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">Upload custom</span>
+                                </>
+                              )}
+                            </label>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. Intro/Script */}
+                      <div className="p-4 rounded-xl border border-primary/30 bg-gradient-to-b from-primary/10 to-transparent">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground">2</div>
+                          <div className="text-sm font-medium">Speak</div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Plays with audio
+                        </p>
+                        
+                        <div className="aspect-video rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-center p-3">
+                          <p className="text-xs text-center leading-relaxed">
+                            "{pool.intro_script.length > 80 ? pool.intro_script.slice(0, 80) + '...' : pool.intro_script}"
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center mt-2">
+                          Agents read this script
+                        </p>
+                      </div>
+
+                      {/* 3. Loop Example */}
+                      <div className="p-4 rounded-xl border border-border bg-gradient-to-b from-muted/30 to-transparent">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">3</div>
+                          <div className="text-sm font-medium">Loop</div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Smiles while waiting
+                        </p>
+                        
+                        {pool.example_loop_video_url ? (
+                          <div className="space-y-2">
+                            <video 
+                              src={pool.example_loop_video_url} 
+                              controls 
+                              className="w-full rounded-lg aspect-video object-cover bg-black"
+                            />
+                            <div className="flex gap-2">
+                              <label className="flex-1 text-center text-xs text-primary hover:underline cursor-pointer">
+                                <input
+                                  type="file"
+                                  accept="video/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleUploadExampleVideo(pool.id, "loop", file);
+                                  }}
+                                />
+                                Replace
+                              </label>
+                              <button
+                                onClick={() => handleRemoveExampleVideo(pool.id, "loop")}
+                                className="flex-1 text-xs text-destructive hover:underline"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="aspect-video rounded-lg bg-black/50 flex items-center justify-center">
+                              <span className="text-xs text-muted-foreground">Default smile</span>
+                            </div>
+                            <label className="flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors">
+                              <input
+                                type="file"
+                                accept="video/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleUploadExampleVideo(pool.id, "loop", file);
+                                }}
+                                disabled={uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "loop"}
+                              />
+                              {uploadingVideo?.poolId === pool.id && uploadingVideo?.type === "loop" ? (
+                                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                              ) : (
+                                <>
+                                  <Upload className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">Upload custom</span>
+                                </>
+                              )}
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Agents Section */}
-                  <div className="p-5 bg-muted/20">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium flex items-center gap-2">
+                  <div className="p-6 bg-muted/10">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-semibold flex items-center gap-2">
                         <Users className="w-4 h-4 text-primary" />
-                        Agents in this pool ({memberCount})
+                        Agents ({memberCount})
                       </h4>
                       <button
                         onClick={() => setAddingAgentToPool(addingAgentToPool === pool.id ? null : pool.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors"
                       >
                         <UserPlus className="w-4 h-4" />
                         Add Agent
@@ -648,26 +1332,22 @@ export function PoolsClient({
 
                     {/* Add Agent Dropdown */}
                     {addingAgentToPool === pool.id && (
-                      <div className="mb-4 p-3 rounded-lg bg-background border border-border">
-                        <div className="text-sm font-medium mb-2">Select an agent to add:</div>
+                      <div className="mb-4 p-4 rounded-xl bg-background border border-border">
+                        <div className="text-sm font-medium mb-3 text-muted-foreground">Select an agent to add:</div>
                         {getAvailableAgents(pool).length === 0 ? (
                           <div className="text-sm text-muted-foreground py-2">
                             All agents are already in this pool
                           </div>
                         ) : (
-                          <div className="space-y-1 max-h-48 overflow-auto">
+                          <div className="space-y-2 max-h-48 overflow-auto">
                             {getAvailableAgents(pool).map((agent) => (
                               <button
                                 key={agent.id}
                                 onClick={() => handleAddAgentToPool(pool.id, agent.id)}
-                                className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors text-left"
+                                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left"
                               >
-                                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm font-medium">
-                                  {agent.avatar_url ? (
-                                    <img src={agent.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
-                                  ) : (
-                                    agent.display_name?.charAt(0).toUpperCase() || "?"
-                                  )}
+                                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-medium">
+                                  {agent.display_name?.charAt(0).toUpperCase() || "?"}
                                 </div>
                                 <span className="font-medium">{agent.display_name || "Unnamed Agent"}</span>
                               </button>
@@ -683,30 +1363,26 @@ export function PoolsClient({
                         {pool.agent_pool_members.map((member) => (
                           <div
                             key={member.id}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background border border-border group"
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-background border border-border group hover:border-primary/30 transition-colors"
                           >
-                            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium">
-                              {member.agent_profiles?.avatar_url ? (
-                                <img src={member.agent_profiles.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
-                              ) : (
-                                member.agent_profiles?.display_name?.charAt(0).toUpperCase() || "?"
-                              )}
+                            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium">
+                              {member.agent_profiles?.display_name?.charAt(0).toUpperCase() || "?"}
                             </div>
                             <span className="text-sm font-medium">
                               {member.agent_profiles?.display_name || "Unnamed Agent"}
                             </span>
                             <button
                               onClick={() => handleRemoveAgentFromPool(pool.id, member.id)}
-                              className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
+                              className="p-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
                               title="Remove from pool"
                             >
-                              <X className="w-3 h-3" />
+                              <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-sm text-muted-foreground py-2">
+                      <div className="text-sm text-muted-foreground py-4 text-center bg-muted/20 rounded-xl">
                         No agents assigned yet. Click "Add Agent" to get started.
                       </div>
                     )}
@@ -718,18 +1394,17 @@ export function PoolsClient({
         })}
 
         {pools.length === 0 && (
-          <div className="glass rounded-2xl p-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-6">
+          <div className="bg-gradient-to-b from-muted/30 to-transparent border border-border rounded-2xl p-12 text-center">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mx-auto mb-6">
               <Layers className="w-10 h-10 text-primary" />
             </div>
             <h3 className="text-2xl font-bold mb-3">Create Your First Pool</h3>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Pools let you assign specific agents to specific pages. 
-              For example, put your sales team on pricing pages and support team on help pages.
+              Pools let you assign specific agents to specific domains and pages.
             </p>
             <button
               onClick={() => setIsAddingPool(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors text-lg"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors text-lg shadow-lg shadow-primary/20"
             >
               <Plus className="w-5 h-5" />
               Create Your First Pool
@@ -740,4 +1415,3 @@ export function PoolsClient({
     </div>
   );
 }
-
