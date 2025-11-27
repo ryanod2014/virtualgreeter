@@ -95,8 +95,8 @@ export function AdminSidebar({
             </div>
           </div>
           
-          {/* Status indicator - prominently placed under org */}
-          {isConnected && !activeCall && onSetAway && onSetBack && (
+          {/* Status indicator - only show for admins who are also agents */}
+          {agentProfile && isConnected && !activeCall && onSetAway && onSetBack && (
             <div className="relative" ref={statusDropdownRef}>
               <button
                 onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
@@ -109,7 +109,7 @@ export function AdminSidebar({
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${isMarkedAway ? "bg-muted-foreground" : "bg-green-500 animate-pulse"}`} />
                   <span className={`text-sm font-medium ${isMarkedAway ? "text-muted-foreground" : "text-green-500"}`}>
-                    {isMarkedAway ? "Away" : "Active"}
+                    {isMarkedAway ? "Away" : "Live on site"}
                   </span>
                 </div>
                 <ChevronDown className={`w-4 h-4 transition-transform ${statusDropdownOpen ? "rotate-180" : ""} ${isMarkedAway ? "text-muted-foreground" : "text-green-500"}`} />
@@ -131,7 +131,7 @@ export function AdminSidebar({
                       }`}
                     >
                       <span className="w-2 h-2 rounded-full bg-green-500" />
-                      <span className="flex-1 text-left">Active</span>
+                      <span className="flex-1 text-left">Live on site</span>
                       {!isMarkedAway && <Check className="w-4 h-4" />}
                     </button>
                     <button
