@@ -16,9 +16,15 @@ export default async function DispositionsSettingsPage() {
     .eq("organization_id", auth.organization.id)
     .order("display_order");
 
+  // Ensure backwards compatibility if migration hasn't been applied yet
+  const normalizedDispositions = (dispositions ?? []).map((d) => ({
+    ...d,
+    value: d.value ?? null,
+  }));
+
   return (
     <DispositionsClient
-      dispositions={dispositions ?? []}
+      dispositions={normalizedDispositions}
       organizationId={auth.organization.id}
     />
   );

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Ghost,
   Rocket,
@@ -13,7 +16,8 @@ import {
   Palette,
 } from "lucide-react";
 import type { User, Organization } from "@ghost-greeter/domain/database.types";
-import { signOut } from "@/lib/auth/actions";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 interface AdminSidebarProps {
   user: User;
@@ -21,7 +25,16 @@ interface AdminSidebarProps {
 }
 
 export function AdminSidebar({ user, organization }: AdminSidebarProps) {
-  // Sidebar - updated order
+  const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
+
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 border-r border-border bg-card/50 backdrop-blur-xl z-40">
       <div className="flex h-full flex-col">
@@ -50,25 +63,25 @@ export function AdminSidebar({ user, organization }: AdminSidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
-          <NavLink href="/admin" icon={Rocket}>
+          <NavLink href="/admin" icon={Rocket} pathname={pathname} exact>
             Quick Setup
           </NavLink>
-          <NavLink href="/admin/sites" icon={Code}>
+          <NavLink href="/admin/sites" icon={Code} pathname={pathname}>
             Embed Code
           </NavLink>
-          <NavLink href="/admin/agents" icon={Users}>
+          <NavLink href="/admin/agents" icon={Users} pathname={pathname}>
             Agents
           </NavLink>
-          <NavLink href="/admin/pools" icon={Layers}>
+          <NavLink href="/admin/pools" icon={Layers} pathname={pathname}>
             Pools
           </NavLink>
-          <NavLink href="/admin/settings/dispositions" icon={Palette}>
+          <NavLink href="/admin/settings/dispositions" icon={Palette} pathname={pathname}>
             Dispositions
           </NavLink>
-          <NavLink href="/admin/analytics" icon={BarChart3}>
+          <NavLink href="/admin/analytics" icon={BarChart3} pathname={pathname}>
             Analytics
           </NavLink>
-          <NavLink href="/admin/call-logs" icon={FileText}>
+          <NavLink href="/admin/call-logs" icon={FileText} pathname={pathname}>
             Call Logs
           </NavLink>
           
@@ -78,26 +91,24 @@ export function AdminSidebar({ user, organization }: AdminSidebarProps) {
             </div>
           </div>
           
-          <NavLink href="/dashboard" icon={Video}>
+          <NavLink href="/dashboard" icon={Video} pathname={pathname}>
             Agent Dashboard
           </NavLink>
         </nav>
 
         {/* Settings & User */}
         <div className="p-4 border-t border-border space-y-1">
-          <NavLink href="/admin/settings" icon={Settings}>
+          <NavLink href="/admin/settings" icon={Settings} pathname={pathname} exact>
             Settings
           </NavLink>
           
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
-            >
-              <LogOut className="w-5 h-5" />
-              Sign Out
-            </button>
-          </form>
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            Sign Out
+          </button>
         </div>
 
         {/* User Info */}
@@ -125,15 +136,25 @@ function NavLink({
   href,
   icon: Icon,
   children,
+  pathname,
+  exact = false,
 }: {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
+  pathname: string;
+  exact?: boolean;
 }) {
+  const isActive = exact ? pathname === href : pathname.startsWith(href);
+
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+        isActive
+          ? "bg-primary/10 text-primary font-medium"
+          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+      }`}
     >
       <Icon className="w-5 h-5" />
       {children}

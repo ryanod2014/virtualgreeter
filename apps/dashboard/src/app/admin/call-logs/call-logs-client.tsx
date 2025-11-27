@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { formatShortDuration } from "@/lib/stats/agent-stats";
 import { DateRangePicker } from "@/lib/components/date-range-picker";
+import { MultiSelectDropdown } from "@/lib/components/multi-select-dropdown";
 
 interface Disposition {
   id: string;
@@ -83,14 +84,14 @@ export function CallLogsClient({
   const [videoModalCallId, setVideoModalCallId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Filter state
+  // Filter state - multi-select fields use arrays
   const [filters, setFilters] = useState({
     url: currentFilters.url ?? "",
     minDuration: currentFilters.minDuration ?? "",
     maxDuration: currentFilters.maxDuration ?? "",
-    disposition: currentFilters.disposition ?? "",
-    agent: currentFilters.agent ?? "",
-    status: currentFilters.status ?? "",
+    dispositions: currentFilters.disposition?.split(",").filter(Boolean) ?? [],
+    agents: currentFilters.agent?.split(",").filter(Boolean) ?? [],
+    statuses: currentFilters.status?.split(",").filter(Boolean) ?? [],
   });
 
   const applyFilters = () => {
@@ -104,9 +105,10 @@ export function CallLogsClient({
     if (filters.url) params.set("url", filters.url);
     if (filters.minDuration) params.set("minDuration", filters.minDuration);
     if (filters.maxDuration) params.set("maxDuration", filters.maxDuration);
-    if (filters.disposition) params.set("disposition", filters.disposition);
-    if (filters.agent) params.set("agent", filters.agent);
-    if (filters.status) params.set("status", filters.status);
+    // Multi-select filters are comma-separated
+    if (filters.dispositions.length > 0) params.set("disposition", filters.dispositions.join(","));
+    if (filters.agents.length > 0) params.set("agent", filters.agents.join(","));
+    if (filters.statuses.length > 0) params.set("status", filters.statuses.join(","));
 
     router.push(`${pathname}?${params.toString()}`);
   };
@@ -116,9 +118,9 @@ export function CallLogsClient({
       url: "",
       minDuration: "",
       maxDuration: "",
-      disposition: "",
-      agent: "",
-      status: "",
+      dispositions: [],
+      agents: [],
+      statuses: [],
     });
     setUrlSearch("");
     const params = new URLSearchParams();
@@ -131,9 +133,9 @@ export function CallLogsClient({
     filters.url ||
     filters.minDuration ||
     filters.maxDuration ||
-    filters.disposition ||
-    filters.agent ||
-    filters.status;
+    filters.dispositions.length > 0 ||
+    filters.agents.length > 0 ||
+    filters.statuses.length > 0;
 
   const handleDateRangeChange = (from: Date, to: Date) => {
     const params = new URLSearchParams();
@@ -142,12 +144,37 @@ export function CallLogsClient({
     
     // Preserve other filters
     if (filters.url) params.set("url", filters.url);
-    if (filters.disposition) params.set("disposition", filters.disposition);
-    if (filters.agent) params.set("agent", filters.agent);
-    if (filters.status) params.set("status", filters.status);
+    if (filters.dispositions.length > 0) params.set("disposition", filters.dispositions.join(","));
+    if (filters.agents.length > 0) params.set("agent", filters.agents.join(","));
+    if (filters.statuses.length > 0) params.set("status", filters.statuses.join(","));
     
     router.push(`${pathname}?${params.toString()}`);
   };
+
+  // Options for multi-select dropdowns
+  const statusOptions = [
+    { value: "completed", label: "Completed", icon: <CheckCircle className="w-3 h-3 text-green-500" /> },
+    { value: "accepted", label: "Accepted", icon: <Phone className="w-3 h-3 text-blue-500" /> },
+    { value: "missed", label: "Missed", icon: <PhoneMissed className="w-3 h-3 text-red-500" /> },
+    { value: "rejected", label: "Rejected", icon: <PhoneOff className="w-3 h-3 text-orange-500" /> },
+    { value: "pending", label: "Pending", icon: <Clock className="w-3 h-3 text-yellow-500" /> },
+  ];
+
+  const dispositionOptions = dispositions.map((d) => ({
+    value: d.id,
+    label: d.name,
+    color: d.color,
+  }));
+
+  const agentOptions = agents.map((a) => ({
+    value: a.id,
+    label: a.display_name,
+    icon: (
+      <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center">
+        <User className="w-2.5 h-2.5 text-primary" />
+      </div>
+    ),
+  }));
 
   const handlePlayRecording = (callId: string, recordingUrl: string) => {
     // Check if it's a video recording (webm)
@@ -348,60 +375,34 @@ export function CallLogsClient({
               {/* Status Filter */}
               <div>
                 <label className="block text-sm font-medium mb-1">Status</label>
-                <select
-                  value={filters.status}
-                  onChange={(e) =>
-                    setFilters({ ...filters, status: e.target.value })
-                  }
-                  className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="completed">Completed</option>
-                  <option value="accepted">Accepted</option>
-                  <option value="missed">Missed</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="pending">Pending</option>
-                </select>
+                <MultiSelectDropdown
+                  options={statusOptions}
+                  selected={filters.statuses}
+                  onChange={(selected) => setFilters({ ...filters, statuses: selected })}
+                  placeholder="All Statuses"
+                />
               </div>
 
               {/* Disposition Filter */}
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Disposition
-                </label>
-                <select
-                  value={filters.disposition}
-                  onChange={(e) =>
-                    setFilters({ ...filters, disposition: e.target.value })
-                  }
-                  className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-                >
-                  <option value="">All Dispositions</option>
-                  {dispositions.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-sm font-medium mb-1">Disposition</label>
+                <MultiSelectDropdown
+                  options={dispositionOptions}
+                  selected={filters.dispositions}
+                  onChange={(selected) => setFilters({ ...filters, dispositions: selected })}
+                  placeholder="All Dispositions"
+                />
               </div>
 
               {/* Agent Filter */}
               <div>
                 <label className="block text-sm font-medium mb-1">Agent</label>
-                <select
-                  value={filters.agent}
-                  onChange={(e) =>
-                    setFilters({ ...filters, agent: e.target.value })
-                  }
-                  className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-                >
-                  <option value="">All Agents</option>
-                  {agents.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.display_name}
-                    </option>
-                  ))}
-                </select>
+                <MultiSelectDropdown
+                  options={agentOptions}
+                  selected={filters.agents}
+                  onChange={(selected) => setFilters({ ...filters, agents: selected })}
+                  placeholder="All Agents"
+                />
               </div>
 
               {/* Actions */}

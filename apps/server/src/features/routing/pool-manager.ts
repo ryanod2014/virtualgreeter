@@ -496,8 +496,8 @@ export class PoolManager {
       : Array.from(this.agents.values());
 
     for (const agent of candidates) {
-      // Skip agents in call or offline
-      if (agent.profile.status === "in_call" || agent.profile.status === "offline") {
+      // Skip agents in call, offline, or away
+      if (agent.profile.status === "in_call" || agent.profile.status === "offline" || agent.profile.status === "away") {
         continue;
       }
 

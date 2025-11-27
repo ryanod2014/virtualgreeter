@@ -79,11 +79,18 @@ export default async function CallLogsPage({ searchParams }: Props) {
   if (params.maxDuration) {
     query = query.lte("duration_seconds", parseInt(params.maxDuration));
   }
+  // Support multi-select filters (comma-separated values)
   if (params.disposition) {
-    query = query.eq("disposition_id", params.disposition);
+    const dispositionIds = params.disposition.split(",").filter(Boolean);
+    if (dispositionIds.length > 0) {
+      query = query.in("disposition_id", dispositionIds);
+    }
   }
   if (params.status) {
-    query = query.eq("status", params.status);
+    const statuses = params.status.split(",").filter(Boolean);
+    if (statuses.length > 0) {
+      query = query.in("status", statuses);
+    }
   }
 
   const { data: calls } = await query.limit(500);

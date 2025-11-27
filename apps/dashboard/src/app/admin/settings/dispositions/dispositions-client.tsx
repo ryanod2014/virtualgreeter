@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
-  ArrowLeft,
   Plus,
   Trash2,
   GripVertical,
   Check,
   X,
   Palette,
+  Trophy,
+  DollarSign,
+  ChevronDown,
+  Lock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -37,6 +39,7 @@ interface Disposition {
   color: string;
   icon: string | null;
   is_active: boolean;
+  value?: number | string | null;
   display_order: number;
   created_at: string;
   updated_at: string;
@@ -68,9 +71,11 @@ export function DispositionsClient({
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
+  const [newValue, setNewValue] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("");
+  const [editValue, setEditValue] = useState("");
 
   const supabase = createClient();
 
@@ -119,42 +124,101 @@ export function DispositionsClient({
     if (!newName.trim()) return;
 
     const maxOrder = Math.max(0, ...dispositions.map((d) => d.display_order));
+    const parsedValue = newValue ? parseFloat(newValue) : null;
 
-    const { data, error } = await supabase
+    const result = await supabase
       .from("dispositions")
       .insert({
         organization_id: organizationId,
         name: newName.trim(),
         color: newColor,
+        value: parsedValue,
         display_order: maxOrder + 1,
         is_active: true,
       })
       .select()
       .single();
+    
+    data = result.data;
+    error = result.error;
 
     if (data && !error) {
-      setDispositions([...dispositions, data]);
+      // Ensure new fields have defaults in case migration isn't applied
+      const normalizedData = {
+        ...data,
+        is_primary: data.is_primary ?? false,
+        value: parsedValue ?? data.value ?? null,
+      };
+      setDispositions([...dispositions, normalizedData]);
       setNewName("");
       setNewColor(PRESET_COLORS[0]);
+      setNewValue("");
       setIsAdding(false);
+    } else if (error) {
+      console.error('Failed to add disposition:', error);
     }
   };
 
   const handleUpdate = async (id: string) => {
     if (!editName.trim()) return;
 
+    const parsedValue = editValue ? parseFloat(editValue) : null;
+
     const { error } = await supabase
       .from("dispositions")
-      .update({ name: editName.trim(), color: editColor })
+      .update({ 
+        name: editName.trim(), 
+        color: editColor,
+        value: parsedValue,
+      })
       .eq("id", id);
 
     if (!error) {
       setDispositions(
         dispositions.map((d) =>
-          d.id === id ? { ...d, name: editName.trim(), color: editColor } : d
+          d.id === id ? { ...d, name: editName.trim(), color: editColor, value: parsedValue } : d
         )
       );
       setEditingId(null);
+    } else {
+      console.error('Failed to update disposition:', error);
+    }
+  };
+
+  const handleMakePrimary = async (id: string) => {
+    // Find the disposition and move it to the top
+    const dispositionIndex = dispositions.findIndex((d) => d.id === id);
+    if (dispositionIndex <= 0) {
+      console.log('Already primary or not found:', id, dispositionIndex);
+      return;
+    }
+
+    const disposition = dispositions[dispositionIndex];
+    const newDispositions = [
+      disposition,
+      ...dispositions.slice(0, dispositionIndex),
+      ...dispositions.slice(dispositionIndex + 1),
+    ];
+
+    // Update local state immediately
+    setDispositions(newDispositions);
+    setEditingId(null);
+
+    // Update display_order for all items in the database
+    const updates = newDispositions.map((d, index) => ({
+      id: d.id,
+      display_order: index,
+    }));
+
+    for (const update of updates) {
+      const { error } = await supabase
+        .from("dispositions")
+        .update({ display_order: update.display_order })
+        .eq("id", update.id);
+      
+      if (error) {
+        console.error('Failed to update display_order:', error);
+      }
     }
   };
 
@@ -190,20 +254,13 @@ export function DispositionsClient({
     setEditingId(disposition.id);
     setEditName(disposition.name);
     setEditColor(disposition.color);
+    setEditValue(disposition.value != null ? String(disposition.value) : "");
   };
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <Link
-          href="/admin/settings"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Settings
-        </Link>
-
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2">Call Dispositions</h1>
@@ -237,21 +294,44 @@ export function DispositionsClient({
                 autoFocus
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Color</label>
-              <div className="flex gap-2 flex-wrap">
-                {PRESET_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => setNewColor(color)}
-                    className={`w-8 h-8 rounded-lg transition-all ${
-                      newColor === color
-                        ? "ring-2 ring-offset-2 ring-primary"
-                        : ""
-                    }`}
-                    style={{ backgroundColor: color }}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Color</label>
+                <div className="flex gap-2 flex-wrap">
+                  {PRESET_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setNewColor(color)}
+                      className={`w-8 h-8 rounded-lg transition-all ${
+                        newColor === color
+                          ? "ring-2 ring-offset-2 ring-primary"
+                          : ""
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Conversion Value
+                  <span className="text-muted-foreground font-normal ml-1">(optional)</span>
+                </label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={newValue}
+                    onChange={(e) => setNewValue(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
                   />
-                ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Track revenue generated per conversion
+                </p>
               </div>
             </div>
             <div className="flex gap-3">
@@ -266,6 +346,7 @@ export function DispositionsClient({
                 onClick={() => {
                   setIsAdding(false);
                   setNewName("");
+                  setNewValue("");
                 }}
                 className="px-6 py-2 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80"
               >
@@ -281,9 +362,8 @@ export function DispositionsClient({
         <div className="p-4 border-b border-border bg-muted/30">
           <div className="grid grid-cols-12 gap-4 text-sm font-medium text-muted-foreground">
             <div className="col-span-1"></div>
-            <div className="col-span-5">Name</div>
-            <div className="col-span-2">Color</div>
-            <div className="col-span-2">Status</div>
+            <div className="col-span-7">Name</div>
+            <div className="col-span-2">Value</div>
             <div className="col-span-2">Actions</div>
           </div>
         </div>
@@ -298,19 +378,22 @@ export function DispositionsClient({
             strategy={verticalListSortingStrategy}
           >
             <div className="divide-y divide-border">
-              {dispositions.map((disposition) => (
+              {dispositions.map((disposition, index) => (
                 <SortableDispositionRow
                   key={disposition.id}
                   disposition={disposition}
+                  isPrimary={index === 0}
                   isEditing={editingId === disposition.id}
                   editName={editName}
                   editColor={editColor}
+                  editValue={editValue}
                   onEditNameChange={setEditName}
                   onEditColorChange={setEditColor}
+                  onEditValueChange={setEditValue}
                   onStartEditing={() => startEditing(disposition)}
                   onUpdate={() => handleUpdate(disposition.id)}
                   onCancelEdit={() => setEditingId(null)}
-                  onToggleActive={() => handleToggleActive(disposition.id, disposition.is_active)}
+                  onMakePrimary={() => handleMakePrimary(disposition.id)}
                   onDelete={() => handleDelete(disposition.id)}
                 />
               ))}
@@ -339,12 +422,24 @@ export function DispositionsClient({
       {/* Info Box */}
       <div className="mt-6 p-4 rounded-xl bg-primary/5 border border-primary/20">
         <h4 className="font-medium mb-2">💡 How Dispositions Work</h4>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground mb-3">
           After each call ends, agents will see a modal to select a disposition.
-          This helps you track call outcomes and measure conversion rates across
-          your team. Inactive dispositions won&apos;t appear in the selection
-          modal but historical data is preserved. Drag and drop to reorder.
+          This helps you track call outcomes and measure conversion rates across your team.
         </p>
+        <div className="flex gap-6 text-sm">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-amber-500" />
+            <span className="text-muted-foreground">
+              <strong className="text-foreground">Primary</strong> — First disposition is your main objective
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-green-500" />
+            <span className="text-muted-foreground">
+              <strong className="text-foreground">Value</strong> — Track revenue per conversion
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -353,31 +448,39 @@ export function DispositionsClient({
 // Sortable row component
 interface SortableDispositionRowProps {
   disposition: Disposition;
+  isPrimary: boolean;
   isEditing: boolean;
   editName: string;
   editColor: string;
+  editValue: string;
   onEditNameChange: (name: string) => void;
   onEditColorChange: (color: string) => void;
+  onEditValueChange: (value: string) => void;
   onStartEditing: () => void;
   onUpdate: () => void;
   onCancelEdit: () => void;
-  onToggleActive: () => void;
+  onMakePrimary: () => void;
   onDelete: () => void;
 }
 
 function SortableDispositionRow({
   disposition,
+  isPrimary,
   isEditing,
   editName,
   editColor,
+  editValue,
   onEditNameChange,
   onEditColorChange,
+  onEditValueChange,
   onStartEditing,
   onUpdate,
   onCancelEdit,
-  onToggleActive,
+  onMakePrimary,
   onDelete,
 }: SortableDispositionRowProps) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  
   const {
     attributes,
     listeners,
@@ -396,82 +499,154 @@ function SortableDispositionRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`grid grid-cols-12 gap-4 p-4 items-center bg-card ${
-        !disposition.is_active ? "opacity-50" : ""
-      } ${isDragging ? "opacity-50 shadow-lg z-50" : ""}`}
+      className={`grid grid-cols-12 gap-4 p-4 items-center ${
+        isPrimary ? "bg-amber-500/5 border-l-4 border-l-amber-500" : "bg-card"
+      } ${!disposition.is_active ? "opacity-50" : ""} ${
+        isDragging ? "opacity-50 shadow-lg z-50" : ""
+      }`}
     >
-      {/* Drag Handle */}
+      {/* Drag Handle - lock icon for primary, dots for others */}
       <div className="col-span-1">
-        <button
-          {...attributes}
-          {...listeners}
-          className="p-1 rounded hover:bg-muted cursor-grab active:cursor-grabbing touch-none"
-        >
-          <GripVertical className="w-4 h-4 text-muted-foreground" />
-        </button>
+        {isPrimary ? (
+          <div className="p-1 flex items-center justify-center">
+            <Lock className="w-4 h-4 text-muted-foreground/40" />
+          </div>
+        ) : (
+          <button
+            {...attributes}
+            {...listeners}
+            className="p-1 rounded hover:bg-muted cursor-grab active:cursor-grabbing touch-none"
+          >
+            <GripVertical className="w-4 h-4 text-muted-foreground" />
+          </button>
+        )}
       </div>
 
-      {/* Name */}
-      <div className="col-span-5">
+      {/* Name with Color */}
+      <div className="col-span-7">
         {isEditing ? (
-          <input
-            type="text"
-            value={editName}
-            onChange={(e) => onEditNameChange(e.target.value)}
-            className="w-full px-3 py-1.5 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-            autoFocus
-          />
+          <div className="flex items-center gap-2">
+            {/* Color Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="p-1.5 rounded-lg hover:bg-muted transition-colors flex items-center gap-1"
+              >
+                <span
+                  className="w-4 h-4 rounded-full"
+                  style={{ backgroundColor: editColor }}
+                />
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+              </button>
+              
+              {dropdownOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setDropdownOpen(false)}
+                  />
+                  <div className="absolute left-0 top-full mt-1 z-50 bg-[#1a1a2e] border border-border rounded-lg shadow-xl py-1 min-w-[200px] max-h-[280px] overflow-y-auto">
+                    {/* Make Primary Option - only show for non-primary */}
+                    {!isPrimary && (
+                      <button
+                        onClick={() => {
+                          onMakePrimary();
+                          setDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted text-left transition-colors"
+                      >
+                        <Trophy className="w-4 h-4 text-amber-500" />
+                        <span>Make primary</span>
+                      </button>
+                    )}
+                    
+                    {/* Color Options - one per line */}
+                    {PRESET_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => {
+                          onEditColorChange(color);
+                          setDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted text-left transition-colors ${
+                          editColor === color ? "bg-primary/10 text-primary" : ""
+                        }`}
+                      >
+                        <span
+                          className="w-4 h-4 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span>
+                          {color === "#22c55e" ? "Green" :
+                           color === "#ef4444" ? "Red" :
+                           color === "#f59e0b" ? "Amber" :
+                           color === "#6b7280" ? "Gray" :
+                           color === "#8b5cf6" ? "Purple" :
+                           color === "#3b82f6" ? "Blue" :
+                           color === "#ec4899" ? "Pink" :
+                           color === "#14b8a6" ? "Teal" :
+                           color === "#f97316" ? "Orange" :
+                           color === "#06b6d4" ? "Cyan" : "Color"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => onEditNameChange(e.target.value)}
+              className="flex-1 px-3 py-1.5 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
+              autoFocus
+            />
+          </div>
         ) : (
           <div className="flex items-center gap-3">
-            <span
-              className="w-3 h-3 rounded-full flex-shrink-0"
-              style={{ backgroundColor: disposition.color }}
-            />
+            {isPrimary ? (
+              <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            ) : (
+              <span
+                className="w-3 h-3 rounded-full flex-shrink-0"
+                style={{ backgroundColor: disposition.color }}
+              />
+            )}
             <span className="font-medium">{disposition.name}</span>
           </div>
         )}
       </div>
 
-      {/* Color */}
+      {/* Value */}
       <div className="col-span-2">
         {isEditing ? (
-          <div className="flex gap-1">
-            {PRESET_COLORS.slice(0, 5).map((color) => (
-              <button
-                key={color}
-                onClick={() => onEditColorChange(color)}
-                className={`w-6 h-6 rounded transition-all ${
-                  editColor === color
-                    ? "ring-2 ring-offset-1 ring-primary"
-                    : ""
-                }`}
-                style={{ backgroundColor: color }}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Palette className="w-4 h-4 text-muted-foreground" />
-            <span
-              className="w-6 h-6 rounded"
-              style={{ backgroundColor: disposition.color }}
+          <div className="relative">
+            <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              value={editValue}
+              onChange={(e) => onEditValueChange(e.target.value)}
+              className="w-full pl-7 pr-2 py-1.5 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none text-sm"
             />
           </div>
+        ) : (
+          <div className="flex items-center gap-1 text-sm">
+            {disposition.value !== null && disposition.value !== undefined ? (
+              <>
+                <DollarSign className="w-3.5 h-3.5 text-green-500" />
+                <span className="text-green-500 font-medium">
+                  {Number(disposition.value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </>
+            ) : (
+              <span className="text-muted-foreground/50">—</span>
+            )}
+          </div>
         )}
-      </div>
-
-      {/* Status */}
-      <div className="col-span-2">
-        <button
-          onClick={onToggleActive}
-          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-            disposition.is_active
-              ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-        >
-          {disposition.is_active ? "Active" : "Inactive"}
-        </button>
       </div>
 
       {/* Actions */}

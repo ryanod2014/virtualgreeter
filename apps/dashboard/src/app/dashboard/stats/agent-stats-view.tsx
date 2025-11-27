@@ -126,13 +126,6 @@ export function AgentStatsView({
             icon={PhoneOff}
             color="orange"
           />
-          <StatCard
-            title="Total Calls"
-            value={calls.length}
-            subtitle={`From ${new Date(dateRange.from).toLocaleDateString()} to ${new Date(dateRange.to).toLocaleDateString()}`}
-            icon={Phone}
-            color="slate"
-          />
         </div>
 
         {/* Disposition Breakdown */}
