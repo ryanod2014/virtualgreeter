@@ -16,6 +16,7 @@ const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   trigger_delay: 3,
   auto_hide_delay: null,
   show_minimize_button: false,
+  theme: "dark",
 };
 
 // Cache for org default settings (expires after 10 seconds in dev, 5 minutes in prod)

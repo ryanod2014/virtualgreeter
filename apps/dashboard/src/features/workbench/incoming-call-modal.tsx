@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Phone, PhoneOff, User, Globe, Clock } from "lucide-react";
+import { Phone, PhoneOff, User, Globe, Clock, MapPin } from "lucide-react";
 import type { CallIncomingPayload } from "@ghost-greeter/domain";
+import { formatLocationWithFlag } from "@/lib/utils/country-flag";
 
 interface IncomingCallModalProps {
   incomingCall: CallIncomingPayload | null;
@@ -84,6 +85,29 @@ export function IncomingCallModal({
                 <p className="text-sm text-muted-foreground">Page URL</p>
                 <p className="font-medium text-sm truncate max-w-[250px]">
                   {incomingCall.visitor.pageUrl}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-muted/50">
+              <MapPin className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">Location</p>
+                <p className="font-medium text-sm flex items-center gap-2">
+                  {(() => {
+                    const loc = incomingCall.visitor.location;
+                    const { flag, text } = formatLocationWithFlag(
+                      loc?.city,
+                      loc?.region,
+                      loc?.countryCode
+                    );
+                    return (
+                      <>
+                        <span className="text-lg">{flag}</span>
+                        <span>{text}</span>
+                      </>
+                    );
+                  })()}
                 </p>
               </div>
             </div>

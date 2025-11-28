@@ -6,6 +6,7 @@ import {
   CreditCard,
   ChevronRight,
   Video,
+  Shield,
 } from "lucide-react";
 
 export default async function SettingsPage() {
@@ -40,6 +41,14 @@ export default async function SettingsPage() {
           title="Call Recording"
           description="Enable call recording and set retention policies"
           color="red"
+        />
+
+        <SettingsCard
+          href="/admin/settings/blocklist"
+          icon={Shield}
+          title="Country Blocklist"
+          description="Block visitors from specific countries from seeing the widget"
+          color="purple"
         />
 
         <SettingsCard

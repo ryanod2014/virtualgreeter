@@ -12,6 +12,7 @@ interface Props {
     maxDuration?: string;
     disposition?: string;
     status?: string;
+    country?: string; // ISO country codes, comma-separated
   }>;
 }
 
@@ -59,7 +60,16 @@ export default async function CallLogsPage({ searchParams }: Props) {
     .from("call_logs")
     .select(
       `
-      *,
+      id,
+      status,
+      page_url,
+      duration_seconds,
+      recording_url,
+      created_at,
+      visitor_city,
+      visitor_region,
+      visitor_country,
+      visitor_country_code,
       site:sites(id, name, domain),
       disposition:dispositions(id, name, color)
     `
@@ -92,8 +102,22 @@ export default async function CallLogsPage({ searchParams }: Props) {
       query = query.in("status", statuses);
     }
   }
+  if (params.country) {
+    // Country filter - filter by ISO country codes
+    const countryCodes = params.country.split(",").filter(Boolean).map(c => c.toUpperCase());
+    if (countryCodes.length > 0) {
+      query = query.in("visitor_country_code", countryCodes);
+    }
+  }
 
-  const { data: calls } = await query.limit(500);
+  const { data: rawCalls } = await query.limit(500);
+
+  // Transform Supabase array relations to single objects
+  const calls = rawCalls?.map((call) => ({
+    ...call,
+    site: Array.isArray(call.site) ? call.site[0] ?? null : call.site,
+    disposition: Array.isArray(call.disposition) ? call.disposition[0] ?? null : call.disposition,
+  }));
 
   // Fetch filter options (dispositions)
   const { data: dispositions } = await supabase

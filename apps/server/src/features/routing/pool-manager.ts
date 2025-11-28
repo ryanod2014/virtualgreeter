@@ -2,6 +2,7 @@ import type {
   AgentState,
   AgentProfile,
   VisitorSession,
+  VisitorLocation,
   CallRequest,
   ActiveCall,
 } from "@ghost-greeter/domain";
@@ -423,7 +424,9 @@ export class PoolManager {
     socketId: string,
     visitorId: string,
     orgId: string,
-    pageUrl: string
+    pageUrl: string,
+    ipAddress: string | null = null,
+    location: VisitorLocation | null = null
   ): VisitorSession {
     const session: VisitorSession = {
       visitorId,
@@ -434,11 +437,23 @@ export class PoolManager {
       pageUrl,
       connectedAt: Date.now(),
       interactedAt: null,
+      ipAddress,
+      location,
     };
     
     this.visitors.set(visitorId, session);
-    console.log(`[PoolManager] Visitor registered: ${visitorId}`);
+    console.log(`[PoolManager] Visitor registered: ${visitorId}${location ? ` from ${location.city}, ${location.region}` : ""}`);
     return session;
+  }
+
+  /**
+   * Update visitor's location (called after async geolocation lookup)
+   */
+  updateVisitorLocation(visitorId: string, location: VisitorLocation | null): void {
+    const visitor = this.visitors.get(visitorId);
+    if (visitor) {
+      visitor.location = location;
+    }
   }
 
   unregisterVisitor(visitorId: string): void {

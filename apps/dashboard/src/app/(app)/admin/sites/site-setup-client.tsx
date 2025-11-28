@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Copy, Check, Code, ExternalLink, Sparkles, Monitor, Smartphone, Layout, Clock, Info, RotateCcw, CheckCircle2, Loader2, TimerOff, Minimize2 } from "lucide-react";
+import { Copy, Check, Code, ExternalLink, Sparkles, Monitor, Smartphone, Layout, Clock, Info, RotateCcw, CheckCircle2, Loader2, TimerOff, Minimize2, Sun, Moon, SunMoon } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import type { WidgetSettings, WidgetSize, WidgetPosition, WidgetDevices } from "@ghost-greeter/domain/database.types";
+import type { WidgetSettings, WidgetSize, WidgetPosition, WidgetDevices, WidgetTheme } from "@ghost-greeter/domain/database.types";
 
 const DEFAULT_SETTINGS: WidgetSettings = {
   size: "medium",
@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS: WidgetSettings = {
   trigger_delay: 3,
   auto_hide_delay: null,
   show_minimize_button: false,
+  theme: "dark",
 };
 
 interface Props {
@@ -137,6 +138,12 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
     all: { label: "All Devices", icons: <><Monitor className="w-4 h-4" /><Smartphone className="w-3.5 h-3.5" /></> },
     desktop: { label: "Desktop Only", icons: <Monitor className="w-5 h-5" /> },
     mobile: { label: "Mobile Only", icons: <Smartphone className="w-5 h-5" /> },
+  };
+
+  const themeLabels: Record<WidgetTheme, { label: string; desc: string; icon: React.ReactNode }> = {
+    light: { label: "Light", desc: "Bright & clean", icon: <Sun className="w-5 h-5" /> },
+    dark: { label: "Dark", desc: "Sleek & modern", icon: <Moon className="w-5 h-5" /> },
+    auto: { label: "Auto", desc: "Match system", icon: <SunMoon className="w-5 h-5" /> },
   };
 
   return (
@@ -411,6 +418,30 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
             </div>
           </div>
 
+          {/* Theme */}
+          <div>
+            <label className="block text-sm font-medium mb-3">Theme</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["light", "dark", "auto"] as WidgetTheme[]).map((theme) => (
+                <button
+                  key={theme}
+                  onClick={() => setSettings({ ...settings, theme })}
+                  className={`p-3 rounded-xl border-2 transition-all ${
+                    settings.theme === theme
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <div className="flex justify-center items-center mb-1.5 h-5 text-muted-foreground">
+                    {themeLabels[theme].icon}
+                  </div>
+                  <div className="text-xs font-medium">{themeLabels[theme].label}</div>
+                  <div className="text-[10px] text-muted-foreground">{themeLabels[theme].desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Trigger Delay - Buttons */}
           <div>
             <label className="block text-sm font-medium mb-3 flex items-center gap-2">
@@ -639,6 +670,21 @@ function WidgetPreview({ settings }: { settings: WidgetSettings }) {
   // Desktop preview height (aspect-video = 56.25% of width, roughly 180px at full width)
   const previewHeight = 180;
 
+  // Theme-based widget colors
+  const isLightTheme = settings.theme === "light";
+  const widgetBg = isLightTheme 
+    ? "bg-gradient-to-br from-white via-gray-50 to-gray-100 border border-gray-200" 
+    : "bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950";
+  const widgetVideoArea = isLightTheme
+    ? "bg-gradient-to-b from-gray-100 to-gray-200"
+    : "bg-gradient-to-b from-white/30 to-white/10";
+  const widgetControlArea = isLightTheme
+    ? "bg-gray-100"
+    : "bg-black/20";
+  const widgetAvatarRing = isLightTheme
+    ? "bg-gray-300 border border-gray-400"
+    : "bg-white/40 border border-white/60";
+
   return (
     <div className="flex gap-6">
       {/* Desktop Preview */}
@@ -674,15 +720,15 @@ function WidgetPreview({ settings }: { settings: WidgetSettings }) {
           {settings.devices !== "mobile" && (
             <div className={`absolute ${positionClasses[settings.position]} transition-all duration-300`}>
               <div 
-                className="bg-gradient-to-br from-primary via-primary to-primary/80 rounded-lg shadow-lg overflow-hidden transition-all duration-300"
+                className={`${widgetBg} rounded-lg shadow-lg overflow-hidden transition-all duration-300`}
                 style={{ width: sizes.desktop.w, height: sizes.desktop.h }}
               >
-                <div className="h-2/3 bg-gradient-to-b from-white/30 to-white/10 flex items-center justify-center">
-                  <div className="w-6 h-6 rounded-full bg-white/40 border border-white/60" />
+                <div className={`h-2/3 ${widgetVideoArea} flex items-center justify-center`}>
+                  <div className={`w-6 h-6 rounded-full ${widgetAvatarRing}`} />
                 </div>
-                <div className="h-1/3 bg-black/20 flex items-center justify-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-white/20" />
-                  <div className="w-3 h-3 rounded-full bg-white/20" />
+                <div className={`h-1/3 ${widgetControlArea} flex items-center justify-center gap-1`}>
+                  <div className={`w-3 h-3 rounded-full ${isLightTheme ? "bg-gray-400" : "bg-white/20"}`} />
+                  <div className={`w-3 h-3 rounded-full ${isLightTheme ? "bg-gray-400" : "bg-white/20"}`} />
                 </div>
               </div>
             </div>
@@ -718,13 +764,13 @@ function WidgetPreview({ settings }: { settings: WidgetSettings }) {
             {settings.devices !== "desktop" && (
               <div className={`absolute ${positionClasses[settings.position]} transition-all duration-300`}>
                 <div 
-                  className="bg-gradient-to-br from-primary via-primary to-primary/80 rounded shadow-lg overflow-hidden transition-all duration-300"
+                  className={`${widgetBg} rounded shadow-lg overflow-hidden transition-all duration-300`}
                   style={{ width: sizes.mobile.w, height: sizes.mobile.h }}
                 >
-                  <div className="h-2/3 bg-gradient-to-b from-white/30 to-white/10 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-white/40 border border-white/60" />
+                  <div className={`h-2/3 ${widgetVideoArea} flex items-center justify-center`}>
+                    <div className={`w-3 h-3 rounded-full ${widgetAvatarRing}`} />
                   </div>
-                  <div className="h-1/3 bg-black/20" />
+                  <div className={`h-1/3 ${widgetControlArea}`} />
                 </div>
               </div>
             )}

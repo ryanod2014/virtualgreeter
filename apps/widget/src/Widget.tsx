@@ -17,6 +17,7 @@ const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   trigger_delay: 3,
   auto_hide_delay: null,
   show_minimize_button: false,
+  theme: "dark",
 };
 
 /**
@@ -127,6 +128,33 @@ export function Widget({ config }: WidgetProps) {
   const autoHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userHasInteractedRef = useRef(false); // Track if user has interacted with widget
 
+  // Apply theme class to shadow host
+  // Needs to run when state changes (widget becomes visible) and when theme changes
+  useEffect(() => {
+    // Only apply when widget is visible (state !== "hidden")
+    if (state === "hidden" || shouldHideForDevice) return;
+    
+    const theme = widgetSettings.theme ?? "dark";
+    
+    // Find the shadow host by traversing up from widget ref
+    const widgetEl = widgetRef.current;
+    if (!widgetEl) return;
+    
+    // Get the shadow root's host element
+    const shadowRoot = widgetEl.getRootNode() as ShadowRoot;
+    if (!shadowRoot || !shadowRoot.host) return;
+    
+    const host = shadowRoot.host;
+    
+    // Remove existing theme classes
+    host.classList.remove("gg-theme-light", "gg-theme-dark", "gg-theme-auto");
+    
+    // Add new theme class
+    host.classList.add(`gg-theme-${theme}`);
+    
+    console.log("[Widget] Applied theme:", theme);
+  }, [widgetSettings.theme, state, shouldHideForDevice]);
+
   // Media state - starts as muted/off
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isMicOn, setIsMicOn] = useState(false);
@@ -137,6 +165,9 @@ export function Widget({ config }: WidgetProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSnapping, setIsSnapping] = useState(false);
+  // Track user's dragged position choice (overrides server setting while dragging)
+  const [draggedPosition, setDraggedPosition] = useState<WidgetSettings["position"] | null>(null);
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -467,6 +498,9 @@ export function Widget({ config }: WidgetProps) {
         initialY: rect.top,
       };
 
+      // Set initial pixel position immediately to prevent glitch when gg-dragging class is applied
+      setPosition({ x: rect.left, y: rect.top });
+
       setIsDragging(true);
     },
     [isFullscreen]
@@ -504,7 +538,100 @@ export function Widget({ config }: WidgetProps) {
   const handleDragEnd = useCallback(() => {
     setIsDragging(false);
     dragRef.current = null;
-  }, []);
+
+    // Snap to nearest preset position
+    const widget = widgetRef.current;
+    if (!widget || !position) return;
+
+    const rect = widget.getBoundingClientRect();
+    const widgetWidth = rect.width;
+    const widgetHeight = rect.height;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Calculate center of widget
+    const widgetCenterX = position.x + widgetWidth / 2;
+    const widgetCenterY = position.y + widgetHeight / 2;
+
+    // Define snap positions (with 20px margin like CSS)
+    const margin = 20;
+    const snapPositions: { 
+      name: WidgetSettings["position"]; 
+      centerX: number; 
+      centerY: number;
+      targetX: number;
+      targetY: number;
+    }[] = [
+      { 
+        name: "top-left", 
+        centerX: margin + widgetWidth / 2, 
+        centerY: margin + widgetHeight / 2,
+        targetX: margin,
+        targetY: margin,
+      },
+      { 
+        name: "top-right", 
+        centerX: viewportWidth - margin - widgetWidth / 2, 
+        centerY: margin + widgetHeight / 2,
+        targetX: viewportWidth - margin - widgetWidth,
+        targetY: margin,
+      },
+      { 
+        name: "bottom-left", 
+        centerX: margin + widgetWidth / 2, 
+        centerY: viewportHeight - margin - widgetHeight / 2,
+        targetX: margin,
+        targetY: viewportHeight - margin - widgetHeight,
+      },
+      { 
+        name: "bottom-right", 
+        centerX: viewportWidth - margin - widgetWidth / 2, 
+        centerY: viewportHeight - margin - widgetHeight / 2,
+        targetX: viewportWidth - margin - widgetWidth,
+        targetY: viewportHeight - margin - widgetHeight,
+      },
+      { 
+        name: "center", 
+        centerX: viewportWidth / 2, 
+        centerY: viewportHeight / 2,
+        targetX: (viewportWidth - widgetWidth) / 2,
+        targetY: (viewportHeight - widgetHeight) / 2,
+      },
+    ];
+
+    // Find nearest position
+    let nearestPosition = snapPositions[0];
+    let minDistance = Infinity;
+
+    for (const pos of snapPositions) {
+      const distance = Math.sqrt(
+        Math.pow(widgetCenterX - pos.centerX, 2) + Math.pow(widgetCenterY - pos.centerY, 2)
+      );
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestPosition = pos;
+      }
+    }
+
+    // Start snapping animation - keep current position class until animation completes
+    setIsSnapping(true);
+    
+    // Wait for snapping class to be applied before animating
+    requestAnimationFrame(() => {
+      // Force a reflow to ensure transition is active
+      widgetRef.current?.offsetHeight;
+      
+      // Animate to target pixel position
+      setPosition({ x: nearestPosition.targetX, y: nearestPosition.targetY });
+      
+      // After animation completes, update the position class and clear pixel position
+      setTimeout(() => {
+        setDraggedPosition(nearestPosition.name);
+        setPosition(null);
+        setIsSnapping(false);
+      }, 320); // Slightly longer than CSS transition to ensure completion
+    });
+  }, [position]);
 
   // Add/remove drag event listeners
   useEffect(() => {
@@ -711,9 +838,11 @@ export function Widget({ config }: WidgetProps) {
   // Don't render if hidden or if device should be hidden
   if (state === "hidden" || shouldHideForDevice) return null;
 
-  // Use position from server widget settings
+  // Use dragged position if user has dragged, otherwise use server widget settings
   // When minimized, don't apply center positioning (it uses transform which breaks fixed positioning)
-  const widgetPosition = state === "minimized" ? "bottom-right" : (widgetSettings.position ?? "bottom-right");
+  const widgetPosition = state === "minimized" 
+    ? "bottom-right" 
+    : (draggedPosition ?? widgetSettings.position ?? "bottom-right");
   const widgetSize = widgetSettings.size ?? "medium";
   const dims = SIZE_DIMENSIONS[widgetSize];
 
@@ -737,6 +866,7 @@ export function Widget({ config }: WidgetProps) {
     widgetStyle.top = `${position.y}px`;
     widgetStyle.right = "auto";
     widgetStyle.bottom = "auto";
+    widgetStyle.transform = "none"; // Override center's translate(-50%, -50%)
   }
 
   // Mark user interaction when they interact with the widget
@@ -751,10 +881,13 @@ export function Widget({ config }: WidgetProps) {
     }
   };
 
+  // Get theme class for the widget
+  const themeClass = `gg-theme-${widgetSettings.theme ?? "dark"}`;
+
   return (
     <div
       ref={widgetRef}
-      className={`gg-widget ${widgetPosition} ${isFullscreen ? "gg-fullscreen" : ""} ${isDragging ? "gg-dragging" : ""}`}
+      className={`gg-widget ${widgetPosition} ${themeClass} ${isFullscreen ? "gg-fullscreen" : ""} ${isDragging ? "gg-dragging" : ""} ${isSnapping ? "gg-snapping" : ""}`}
       style={widgetStyle}
       role="dialog"
       aria-label={ARIA_LABELS.WIDGET}
@@ -802,19 +935,6 @@ export function Widget({ config }: WidgetProps) {
           <div className="gg-video-container">
             {/* Top right controls */}
             <div className="gg-video-controls">
-              {/* Minimize button - only shown when enabled in settings */}
-              {widgetSettings.show_minimize_button && !isFullscreen && (
-                <button
-                  className="gg-video-control-btn"
-                  onClick={handleMinimize}
-                  aria-label={ARIA_LABELS.MINIMIZE}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3" />
-                    <line x1="4" y1="21" x2="20" y2="21" />
-                  </svg>
-                </button>
-              )}
               <button
                 className="gg-video-control-btn"
                 onClick={handleToggleFullscreen}
@@ -830,6 +950,19 @@ export function Widget({ config }: WidgetProps) {
                   </svg>
                 )}
               </button>
+              {/* Minimize button - only shown when enabled in settings, positioned rightmost */}
+              {widgetSettings.show_minimize_button && !isFullscreen && (
+                <button
+                  className="gg-video-control-btn"
+                  onClick={handleMinimize}
+                  aria-label={ARIA_LABELS.MINIMIZE}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
             </div>
 
             {/* Agent Video - Main view */}

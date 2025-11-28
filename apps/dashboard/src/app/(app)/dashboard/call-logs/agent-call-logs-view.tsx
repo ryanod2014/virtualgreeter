@@ -21,6 +21,8 @@ import {
 import { formatShortDuration } from "@/lib/stats/agent-stats";
 import { DateRangePicker } from "@/lib/components/date-range-picker";
 import { MultiSelectDropdown } from "@/lib/components/multi-select-dropdown";
+import { CountrySelector } from "@/lib/components/country-selector";
+import { formatLocationWithFlag } from "@/lib/utils/country-flag";
 
 interface Disposition {
   id: string;
@@ -35,6 +37,10 @@ interface CallLogWithRelations {
   duration_seconds: number | null;
   recording_url: string | null;
   created_at: string;
+  visitor_city: string | null;
+  visitor_region: string | null;
+  visitor_country: string | null;
+  visitor_country_code: string | null;
   site: { id: string; name: string; domain: string } | null;
   disposition: Disposition | null;
 }
@@ -47,6 +53,7 @@ interface FilterParams {
   maxDuration?: string;
   disposition?: string;
   status?: string;
+  country?: string; // ISO country codes, comma-separated
 }
 
 interface Props {
@@ -78,6 +85,7 @@ export function AgentCallLogsView({
     maxDuration: currentFilters.maxDuration ?? "",
     dispositions: currentFilters.disposition?.split(",").filter(Boolean) ?? [],
     statuses: currentFilters.status?.split(",").filter(Boolean) ?? [],
+    countries: currentFilters.country?.split(",").filter(Boolean) ?? [],
   });
 
   const applyFilters = () => {
@@ -90,6 +98,7 @@ export function AgentCallLogsView({
     // Multi-select filters are comma-separated
     if (filters.dispositions.length > 0) params.set("disposition", filters.dispositions.join(","));
     if (filters.statuses.length > 0) params.set("status", filters.statuses.join(","));
+    if (filters.countries.length > 0) params.set("country", filters.countries.join(","));
     router.push(`${pathname}?${params.toString()}`);
   };
 
@@ -100,6 +109,7 @@ export function AgentCallLogsView({
       maxDuration: "",
       dispositions: [],
       statuses: [],
+      countries: [],
     });
     setUrlSearch("");
     const params = new URLSearchParams();
@@ -113,7 +123,8 @@ export function AgentCallLogsView({
     filters.minDuration ||
     filters.maxDuration ||
     filters.dispositions.length > 0 ||
-    filters.statuses.length > 0;
+    filters.statuses.length > 0 ||
+    filters.countries.length > 0;
 
   const handleDateRangeChange = (from: Date, to: Date) => {
     const params = new URLSearchParams();
@@ -122,6 +133,7 @@ export function AgentCallLogsView({
     if (filters.url) params.set("url", filters.url);
     if (filters.dispositions.length > 0) params.set("disposition", filters.dispositions.join(","));
     if (filters.statuses.length > 0) params.set("status", filters.statuses.join(","));
+    if (filters.countries.length > 0) params.set("country", filters.countries.join(","));
     router.push(`${pathname}?${params.toString()}`);
   };
 
@@ -313,7 +325,7 @@ export function AgentCallLogsView({
           {/* Expanded Filters */}
           {showFilters && (
             <div className="mt-4 pt-4 border-t border-border">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {/* Duration */}
                 <div>
                   <label className="block text-sm font-medium mb-1">
@@ -365,6 +377,16 @@ export function AgentCallLogsView({
                   />
                 </div>
 
+                {/* Country */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Country</label>
+                  <CountrySelector
+                    selected={filters.countries}
+                    onChange={(selected) => setFilters({ ...filters, countries: selected })}
+                    placeholder="All Countries"
+                  />
+                </div>
+
                 {/* Actions */}
                 <div className="flex items-end gap-2">
                   <button
@@ -410,6 +432,9 @@ export function AgentCallLogsView({
                     Duration
                   </th>
                   <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">
+                    Location
+                  </th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">
                     URL
                   </th>
                   <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">
@@ -453,6 +478,29 @@ export function AgentCallLogsView({
                           ? formatShortDuration(call.duration_seconds)
                           : "-"}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {call.visitor_city ? (
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const { flag, text } = formatLocationWithFlag(
+                              call.visitor_city,
+                              call.visitor_region,
+                              call.visitor_country_code
+                            );
+                            return (
+                              <>
+                                <span className="text-base flex-shrink-0">{flag}</span>
+                                <span className="text-sm" title={`${call.visitor_city}, ${call.visitor_region}, ${call.visitor_country}`}>
+                                  {text}
+                                </span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 max-w-[200px]">

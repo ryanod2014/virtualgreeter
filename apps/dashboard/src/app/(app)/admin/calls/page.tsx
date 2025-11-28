@@ -14,6 +14,7 @@ interface Props {
     url?: string;
     minDuration?: string;
     maxDuration?: string;
+    country?: string; // ISO country codes, comma-separated
   }>;
 }
 
@@ -57,6 +58,10 @@ export default async function CallsPage({ searchParams }: Props) {
       answer_time_seconds,
       disposition_id,
       pool_id,
+      visitor_city,
+      visitor_region,
+      visitor_country,
+      visitor_country_code,
       agent:agent_profiles(id, display_name),
       site:sites(id, name, domain),
       disposition:dispositions(id, name, color)
@@ -100,6 +105,13 @@ export default async function CallsPage({ searchParams }: Props) {
   }
   if (params.maxDuration) {
     query = query.lte("duration_seconds", parseInt(params.maxDuration));
+  }
+  if (params.country) {
+    // Country filter - filter by ISO country codes
+    const countryCodes = params.country.split(",").filter(Boolean).map(c => c.toUpperCase());
+    if (countryCodes.length > 0) {
+      query = query.in("visitor_country_code", countryCodes);
+    }
   }
 
   const { data: rawCalls } = await query.limit(500);

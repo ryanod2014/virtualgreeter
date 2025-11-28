@@ -45,6 +45,14 @@ export interface AgentState {
 /** Visitor session state */
 export type VisitorState = "browsing" | "watching_simulation" | "call_requested" | "in_call";
 
+/** Visitor location resolved from IP address */
+export interface VisitorLocation {
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  countryCode: string | null;
+}
+
 /** Visitor tracked by the signaling server */
 export interface VisitorSession {
   visitorId: string;
@@ -55,6 +63,8 @@ export interface VisitorSession {
   pageUrl: string;
   connectedAt: number;
   interactedAt: number | null;
+  ipAddress: string | null;
+  location: VisitorLocation | null;
 }
 
 // ----------------------------------------------------------------------------
@@ -216,6 +226,7 @@ export interface WebRTCSignalPayload {
 export type WidgetSize = "small" | "medium" | "large";
 export type WidgetPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left" | "center";
 export type WidgetDevices = "all" | "desktop" | "mobile";
+export type WidgetTheme = "light" | "dark" | "auto";
 
 export interface WidgetSettings {
   size: WidgetSize;
@@ -224,6 +235,7 @@ export interface WidgetSettings {
   trigger_delay: number; // seconds before widget appears
   auto_hide_delay: number | null; // seconds before widget auto-hides (null = never)
   show_minimize_button: boolean; // whether to show minimize/collapse button on widget
+  theme: WidgetTheme; // widget color theme - auto follows user's system preference
 }
 
 // Server -> Widget Payloads
@@ -262,7 +274,7 @@ export interface LoginSuccessPayload {
 
 export interface CallIncomingPayload {
   request: CallRequest;
-  visitor: Pick<VisitorSession, "visitorId" | "pageUrl" | "connectedAt">;
+  visitor: Pick<VisitorSession, "visitorId" | "pageUrl" | "connectedAt" | "location">;
 }
 
 export interface CallCancelledPayload {

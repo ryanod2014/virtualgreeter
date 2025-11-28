@@ -37,6 +37,9 @@ import {
 } from "@/lib/stats/agent-stats";
 import { DateRangePicker } from "@/lib/components/date-range-picker";
 import { MultiSelectDropdown } from "@/lib/components/multi-select-dropdown";
+import { CountrySelector } from "@/lib/components/country-selector";
+import { formatLocationWithFlag } from "@/lib/utils/country-flag";
+import { getCountryByCode } from "@/lib/utils/countries";
 
 interface Agent {
   id: string;
@@ -60,6 +63,10 @@ interface CallLogWithRelations extends CallLogForStats {
   agent: Agent | null;
   site: { id: string; name: string; domain: string } | null;
   disposition: Disposition | null;
+  visitor_city: string | null;
+  visitor_region: string | null;
+  visitor_country: string | null;
+  visitor_country_code: string | null;
 }
 
 interface FilterParams {
@@ -72,6 +79,7 @@ interface FilterParams {
   url?: string;
   minDuration?: string;
   maxDuration?: string;
+  country?: string; // ISO country codes, comma-separated
 }
 
 interface Props {
@@ -116,6 +124,7 @@ export function CallsClient({
     agents: currentFilters.agent?.split(",").filter(Boolean) ?? [],
     statuses: currentFilters.status?.split(",").filter(Boolean) ?? [],
     pools: currentFilters.pool?.split(",").filter(Boolean) ?? [],
+    countries: currentFilters.country?.split(",").filter(Boolean) ?? [],
     url: currentFilters.url ?? "",
     minDuration: currentFilters.minDuration ?? "",
     maxDuration: currentFilters.maxDuration ?? "",
@@ -133,6 +142,7 @@ export function CallsClient({
     if (filters.agents.length > 0) params.set("agent", filters.agents.join(","));
     if (filters.statuses.length > 0) params.set("status", filters.statuses.join(","));
     if (filters.pools.length > 0) params.set("pool", filters.pools.join(","));
+    if (filters.countries.length > 0) params.set("country", filters.countries.join(","));
     if (filters.url) params.set("url", filters.url);
     if (filters.minDuration) params.set("minDuration", filters.minDuration);
     if (filters.maxDuration) params.set("maxDuration", filters.maxDuration);
@@ -146,6 +156,7 @@ export function CallsClient({
       agents: [],
       statuses: [],
       pools: [],
+      countries: [],
       url: "",
       minDuration: "",
       maxDuration: "",
@@ -162,6 +173,7 @@ export function CallsClient({
     filters.agents.length > 0 ||
     filters.statuses.length > 0 ||
     filters.pools.length > 0 ||
+    filters.countries.length > 0 ||
     filters.url ||
     filters.minDuration ||
     filters.maxDuration;
@@ -176,6 +188,7 @@ export function CallsClient({
     if (filters.agents.length > 0) params.set("agent", filters.agents.join(","));
     if (filters.statuses.length > 0) params.set("status", filters.statuses.join(","));
     if (filters.pools.length > 0) params.set("pool", filters.pools.join(","));
+    if (filters.countries.length > 0) params.set("country", filters.countries.join(","));
     if (filters.url) params.set("url", filters.url);
     if (filters.minDuration) params.set("minDuration", filters.minDuration);
     if (filters.maxDuration) params.set("maxDuration", filters.maxDuration);
@@ -196,6 +209,7 @@ export function CallsClient({
     if (filters.dispositions.length > 0) params.set("disposition", filters.dispositions.join(","));
     if (filters.agents.length > 0) params.set("agent", filters.agents.join(","));
     if (filters.pools.length > 0) params.set("pool", filters.pools.join(","));
+    if (filters.countries.length > 0) params.set("country", filters.countries.join(","));
     
     router.push(`${pathname}?${params.toString()}`);
   };
@@ -382,7 +396,7 @@ export function CallsClient({
         {/* Expanded Filters */}
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-border">
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
               {/* Pool */}
               <div>
                 <label className="block text-sm font-medium mb-1">Agent Pool</label>
@@ -427,6 +441,16 @@ export function CallsClient({
                 />
               </div>
 
+              {/* Country */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Country</label>
+                <CountrySelector
+                  selected={filters.countries}
+                  onChange={(selected) => setFilters({ ...filters, countries: selected })}
+                  placeholder="All Countries"
+                />
+              </div>
+
               {/* Duration Range */}
               <div>
                 <label className="block text-sm font-medium mb-1">
@@ -455,7 +479,7 @@ export function CallsClient({
               </div>
 
               {/* Actions */}
-              <div className="flex items-end gap-2 col-span-2 lg:col-span-2">
+              <div className="flex items-end gap-2 col-span-2">
                 <button
                   onClick={applyFilters}
                   className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90"
@@ -678,6 +702,9 @@ export function CallsClient({
                   Duration
                 </th>
                 <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">
+                  Location
+                </th>
+                <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">
                   URL
                 </th>
                 <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">
@@ -858,6 +885,29 @@ function CallLogRow({
               : "-"}
           </span>
         </div>
+      </td>
+      <td className="px-6 py-4">
+        {call.visitor_city ? (
+          <div className="flex items-center gap-2">
+            {(() => {
+              const { flag, text } = formatLocationWithFlag(
+                call.visitor_city,
+                call.visitor_region,
+                call.visitor_country_code
+              );
+              return (
+                <>
+                  <span className="text-base flex-shrink-0">{flag}</span>
+                  <span className="text-sm" title={`${call.visitor_city}, ${call.visitor_region}, ${call.visitor_country}`}>
+                    {text}
+                  </span>
+                </>
+              );
+            })()}
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">-</span>
+        )}
       </td>
       <td className="px-6 py-4">
         <div className="flex items-center gap-2 max-w-[200px]">

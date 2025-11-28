@@ -17,7 +17,7 @@ import { SIZE_DIMENSIONS, Z_INDEX, ANIMATION_TIMING } from "./constants";
  */
 const CSS_VARIABLES = `
   :host {
-    /* Base colors */
+    /* Base colors - Dark theme (default) */
     --gg-bg: #0f0f14;
     --gg-surface: #1a1a24;
     --gg-border: #2a2a3a;
@@ -54,6 +54,66 @@ const CSS_VARIABLES = `
     /* Transitions */
     --gg-transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     --gg-transition-fast: 0.2s ease;
+  }
+
+  /* Light theme - host selector */
+  :host(.gg-theme-light) {
+    /* Base colors - Light theme */
+    --gg-bg: #ffffff;
+    --gg-surface: #f8f9fa;
+    --gg-border: #e5e7eb;
+    
+    /* Text colors */
+    --gg-text: #1f2937;
+    --gg-text-muted: #6b7280;
+    
+    /* Shadows - lighter for light theme */
+    --gg-shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    --gg-shadow-md: 0 4px 20px rgba(99, 102, 241, 0.25);
+    --gg-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Light theme - widget class selector (fallback) */
+  .gg-widget.gg-theme-light {
+    --gg-bg: #ffffff;
+    --gg-surface: #f8f9fa;
+    --gg-border: #e5e7eb;
+    --gg-text: #1f2937;
+    --gg-text-muted: #6b7280;
+    --gg-shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    --gg-shadow-md: 0 4px 20px rgba(99, 102, 241, 0.25);
+    --gg-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Auto theme - follows system preference (host selector) */
+  @media (prefers-color-scheme: light) {
+    :host(.gg-theme-auto) {
+      /* Base colors - Light theme */
+      --gg-bg: #ffffff;
+      --gg-surface: #f8f9fa;
+      --gg-border: #e5e7eb;
+      
+      /* Text colors */
+      --gg-text: #1f2937;
+      --gg-text-muted: #6b7280;
+      
+      /* Shadows - lighter for light theme */
+      --gg-shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+      --gg-shadow-md: 0 4px 20px rgba(99, 102, 241, 0.25);
+      --gg-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Auto theme - widget class selector (fallback) */
+    .gg-widget.gg-theme-auto {
+      --gg-bg: #ffffff;
+      --gg-surface: #f8f9fa;
+      --gg-border: #e5e7eb;
+      --gg-text: #1f2937;
+      --gg-text-muted: #6b7280;
+      --gg-shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+      --gg-shadow-md: 0 4px 20px rgba(99, 102, 241, 0.25);
+      --gg-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
   }
 `;
 
@@ -146,13 +206,20 @@ const WIDGET_STYLES = `
     transform: translate(-50%, -50%);
   }
 
-  .gg-widget.center.gg-dragging {
+  .gg-widget.center.gg-dragging,
+  .gg-widget.center.gg-snapping {
     transform: none;
   }
 
   .gg-widget.gg-dragging {
     transition: none;
     cursor: grabbing;
+  }
+
+  .gg-widget.gg-snapping {
+    transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+                top 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .gg-widget.gg-fullscreen {
@@ -550,6 +617,214 @@ const MINIMIZED_STYLES = `
     75%, 100% {
       transform: scale(1.4);
       opacity: 0;
+    }
+  }
+`;
+
+/**
+ * Light theme specific overrides
+ * These handle elements that need special treatment beyond CSS variables
+ * Supports both :host() selector and .gg-widget class selector for compatibility
+ */
+const LIGHT_THEME_OVERRIDES = `
+  /* Light theme container border */
+  :host(.gg-theme-light) .gg-container,
+  .gg-widget.gg-theme-light .gg-container {
+    border: 1px solid var(--gg-border);
+  }
+
+  :host(.gg-theme-auto) .gg-container,
+  .gg-widget.gg-theme-auto .gg-container {
+    border: 1px solid var(--gg-border);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host(.gg-theme-auto) .gg-container,
+    .gg-widget.gg-theme-auto .gg-container {
+      border: none;
+    }
+  }
+
+  /* Light theme video controls */
+  :host(.gg-theme-light) .gg-video-control-btn,
+  .gg-widget.gg-theme-light .gg-video-control-btn {
+    background: rgba(255, 255, 255, 0.85);
+    color: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  :host(.gg-theme-light) .gg-video-control-btn:hover,
+  .gg-widget.gg-theme-light .gg-video-control-btn:hover {
+    background: rgba(255, 255, 255, 0.95);
+    color: #000;
+  }
+
+  :host(.gg-theme-auto) .gg-video-control-btn,
+  .gg-widget.gg-theme-auto .gg-video-control-btn {
+    background: rgba(255, 255, 255, 0.85);
+    color: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  :host(.gg-theme-auto) .gg-video-control-btn:hover,
+  .gg-widget.gg-theme-auto .gg-video-control-btn:hover {
+    background: rgba(255, 255, 255, 0.95);
+    color: #000;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host(.gg-theme-auto) .gg-video-control-btn,
+    .gg-widget.gg-theme-auto .gg-video-control-btn {
+      background: rgba(0, 0, 0, 0.6);
+      color: rgba(255, 255, 255, 0.8);
+      border: none;
+    }
+    :host(.gg-theme-auto) .gg-video-control-btn:hover,
+    .gg-widget.gg-theme-auto .gg-video-control-btn:hover {
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+    }
+  }
+
+  /* Light theme self view */
+  :host(.gg-theme-light) .gg-self-view,
+  .gg-widget.gg-theme-light .gg-self-view {
+    border-color: rgba(0, 0, 0, 0.1);
+    background: #f3f4f6;
+  }
+
+  :host(.gg-theme-light) .gg-self-view-active,
+  .gg-widget.gg-theme-light .gg-self-view-active {
+    border-color: rgba(99, 102, 241, 0.5);
+  }
+
+  :host(.gg-theme-auto) .gg-self-view,
+  .gg-widget.gg-theme-auto .gg-self-view {
+    border-color: rgba(0, 0, 0, 0.1);
+    background: #f3f4f6;
+  }
+
+  :host(.gg-theme-auto) .gg-self-view-active,
+  .gg-widget.gg-theme-auto .gg-self-view-active {
+    border-color: rgba(99, 102, 241, 0.5);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host(.gg-theme-auto) .gg-self-view,
+    .gg-widget.gg-theme-auto .gg-self-view {
+      border-color: rgba(255, 255, 255, 0.1);
+      background: var(--gg-surface);
+    }
+  }
+
+  /* Light theme control buttons */
+  :host(.gg-theme-light) .gg-control-off,
+  .gg-widget.gg-theme-light .gg-control-off {
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  :host(.gg-theme-light) .gg-control-on,
+  .gg-widget.gg-theme-light .gg-control-on {
+    background: rgba(34, 197, 94, 0.1);
+  }
+
+  :host(.gg-theme-auto) .gg-control-off,
+  .gg-widget.gg-theme-auto .gg-control-off {
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  :host(.gg-theme-auto) .gg-control-on,
+  .gg-widget.gg-theme-auto .gg-control-on {
+    background: rgba(34, 197, 94, 0.1);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host(.gg-theme-auto) .gg-control-off,
+    .gg-widget.gg-theme-auto .gg-control-off {
+      background: rgba(239, 68, 68, 0.2);
+    }
+    :host(.gg-theme-auto) .gg-control-on,
+    .gg-widget.gg-theme-auto .gg-control-on {
+      background: rgba(34, 197, 94, 0.2);
+    }
+  }
+
+  /* Light theme badges */
+  :host(.gg-theme-light) .gg-live-badge,
+  .gg-widget.gg-theme-light .gg-live-badge {
+    background: rgba(255, 255, 255, 0.9);
+    color: #1f2937;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  :host(.gg-theme-auto) .gg-live-badge,
+  .gg-widget.gg-theme-auto .gg-live-badge {
+    background: rgba(255, 255, 255, 0.9);
+    color: #1f2937;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host(.gg-theme-auto) .gg-live-badge,
+    .gg-widget.gg-theme-auto .gg-live-badge {
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      border: none;
+    }
+  }
+
+  /* Light theme waiting indicator */
+  :host(.gg-theme-light) .gg-waiting-indicator,
+  .gg-widget.gg-theme-light .gg-waiting-indicator {
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.8));
+    color: var(--gg-text);
+  }
+
+  :host(.gg-theme-auto) .gg-waiting-indicator,
+  .gg-widget.gg-theme-auto .gg-waiting-indicator {
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.8));
+    color: var(--gg-text);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host(.gg-theme-auto) .gg-waiting-indicator,
+    .gg-widget.gg-theme-auto .gg-waiting-indicator {
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.6));
+      color: var(--gg-text);
+    }
+  }
+
+  /* Light theme powered by footer */
+  :host(.gg-theme-light) .gg-powered-by,
+  .gg-widget.gg-theme-light .gg-powered-by {
+    background: rgba(0, 0, 0, 0.03);
+    border-top-color: var(--gg-border);
+  }
+
+  :host(.gg-theme-light) .gg-powered-by:hover,
+  .gg-widget.gg-theme-light .gg-powered-by:hover {
+    background: rgba(99, 102, 241, 0.05);
+  }
+
+  :host(.gg-theme-auto) .gg-powered-by,
+  .gg-widget.gg-theme-auto .gg-powered-by {
+    background: rgba(0, 0, 0, 0.03);
+    border-top-color: var(--gg-border);
+  }
+
+  :host(.gg-theme-auto) .gg-powered-by:hover,
+  .gg-widget.gg-theme-auto .gg-powered-by:hover {
+    background: rgba(99, 102, 241, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host(.gg-theme-auto) .gg-powered-by,
+    .gg-widget.gg-theme-auto .gg-powered-by {
+      background: rgba(0, 0, 0, 0.3);
+    }
+    :host(.gg-theme-auto) .gg-powered-by:hover,
+    .gg-widget.gg-theme-auto .gg-powered-by:hover {
+      background: rgba(99, 102, 241, 0.1);
     }
   }
 `;
@@ -1138,6 +1413,7 @@ export function getWidgetStyles(): string {
     ERROR_TOAST_STYLES,
     POWERED_BY_STYLES,
     RESPONSIVE_STYLES,
+    LIGHT_THEME_OVERRIDES,
   ].join("\n");
 }
 

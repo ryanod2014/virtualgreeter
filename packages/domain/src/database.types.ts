@@ -40,6 +40,7 @@ export interface RecordingSettings {
 export type WidgetSize = "small" | "medium" | "large";
 export type WidgetPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left" | "center";
 export type WidgetDevices = "all" | "desktop" | "mobile";
+export type WidgetTheme = "light" | "dark" | "auto";
 
 export interface WidgetSettings {
   size: WidgetSize;
@@ -48,6 +49,7 @@ export interface WidgetSettings {
   trigger_delay: number; // seconds before widget appears
   auto_hide_delay: number | null; // seconds before widget auto-hides (null = never)
   show_minimize_button: boolean; // whether to show minimize/collapse button on widget
+  theme: WidgetTheme; // widget color theme - auto follows user's system preference
 }
 
 // Facebook integration settings for organization
@@ -122,6 +124,7 @@ export interface Database {
           recording_settings: RecordingSettings;
           facebook_settings: FacebookSettings;
           default_widget_settings: WidgetSettings;
+          blocked_countries: string[]; // ISO 3166-1 alpha-2 country codes (e.g., ['CN', 'RU'])
           // Stripe billing fields
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;

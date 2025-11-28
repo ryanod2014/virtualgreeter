@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from "./supabase.js";
+import type { VisitorLocation } from "@ghost-greeter/domain";
 
 export interface CallLogEntry {
   id?: string;
@@ -16,6 +17,11 @@ export interface CallLogEntry {
   ended_at?: string;
   recording_url?: string;
   disposition_id?: string;
+  visitor_ip?: string;
+  visitor_city?: string;
+  visitor_region?: string;
+  visitor_country?: string;
+  visitor_country_code?: string;
 }
 
 // In-memory map to track call log IDs for active calls
@@ -32,6 +38,8 @@ export async function createCallLog(
     agentId: string;
     orgId: string;
     pageUrl: string;
+    ipAddress?: string | null;
+    location?: VisitorLocation | null;
   }
 ): Promise<string | null> {
   if (!isSupabaseConfigured || !supabase) {
@@ -68,6 +76,12 @@ export async function createCallLog(
         status: "pending",
         page_url: data.pageUrl,
         ring_started_at: now,
+        // Location data
+        visitor_ip: data.ipAddress ?? null,
+        visitor_city: data.location?.city ?? null,
+        visitor_region: data.location?.region ?? null,
+        visitor_country: data.location?.country ?? null,
+        visitor_country_code: data.location?.countryCode ?? null,
       })
       .select("id")
       .single();
@@ -79,7 +93,7 @@ export async function createCallLog(
 
     // Store the mapping
     callLogIds.set(requestId, callLog.id);
-    console.log(`[CallLogger] Created call log ${callLog.id} for request ${requestId}`);
+    console.log(`[CallLogger] Created call log ${callLog.id} for request ${requestId}${data.location ? ` (${data.location.city}, ${data.location.region})` : ""}`);
     return callLog.id;
   } catch (err) {
     console.error("[CallLogger] Error creating call log:", err);

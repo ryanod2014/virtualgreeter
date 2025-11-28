@@ -42,6 +42,8 @@ import {
 import { recordEmbedVerification } from "../../lib/embed-tracker.js";
 import { recordPageview } from "../../lib/pageview-logger.js";
 import { getWidgetSettings } from "../../lib/widget-settings.js";
+import { getClientIP, getLocationFromIP } from "../../lib/geolocation.js";
+import { isCountryBlocked } from "../../lib/country-blocklist.js";
 
 // Track RNA (Ring-No-Answer) timeouts
 const rnaTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -74,13 +76,45 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       
       const visitorId = data.visitorId ?? `visitor_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
       
+      // Get visitor's IP address from socket handshake
+      const ipAddress = getClientIP(socket.handshake);
+      console.log("[Socket] Visitor IP:", ipAddress);
+      
+      // Resolve location FIRST to check country blocklist
+      let location = null;
+      try {
+        location = await getLocationFromIP(ipAddress);
+        if (location) {
+          console.log(`[Socket] Visitor ${visitorId} location resolved: ${location.city}, ${location.region}, ${location.countryCode}`);
+        }
+      } catch {
+        // Silently ignore - geolocation is best-effort
+      }
+      
+      // Check if visitor's country is blocked
+      const countryBlocked = await isCountryBlocked(data.orgId, location?.countryCode ?? null);
+      if (countryBlocked) {
+        console.log(`[Socket] 🚫 Visitor ${visitorId} blocked from country: ${location?.countryCode}`);
+        // Silently disconnect - don't show widget to blocked countries
+        // We don't emit an error because we don't want to reveal we're blocking
+        socket.disconnect(true);
+        return;
+      }
+      
+      // Register visitor (country not blocked)
       const session = poolManager.registerVisitor(
         socket.id,
         visitorId,
         data.orgId,
-        data.pageUrl
+        data.pageUrl,
+        ipAddress
       );
       console.log("[Socket] Visitor registered:", visitorId);
+      
+      // Update visitor's location if we resolved it
+      if (location) {
+        poolManager.updateVisitorLocation(visitorId, location);
+      }
 
       // Find and assign best agent using path-based routing
       const result = poolManager.findBestAgentForVisitor(data.orgId, data.pageUrl);
@@ -223,6 +257,8 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         agentId: targetAgentId,
         orgId: visitor.orgId,
         pageUrl: visitor.pageUrl,
+        ipAddress: visitor.ipAddress,
+        location: visitor.location,
       });
 
       // If agent is available, notify them immediately
@@ -236,6 +272,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
               visitorId: visitor.visitorId,
               pageUrl: visitor.pageUrl,
               connectedAt: visitor.connectedAt,
+              location: visitor.location,
             },
           });
 
@@ -410,6 +447,8 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
                 agentId: newAgent.agentId,
                 orgId: visitor.orgId,
                 pageUrl: visitor.pageUrl,
+                ipAddress: visitor.ipAddress,
+                location: visitor.location,
               });
               
               // Notify new agent
@@ -421,6 +460,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
                     visitorId: visitor.visitorId,
                     pageUrl: visitor.pageUrl,
                     connectedAt: visitor.connectedAt,
+                    location: visitor.location,
                   },
                 });
                 startRNATimeout(io, poolManager, newRequest.requestId, newAgent.agentId, visitor.visitorId);
@@ -453,6 +493,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
                 visitorId: visitor.visitorId,
                 pageUrl: visitor.pageUrl,
                 connectedAt: visitor.connectedAt,
+                location: visitor.location,
               },
             });
             startRNATimeout(io, poolManager, waitingRequest.requestId, agent.agentId, visitor.visitorId);
@@ -555,6 +596,8 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
             agentId: request.agentId,
             orgId: request.orgId,
             pageUrl: request.pageUrl,
+            ipAddress: visitor.ipAddress,
+            location: visitor.location,
           });
         }
         
@@ -610,6 +653,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
                     visitorId: waitingVisitor.visitorId,
                     pageUrl: waitingVisitor.pageUrl,
                     connectedAt: waitingVisitor.connectedAt,
+                    location: waitingVisitor.location,
                   },
                 });
               }
@@ -925,6 +969,8 @@ function startRNATimeout(
           agentId: newAgent.agentId,
           orgId: visitor.orgId,
           pageUrl: visitor.pageUrl,
+          ipAddress: visitor.ipAddress,
+          location: visitor.location,
         });
 
         // Notify new agent
@@ -936,6 +982,7 @@ function startRNATimeout(
               visitorId: visitor.visitorId,
               pageUrl: visitor.pageUrl,
               connectedAt: visitor.connectedAt,
+              location: visitor.location,
             },
           });
           
