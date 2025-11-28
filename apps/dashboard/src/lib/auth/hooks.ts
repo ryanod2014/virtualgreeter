@@ -90,6 +90,10 @@ export function useAuth(): AuthState & {
         if (event === "SIGNED_IN" && session?.user) {
           setState((prev) => ({ ...prev, user: session.user, isLoading: true }));
           await loadUserData(session.user.id);
+        } else if (event === "PASSWORD_RECOVERY" && session?.user) {
+          // Handle password recovery flow - user clicked reset link in email
+          // Set user but don't load full profile data (they're on reset page)
+          setState((prev) => ({ ...prev, user: session.user, isLoading: false }));
         } else if (event === "SIGNED_OUT") {
           setState({
             user: null,

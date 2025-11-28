@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useState, useRef, useMemo, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   Phone,
   PhoneIncoming,
@@ -15,7 +15,6 @@ import {
   X as XIcon,
   User,
   CheckCircle,
-  Search,
   Play,
   Pause,
   Download,
@@ -27,6 +26,7 @@ import {
   Users,
   Eye,
   ArrowRightLeft,
+  FileDown,
 } from "lucide-react";
 import {
   calculateAgentStats,
@@ -38,6 +38,12 @@ import {
 import { DateRangePicker } from "@/lib/components/date-range-picker";
 import { MultiSelectDropdown } from "@/lib/components/multi-select-dropdown";
 import { CountrySelector } from "@/lib/components/country-selector";
+import { 
+  CallLogFilterConditions, 
+  type FilterCondition,
+  deserializeConditions,
+  serializeConditions,
+} from "@/lib/components/call-log-filter-conditions";
 import { formatLocationWithFlag } from "@/lib/utils/country-flag";
 import { getCountryByCode } from "@/lib/utils/countries";
 
@@ -76,7 +82,7 @@ interface FilterParams {
   status?: string;
   disposition?: string;
   pool?: string;
-  url?: string;
+  urlConditions?: string; // JSON-encoded filter conditions
   minDuration?: string;
   maxDuration?: string;
   country?: string; // ISO country codes, comma-separated
@@ -108,11 +114,10 @@ export function CallsClient({
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const stats = calculateAgentStats(calls, dispositions);
+  const searchParams = useSearchParams();
 
   const [showFilters, setShowFilters] = useState(false);
   const [showDetailedStats, setShowDetailedStats] = useState(false);
-  const [urlSearch, setUrlSearch] = useState(currentFilters.url ?? "");
   const [playingCallId, setPlayingCallId] = useState<string | null>(null);
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
   const [videoModalCallId, setVideoModalCallId] = useState<string | null>(null);
@@ -124,11 +129,62 @@ export function CallsClient({
     agents: currentFilters.agent?.split(",").filter(Boolean) ?? [],
     statuses: currentFilters.status?.split(",").filter(Boolean) ?? [],
     pools: currentFilters.pool?.split(",").filter(Boolean) ?? [],
+    urlConditions: deserializeConditions(currentFilters.urlConditions),
     countries: currentFilters.country?.split(",").filter(Boolean) ?? [],
-    url: currentFilters.url ?? "",
     minDuration: currentFilters.minDuration ?? "",
     maxDuration: currentFilters.maxDuration ?? "",
   });
+
+  // Apply URL conditions filtering client-side
+  const filteredCalls = useMemo(() => {
+    if (filters.urlConditions.length === 0) return calls;
+    
+    return calls.filter((call) => {
+      // All conditions must match (AND logic)
+      return filters.urlConditions.every((condition: FilterCondition) => {
+        const url = call.page_url || "";
+        let valueToCheck = "";
+        
+        try {
+          const parsedUrl = new URL(url);
+          switch (condition.type) {
+            case "domain":
+              valueToCheck = parsedUrl.hostname;
+              break;
+            case "path":
+              valueToCheck = parsedUrl.pathname;
+              break;
+            case "query_param":
+              valueToCheck = parsedUrl.searchParams.get(condition.paramName || "") || "";
+              break;
+          }
+        } catch {
+          // If URL parsing fails, use the raw URL for matching
+          valueToCheck = url;
+        }
+        
+        const searchValue = condition.value.toLowerCase();
+        const checkValue = valueToCheck.toLowerCase();
+        
+        switch (condition.matchType) {
+          case "is_exactly":
+            return checkValue === searchValue;
+          case "contains":
+            return checkValue.includes(searchValue);
+          case "does_not_contain":
+            return !checkValue.includes(searchValue);
+          case "starts_with":
+            return checkValue.startsWith(searchValue);
+          case "ends_with":
+            return checkValue.endsWith(searchValue);
+          default:
+            return true;
+        }
+      });
+    });
+  }, [calls, filters.urlConditions]);
+
+  const stats = calculateAgentStats(filteredCalls, dispositions);
 
   const applyFilters = () => {
     const params = new URLSearchParams();
@@ -142,8 +198,9 @@ export function CallsClient({
     if (filters.agents.length > 0) params.set("agent", filters.agents.join(","));
     if (filters.statuses.length > 0) params.set("status", filters.statuses.join(","));
     if (filters.pools.length > 0) params.set("pool", filters.pools.join(","));
+    const serializedConditions = serializeConditions(filters.urlConditions);
+    if (serializedConditions) params.set("urlConditions", serializedConditions);
     if (filters.countries.length > 0) params.set("country", filters.countries.join(","));
-    if (filters.url) params.set("url", filters.url);
     if (filters.minDuration) params.set("minDuration", filters.minDuration);
     if (filters.maxDuration) params.set("maxDuration", filters.maxDuration);
 
@@ -156,12 +213,11 @@ export function CallsClient({
       agents: [],
       statuses: [],
       pools: [],
+      urlConditions: [],
       countries: [],
-      url: "",
       minDuration: "",
       maxDuration: "",
     });
-    setUrlSearch("");
     const params = new URLSearchParams();
     params.set("from", dateRange.from.split("T")[0]);
     params.set("to", dateRange.to.split("T")[0]);
@@ -173,10 +229,50 @@ export function CallsClient({
     filters.agents.length > 0 ||
     filters.statuses.length > 0 ||
     filters.pools.length > 0 ||
+    filters.urlConditions.some((c: FilterCondition) => c.value.trim() !== "") ||
     filters.countries.length > 0 ||
-    filters.url ||
     filters.minDuration ||
     filters.maxDuration;
+
+  // Check if current filter state differs from what's applied (URL params)
+  const hasUnsavedChanges = useMemo(() => {
+    const appliedDispositions = currentFilters.disposition?.split(",").filter(Boolean) ?? [];
+    const appliedAgents = currentFilters.agent?.split(",").filter(Boolean) ?? [];
+    const appliedStatuses = currentFilters.status?.split(",").filter(Boolean) ?? [];
+    const appliedPools = currentFilters.pool?.split(",").filter(Boolean) ?? [];
+    const appliedConditions = deserializeConditions(currentFilters.urlConditions);
+    const appliedCountries = currentFilters.country?.split(",").filter(Boolean) ?? [];
+    const appliedMinDuration = currentFilters.minDuration ?? "";
+    const appliedMaxDuration = currentFilters.maxDuration ?? "";
+
+    // Compare arrays (order doesn't matter)
+    const arraysEqual = (a: string[], b: string[]) => 
+      a.length === b.length && a.every(v => b.includes(v)) && b.every(v => a.includes(v));
+    
+    // Compare URL conditions
+    const conditionsEqual = (a: FilterCondition[], b: FilterCondition[]) => {
+      const validA = a.filter(c => c.value.trim() !== "");
+      const validB = b.filter(c => c.value.trim() !== "");
+      if (validA.length !== validB.length) return false;
+      return validA.every((cA, i) => 
+        cA.type === validB[i]?.type && 
+        cA.matchType === validB[i]?.matchType && 
+        cA.value === validB[i]?.value &&
+        cA.paramName === validB[i]?.paramName
+      );
+    };
+
+    return (
+      !arraysEqual(filters.dispositions, appliedDispositions) ||
+      !arraysEqual(filters.agents, appliedAgents) ||
+      !arraysEqual(filters.statuses, appliedStatuses) ||
+      !arraysEqual(filters.pools, appliedPools) ||
+      !arraysEqual(filters.countries, appliedCountries) ||
+      !conditionsEqual(filters.urlConditions, appliedConditions) ||
+      filters.minDuration !== appliedMinDuration ||
+      filters.maxDuration !== appliedMaxDuration
+    );
+  }, [filters, currentFilters]);
 
   const handleDateRangeChange = (from: Date, to: Date) => {
     const params = new URLSearchParams();
@@ -188,29 +284,12 @@ export function CallsClient({
     if (filters.agents.length > 0) params.set("agent", filters.agents.join(","));
     if (filters.statuses.length > 0) params.set("status", filters.statuses.join(","));
     if (filters.pools.length > 0) params.set("pool", filters.pools.join(","));
+    const serializedConditions = serializeConditions(filters.urlConditions);
+    if (serializedConditions) params.set("urlConditions", serializedConditions);
     if (filters.countries.length > 0) params.set("country", filters.countries.join(","));
-    if (filters.url) params.set("url", filters.url);
     if (filters.minDuration) params.set("minDuration", filters.minDuration);
     if (filters.maxDuration) params.set("maxDuration", filters.maxDuration);
 
-    router.push(`${pathname}?${params.toString()}`);
-  };
-
-  // Quick filter by clicking on stat cards
-  const applyStatusFilter = (status: string) => {
-    const newStatuses = filters.statuses.includes(status)
-      ? filters.statuses.filter((s) => s !== status)
-      : [status];
-    
-    const params = new URLSearchParams();
-    params.set("from", dateRange.from.split("T")[0]);
-    params.set("to", dateRange.to.split("T")[0]);
-    if (newStatuses.length > 0) params.set("status", newStatuses.join(","));
-    if (filters.dispositions.length > 0) params.set("disposition", filters.dispositions.join(","));
-    if (filters.agents.length > 0) params.set("agent", filters.agents.join(","));
-    if (filters.pools.length > 0) params.set("pool", filters.pools.join(","));
-    if (filters.countries.length > 0) params.set("country", filters.countries.join(","));
-    
     router.push(`${pathname}?${params.toString()}`);
   };
 
@@ -233,11 +312,6 @@ export function CallsClient({
     value: a.id,
     label: a.display_name,
     icon: <User className="w-3 h-3 text-primary" />,
-  }));
-
-  const poolOptions = pools.map((p) => ({
-    value: p.id,
-    label: p.name,
   }));
 
   const handlePlayRecording = (callId: string, recordingUrl: string) => {
@@ -283,6 +357,80 @@ export function CallsClient({
       console.error('Download failed:', error);
       window.open(url, '_blank');
     }
+  };
+
+  // Auto-open recording modal from URL params
+  useEffect(() => {
+    const callId = searchParams.get("callId");
+    const autoplay = searchParams.get("autoplay");
+    
+    if (callId && autoplay === "true") {
+      const call = calls.find((c) => c.id === callId);
+      if (call?.recording_url) {
+        setVideoModalUrl(call.recording_url);
+        setVideoModalCallId(call.id);
+      }
+    }
+  }, [searchParams, calls]);
+
+  // Download filtered calls as CSV
+  const downloadCSV = () => {
+    const headers = [
+      "Date",
+      "Time",
+      "Agent",
+      "Status",
+      "Duration (seconds)",
+      "City",
+      "Region",
+      "Country",
+      "Page URL",
+      "Disposition",
+      "Recording",
+    ];
+
+    const escapeCSV = (value: string | null | undefined): string => {
+      if (value == null) return "";
+      const str = String(value);
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = filteredCalls.map((call) => {
+      const date = new Date(call.created_at);
+      const recordingLink = call.recording_url
+        ? `${window.location.origin}/admin/calls?callId=${call.id}&autoplay=true`
+        : "";
+
+      return [
+        date.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" }),
+        date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }),
+        call.agent?.display_name ?? "",
+        call.status,
+        call.duration_seconds?.toString() ?? "",
+        call.visitor_city ?? "",
+        call.visitor_region ?? "",
+        call.visitor_country ?? "",
+        call.page_url ?? "",
+        call.disposition?.name ?? "",
+        recordingLink,
+      ].map(escapeCSV).join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const fromDate = dateRange.from.split("T")[0];
+    const toDate = dateRange.to.split("T")[0];
+    link.download = `call-logs_${fromDate}_to_${toDate}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -356,55 +504,50 @@ export function CallsClient({
             onRangeChange={handleDateRangeChange}
           />
 
-          {/* Quick URL Search */}
-          <div className="flex-1 max-w-md relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search by URL..."
-              value={urlSearch}
-              onChange={(e) => {
-                setUrlSearch(e.target.value);
-                setFilters({ ...filters, url: e.target.value });
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  applyFilters();
-                }
-              }}
-              className="w-full pl-10 pr-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-            />
-          </div>
-
-          {/* Filter Toggle */}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              showFilters || hasActiveFilters
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted hover:bg-muted/80"
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-            Filters
-            {hasActiveFilters && (
-              <span className="w-2 h-2 rounded-full bg-white" />
+          <div className="flex items-center gap-2">
+            {/* CSV Download */}
+            {filteredCalls.length > 0 && (
+              <button
+                onClick={downloadCSV}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                title="Download filtered calls as CSV"
+              >
+                <FileDown className="w-4 h-4" />
+                Export CSV
+              </button>
             )}
-          </button>
+
+            {/* Filter Toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                showFilters || hasActiveFilters
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted hover:bg-muted/80"
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              Filters
+              {hasActiveFilters && (
+                <span className="w-2 h-2 rounded-full bg-white" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Expanded Filters */}
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-border">
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-              {/* Pool */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Agent Pool</label>
-                <MultiSelectDropdown
-                  options={poolOptions}
-                  selected={filters.pools}
-                  onChange={(selected) => setFilters({ ...filters, pools: selected })}
-                  placeholder="All Pools"
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+              {/* Pool & URL */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Pool & URL</label>
+                <CallLogFilterConditions
+                  pools={pools}
+                  selectedPools={filters.pools}
+                  conditions={filters.urlConditions}
+                  onPoolsChange={(selected) => setFilters({ ...filters, pools: selected })}
+                  onConditionsChange={(conditions) => setFilters({ ...filters, urlConditions: conditions })}
                 />
               </div>
 
@@ -442,7 +585,7 @@ export function CallsClient({
               </div>
 
               {/* Country */}
-              <div className="col-span-2">
+              <div>
                 <label className="block text-sm font-medium mb-1">Country</label>
                 <CountrySelector
                   selected={filters.countries}
@@ -479,12 +622,17 @@ export function CallsClient({
               </div>
 
               {/* Actions */}
-              <div className="flex items-end gap-2 col-span-2">
+              <div className="flex items-end gap-2">
                 <button
                   onClick={applyFilters}
-                  className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90"
+                  disabled={!hasUnsavedChanges}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
+                    hasUnsavedChanges
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "bg-muted text-muted-foreground cursor-default opacity-50"
+                  }`}
                 >
-                  Apply
+                  {hasUnsavedChanges ? "Apply" : "Applied"}
                 </button>
                 {hasActiveFilters && (
                   <button
@@ -535,7 +683,7 @@ export function CallsClient({
         </div>
       )}
 
-      {/* Main Stats Grid - Clickable for quick filtering */}
+      {/* Main Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
         <StatCard
           title="Pageviews"
@@ -555,16 +703,12 @@ export function CallsClient({
           value={stats.totalAnswers}
           icon={Phone}
           color="green"
-          onClick={() => applyStatusFilter("completed")}
-          isActive={filters.statuses.includes("completed")}
         />
         <StatCard
           title="Missed Calls"
           value={stats.totalMissed}
           icon={PhoneMissed}
           color="red"
-          onClick={() => applyStatusFilter("missed")}
-          isActive={filters.statuses.includes("missed")}
         />
         <StatCard
           title="Answer Rate"
@@ -630,8 +774,6 @@ export function CallsClient({
               subtitle="Calls declined by agents"
               icon={PhoneOff}
               color="orange"
-              onClick={() => applyStatusFilter("rejected")}
-              isActive={filters.statuses.includes("rejected")}
             />
           </div>
 
@@ -678,8 +820,8 @@ export function CallsClient({
       {/* Results Count */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">
-          Showing {calls.length} calls
-          {calls.length === 500 && " (limit reached)"}
+          Showing {filteredCalls.length} calls
+          {filteredCalls.length === 500 && " (limit reached)"}
         </p>
       </div>
 
@@ -716,7 +858,7 @@ export function CallsClient({
               </tr>
             </thead>
             <tbody>
-              {calls.map((call) => (
+              {filteredCalls.map((call) => (
                 <CallLogRow
                   key={call.id}
                   call={call}
@@ -733,7 +875,7 @@ export function CallsClient({
           </table>
         </div>
 
-        {calls.length === 0 && (
+        {filteredCalls.length === 0 && (
           <div className="p-12 text-center">
             <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h3 className="text-lg font-semibold mb-2">No calls found</h3>
@@ -754,8 +896,6 @@ function StatCard({
   subtitle,
   icon: Icon,
   color,
-  onClick,
-  isActive,
 }: {
   title: string;
   value: number | string;
@@ -771,8 +911,6 @@ function StatCard({
     | "indigo"
     | "orange"
     | "slate";
-  onClick?: () => void;
-  isActive?: boolean;
 }) {
   const colorClasses: Record<typeof color, string> = {
     blue: "text-blue-500 bg-blue-500/10",
@@ -786,29 +924,19 @@ function StatCard({
     slate: "text-slate-500 bg-slate-500/10",
   };
 
-  const Wrapper = onClick ? "button" : "div";
-
   return (
-    <Wrapper
-      onClick={onClick}
-      className={`glass rounded-xl p-5 text-left transition-all ${
-        onClick ? "cursor-pointer hover:scale-[1.02] hover:shadow-lg" : ""
-      } ${isActive ? "ring-2 ring-primary" : ""}`}
-    >
+    <div className="glass rounded-xl p-5">
       <div className="flex items-start justify-between mb-3">
         <div className={`p-2.5 rounded-lg ${colorClasses[color]}`}>
           <Icon className="w-5 h-5" />
         </div>
-        {onClick && (
-          <span className="text-xs text-muted-foreground">Click to filter</span>
-        )}
       </div>
       <div className="text-2xl font-bold">{value}</div>
       <div className="text-sm text-muted-foreground">{title}</div>
       {subtitle && (
         <div className="text-xs text-muted-foreground mt-1">{subtitle}</div>
       )}
-    </Wrapper>
+    </div>
   );
 }
 

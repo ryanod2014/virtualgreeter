@@ -7,7 +7,7 @@ interface Props {
   searchParams: Promise<{
     from?: string;
     to?: string;
-    url?: string;
+    urlConditions?: string; // JSON-encoded filter conditions
     minDuration?: string;
     maxDuration?: string;
     disposition?: string;
@@ -80,9 +80,7 @@ export default async function CallLogsPage({ searchParams }: Props) {
     .order("created_at", { ascending: false });
 
   // Apply optional filters
-  if (params.url) {
-    query = query.ilike("page_url", `%${params.url}%`);
-  }
+  // URL conditions filtering is handled client-side after fetch
   if (params.minDuration) {
     query = query.gte("duration_seconds", parseInt(params.minDuration));
   }

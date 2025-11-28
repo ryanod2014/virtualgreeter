@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Ghost, Lock, Loader2, CheckCircle, AlertCircle } from "lucide-react";
@@ -15,24 +15,62 @@ function ResetPasswordContent() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [isValidSession, setIsValidSession] = useState<boolean | null>(null);
   const supabase = createClient();
+  
+  // Track if we've already validated the session to avoid race conditions
+  const hasValidatedRef = useRef(false);
 
   // Check if we have a valid session from the reset link
   useEffect(() => {
-    const checkSession = async () => {
-      // The user arrives here after clicking the reset link in their email
-      // Supabase automatically handles the token exchange via the URL hash
-      const { data: { session }, error } = await supabase.auth.getSession();
+    let timeoutId: NodeJS.Timeout;
+    
+    // Listen for the PASSWORD_RECOVERY event from Supabase
+    // This fires when the user clicks a valid reset link and Supabase parses the URL tokens
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (hasValidatedRef.current) return;
+        
+        if (event === "PASSWORD_RECOVERY" && session) {
+          // User clicked a valid reset link - PASSWORD_RECOVERY is the specific event for this
+          hasValidatedRef.current = true;
+          setIsValidSession(true);
+        } else if (event === "SIGNED_IN" && session) {
+          // Fallback: sometimes SIGNED_IN fires instead of PASSWORD_RECOVERY
+          hasValidatedRef.current = true;
+          setIsValidSession(true);
+        }
+      }
+    );
+
+    // Also check if there's already a session (handles page refresh case)
+    const checkExistingSession = async () => {
+      // Small delay to let Supabase parse URL tokens first
+      // This prevents false "invalid link" errors from race conditions
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      if (error || !session) {
-        // No valid session - the link may have expired or is invalid
-        setIsValidSession(false);
-        setError("This password reset link is invalid or has expired. Please request a new one.");
-      } else {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session && !hasValidatedRef.current) {
+        hasValidatedRef.current = true;
         setIsValidSession(true);
+      } else if (!hasValidatedRef.current) {
+        // Give additional time for the auth event to fire before declaring invalid
+        // The PASSWORD_RECOVERY event may take a moment to process
+        timeoutId = setTimeout(() => {
+          if (!hasValidatedRef.current) {
+            hasValidatedRef.current = true;
+            setIsValidSession(false);
+            setError("This password reset link is invalid or has expired. Please request a new one.");
+          }
+        }, 2000); // 2 second grace period for auth event
       }
     };
 
-    checkSession();
+    checkExistingSession();
+
+    return () => {
+      subscription.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [supabase.auth]);
 
   const handleSubmit = async (e: React.FormEvent) => {

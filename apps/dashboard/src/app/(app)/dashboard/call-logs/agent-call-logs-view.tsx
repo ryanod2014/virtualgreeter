@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
+import type { FilterCondition } from "@/lib/components/call-log-filter-conditions";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  Search,
   Filter,
   Clock,
   Phone,
@@ -22,6 +22,12 @@ import { formatShortDuration } from "@/lib/stats/agent-stats";
 import { DateRangePicker } from "@/lib/components/date-range-picker";
 import { MultiSelectDropdown } from "@/lib/components/multi-select-dropdown";
 import { CountrySelector } from "@/lib/components/country-selector";
+import { 
+  CallLogFilterConditions,
+  type FilterCondition,
+  deserializeConditions,
+  serializeConditions,
+} from "@/lib/components/call-log-filter-conditions";
 import { formatLocationWithFlag } from "@/lib/utils/country-flag";
 
 interface Disposition {
@@ -48,7 +54,7 @@ interface CallLogWithRelations {
 interface FilterParams {
   from?: string;
   to?: string;
-  url?: string;
+  urlConditions?: string; // JSON-encoded filter conditions
   minDuration?: string;
   maxDuration?: string;
   disposition?: string;
@@ -73,14 +79,13 @@ export function AgentCallLogsView({
   const pathname = usePathname();
 
   const [showFilters, setShowFilters] = useState(false);
-  const [urlSearch, setUrlSearch] = useState(currentFilters.url ?? "");
   const [playingCallId, setPlayingCallId] = useState<string | null>(null);
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Filter state - multi-select fields use arrays
   const [filters, setFilters] = useState({
-    url: currentFilters.url ?? "",
+    urlConditions: deserializeConditions(currentFilters.urlConditions),
     minDuration: currentFilters.minDuration ?? "",
     maxDuration: currentFilters.maxDuration ?? "",
     dispositions: currentFilters.disposition?.split(",").filter(Boolean) ?? [],
@@ -88,11 +93,61 @@ export function AgentCallLogsView({
     countries: currentFilters.country?.split(",").filter(Boolean) ?? [],
   });
 
+  // Apply URL conditions filtering client-side
+  const filteredCalls = useMemo(() => {
+    if (filters.urlConditions.length === 0) return calls;
+    
+    return calls.filter((call) => {
+      // All conditions must match (AND logic)
+      return filters.urlConditions.every((condition: FilterCondition) => {
+        const url = call.page_url || "";
+        let valueToCheck = "";
+        
+        try {
+          const parsedUrl = new URL(url);
+          switch (condition.type) {
+            case "domain":
+              valueToCheck = parsedUrl.hostname;
+              break;
+            case "path":
+              valueToCheck = parsedUrl.pathname;
+              break;
+            case "query_param":
+              valueToCheck = parsedUrl.searchParams.get(condition.paramName || "") || "";
+              break;
+          }
+        } catch {
+          // If URL parsing fails, use the raw URL for matching
+          valueToCheck = url;
+        }
+        
+        const searchValue = condition.value.toLowerCase();
+        const checkValue = valueToCheck.toLowerCase();
+        
+        switch (condition.matchType) {
+          case "is_exactly":
+            return checkValue === searchValue;
+          case "contains":
+            return checkValue.includes(searchValue);
+          case "does_not_contain":
+            return !checkValue.includes(searchValue);
+          case "starts_with":
+            return checkValue.startsWith(searchValue);
+          case "ends_with":
+            return checkValue.endsWith(searchValue);
+          default:
+            return true;
+        }
+      });
+    });
+  }, [calls, filters.urlConditions]);
+
   const applyFilters = () => {
     const params = new URLSearchParams();
     params.set("from", dateRange.from.split("T")[0]);
     params.set("to", dateRange.to.split("T")[0]);
-    if (filters.url) params.set("url", filters.url);
+    const serializedConditions = serializeConditions(filters.urlConditions);
+    if (serializedConditions) params.set("urlConditions", serializedConditions);
     if (filters.minDuration) params.set("minDuration", filters.minDuration);
     if (filters.maxDuration) params.set("maxDuration", filters.maxDuration);
     // Multi-select filters are comma-separated
@@ -104,14 +159,13 @@ export function AgentCallLogsView({
 
   const clearFilters = () => {
     setFilters({
-      url: "",
+      urlConditions: [],
       minDuration: "",
       maxDuration: "",
       dispositions: [],
       statuses: [],
       countries: [],
     });
-    setUrlSearch("");
     const params = new URLSearchParams();
     params.set("from", dateRange.from.split("T")[0]);
     params.set("to", dateRange.to.split("T")[0]);
@@ -119,18 +173,55 @@ export function AgentCallLogsView({
   };
 
   const hasActiveFilters =
-    filters.url ||
+    filters.urlConditions.some((c: FilterCondition) => c.value.trim() !== "") ||
     filters.minDuration ||
     filters.maxDuration ||
     filters.dispositions.length > 0 ||
     filters.statuses.length > 0 ||
     filters.countries.length > 0;
 
+  // Check if current filter state differs from what's applied (URL params)
+  const hasUnsavedChanges = useMemo(() => {
+    const appliedConditions = deserializeConditions(currentFilters.urlConditions);
+    const appliedDispositions = currentFilters.disposition?.split(",").filter(Boolean) ?? [];
+    const appliedStatuses = currentFilters.status?.split(",").filter(Boolean) ?? [];
+    const appliedCountries = currentFilters.country?.split(",").filter(Boolean) ?? [];
+    const appliedMinDuration = currentFilters.minDuration ?? "";
+    const appliedMaxDuration = currentFilters.maxDuration ?? "";
+
+    // Compare arrays (order doesn't matter)
+    const arraysEqual = (a: string[], b: string[]) => 
+      a.length === b.length && a.every(v => b.includes(v)) && b.every(v => a.includes(v));
+    
+    // Compare URL conditions
+    const conditionsEqual = (a: FilterCondition[], b: FilterCondition[]) => {
+      const validA = a.filter(c => c.value.trim() !== "");
+      const validB = b.filter(c => c.value.trim() !== "");
+      if (validA.length !== validB.length) return false;
+      return validA.every((cA, i) => 
+        cA.type === validB[i]?.type && 
+        cA.matchType === validB[i]?.matchType && 
+        cA.value === validB[i]?.value &&
+        cA.paramName === validB[i]?.paramName
+      );
+    };
+
+    return (
+      !conditionsEqual(filters.urlConditions, appliedConditions) ||
+      !arraysEqual(filters.dispositions, appliedDispositions) ||
+      !arraysEqual(filters.statuses, appliedStatuses) ||
+      !arraysEqual(filters.countries, appliedCountries) ||
+      filters.minDuration !== appliedMinDuration ||
+      filters.maxDuration !== appliedMaxDuration
+    );
+  }, [filters, currentFilters]);
+
   const handleDateRangeChange = (from: Date, to: Date) => {
     const params = new URLSearchParams();
     params.set("from", from.toISOString().split("T")[0]);
     params.set("to", to.toISOString().split("T")[0]);
-    if (filters.url) params.set("url", filters.url);
+    const serializedConditions = serializeConditions(filters.urlConditions);
+    if (serializedConditions) params.set("urlConditions", serializedConditions);
     if (filters.dispositions.length > 0) params.set("disposition", filters.dispositions.join(","));
     if (filters.statuses.length > 0) params.set("status", filters.statuses.join(","));
     if (filters.countries.length > 0) params.set("country", filters.countries.join(","));
@@ -287,24 +378,6 @@ export function AgentCallLogsView({
               onRangeChange={handleDateRangeChange}
             />
 
-            {/* URL Search */}
-            <div className="flex-1 max-w-md relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search by URL..."
-                value={urlSearch}
-                onChange={(e) => {
-                  setUrlSearch(e.target.value);
-                  setFilters({ ...filters, url: e.target.value });
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") applyFilters();
-                }}
-                className="w-full pl-10 pr-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-              />
-            </div>
-
             {/* Filter Toggle */}
             <button
               onClick={() => setShowFilters(!showFilters)}
@@ -325,32 +398,18 @@ export function AgentCallLogsView({
           {/* Expanded Filters */}
           {showFilters && (
             <div className="mt-4 pt-4 border-t border-border">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                {/* Duration */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Duration (sec)
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      placeholder="Min"
-                      value={filters.minDuration}
-                      onChange={(e) =>
-                        setFilters({ ...filters, minDuration: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Max"
-                      value={filters.maxDuration}
-                      onChange={(e) =>
-                        setFilters({ ...filters, maxDuration: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
-                    />
-                  </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {/* URL Conditions */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium mb-1">URL Filter</label>
+                  <CallLogFilterConditions
+                    pools={[]}
+                    selectedPools={[]}
+                    conditions={filters.urlConditions}
+                    onPoolsChange={() => {}}
+                    onConditionsChange={(conditions) => setFilters({ ...filters, urlConditions: conditions })}
+                    placeholder="All URLs"
+                  />
                 </div>
 
                 {/* Status */}
@@ -387,13 +446,45 @@ export function AgentCallLogsView({
                   />
                 </div>
 
+                {/* Duration */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Duration (sec)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={filters.minDuration}
+                      onChange={(e) =>
+                        setFilters({ ...filters, minDuration: e.target.value })
+                      }
+                      className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={filters.maxDuration}
+                      onChange={(e) =>
+                        setFilters({ ...filters, maxDuration: e.target.value })
+                      }
+                      className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none"
+                    />
+                  </div>
+                </div>
+
                 {/* Actions */}
                 <div className="flex items-end gap-2">
                   <button
                     onClick={applyFilters}
-                    className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90"
+                    disabled={!hasUnsavedChanges}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
+                      hasUnsavedChanges
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "bg-muted text-muted-foreground cursor-default opacity-50"
+                    }`}
                   >
-                    Apply
+                    {hasUnsavedChanges ? "Apply" : "Applied"}
                   </button>
                   {hasActiveFilters && (
                     <button
@@ -412,7 +503,7 @@ export function AgentCallLogsView({
         {/* Results */}
         <div className="mb-4">
           <p className="text-sm text-muted-foreground">
-            Showing {calls.length} calls
+            Showing {filteredCalls.length} calls
           </p>
         </div>
 
@@ -446,7 +537,7 @@ export function AgentCallLogsView({
                 </tr>
               </thead>
               <tbody>
-                {calls.map((call) => (
+                {filteredCalls.map((call) => (
                   <tr
                     key={call.id}
                     className="border-b border-border/50 hover:bg-muted/20"
@@ -586,7 +677,7 @@ export function AgentCallLogsView({
             </table>
           </div>
 
-          {calls.length === 0 && (
+          {filteredCalls.length === 0 && (
             <div className="p-12 text-center">
               <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h3 className="text-lg font-semibold mb-2">No calls found</h3>

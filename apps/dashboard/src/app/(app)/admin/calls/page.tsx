@@ -11,7 +11,7 @@ interface Props {
     status?: string;
     disposition?: string;
     pool?: string;
-    url?: string;
+    urlConditions?: string; // JSON-encoded filter conditions
     minDuration?: string;
     maxDuration?: string;
     country?: string; // ISO country codes, comma-separated
@@ -97,9 +97,7 @@ export default async function CallsPage({ searchParams }: Props) {
       query = query.in("pool_id", poolIds);
     }
   }
-  if (params.url) {
-    query = query.ilike("page_url", `%${params.url}%`);
-  }
+  // URL conditions filtering is handled client-side after fetch
   if (params.minDuration) {
     query = query.gte("duration_seconds", parseInt(params.minDuration));
   }
@@ -145,13 +143,13 @@ export default async function CallsPage({ searchParams }: Props) {
     .order("name");
 
   // Fetch team total active hours for the date range
+  // Include active sessions - their time fields are updated on each status change
   const { data: teamSessions } = await supabase
     .from("agent_sessions")
     .select("duration_seconds, idle_seconds, in_call_seconds")
     .eq("organization_id", auth.organization.id)
     .gte("started_at", fromDate.toISOString())
-    .lte("started_at", toDate.toISOString())
-    .not("ended_at", "is", null); // Only completed sessions
+    .lte("started_at", toDate.toISOString());
 
   // Active hours = idle + in_call (NOT away time)
   const teamIdleSeconds =

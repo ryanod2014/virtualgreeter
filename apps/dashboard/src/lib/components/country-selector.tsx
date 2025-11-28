@@ -2,13 +2,12 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Check, Search, X, Globe } from "lucide-react";
+import { ChevronDown, Check, Search, X } from "lucide-react";
 import {
   COUNTRIES,
   REGIONS,
   type Region,
   type Country,
-  getCountriesByRegion,
   getCountryCodesByRegion,
   searchCountries,
   getAllRegions,
@@ -33,6 +32,7 @@ export function CountrySelector({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Filter countries based on search
   const filteredCountries = useMemo(() => {
@@ -53,16 +53,10 @@ export function CountrySelector({
     return groups;
   }, [filteredCountries]);
 
-  // Check if a full region is selected
+  // Check if a full region is selected (all countries in region are selected)
   const isRegionFullySelected = (region: Region): boolean => {
     const regionCodes = getCountryCodesByRegion(region);
     return regionCodes.every((code) => selected.includes(code));
-  };
-
-  // Check if any country in a region is selected
-  const isRegionPartiallySelected = (region: Region): boolean => {
-    const regionCodes = getCountryCodesByRegion(region);
-    return regionCodes.some((code) => selected.includes(code)) && !isRegionFullySelected(region);
   };
 
   // Toggle entire region
@@ -99,23 +93,44 @@ export function CountrySelector({
     onChange([]);
   };
 
-  // Calculate menu position when opening
-  useEffect(() => {
-    if (isOpen && buttonRef.current) {
+  // Calculate menu position
+  const updateMenuPosition = () => {
+    if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
-      const menuHeight = 400; // Approximate max height
+      const menuHeight = Math.min(450, viewportHeight * 0.8); // Use actual height
       
       // Check if menu would go below viewport
       const spaceBelow = viewportHeight - rect.bottom;
       const showAbove = spaceBelow < menuHeight && rect.top > menuHeight;
       
       setMenuPosition({
-        top: showAbove ? rect.top + window.scrollY - menuHeight - 4 : rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
+        top: showAbove ? rect.top - menuHeight - 4 : rect.bottom + 4,
+        left: rect.left,
         width: Math.max(rect.width, 320),
       });
     }
+  };
+
+  // Keep menu position updated while open
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    // Initial position
+    updateMenuPosition();
+    
+    // Update position on any scroll event (capture phase to catch all scrollable containers)
+    const handleScroll = () => {
+      requestAnimationFrame(updateMenuPosition);
+    };
+    
+    document.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", updateMenuPosition);
+    
+    return () => {
+      document.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", updateMenuPosition);
+    };
   }, [isOpen]);
 
   // Focus search input when opening
@@ -146,43 +161,24 @@ export function CountrySelector({
     }
   }, [isOpen]);
 
-  // Close on resize
-  useEffect(() => {
-    if (!isOpen) return;
 
-    const handleResize = () => {
-      setIsOpen(false);
-      setSearchQuery("");
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [isOpen]);
-
-  // Get display text
+  // Get display text - always shows individual countries, never regions
   const getDisplayContent = () => {
     if (selected.length === 0) {
       return <span className="text-muted-foreground">{placeholder}</span>;
     }
 
-    // Check for full regions
-    const fullRegions = getAllRegions().filter((r) => isRegionFullySelected(r));
-    const individualCountries = selected.filter(
-      (code) => !fullRegions.some((r) => getCountryCodesByRegion(r).includes(code))
-    );
+    // Build display items from selected country codes
+    const displayItems: { label: string; code: string; flag: string }[] = [];
 
-    const displayItems: { label: string; code: string; isRegion: boolean }[] = [];
-
-    // Add region labels
-    fullRegions.forEach((r) => {
-      displayItems.push({ label: REGIONS[r].name, code: r, isRegion: true });
-    });
-
-    // Add individual country labels
-    individualCountries.forEach((code) => {
+    selected.forEach((code) => {
       const country = COUNTRIES.find((c) => c.code === code);
       if (country) {
-        displayItems.push({ label: `${country.flag} ${country.name}`, code, isRegion: false });
+        displayItems.push({ 
+          label: country.name, 
+          code, 
+          flag: country.flag 
+        });
       }
     });
 
@@ -199,18 +195,11 @@ export function CountrySelector({
               key={item.code}
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium"
             >
-              {item.isRegion && <Globe className="w-3 h-3" />}
+              <span className="text-sm">{item.flag}</span>
               {item.label}
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (item.isRegion) {
-                    toggleRegion(item.code as Region);
-                  } else {
-                    removeCountry(item.code, e);
-                  }
-                }}
+                onClick={(e) => removeCountry(item.code, e)}
                 className="hover:bg-primary/20 rounded-full p-0.5"
               >
                 <X className="w-3 h-3" />
@@ -226,7 +215,7 @@ export function CountrySelector({
         <span
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium"
         >
-          {displayItems[0].isRegion && <Globe className="w-3 h-3" />}
+          <span className="text-sm">{displayItems[0].flag}</span>
           {displayItems[0].label}
         </span>
         <span className="text-xs text-muted-foreground">
@@ -277,11 +266,14 @@ export function CountrySelector({
               top: menuPosition.top,
               left: menuPosition.left,
               width: menuPosition.width,
-              maxHeight: "400px",
+              height: "450px",
+              maxHeight: "80vh",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             {/* Search Input */}
-            <div className="p-3 border-b border-border">
+            <div className="p-3 border-b border-border" style={{ flexShrink: 0 }}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
@@ -295,32 +287,60 @@ export function CountrySelector({
               </div>
             </div>
 
+            {/* Selected Countries as Chips */}
+            {selected.length > 0 && !searchQuery && (
+              <div className="p-2 border-b border-border bg-primary/5" style={{ flexShrink: 0 }}>
+                <div className="text-xs font-medium text-primary mb-1.5">
+                  Selected ({selected.length})
+                </div>
+                <div className="flex flex-wrap gap-1 max-h-[60px] overflow-y-auto">
+                  {selected.map((code) => {
+                    const country = COUNTRIES.find((c) => c.code === code);
+                    if (!country) return null;
+                    return (
+                      <span
+                        key={code}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium"
+                      >
+                        <span>{country.flag}</span>
+                        {country.name}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCountry(code);
+                          }}
+                          className="hover:bg-primary/20 rounded-full p-0.5 ml-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Region Quick Buttons */}
             {!searchQuery && (
-              <div className="p-3 border-b border-border bg-muted/30">
-                <div className="text-xs font-medium text-muted-foreground mb-2">
-                  Quick Select by Region
-                </div>
-                <div className="flex flex-wrap gap-2">
+              <div className="px-3 py-2 border-b border-border bg-muted/30" style={{ flexShrink: 0 }}>
+                <div className="flex flex-wrap gap-1.5">
                   {getAllRegions().map((region) => {
                     const isFullySelected = isRegionFullySelected(region);
-                    const isPartiallySelected = isRegionPartiallySelected(region);
                     return (
                       <button
                         key={region}
                         type="button"
                         onClick={() => toggleRegion(region)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors ${
                           isFullySelected
                             ? "bg-primary text-primary-foreground"
-                            : isPartiallySelected
-                            ? "bg-primary/20 text-primary border border-primary/30"
                             : "bg-muted hover:bg-muted/80"
                         }`}
                       >
-                        <span>{REGIONS[region].icon}</span>
+                        <span className="text-sm">{REGIONS[region].icon}</span>
                         {REGIONS[region].name}
-                        {isFullySelected && <Check className="w-3.5 h-3.5" />}
+                        {isFullySelected && <Check className="w-3 h-3" />}
                       </button>
                     );
                   })}
@@ -328,8 +348,16 @@ export function CountrySelector({
               </div>
             )}
 
-            {/* Country List */}
-            <div className="overflow-y-auto max-h-[250px]">
+            {/* Country List - Scrollable */}
+            <div 
+              ref={listRef}
+              style={{ 
+                flex: "1 1 0",
+                overflowY: "auto", 
+                minHeight: 0,
+                overscrollBehavior: "contain",
+              }}
+            >
               {filteredCountries.length === 0 ? (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   No countries found for "{searchQuery}"
@@ -374,7 +402,7 @@ export function CountrySelector({
 
             {/* Footer with selection count */}
             {selected.length > 0 && (
-              <div className="p-3 border-t border-border bg-muted/30 flex items-center justify-between">
+              <div className="p-3 border-t border-border bg-muted/30 flex items-center justify-between rounded-b-xl" style={{ flexShrink: 0 }}>
                 <span className="text-sm text-muted-foreground">
                   {selected.length} {selected.length === 1 ? "country" : "countries"} selected
                 </span>
