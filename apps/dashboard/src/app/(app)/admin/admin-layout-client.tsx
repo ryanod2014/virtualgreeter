@@ -25,6 +25,7 @@ export function AdminLayoutClient({
     isMarkedAway,
     setAway,
     setBack,
+    stats,
   } = useSignalingContext();
 
   return (
@@ -37,6 +38,7 @@ export function AdminLayoutClient({
         isReconnecting={isReconnecting}
         isMarkedAway={isMarkedAway}
         activeCall={activeCall}
+        poolVisitors={stats?.poolVisitors ?? 0}
         onSetAway={() => setAway("manual")}
         onSetBack={setBack}
       />

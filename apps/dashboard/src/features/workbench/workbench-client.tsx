@@ -3,7 +3,6 @@
 import { useRef, useEffect, useState } from "react";
 import {
   Video,
-  Users,
   AlertTriangle,
   Coffee,
   Camera,
@@ -61,7 +60,6 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
   const {
     isConnected,
     activeCall,
-    stats,
     cobrowse,
     isMarkedAway,
     endCall,
@@ -209,18 +207,6 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
               Manage your live presence and incoming calls
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              {isConnected && !isMarkedAway && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full live-pulse" />
-              )}
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-sm font-bold text-primary">
-                  {displayName.split(" ").map((n) => n[0]).join("").toUpperCase()}
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       </header>
 
@@ -242,27 +228,6 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
             </div>
           </div>
         )}
-
-        {/* Live Visitors Counter */}
-        <div className="mb-8">
-          <div className="glass rounded-2xl p-6 inline-flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
-              <Users className="w-6 h-6 text-green-500" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Live Visitors in Pool</div>
-              <div className="text-3xl font-bold flex items-center gap-2">
-                {stats?.poolVisitors ?? 0}
-                {isConnected && (stats?.poolVisitors ?? 0) > 0 && (
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Main Stage Area */}
         {activeCall ? (

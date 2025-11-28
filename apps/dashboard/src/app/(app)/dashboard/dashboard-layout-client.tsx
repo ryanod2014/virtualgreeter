@@ -27,6 +27,7 @@ export function DashboardLayoutClient({
     isMarkedAway,
     setAway,
     setBack,
+    stats,
   } = useSignalingContext();
 
   return (
@@ -40,6 +41,7 @@ export function DashboardLayoutClient({
         isReconnecting={isReconnecting}
         isMarkedAway={isMarkedAway}
         activeCall={activeCall}
+        poolVisitors={stats?.poolVisitors ?? 0}
         onSetAway={() => setAway("manual")}
         onSetBack={setBack}
       />

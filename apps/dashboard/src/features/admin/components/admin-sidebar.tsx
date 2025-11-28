@@ -30,6 +30,7 @@ interface AdminSidebarProps {
   isReconnecting?: boolean;
   isMarkedAway?: boolean;
   activeCall?: ActiveCall | null;
+  poolVisitors?: number;
   onSetAway?: () => void;
   onSetBack?: () => void;
 }
@@ -42,6 +43,7 @@ export function AdminSidebar({
   isReconnecting = false,
   isMarkedAway = false,
   activeCall = null,
+  poolVisitors = 0,
   onSetAway,
   onSetBack,
 }: AdminSidebarProps) {
@@ -89,8 +91,23 @@ export function AdminSidebar({
             )}
             <div className="flex-1 min-w-0">
               <div className="font-bold text-lg truncate">{organization.name}</div>
-              <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                Admin
+              <div 
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                  poolVisitors > 0 
+                    ? 'bg-emerald-500/10 text-emerald-500' 
+                    : 'bg-zinc-500/10 text-zinc-500'
+                }`}
+                title={`${poolVisitors} visitor${poolVisitors !== 1 ? 's' : ''} on your sites`}
+              >
+                {poolVisitors > 0 && (
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                  </span>
+                )}
+                <Users className="w-3 h-3" />
+                <span className="tabular-nums">{poolVisitors}</span>
+                <span className="opacity-70">{poolVisitors === 1 ? 'visitor' : 'visitors'}</span>
               </div>
             </div>
           </div>

@@ -66,6 +66,7 @@ function DashboardShellInner({
     rejectCall,
     setAway,
     setBack,
+    stats,
   } = useSignalingContext();
 
   // Track ended call for disposition modal
@@ -92,6 +93,7 @@ function DashboardShellInner({
         isConnected={isConnected}
         isMarkedAway={isMarkedAway}
         activeCall={activeCall}
+        poolVisitors={stats?.poolVisitors ?? 0}
         onSetAway={() => setAway("manual")}
         onSetBack={setBack}
       />
