@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronUp,
   Play,
+  Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -129,6 +130,11 @@ export function AgentsClient({
   
   // State for expanded pool videos
   const [expandedPoolId, setExpandedPoolId] = useState<string | null>(null);
+  
+  // State for editing agent name
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
 
   const supabase = createClient();
 
@@ -508,6 +514,49 @@ export function AgentsClient({
   const getUnassignedPools = (agent: Agent) => {
     const assignedPoolIds = new Set(agent.agent_pool_members.map(m => m.pool.id));
     return pools.filter(p => !assignedPoolIds.has(p.id));
+  };
+
+  // Handle editing agent name
+  const handleStartEditingName = () => {
+    if (selectedAgent) {
+      setEditedName(selectedAgent.display_name);
+      setIsEditingName(true);
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (!selectedAgent || !editedName.trim()) return;
+    
+    const trimmedName = editedName.trim();
+    if (trimmedName === selectedAgent.display_name) {
+      setIsEditingName(false);
+      return;
+    }
+
+    setIsSavingName(true);
+    try {
+      const { error } = await supabase
+        .from("agent_profiles")
+        .update({ display_name: trimmedName })
+        .eq("id", selectedAgent.id);
+
+      if (error) throw error;
+
+      // Update local state
+      const updatedAgent = { ...selectedAgent, display_name: trimmedName };
+      setAgents(agents.map(a => a.id === selectedAgent.id ? updatedAgent : a));
+      setSelectedAgent(updatedAgent);
+      setIsEditingName(false);
+    } catch (error) {
+      console.error("Error updating agent name:", error);
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  const handleCancelEditName = () => {
+    setIsEditingName(false);
+    setEditedName("");
   };
 
   return (
@@ -1185,7 +1234,53 @@ export function AgentsClient({
                 <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <Users className="w-10 h-10 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold">{selectedAgent.display_name}</h3>
+                {isEditingName ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-primary text-center text-xl font-semibold outline-none focus:border-primary"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveName();
+                        if (e.key === "Escape") handleCancelEditName();
+                      }}
+                    />
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={handleSaveName}
+                        disabled={isSavingName || !editedName.trim()}
+                        className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {isSavingName ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Check className="w-3 h-3" />
+                        )}
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelEditName}
+                        disabled={isSavingName}
+                        className="px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-sm font-medium hover:bg-muted/80 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="group relative inline-block">
+                    <h3 className="text-xl font-semibold">{selectedAgent.display_name}</h3>
+                    <button
+                      onClick={handleStartEditingName}
+                      className="absolute -right-7 top-1/2 -translate-y-1/2 p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-muted transition-all"
+                      title="Edit name"
+                    >
+                      <Pencil className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </div>
+                )}
                 <p className="text-sm text-muted-foreground">{selectedAgent.user?.email}</p>
                 <div className={`inline-flex items-center gap-2 mt-2 ${getStatusColor(selectedAgent.status)}`}>
                   <Circle className="w-2 h-2 fill-current" />
@@ -1225,14 +1320,12 @@ export function AgentsClient({
                       className="flex items-center justify-between p-2 rounded-lg bg-muted/30"
                     >
                       <span className="text-sm font-medium">{membership.pool.name}</span>
-                      {!membership.pool.is_catch_all && (
-                        <button
-                          onClick={() => handleRemoveFromPool(selectedAgent.id, membership.id)}
-                          className="p-1 rounded hover:bg-destructive/10 hover:text-destructive transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleRemoveFromPool(selectedAgent.id, membership.id)}
+                        className="p-1 rounded hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
