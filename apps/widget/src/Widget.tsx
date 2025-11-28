@@ -218,7 +218,7 @@ export function Widget({ config }: WidgetProps) {
     connectionError,
     socket,
   } = useSignaling({
-    serverUrl: config.serverUrl ?? "http://localhost:3001",
+    serverUrl: config.serverUrl,
     orgId: config.orgId,
     onAgentAssigned: (data) => {
       console.log("[Widget] ✅ Agent assigned:", data.agent.id, data.agent.displayName, "settings:", data.widgetSettings);

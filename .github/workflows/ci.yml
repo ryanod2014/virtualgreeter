@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build --filter=@ghost-greeter/domain --filter=@ghost-greeter/ui --filter=@ghost-greeter/config
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+        continue-on-error: true  # Don't fail on lint warnings initially
+
+      - name: Build dashboard
+        run: pnpm build --filter=@ghost-greeter/dashboard
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-key
+          NEXT_PUBLIC_APP_URL: https://placeholder.com
+          NEXT_PUBLIC_SIGNALING_SERVER: https://placeholder.com
+
+      - name: Build server
+        run: pnpm build --filter=@ghost-greeter/server
+
+      - name: Build widget
+        run: pnpm build --filter=@ghost-greeter/widget
+

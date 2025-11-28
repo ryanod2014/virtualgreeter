@@ -248,6 +248,8 @@ export const ERROR_MESSAGES = {
 export const CONFIG_DEFAULTS = {
   position: "bottom-right" as const,
   triggerDelay: CONNECTION_TIMING.DEFAULT_TRIGGER_DELAY,
+  // serverUrl should always be provided via embed code in production
+  // This fallback is ONLY for local development testing
   serverUrl: "http://localhost:3001",
 } as const;
 

@@ -104,14 +104,18 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
 
   const hasChanges = JSON.stringify(settings) !== JSON.stringify(initialWidgetSettings);
 
+  // Get URLs from environment variables with fallbacks
+  const widgetCdnUrl = process.env.NEXT_PUBLIC_WIDGET_CDN_URL || "https://cdn.ghost-greeter.com/widget.js";
+  const serverUrl = process.env.NEXT_PUBLIC_SIGNALING_SERVER || "http://localhost:3001";
+
   const embedCode = `<!-- Ghost-Greeter Widget -->
 <script>
   (function(w,d,s,o,f,js,fjs){
     w['GhostGreeter']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
     js=d.createElement(s);fjs=d.getElementsByTagName(s)[0];
     js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
-  }(window,document,'script','gg','https://cdn.ghost-greeter.com/widget.js'));
-  gg('init', { orgId: '${organizationId}' });
+  }(window,document,'script','gg','${widgetCdnUrl}'));
+  gg('init', { orgId: '${organizationId}', serverUrl: '${serverUrl}' });
 </script>`;
 
   const copyEmbedCode = async () => {
