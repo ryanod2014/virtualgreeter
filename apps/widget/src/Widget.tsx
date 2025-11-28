@@ -4,8 +4,34 @@ import { LiveCallView } from "./features/webrtc/LiveCallView";
 import { useSignaling } from "./features/signaling/useSignaling";
 import { useWebRTC } from "./features/webrtc/useWebRTC";
 import { useCobrowse } from "./features/cobrowse/useCobrowse";
-import type { AgentAssignedPayload } from "@ghost-greeter/domain";
-import { ARIA_LABELS, ANIMATION_TIMING, ERROR_MESSAGES, CONNECTION_TIMING } from "./constants";
+import type { AgentAssignedPayload, WidgetSettings } from "@ghost-greeter/domain";
+import { ARIA_LABELS, ANIMATION_TIMING, ERROR_MESSAGES, CONNECTION_TIMING, SIZE_DIMENSIONS } from "./constants";
+
+/**
+ * Default widget settings (used until server sends actual settings)
+ */
+const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
+  size: "medium",
+  position: "bottom-right",
+  devices: "all",
+  trigger_delay: 3,
+  auto_hide_delay: null,
+  show_minimize_button: false,
+};
+
+/**
+ * Detect if the current device is mobile based on screen width and touch capability
+ */
+function isMobileDevice(): boolean {
+  // Check screen width (768px is a common mobile breakpoint)
+  const isSmallScreen = window.innerWidth <= 768;
+  
+  // Check for touch capability
+  const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  
+  // Consider it mobile if small screen OR touch-only device
+  return isSmallScreen || (hasTouch && !window.matchMedia("(pointer: fine)").matches);
+}
 
 /**
  * Unlocks browser audio permission by creating and resuming an AudioContext.
@@ -95,6 +121,12 @@ export function Widget({ config }: WidgetProps) {
   const [handoffMessage, setHandoffMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Widget appearance settings (from server)
+  const [widgetSettings, setWidgetSettings] = useState<WidgetSettings>(DEFAULT_WIDGET_SETTINGS);
+  const [shouldHideForDevice, setShouldHideForDevice] = useState(false);
+  const autoHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userHasInteractedRef = useRef(false); // Track if user has interacted with widget
+
   // Media state - starts as muted/off
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isMicOn, setIsMicOn] = useState(false);
@@ -158,8 +190,25 @@ export function Widget({ config }: WidgetProps) {
     serverUrl: config.serverUrl ?? "http://localhost:3001",
     orgId: config.orgId,
     onAgentAssigned: (data) => {
-      console.log("[Widget] ✅ Agent assigned:", data.agent.id, data.agent.displayName);
+      console.log("[Widget] ✅ Agent assigned:", data.agent.id, data.agent.displayName, "settings:", data.widgetSettings);
       setAgent(data.agent);
+      
+      // Store widget settings from server
+      if (data.widgetSettings) {
+        setWidgetSettings(data.widgetSettings);
+        
+        // Check device visibility
+        const isMobile = isMobileDevice();
+        const devices = data.widgetSettings.devices;
+        const shouldHide = 
+          (devices === "desktop" && isMobile) || 
+          (devices === "mobile" && !isMobile);
+        setShouldHideForDevice(shouldHide);
+        
+        if (shouldHide) {
+          console.log("[Widget] Hiding widget - device mismatch:", { devices, isMobile });
+        }
+      }
     },
     onAgentReassigned: (data) => {
       const previousName = agent?.displayName ?? "Your assistant";
@@ -269,19 +318,57 @@ export function Widget({ config }: WidgetProps) {
     };
   }, [hasInteracted]);
 
-  // Show widget only when an agent is available/assigned
+  // Show widget only when an agent is available/assigned (and device is not hidden)
   useEffect(() => {
-    if (agent && state === "hidden") {
+    if (agent && state === "hidden" && !shouldHideForDevice) {
+      // Use trigger_delay from server settings (in seconds, convert to ms)
+      const delayMs = (widgetSettings.trigger_delay ?? 3) * 1000;
+      
       const timer = setTimeout(() => {
         if (!isUnmountingRef.current) {
           setState("open");
           // Track pageview when widget popup is shown to visitor
           trackPageview(agent.id);
         }
-      }, config.triggerDelay ?? CONNECTION_TIMING.DEFAULT_TRIGGER_DELAY);
+      }, delayMs);
       return () => clearTimeout(timer);
     }
-  }, [agent, state, config.triggerDelay, trackPageview]);
+  }, [agent, state, widgetSettings.trigger_delay, trackPageview, shouldHideForDevice]);
+
+  // Auto-hide timer - minimizes widget after delay if no interaction
+  useEffect(() => {
+    // Only run when widget is open and auto_hide_delay is set
+    if (state !== "open" || widgetSettings.auto_hide_delay === null) {
+      // Clear any existing timer
+      if (autoHideTimerRef.current) {
+        clearTimeout(autoHideTimerRef.current);
+        autoHideTimerRef.current = null;
+      }
+      return;
+    }
+
+    // Don't auto-hide if user has already interacted
+    if (userHasInteractedRef.current) {
+      return;
+    }
+
+    // Start auto-hide timer (auto_hide_delay is in seconds)
+    const delayMs = widgetSettings.auto_hide_delay * 1000;
+    
+    autoHideTimerRef.current = setTimeout(() => {
+      if (!isUnmountingRef.current && state === "open" && !userHasInteractedRef.current) {
+        console.log("[Widget] Auto-hiding after", widgetSettings.auto_hide_delay, "seconds");
+        setState("minimized");
+      }
+    }, delayMs);
+
+    return () => {
+      if (autoHideTimerRef.current) {
+        clearTimeout(autoHideTimerRef.current);
+        autoHideTimerRef.current = null;
+      }
+    };
+  }, [state, widgetSettings.auto_hide_delay]);
 
   // Update self video when preview stream changes
   useEffect(() => {
@@ -298,6 +385,11 @@ export function Widget({ config }: WidgetProps) {
       // Clean up handoff timeout
       if (handoffTimeoutRef.current) {
         clearTimeout(handoffTimeoutRef.current);
+      }
+
+      // Clean up auto-hide timer
+      if (autoHideTimerRef.current) {
+        clearTimeout(autoHideTimerRef.current);
       }
 
       // Clean up preview stream
@@ -616,13 +708,30 @@ export function Widget({ config }: WidgetProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  // Don't render if hidden
-  if (state === "hidden") return null;
+  // Don't render if hidden or if device should be hidden
+  if (state === "hidden" || shouldHideForDevice) return null;
 
-  const configPosition = config.position ?? "bottom-right";
+  // Use position from server widget settings
+  // When minimized, don't apply center positioning (it uses transform which breaks fixed positioning)
+  const widgetPosition = state === "minimized" ? "bottom-right" : (widgetSettings.position ?? "bottom-right");
+  const widgetSize = widgetSettings.size ?? "medium";
+  const dims = SIZE_DIMENSIONS[widgetSize];
 
-  // Calculate widget style for positioning
-  const widgetStyle: Record<string, string> = {};
+  // Calculate widget style for positioning and apply size CSS variables
+  const widgetStyle: Record<string, string> = {
+    // Size-specific CSS variables
+    "--gg-widget-width": `${dims.widgetWidth}px`,
+    "--gg-border-radius": `${dims.borderRadius}px`,
+    "--gg-border-radius-sm": `${dims.borderRadiusSm}px`,
+    "--gg-control-size": `${dims.controlButtonSize}px`,
+    "--gg-self-view-size": `${dims.selfViewSize}px`,
+    "--gg-self-view-size-fs": `${dims.selfViewSizeFullscreen}px`,
+    "--gg-video-control-size": `${dims.videoControlButtonSize}px`,
+    "--gg-minimized-size": `${dims.minimizedButtonSize}px`,
+    "--gg-agent-name-size": `${dims.agentNameSize}px`,
+    "--gg-agent-status-size": `${dims.agentStatusSize}px`,
+  };
+  
   if (!isFullscreen && position) {
     widgetStyle.left = `${position.x}px`;
     widgetStyle.top = `${position.y}px`;
@@ -630,24 +739,55 @@ export function Widget({ config }: WidgetProps) {
     widgetStyle.bottom = "auto";
   }
 
+  // Mark user interaction when they interact with the widget
+  const markUserInteraction = () => {
+    if (!userHasInteractedRef.current) {
+      userHasInteractedRef.current = true;
+      // Clear auto-hide timer when user interacts
+      if (autoHideTimerRef.current) {
+        clearTimeout(autoHideTimerRef.current);
+        autoHideTimerRef.current = null;
+      }
+    }
+  };
+
   return (
     <div
       ref={widgetRef}
-      className={`gg-widget ${configPosition} ${isFullscreen ? "gg-fullscreen" : ""} ${isDragging ? "gg-dragging" : ""}`}
+      className={`gg-widget ${widgetPosition} ${isFullscreen ? "gg-fullscreen" : ""} ${isDragging ? "gg-dragging" : ""}`}
       style={widgetStyle}
       role="dialog"
       aria-label={ARIA_LABELS.WIDGET}
       aria-modal={isFullscreen}
+      onClick={markUserInteraction}
     >
       {state === "minimized" ? (
         <button
-          className="gg-minimized"
+          className="gg-minimized gg-minimized-bottom-right"
           onClick={handleExpand}
           aria-label={ARIA_LABELS.EXPAND}
         >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
+          {agent?.loopVideoUrl ? (
+            <video
+              className="gg-minimized-video"
+              src={agent.loopVideoUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+          ) : agent?.avatarUrl ? (
+            <img 
+              src={agent.avatarUrl} 
+              alt={agent.displayName ?? "Agent"} 
+              className="gg-minimized-avatar"
+            />
+          ) : (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          )}
+          <span className="gg-minimized-pulse" />
         </button>
       ) : (
         <div
@@ -662,6 +802,19 @@ export function Widget({ config }: WidgetProps) {
           <div className="gg-video-container">
             {/* Top right controls */}
             <div className="gg-video-controls">
+              {/* Minimize button - only shown when enabled in settings */}
+              {widgetSettings.show_minimize_button && !isFullscreen && (
+                <button
+                  className="gg-video-control-btn"
+                  onClick={handleMinimize}
+                  aria-label={ARIA_LABELS.MINIMIZE}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3" />
+                    <line x1="4" y1="21" x2="20" y2="21" />
+                  </svg>
+                </button>
+              )}
               <button
                 className="gg-video-control-btn"
                 onClick={handleToggleFullscreen}

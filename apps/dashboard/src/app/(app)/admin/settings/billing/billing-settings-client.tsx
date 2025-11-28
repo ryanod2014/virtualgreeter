@@ -300,7 +300,7 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
                 <h3 className="font-medium">Agent Seats</h3>
-                <span className="text-lg font-bold">${PRICE_PER_AGENT}<span className="text-sm font-normal text-muted-foreground">/agent/mo</span></span>
+                <span className="text-lg font-bold">${PRICE_PER_SEAT}<span className="text-sm font-normal text-muted-foreground">/agent/mo</span></span>
               </div>
               <p className="text-sm text-muted-foreground">
                 Flat rate per agent. Add or remove agents anytime — billing adjusts automatically.
@@ -359,7 +359,7 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
           <div>
             <h4 className="font-medium mb-2">How Billing Works</h4>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• <strong>${PRICE_PER_AGENT}/month per agent</strong> — simple, predictable pricing</li>
+              <li>• <strong>${PRICE_PER_SEAT}/month per agent</strong> — simple, predictable pricing</li>
               <li>• Add or remove agents anytime — billing adjusts automatically</li>
               <li>• Agents added mid-cycle are prorated to your next invoice</li>
               <li>• {FREE_STORAGE_GB} GB recording storage included free, then ${STORAGE_PRICE_PER_GB.toFixed(2)}/GB</li>

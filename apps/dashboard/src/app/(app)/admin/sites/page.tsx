@@ -18,6 +18,8 @@ export default async function SitesPage() {
     position: "bottom-right",
     devices: "all",
     trigger_delay: 3,
+    auto_hide_delay: null,
+    show_minimize_button: false,
   };
 
   return (

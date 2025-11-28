@@ -24,11 +24,12 @@ type VideoState = "loading" | "wave" | "intro" | "loop" | "connecting" | "live" 
  * VideoSequencer - Handles the 3-part video sequence
  *
  * Flow:
- * 1. Wave video plays on loop (muted) until user interaction grants audio permission
- * 2. After user interaction, intro video plays once with audio
+ * 1. Wave video plays on loop (muted) - must complete at least 1 full playback
+ * 2. After wave completes AND user interaction, intro video plays once with audio
  * 3. Loop video plays forever after intro finishes
  *
  * Key features:
+ * - Wave video must play through completely at least once before transitioning
  * - Triple buffering (three video tags) to prevent black flash on switch
  * - Starts muted for autoplay, unmutes on first user interaction
  * - Seamless transitions between all videos
@@ -53,6 +54,7 @@ export function VideoSequencer({
   const [introStartedAt, setIntroStartedAt] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [waveCompletedOnce, setWaveCompletedOnce] = useState(false);
 
   const waveVideoRef = useRef<HTMLVideoElement>(null);
   const introVideoRef = useRef<HTMLVideoElement>(null);
@@ -184,9 +186,38 @@ export function VideoSequencer({
     }
   }, [waveUrl, introUrl]);
 
-  // When audioUnlocked becomes true AND intro is ready, switch to intro with audio
+  // Track when wave video completes at least one full playback
+  // Since wave video loops, we detect completion via timeupdate when it reaches near the end
+  useEffect(() => {
+    const waveVideo = waveVideoRef.current;
+    if (!waveVideo || waveCompletedOnce) return;
+
+    const handleTimeUpdate = () => {
+      const duration = waveVideo.duration;
+      const currentTime = waveVideo.currentTime;
+      
+      // Consider wave complete when within 0.3s of the end
+      if (duration > 0 && currentTime >= duration - 0.3) {
+        console.log("[VideoSequencer] ✅ Wave video completed at least once");
+        setWaveCompletedOnce(true);
+      }
+    };
+
+    waveVideo.addEventListener("timeupdate", handleTimeUpdate);
+    return () => {
+      waveVideo.removeEventListener("timeupdate", handleTimeUpdate);
+    };
+  }, [waveCompletedOnce]);
+
+  // When audioUnlocked becomes true AND intro is ready AND wave has completed once, switch to intro with audio
   useEffect(() => {
     if (!audioUnlocked || hasStartedWithAudio) return;
+
+    // Wave video must complete at least once before transitioning
+    if (!waveCompletedOnce) {
+      console.log("[VideoSequencer] ⏳ Waiting for wave video to complete before switching to intro");
+      return;
+    }
 
     // If there's an intro URL, wait for it to be ready
     if (introUrl) {
@@ -202,7 +233,7 @@ export function VideoSequencer({
       setHasStartedWithAudio(true);
       setIntroCompleted(true);
     }
-  }, [audioUnlocked, hasStartedWithAudio, introUrl, introReady, loopUrl, switchToIntro]);
+  }, [audioUnlocked, hasStartedWithAudio, introUrl, introReady, loopUrl, switchToIntro, waveCompletedOnce]);
 
   // When intro completes, switch to loop
   useEffect(() => {

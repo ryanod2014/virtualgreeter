@@ -46,6 +46,8 @@ export interface WidgetSettings {
   position: WidgetPosition;
   devices: WidgetDevices;
   trigger_delay: number; // seconds before widget appears
+  auto_hide_delay: number | null; // seconds before widget auto-hides (null = never)
+  show_minimize_button: boolean; // whether to show minimize/collapse button on widget
 }
 
 // Facebook integration settings for organization

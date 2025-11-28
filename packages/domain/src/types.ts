@@ -212,16 +212,32 @@ export interface WebRTCSignalPayload {
   signal: unknown; // SimplePeer signal data
 }
 
+// Widget Settings (re-export for convenience)
+export type WidgetSize = "small" | "medium" | "large";
+export type WidgetPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left" | "center";
+export type WidgetDevices = "all" | "desktop" | "mobile";
+
+export interface WidgetSettings {
+  size: WidgetSize;
+  position: WidgetPosition;
+  devices: WidgetDevices;
+  trigger_delay: number; // seconds before widget appears
+  auto_hide_delay: number | null; // seconds before widget auto-hides (null = never)
+  show_minimize_button: boolean; // whether to show minimize/collapse button on widget
+}
+
 // Server -> Widget Payloads
 export interface AgentAssignedPayload {
   agent: Pick<AgentProfile, "id" | "displayName" | "avatarUrl" | "waveVideoUrl" | "introVideoUrl" | "connectVideoUrl" | "loopVideoUrl">;
   visitorId: string;
+  widgetSettings: WidgetSettings;
 }
 
 export interface AgentReassignedPayload {
   previousAgentId: string;
   newAgent: Pick<AgentProfile, "id" | "displayName" | "avatarUrl" | "waveVideoUrl" | "introVideoUrl" | "connectVideoUrl" | "loopVideoUrl">;
   reason: "agent_busy" | "agent_offline";
+  widgetSettings?: WidgetSettings; // Optional - only included if settings changed
 }
 
 export interface CallAcceptedPayload {

@@ -41,6 +41,7 @@ import {
 } from "../../lib/session-tracker.js";
 import { recordEmbedVerification } from "../../lib/embed-tracker.js";
 import { recordPageview } from "../../lib/pageview-logger.js";
+import { getWidgetSettings } from "../../lib/widget-settings.js";
 
 // Track RNA (Ring-No-Answer) timeouts
 const rnaTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -63,7 +64,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     // VISITOR EVENTS (Widget)
     // -------------------------------------------------------------------------
 
-    socket.on(SOCKET_EVENTS.VISITOR_JOIN, (data: VisitorJoinPayload) => {
+    socket.on(SOCKET_EVENTS.VISITOR_JOIN, async (data: VisitorJoinPayload) => {
       console.log("[Socket] 👤 VISITOR_JOIN received:", { orgId: data.orgId, pageUrl: data.pageUrl });
       
       // Record embed verification (fire-and-forget, non-blocking)
@@ -82,9 +83,11 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       console.log("[Socket] Visitor registered:", visitorId);
 
       // Find and assign best agent using path-based routing
-      const agent = poolManager.findBestAgentForVisitor(data.orgId, data.pageUrl);
-      console.log("[Socket] Best agent found:", agent?.agentId ?? "NONE");
-      if (agent) {
+      const result = poolManager.findBestAgentForVisitor(data.orgId, data.pageUrl);
+      console.log("[Socket] Best agent found:", result?.agent.agentId ?? "NONE", "pool:", result?.poolId ?? "none");
+      
+      if (result) {
+        const { agent, poolId } = result;
         poolManager.assignVisitorToAgent(visitorId, agent.agentId);
         
         // Emit updated stats to the agent (live visitor count)
@@ -93,6 +96,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           const agentSocket = io.sockets.sockets.get(agent.socketId);
           agentSocket?.emit(SOCKET_EVENTS.STATS_UPDATE, updatedStats);
         }
+        
+        // Get widget settings for this visitor (pool-specific or org defaults)
+        const widgetSettings = await getWidgetSettings(data.orgId, poolId);
         
         socket.emit(SOCKET_EVENTS.AGENT_ASSIGNED, {
           agent: {
@@ -105,6 +111,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
             loopVideoUrl: agent.profile.loopVideoUrl,
           },
           visitorId: session.visitorId,
+          widgetSettings,
         });
       } else {
         // No agents available - emit error
@@ -183,12 +190,12 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
 
       // If the requested agent is unavailable, immediately find an alternative
       if (!targetAgent || targetAgent.profile.status === "in_call" || targetAgent.profile.status === "offline" || targetAgent.profile.status === "away") {
-        const alternativeAgent = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
+        const alternativeResult = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
         
-        if (alternativeAgent && alternativeAgent.agentId !== data.agentId) {
-          console.log(`[Socket] Agent ${data.agentId} unavailable (${targetAgent?.profile.status ?? 'not found'}), rerouting to ${alternativeAgent.agentId}`);
-          targetAgent = alternativeAgent;
-          targetAgentId = alternativeAgent.agentId;
+        if (alternativeResult && alternativeResult.agent.agentId !== data.agentId) {
+          console.log(`[Socket] Agent ${data.agentId} unavailable (${targetAgent?.profile.status ?? 'not found'}), rerouting to ${alternativeResult.agent.agentId}`);
+          targetAgent = alternativeResult.agent;
+          targetAgentId = alternativeResult.agent.agentId;
         } else if (!targetAgent) {
           socket.emit(SOCKET_EVENTS.ERROR, {
             code: ERROR_CODES.AGENT_NOT_FOUND,
@@ -328,6 +335,10 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       for (const visitor of unassignedVisitors) {
         poolManager.assignVisitorToAgent(visitor.visitorId, agentState.agentId);
         
+        // Get widget settings for this visitor's org and matched pool
+        const poolId = poolManager.matchPathToPool(visitor.orgId, visitor.pageUrl);
+        const widgetSettings = await getWidgetSettings(visitor.orgId, poolId);
+        
         const visitorSocket = io.sockets.sockets.get(visitor.socketId);
         visitorSocket?.emit(SOCKET_EVENTS.AGENT_ASSIGNED, {
           agent: {
@@ -340,6 +351,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
             loopVideoUrl: profile.loopVideoUrl,
           },
           visitorId: visitor.visitorId,
+          widgetSettings,
         });
         console.log(`[Socket] Assigned unassigned visitor ${visitor.visitorId} to newly logged in agent ${agentState.agentId}`);
       }
@@ -377,8 +389,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           // Try to find another agent for the waiting visitor
           const visitor = poolManager.getVisitor(request.visitorId);
           if (visitor) {
-            const newAgent = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
-            if (newAgent && newAgent.agentId !== agent.agentId) {
+            const newResult = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
+            if (newResult && newResult.agent.agentId !== agent.agentId) {
+              const newAgent = newResult.agent;
               // Mark old call as missed (agent went away)
               markCallMissed(request.requestId);
               
@@ -763,8 +776,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           for (const visitorId of affectedVisitors) {
             const visitor = poolManager.getVisitor(visitorId);
             if (visitor) {
-              const newAgent = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
-              if (newAgent) {
+              const newResult = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
+              if (newResult) {
+                const newAgent = newResult.agent;
                 poolManager.assignVisitorToAgent(visitorId, newAgent.agentId);
                 const visitorSocket = io.sockets.sockets.get(visitor.socketId);
                 visitorSocket?.emit(SOCKET_EVENTS.AGENT_REASSIGNED, {
@@ -891,9 +905,10 @@ function startRNATimeout(
     // Try to find another agent for the visitor
     const visitor = poolManager.getVisitor(visitorId);
     if (visitor) {
-      const newAgent = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
+      const newResult = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
       
-      if (newAgent && newAgent.agentId !== agentId) {
+      if (newResult && newResult.agent.agentId !== agentId) {
+        const newAgent = newResult.agent;
         console.log(`[RNA] Routing visitor ${visitorId} to agent ${newAgent.agentId}`);
         
         // Create new request for the new agent

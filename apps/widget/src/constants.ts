@@ -132,26 +132,68 @@ export const CONNECTION_TIMING = {
 // =============================================================================
 
 /**
- * Widget dimensions
+ * Widget dimensions by size
+ */
+export const SIZE_DIMENSIONS = {
+  small: {
+    widgetWidth: 260,
+    selfViewSize: 60,
+    selfViewSizeFullscreen: 160,
+    controlButtonSize: 40,
+    videoControlButtonSize: 28,
+    minimizedButtonSize: 48,
+    borderRadius: 16,
+    borderRadiusSm: 10,
+    agentNameSize: 14,
+    agentStatusSize: 12,
+  },
+  medium: {
+    widgetWidth: 320,
+    selfViewSize: 80,
+    selfViewSizeFullscreen: 200,
+    controlButtonSize: 48,
+    videoControlButtonSize: 32,
+    minimizedButtonSize: 60,
+    borderRadius: 20,
+    borderRadiusSm: 12,
+    agentNameSize: 16,
+    agentStatusSize: 13,
+  },
+  large: {
+    widgetWidth: 380,
+    selfViewSize: 100,
+    selfViewSizeFullscreen: 240,
+    controlButtonSize: 56,
+    videoControlButtonSize: 36,
+    minimizedButtonSize: 72,
+    borderRadius: 24,
+    borderRadiusSm: 14,
+    agentNameSize: 18,
+    agentStatusSize: 14,
+  },
+} as const;
+
+/**
+ * Widget dimensions (medium size is default)
  */
 export const DIMENSIONS = {
   /** Default widget width in pixels */
-  WIDGET_WIDTH: 320,
+  WIDGET_WIDTH: SIZE_DIMENSIONS.medium.widgetWidth,
 
   /** Self-view PiP dimensions (normal mode) */
-  SELF_VIEW_SIZE: 80,
+  SELF_VIEW_SIZE: SIZE_DIMENSIONS.medium.selfViewSize,
 
   /** Self-view PiP dimensions (fullscreen mode) */
-  SELF_VIEW_SIZE_FULLSCREEN: 200,
+  SELF_VIEW_SIZE_FULLSCREEN: SIZE_DIMENSIONS.medium.selfViewSizeFullscreen,
 
   /** Control button size in pixels */
-  CONTROL_BUTTON_SIZE: 48,
+  CONTROL_BUTTON_SIZE: SIZE_DIMENSIONS.medium.controlButtonSize,
 
   /** Video control button size in pixels */
-  VIDEO_CONTROL_BUTTON_SIZE: 32,
+  VIDEO_CONTROL_BUTTON_SIZE: SIZE_DIMENSIONS.medium.videoControlButtonSize,
 
   /** Minimized button size in pixels */
-  MINIMIZED_BUTTON_SIZE: 60,
+  MINIMIZED_BUTTON_SIZE: SIZE_DIMENSIONS.medium.minimizedButtonSize,
 } as const;
 
 /**

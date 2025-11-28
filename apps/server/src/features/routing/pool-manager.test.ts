@@ -212,8 +212,9 @@ describe("PoolManager", () => {
       poolManager.setAgentInCall("agentA", "visitor_in_call");
 
       // findBestAgentForVisitor should return agentB
-      const agent = poolManager.findBestAgentForVisitor("org1", "/some-page");
-      expect(agent?.agentId).toBe("agentB");
+      const result = poolManager.findBestAgentForVisitor("org1", "/some-page");
+      expect(result?.agent.agentId).toBe("agentB");
+      expect(result?.poolId).toBe("pool1");
     });
 
     it("should return undefined when all agents in pool are busy", () => {
@@ -226,8 +227,8 @@ describe("PoolManager", () => {
       poolManager.setAgentInCall("agentA", "visitor_in_call");
 
       // Should fall back to finding any agent, but none available
-      const agent = poolManager.findBestAgentForVisitor("org1", "/some-page");
-      expect(agent).toBeUndefined();
+      const result = poolManager.findBestAgentForVisitor("org1", "/some-page");
+      expect(result).toBeUndefined();
     });
   });
 

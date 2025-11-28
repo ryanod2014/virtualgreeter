@@ -49,6 +49,8 @@ export default async function PoolsPage() {
     position: "bottom-right",
     devices: "all",
     trigger_delay: 3,
+    auto_hide_delay: null,
+    show_minimize_button: false,
   };
 
   // Calculate visitor counts per PATH in last 30 days

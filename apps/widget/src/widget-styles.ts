@@ -8,11 +8,12 @@
  * from the host website's styles.
  */
 
-import { DIMENSIONS, Z_INDEX, ANIMATION_TIMING } from "./constants";
+import { SIZE_DIMENSIONS, Z_INDEX, ANIMATION_TIMING } from "./constants";
 
 /**
  * CSS Custom Properties for theming
  * These can be overridden by businesses in their widget config
+ * Size-specific variables are set dynamically via inline styles
  */
 const CSS_VARIABLES = `
   :host {
@@ -33,11 +34,17 @@ const CSS_VARIABLES = `
     --gg-error: #ef4444;
     --gg-error-hover: #dc2626;
     
-    /* Dimensions */
-    --gg-widget-width: ${DIMENSIONS.WIDGET_WIDTH}px;
-    --gg-border-radius: 20px;
-    --gg-border-radius-sm: 12px;
-    --gg-control-size: ${DIMENSIONS.CONTROL_BUTTON_SIZE}px;
+    /* Dimensions - defaults (medium), can be overridden via inline styles */
+    --gg-widget-width: ${SIZE_DIMENSIONS.medium.widgetWidth}px;
+    --gg-border-radius: ${SIZE_DIMENSIONS.medium.borderRadius}px;
+    --gg-border-radius-sm: ${SIZE_DIMENSIONS.medium.borderRadiusSm}px;
+    --gg-control-size: ${SIZE_DIMENSIONS.medium.controlButtonSize}px;
+    --gg-self-view-size: ${SIZE_DIMENSIONS.medium.selfViewSize}px;
+    --gg-self-view-size-fs: ${SIZE_DIMENSIONS.medium.selfViewSizeFullscreen}px;
+    --gg-video-control-size: ${SIZE_DIMENSIONS.medium.videoControlButtonSize}px;
+    --gg-minimized-size: ${SIZE_DIMENSIONS.medium.minimizedButtonSize}px;
+    --gg-agent-name-size: ${SIZE_DIMENSIONS.medium.agentNameSize}px;
+    --gg-agent-status-size: ${SIZE_DIMENSIONS.medium.agentStatusSize}px;
     
     /* Shadows */
     --gg-shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
@@ -49,6 +56,25 @@ const CSS_VARIABLES = `
     --gg-transition-fast: 0.2s ease;
   }
 `;
+
+/**
+ * Get CSS variables for a specific widget size
+ */
+export function getSizeStyles(size: "small" | "medium" | "large"): string {
+  const dims = SIZE_DIMENSIONS[size];
+  return `
+    --gg-widget-width: ${dims.widgetWidth}px;
+    --gg-border-radius: ${dims.borderRadius}px;
+    --gg-border-radius-sm: ${dims.borderRadiusSm}px;
+    --gg-control-size: ${dims.controlButtonSize}px;
+    --gg-self-view-size: ${dims.selfViewSize}px;
+    --gg-self-view-size-fs: ${dims.selfViewSizeFullscreen}px;
+    --gg-video-control-size: ${dims.videoControlButtonSize}px;
+    --gg-minimized-size: ${dims.minimizedButtonSize}px;
+    --gg-agent-name-size: ${dims.agentNameSize}px;
+    --gg-agent-status-size: ${dims.agentStatusSize}px;
+  `;
+}
 
 /**
  * Reset styles for Shadow DOM isolation
@@ -104,6 +130,26 @@ const WIDGET_STYLES = `
     left: 20px;
   }
 
+  .gg-widget.top-right {
+    top: 20px;
+    right: 20px;
+  }
+
+  .gg-widget.top-left {
+    top: 20px;
+    left: 20px;
+  }
+
+  .gg-widget.center {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .gg-widget.center.gg-dragging {
+    transform: none;
+  }
+
   .gg-widget.gg-dragging {
     transition: none;
     cursor: grabbing;
@@ -134,8 +180,8 @@ const WIDGET_STYLES = `
   }
 
   .gg-widget.gg-fullscreen .gg-self-view {
-    width: ${DIMENSIONS.SELF_VIEW_SIZE_FULLSCREEN}px;
-    height: ${DIMENSIONS.SELF_VIEW_SIZE_FULLSCREEN}px;
+    width: var(--gg-self-view-size-fs);
+    height: var(--gg-self-view-size-fs);
     bottom: 100px;
     right: 40px;
     border-radius: 16px;
@@ -224,8 +270,8 @@ const VIDEO_STYLES = `
   }
 
   .gg-video-control-btn {
-    width: ${DIMENSIONS.VIDEO_CONTROL_BUTTON_SIZE}px;
-    height: ${DIMENSIONS.VIDEO_CONTROL_BUTTON_SIZE}px;
+    width: var(--gg-video-control-size);
+    height: var(--gg-video-control-size);
     border: none;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(8px);
@@ -313,14 +359,14 @@ const AGENT_INFO_STYLES = `
   }
 
   .gg-agent-name {
-    font-size: 16px;
+    font-size: var(--gg-agent-name-size);
     font-weight: 600;
     color: var(--gg-text);
     margin-bottom: 4px;
   }
 
   .gg-agent-status {
-    font-size: 13px;
+    font-size: var(--gg-agent-status-size);
     color: var(--gg-success);
     display: flex;
     align-items: center;
@@ -441,8 +487,9 @@ const MODAL_STYLES = `
  */
 const MINIMIZED_STYLES = `
   .gg-minimized {
-    width: ${DIMENSIONS.MINIMIZED_BUTTON_SIZE}px;
-    height: ${DIMENSIONS.MINIMIZED_BUTTON_SIZE}px;
+    position: relative;
+    width: var(--gg-minimized-size);
+    height: var(--gg-minimized-size);
     border-radius: 50%;
     background: linear-gradient(135deg, var(--gg-primary) 0%, var(--gg-secondary) 100%);
     cursor: pointer;
@@ -453,10 +500,57 @@ const MINIMIZED_STYLES = `
     transition: transform var(--gg-transition-fast);
     animation: gg-slideUp ${ANIMATION_TIMING.WIDGET_ENTRANCE}ms cubic-bezier(0.16, 1, 0.3, 1);
     border: none;
+    overflow: hidden;
   }
 
   .gg-minimized:hover {
     transform: scale(1.05);
+  }
+
+  /* When minimized, always position at bottom-right */
+  .gg-minimized.gg-minimized-bottom-right {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    left: auto;
+    top: auto;
+  }
+
+  /* Agent avatar in minimized button */
+  .gg-minimized-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  /* Loop video in minimized button */
+  .gg-minimized-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  /* Pulse animation ring */
+  .gg-minimized-pulse {
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid var(--gg-primary);
+    animation: gg-minimized-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+    pointer-events: none;
+  }
+
+  @keyframes gg-minimized-ping {
+    0% {
+      transform: scale(1);
+      opacity: 0.8;
+    }
+    75%, 100% {
+      transform: scale(1.4);
+      opacity: 0;
+    }
   }
 `;
 
@@ -636,8 +730,8 @@ const SELF_VIEW_STYLES = `
     position: absolute;
     bottom: 12px;
     right: 12px;
-    width: ${DIMENSIONS.SELF_VIEW_SIZE}px;
-    height: ${DIMENSIONS.SELF_VIEW_SIZE}px;
+    width: var(--gg-self-view-size);
+    height: var(--gg-self-view-size);
     border-radius: var(--gg-border-radius-sm);
     background: var(--gg-surface);
     border: 2px solid rgba(255, 255, 255, 0.1);

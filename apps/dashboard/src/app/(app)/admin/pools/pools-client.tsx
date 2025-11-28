@@ -27,6 +27,8 @@ import {
   Monitor,
   Smartphone,
   Clock,
+  TimerOff,
+  Minimize2,
 } from "lucide-react";
 import type { WidgetSettings, WidgetSize, WidgetPosition, WidgetDevices } from "@ghost-greeter/domain/database.types";
 import { useRef } from "react";
@@ -752,6 +754,8 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
   const [saving, setSaving] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customDelay, setCustomDelay] = useState<string>("");
+  const [showCustomHideInput, setShowCustomHideInput] = useState(false);
+  const [customHideDelay, setCustomHideDelay] = useState<string>("");
   const [isExpanded, setIsExpanded] = useState(pool.widget_settings === null); // Collapsed if already has custom settings
   const supabase = createClient();
 
@@ -762,7 +766,15 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
     { value: 30, label: "30 sec" },
   ];
 
+  const presetHideDelays = [
+    { value: null, label: "Never" },
+    { value: 60, label: "1 min" },
+    { value: 120, label: "2 min" },
+    { value: 300, label: "5 min" },
+  ];
+
   const isPresetDelay = presetDelays.some(d => d.value === settings.trigger_delay);
+  const isPresetHideDelay = presetHideDelays.some(d => d.value === settings.auto_hide_delay);
 
   const handleToggleCustom = async (custom: boolean) => {
     setUseCustom(custom);
@@ -1048,7 +1060,7 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
                   type="number"
                   min="0"
                   max="300"
-                  value={customDelay || (!isPresetDelay ? settings.trigger_delay : "")}
+                  value={customDelay}
                   onChange={(e) => {
                     const val = e.target.value;
                     setCustomDelay(val);
@@ -1056,8 +1068,8 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
                       setSettings({ ...settings, trigger_delay: parseInt(val) });
                     }
                   }}
-                  placeholder="Enter seconds"
-                  className="w-32 px-3 py-2 rounded-lg bg-muted border border-border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="0"
+                  className="w-32 px-3 py-2 rounded-lg bg-muted border border-border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
                 />
                 <span className="text-sm text-muted-foreground">seconds</span>
               </div>
@@ -1067,6 +1079,105 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
                 ? "Widget appears immediately when page loads" 
                 : `Widget appears ${settings.trigger_delay} second${settings.trigger_delay > 1 ? 's' : ''} after page loads`}
             </p>
+          </div>
+
+          {/* Auto-Hide Delay - Buttons */}
+          <div>
+            <label className="block text-sm font-medium mb-3 flex items-center gap-2">
+              <TimerOff className="w-4 h-4 text-muted-foreground" />
+              Disappear After
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {presetHideDelays.map((preset) => (
+                <button
+                  key={preset.value ?? "never"}
+                  onClick={() => {
+                    setSettings({ ...settings, auto_hide_delay: preset.value });
+                    setShowCustomHideInput(false);
+                    setCustomHideDelay("");
+                  }}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                    settings.auto_hide_delay === preset.value && !showCustomHideInput
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted hover:bg-muted/80 text-foreground"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  setShowCustomHideInput(true);
+                  setCustomHideDelay(isPresetHideDelay || settings.auto_hide_delay === null ? "" : String(Math.floor(settings.auto_hide_delay / 60)));
+                }}
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                  showCustomHideInput || (!isPresetHideDelay && settings.auto_hide_delay !== null)
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-muted/80 text-foreground"
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+            {(showCustomHideInput || (!isPresetHideDelay && settings.auto_hide_delay !== null)) && (
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={customHideDelay}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCustomHideDelay(val);
+                    if (val && !isNaN(parseInt(val))) {
+                      setSettings({ ...settings, auto_hide_delay: parseInt(val) * 60 });
+                    }
+                  }}
+                  placeholder="0"
+                  className="w-32 px-3 py-2 rounded-lg bg-muted border border-border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+                />
+                <span className="text-sm text-muted-foreground">minutes</span>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              {settings.auto_hide_delay === null 
+                ? "Widget stays visible until visitor interacts or leaves" 
+                : `Widget hides after ${Math.floor(settings.auto_hide_delay / 60)} minute${Math.floor(settings.auto_hide_delay / 60) !== 1 ? 's' : ''} of no interaction`}
+            </p>
+          </div>
+
+          {/* Minimize Button Toggle */}
+          <div>
+            <label className="block text-sm font-medium mb-3 flex items-center gap-2">
+              <Minimize2 className="w-4 h-4 text-muted-foreground" />
+              Allow user to minimize
+            </label>
+            <button
+              onClick={() => setSettings({ ...settings, show_minimize_button: !settings.show_minimize_button })}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all w-full ${
+                settings.show_minimize_button
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/50"
+              }`}
+            >
+              <div className={`w-10 h-6 rounded-full transition-colors relative ${
+                settings.show_minimize_button ? "bg-primary" : "bg-muted"
+              }`}>
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                  settings.show_minimize_button ? "translate-x-5" : "translate-x-1"
+                }`} />
+              </div>
+              <div className="text-left">
+                <div className="font-medium text-sm">
+                  {settings.show_minimize_button ? "Enabled" : "Disabled"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {settings.show_minimize_button 
+                    ? "Visitors can minimize the widget" 
+                    : "Widget cannot be minimized"}
+                </div>
+              </div>
+            </button>
           </div>
           </div>
         </div>

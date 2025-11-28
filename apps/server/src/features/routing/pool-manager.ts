@@ -542,8 +542,9 @@ export class PoolManager {
   /**
    * Find the best agent for a visitor based on their org and page URL
    * Uses path-based routing to determine the appropriate pool
+   * Returns the agent and the matched pool ID (for widget settings lookup)
    */
-  findBestAgentForVisitor(orgId: string, pageUrl: string): AgentState | undefined {
+  findBestAgentForVisitor(orgId: string, pageUrl: string): { agent: AgentState; poolId: string | null } | undefined {
     // First, try to find an agent in the matched pool
     const poolId = this.matchPathToPool(orgId, pageUrl);
     
@@ -551,13 +552,18 @@ export class PoolManager {
       const agent = this.findBestAgent(poolId);
       if (agent) {
         console.log(`[PoolManager] Found agent ${agent.profile.displayName} in pool ${poolId} for ${pageUrl}`);
-        return agent;
+        return { agent, poolId };
       }
       console.log(`[PoolManager] No available agent in pool ${poolId}, falling back to any agent`);
     }
 
-    // Fallback: find any available agent
-    return this.findBestAgent();
+    // Fallback: find any available agent (no specific pool)
+    const fallbackAgent = this.findBestAgent();
+    if (fallbackAgent) {
+      return { agent: fallbackAgent, poolId: null };
+    }
+    
+    return undefined;
   }
 
   /**

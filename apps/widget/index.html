@@ -76,10 +76,14 @@
 
     <!-- Ghost-Greeter Widget -->
     <script>
+      // IMPORTANT: To test with your actual org settings, replace the orgId below
+      // with your real organization ID from /admin/sites embed code
+      // You can find it in the `gg('init', { orgId: 'YOUR_ORG_ID' })` line
       window.GhostGreeter = {
         config: {
-          orgId: "demo-org-123",
+          orgId: "8b89aa6f-2fd2-40a1-b003-ef48717c67c4",
           serverUrl: "http://localhost:3001",
+          // Note: position and triggerDelay below are overridden by server settings
           position: "bottom-right",
           triggerDelay: 500,
         },
