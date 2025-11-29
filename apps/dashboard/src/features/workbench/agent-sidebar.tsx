@@ -13,7 +13,6 @@ import {
   ChevronDown,
   Check,
   Users,
-  MessageSquarePlus,
 } from "lucide-react";
 import type { User, Organization, AgentProfile } from "@ghost-greeter/domain/database.types";
 import type { ActiveCall } from "@ghost-greeter/domain";
@@ -207,9 +206,6 @@ export function AgentSidebar({
           </NavLink>
           <NavLink href="/dashboard/call-logs" icon={FileText} pathname={pathname}>
             Call Logs
-          </NavLink>
-          <NavLink href="/dashboard/feedback" icon={MessageSquarePlus} pathname={pathname}>
-            Feedback
           </NavLink>
           
           {isAdmin && (

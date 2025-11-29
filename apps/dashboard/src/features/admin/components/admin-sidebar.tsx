@@ -16,7 +16,6 @@ import {
   Palette,
   ChevronDown,
   Check,
-  MessageSquarePlus,
 } from "lucide-react";
 import type { User, Organization, AgentProfile } from "@ghost-greeter/domain/database.types";
 import type { ActiveCall } from "@ghost-greeter/domain";
@@ -214,9 +213,6 @@ export function AdminSidebar({
           </NavLink>
           <NavLink href="/admin/calls" icon={BarChart3} pathname={pathname}>
             Calls
-          </NavLink>
-          <NavLink href="/admin/feedback" icon={MessageSquarePlus} pathname={pathname}>
-            Feedback
           </NavLink>
           
           <div className="pt-4 pb-2">

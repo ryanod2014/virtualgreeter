@@ -18,6 +18,7 @@ import {
   PlayCircle,
   X,
   ArrowLeft,
+  Shield,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
