@@ -14,14 +14,22 @@ import type {
 } from "@ghost-greeter/domain";
 
 const PORT = process.env["PORT"] ?? 3001;
+// CORS configuration
+// In production, we allow any origin for the widget since it can be embedded anywhere
+// The ALLOWED_ORIGINS env var is for API endpoints, not Socket.io
 const ALLOWED_ORIGINS = process.env["ALLOWED_ORIGINS"]?.split(",") ?? [
   "http://localhost:3000",
   "http://localhost:5173",
 ];
 
+// Allow all origins in production for widget embedding
+const CORS_ORIGIN = process.env["NODE_ENV"] === "production" 
+  ? true  // Allow all origins in production (widget can be embedded anywhere)
+  : ALLOWED_ORIGINS;
+
 // Initialize Express
 const app = express();
-app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
+app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
 app.use(express.json());
 
 // Rate limiting configuration
@@ -119,7 +127,7 @@ const io = new Server<
   ServerToWidgetEvents & ServerToDashboardEvents
 >(httpServer, {
   cors: {
-    origin: ALLOWED_ORIGINS,
+    origin: CORS_ORIGIN,
     credentials: true,
   },
   transports: ["websocket", "polling"],
@@ -135,7 +143,7 @@ setupSocketHandlers(io, poolManager);
 httpServer.listen(PORT, () => {
   console.log(`🚀 Ghost-Greeter signaling server running on port ${PORT}`);
   console.log(`📡 Socket.io ready for connections`);
-  console.log(`🔒 CORS enabled for: ${ALLOWED_ORIGINS.join(", ")}`);
+  console.log(`🔒 CORS enabled for: ${CORS_ORIGIN === true ? "all origins (production mode)" : ALLOWED_ORIGINS.join(", ")}`);
 });
 
 // Graceful shutdown
