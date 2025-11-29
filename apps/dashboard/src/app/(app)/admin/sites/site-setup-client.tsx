@@ -105,7 +105,13 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
   const hasChanges = JSON.stringify(settings) !== JSON.stringify(initialWidgetSettings);
 
   // Get URLs from environment variables with fallbacks
-  const widgetCdnUrl = process.env.NEXT_PUBLIC_WIDGET_CDN_URL || "https://cdn.ghost-greeter.com/widget.js";
+  // Ensure widget URL always ends with /widget.js
+  const rawWidgetUrl = process.env.NEXT_PUBLIC_WIDGET_CDN_URL || "https://cdn.ghost-greeter.com/widget.js";
+  const widgetCdnUrl = rawWidgetUrl.endsWith("/widget.js") 
+    ? rawWidgetUrl 
+    : rawWidgetUrl.endsWith("/") 
+      ? `${rawWidgetUrl}widget.js`
+      : `${rawWidgetUrl}/widget.js`;
   const serverUrl = process.env.NEXT_PUBLIC_SIGNALING_SERVER || "http://localhost:3001";
 
   const embedCode = `<!-- Ghost-Greeter Widget -->
