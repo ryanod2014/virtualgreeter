@@ -142,40 +142,45 @@ ALTER TABLE feedback_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feedback_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feedback_comments ENABLE ROW LEVEL SECURITY;
 
--- Feedback items policies
--- All users in the same org can view all feedback
-CREATE POLICY "Users can view feedback in their org"
+-- ============================================================================
+-- FEEDBACK ITEMS POLICIES
+-- ============================================================================
+
+-- Feature requests are PUBLIC (visible to all authenticated users across all orgs)
+-- Bug reports are PRIVATE (only visible within the same org)
+CREATE POLICY "Feature requests are public, bugs are org-only"
 ON feedback_items FOR SELECT
 TO authenticated
 USING (
-    EXISTS (
+    type = 'feature' 
+    OR EXISTS (
         SELECT 1 FROM users 
         WHERE users.id = auth.uid() 
         AND users.organization_id = feedback_items.organization_id
     )
 );
 
--- Users can create feedback
+-- Users can create feedback (associated with their org)
 CREATE POLICY "Users can create feedback"
 ON feedback_items FOR INSERT
 TO authenticated
 WITH CHECK (
-    EXISTS (
+    user_id = auth.uid()
+    AND EXISTS (
         SELECT 1 FROM users 
         WHERE users.id = auth.uid() 
         AND users.organization_id = feedback_items.organization_id
     )
-    AND user_id = auth.uid()
 );
 
--- Users can update their own feedback (limited fields)
+-- Users can update their own feedback
 CREATE POLICY "Users can update own feedback"
 ON feedback_items FOR UPDATE
 TO authenticated
 USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
 
--- Admins can update any feedback in their org (for status changes, admin responses)
+-- Admins can update any feedback in their org (for bug status changes)
 CREATE POLICY "Admins can update feedback in their org"
 ON feedback_items FOR UPDATE
 TO authenticated
@@ -194,31 +199,32 @@ ON feedback_items FOR DELETE
 TO authenticated
 USING (user_id = auth.uid());
 
--- Votes policies
--- Users can view votes in their org
-CREATE POLICY "Users can view votes in their org"
+-- ============================================================================
+-- VOTES POLICIES (Feature requests only - public voting)
+-- ============================================================================
+
+-- Anyone can view votes on feature requests
+CREATE POLICY "Users can view votes on feature requests"
 ON feedback_votes FOR SELECT
 TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM feedback_items fi
-        JOIN users u ON u.organization_id = fi.organization_id
         WHERE fi.id = feedback_votes.feedback_item_id
-        AND u.id = auth.uid()
+        AND fi.type = 'feature'
     )
 );
 
--- Users can add their own vote
-CREATE POLICY "Users can vote"
+-- Any authenticated user can vote on feature requests
+CREATE POLICY "Users can vote on feature requests"
 ON feedback_votes FOR INSERT
 TO authenticated
 WITH CHECK (
     user_id = auth.uid()
     AND EXISTS (
         SELECT 1 FROM feedback_items fi
-        JOIN users u ON u.organization_id = fi.organization_id
         WHERE fi.id = feedback_votes.feedback_item_id
-        AND u.id = auth.uid()
+        AND fi.type = 'feature'
     )
 );
 
@@ -228,21 +234,30 @@ ON feedback_votes FOR DELETE
 TO authenticated
 USING (user_id = auth.uid());
 
--- Comments policies
--- Users can view comments in their org
-CREATE POLICY "Users can view comments in their org"
+-- ============================================================================
+-- COMMENTS POLICIES
+-- ============================================================================
+
+-- Comments on feature requests are public, bug comments are org-only
+CREATE POLICY "Users can view comments"
 ON feedback_comments FOR SELECT
 TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM feedback_items fi
-        JOIN users u ON u.organization_id = fi.organization_id
         WHERE fi.id = feedback_comments.feedback_item_id
-        AND u.id = auth.uid()
+        AND (
+            fi.type = 'feature'
+            OR EXISTS (
+                SELECT 1 FROM users u
+                WHERE u.id = auth.uid()
+                AND u.organization_id = fi.organization_id
+            )
+        )
     )
 );
 
--- Users can add comments
+-- Users can add comments on feature requests (public) or bugs in their org
 CREATE POLICY "Users can add comments"
 ON feedback_comments FOR INSERT
 TO authenticated
@@ -250,9 +265,15 @@ WITH CHECK (
     user_id = auth.uid()
     AND EXISTS (
         SELECT 1 FROM feedback_items fi
-        JOIN users u ON u.organization_id = fi.organization_id
         WHERE fi.id = feedback_comments.feedback_item_id
-        AND u.id = auth.uid()
+        AND (
+            fi.type = 'feature'
+            OR EXISTS (
+                SELECT 1 FROM users u
+                WHERE u.id = auth.uid()
+                AND u.organization_id = fi.organization_id
+            )
+        )
     )
 );
 
