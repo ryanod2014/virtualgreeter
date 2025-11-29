@@ -835,18 +835,13 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
     mobile: { label: "Mobile Only", icons: <Smartphone className="w-5 h-5" /> },
   };
 
-  const isStaging = process.env.NEXT_PUBLIC_STAGING === "true";
-
   const themeLabels: Record<WidgetTheme, { label: string; desc: string; icon: React.ReactNode }> = {
     light: { label: "Light", desc: "Bright & clean", icon: <Sun className="w-5 h-5" /> },
     dark: { label: "Dark", desc: "Sleek & modern", icon: <Moon className="w-5 h-5" /> },
     "liquid-glass": { label: "Glass", desc: "Frosted blur", icon: <Droplets className="w-5 h-5" /> },
   };
 
-  // Themes available based on environment
-  const availableThemes: WidgetTheme[] = isStaging 
-    ? ["light", "dark", "liquid-glass"] 
-    : ["light", "dark"];
+  const availableThemes: WidgetTheme[] = ["light", "dark", "liquid-glass"];
 
   const hasChanges = useCustom && JSON.stringify(settings) !== JSON.stringify(pool.widget_settings);
 
