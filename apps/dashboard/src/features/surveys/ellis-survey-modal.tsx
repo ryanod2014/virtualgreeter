@@ -155,10 +155,10 @@ export function EllisSurveyModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
+      {/* Backdrop - only dismissible after selection */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
-        onClick={handleDismiss}
+        onClick={showFollowUp ? handleDismiss : undefined}
       />
 
       {/* Modal */}
@@ -180,14 +180,16 @@ export function EllisSurveyModal({
             <div className="flex items-center justify-between p-5 border-b border-border">
               <div>
                 <h3 className="font-semibold text-lg">Quick question</h3>
-                <p className="text-sm text-muted-foreground">Takes 10 seconds</p>
               </div>
-              <button
-                onClick={handleDismiss}
-                className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {/* Only show close button after user has selected an option */}
+              {showFollowUp && (
+                <button
+                  onClick={handleDismiss}
+                  className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
             </div>
 
             {/* Content */}

@@ -50,18 +50,41 @@ export default async function PlatformOverviewPage() {
   const totalAgents = agentsResult.count ?? 0;
   const totalCalls = callsResult.count ?? 0;
 
-  // PMF Score calculation
+  // PMF Score calculation - separated by role
   const surveys = pmfSurveysResult.data ?? [];
-  const veryDisappointed = surveys.filter(
+  
+  // Split surveys by role
+  const agentSurveys = surveys.filter((s) => s.user_role === "agent");
+  const adminSurveys = surveys.filter((s) => s.user_role === "admin" || s.user_role === "owner");
+  
+  // Agent PMF metrics
+  const agentVeryDisappointed = agentSurveys.filter(
     (s) => s.disappointment_level === "very_disappointed"
   ).length;
-  const somewhatDisappointed = surveys.filter(
+  const agentSomewhatDisappointed = agentSurveys.filter(
     (s) => s.disappointment_level === "somewhat_disappointed"
   ).length;
-  const notDisappointed = surveys.filter(
+  const agentNotDisappointed = agentSurveys.filter(
     (s) => s.disappointment_level === "not_disappointed"
   ).length;
-  const pmfScore = surveys.length > 0 ? (veryDisappointed / surveys.length) * 100 : 0;
+  const agentPmfScore = agentSurveys.length > 0 ? (agentVeryDisappointed / agentSurveys.length) * 100 : 0;
+  
+  // Admin PMF metrics
+  const adminVeryDisappointed = adminSurveys.filter(
+    (s) => s.disappointment_level === "very_disappointed"
+  ).length;
+  const adminSomewhatDisappointed = adminSurveys.filter(
+    (s) => s.disappointment_level === "somewhat_disappointed"
+  ).length;
+  const adminNotDisappointed = adminSurveys.filter(
+    (s) => s.disappointment_level === "not_disappointed"
+  ).length;
+  const adminPmfScore = adminSurveys.length > 0 ? (adminVeryDisappointed / adminSurveys.length) * 100 : 0;
+  
+  // Combined totals for display
+  const veryDisappointed = agentVeryDisappointed + adminVeryDisappointed;
+  const somewhatDisappointed = agentSomewhatDisappointed + adminSomewhatDisappointed;
+  const notDisappointed = agentNotDisappointed + adminNotDisappointed;
 
   // Get recent surveys for the table
   const recentSurveys = surveys
@@ -91,65 +114,105 @@ export default async function PlatformOverviewPage() {
         </p>
       </div>
 
-      {/* Top Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* PMF Score - Large Card */}
+      {/* Top Stats Grid - PMF Scores by Role */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Agent PMF Score */}
         <div
-          className={`col-span-2 p-6 rounded-2xl border-2 ${getPmfBgColor(pmfScore)} border-current ${getPmfColor(pmfScore)}`}
+          className={`p-6 rounded-2xl border-2 ${getPmfBgColor(agentPmfScore)} border-current ${getPmfColor(agentPmfScore)}`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm font-medium opacity-80">PMF Score</p>
-              <p className="text-5xl font-bold mt-2">{pmfScore.toFixed(0)}%</p>
+              <p className="text-sm font-medium opacity-80">Agent PMF Score</p>
+              <p className="text-4xl font-bold mt-2">{agentPmfScore.toFixed(0)}%</p>
               <p className="text-sm mt-2 opacity-80">
-                {pmfScore >= 40
-                  ? "Above 40% threshold - PMF achieved!"
-                  : `Need ${(40 - pmfScore).toFixed(0)}% more to hit 40% target`}
+                {agentSurveys.length === 0
+                  ? "No agent responses yet"
+                  : agentPmfScore >= 40
+                  ? "Agents love the product!"
+                  : `Need ${(40 - agentPmfScore).toFixed(0)}% more to hit 40%`}
               </p>
             </div>
             <div className="p-3 rounded-xl bg-white/10">
-              <Target className="w-8 h-8" />
+              <Users className="w-6 h-6" />
             </div>
           </div>
-          <div className="mt-4 flex gap-4 text-sm">
+          <div className="mt-4 flex gap-3 text-sm flex-wrap">
             <span className="flex items-center gap-1">
-              <Heart className="w-4 h-4" /> {veryDisappointed} very
+              <Heart className="w-4 h-4" /> {agentVeryDisappointed} very
             </span>
             <span className="flex items-center gap-1">
-              <Meh className="w-4 h-4" /> {somewhatDisappointed} somewhat
+              <Meh className="w-4 h-4" /> {agentSomewhatDisappointed} somewhat
             </span>
             <span className="flex items-center gap-1">
-              <Frown className="w-4 h-4" /> {notDisappointed} not
+              <Frown className="w-4 h-4" /> {agentNotDisappointed} not
             </span>
           </div>
+          <p className="text-xs opacity-60 mt-2">{agentSurveys.length} total responses</p>
         </div>
 
+        {/* Admin PMF Score */}
+        <div
+          className={`p-6 rounded-2xl border-2 ${getPmfBgColor(adminPmfScore)} border-current ${getPmfColor(adminPmfScore)}`}
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-medium opacity-80">Admin PMF Score</p>
+              <p className="text-4xl font-bold mt-2">{adminPmfScore.toFixed(0)}%</p>
+              <p className="text-sm mt-2 opacity-80">
+                {adminSurveys.length === 0
+                  ? "No admin responses yet"
+                  : adminPmfScore >= 40
+                  ? "Admins love the product!"
+                  : `Need ${(40 - adminPmfScore).toFixed(0)}% more to hit 40%`}
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-white/10">
+              <Target className="w-6 h-6" />
+            </div>
+          </div>
+          <div className="mt-4 flex gap-3 text-sm flex-wrap">
+            <span className="flex items-center gap-1">
+              <Heart className="w-4 h-4" /> {adminVeryDisappointed} very
+            </span>
+            <span className="flex items-center gap-1">
+              <Meh className="w-4 h-4" /> {adminSomewhatDisappointed} somewhat
+            </span>
+            <span className="flex items-center gap-1">
+              <Frown className="w-4 h-4" /> {adminNotDisappointed} not
+            </span>
+          </div>
+          <p className="text-xs opacity-60 mt-2">{adminSurveys.length} total responses</p>
+        </div>
+      </div>
+
+      {/* Secondary Row - Cancellation & Total Surveys */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
         {/* Cancellation Rate */}
-        <div className="p-6 rounded-2xl bg-card border border-border">
+        <div className="p-5 rounded-xl bg-card border border-border">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">Cancellation Rate</p>
             <AlertTriangle
               className={`w-5 h-5 ${cancellationRate > 10 ? "text-red-500" : "text-muted-foreground"}`}
             />
           </div>
-          <p className="text-3xl font-bold mt-2">{cancellationRate.toFixed(1)}%</p>
+          <p className="text-2xl font-bold mt-2">{cancellationRate.toFixed(1)}%</p>
           <p className="text-sm text-muted-foreground mt-1">
             {cancelledOrgs} of {totalOrgs} orgs
           </p>
         </div>
 
         {/* Total Surveys */}
-        <div className="p-6 rounded-2xl bg-card border border-border">
+        <div className="p-5 rounded-xl bg-card border border-border">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">Survey Responses</p>
             <TrendingUp className="w-5 h-5 text-muted-foreground" />
           </div>
-          <p className="text-3xl font-bold mt-2">{surveys.length}</p>
+          <p className="text-2xl font-bold mt-2">{surveys.length}</p>
           <p className="text-sm text-muted-foreground mt-1">
             {cancellationsResult.count ?? 0} exit surveys
           </p>
         </div>
-      </div>
 
       {/* Secondary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

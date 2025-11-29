@@ -47,7 +47,7 @@ export async function updateSession(request: NextRequest) {
   console.log(`[Middleware] Path: ${request.nextUrl.pathname}, User: ${user?.email || "none"}, Error: ${error?.message || "none"}`);
 
   // Protected routes - redirect to login if not authenticated
-  const protectedPaths = ["/dashboard", "/admin", "/settings", "/onboarding"];
+  const protectedPaths = ["/dashboard", "/admin", "/settings", "/onboarding", "/platform"];
   const isProtectedPath = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
