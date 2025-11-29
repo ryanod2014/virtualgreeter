@@ -226,7 +226,7 @@ export interface WebRTCSignalPayload {
 export type WidgetSize = "small" | "medium" | "large";
 export type WidgetPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left" | "center";
 export type WidgetDevices = "all" | "desktop" | "mobile";
-export type WidgetTheme = "light" | "dark" | "auto";
+export type WidgetTheme = "light" | "dark" | "liquid-glass";
 
 export interface WidgetSettings {
   size: WidgetSize;

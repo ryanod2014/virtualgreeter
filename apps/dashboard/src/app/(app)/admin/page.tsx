@@ -12,6 +12,10 @@ import {
   Rocket,
   Sparkles,
   AlertCircle,
+  Eye,
+  TrendingUp,
+  AlertTriangle,
+  UserPlus,
 } from "lucide-react";
 
 interface SetupStep {
@@ -30,8 +34,12 @@ export default async function AdminOverviewPage() {
   const auth = await getCurrentUser();
   const supabase = await createClient();
 
+  // Date range for coverage stats (last 30 days)
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
   // Fetch all required data for setup status
-  const [sitesResult, agentsResult, poolsResult, dispositionsResult, orgResult] = await Promise.all([
+  const [sitesResult, agentsResult, poolsResult, dispositionsResult, orgResult, pageviewsResult, callsResult] = await Promise.all([
     supabase
       .from("sites")
       .select("id", { count: "exact" })
@@ -56,7 +64,30 @@ export default async function AdminOverviewPage() {
       .select("embed_verified_at, embed_verified_domain")
       .eq("id", auth!.organization.id)
       .single(),
+    // Fetch pageviews for coverage calculation
+    supabase
+      .from("widget_pageviews")
+      .select("id, agent_id")
+      .eq("organization_id", auth!.organization.id)
+      .gte("created_at", thirtyDaysAgo.toISOString()),
+    // Fetch answered calls for answer rate
+    supabase
+      .from("call_logs")
+      .select("id, status")
+      .eq("organization_id", auth!.organization.id)
+      .gte("created_at", thirtyDaysAgo.toISOString())
+      .in("status", ["accepted", "completed"]),
   ]);
+
+  // Calculate coverage stats
+  const pageviews = pageviewsResult.data ?? [];
+  const pageviewsTotal = pageviews.length;
+  const pageviewsWithAgent = pageviews.filter(p => p.agent_id !== null).length;
+  const missedOpportunities = pageviewsTotal - pageviewsWithAgent;
+  const coverageRate = pageviewsTotal > 0 ? (pageviewsWithAgent / pageviewsTotal) * 100 : 100;
+  
+  const answeredCalls = callsResult.data?.length ?? 0;
+  const answerRate = pageviewsWithAgent > 0 ? (answeredCalls / pageviewsWithAgent) * 100 : 0;
 
   // Check if pools have agents assigned
   const poolsWithAgents = poolsResult.data?.filter(
@@ -240,7 +271,174 @@ export default async function AdminOverviewPage() {
             </div>
           </div>
         )}
+
+        {/* Coverage Health Card - Only show if there's some traffic */}
+        {pageviewsTotal > 0 && (
+          <CoverageHealthCard
+            coverageRate={coverageRate}
+            pageviewsTotal={pageviewsTotal}
+            missedOpportunities={missedOpportunities}
+            answerRate={answerRate}
+            answeredCalls={answeredCalls}
+          />
+        )}
       </div>
+    </div>
+  );
+}
+
+// Coverage Health Card Component
+function CoverageHealthCard({
+  coverageRate,
+  pageviewsTotal,
+  missedOpportunities,
+  answerRate,
+  answeredCalls,
+}: {
+  coverageRate: number;
+  pageviewsTotal: number;
+  missedOpportunities: number;
+  answerRate: number;
+  answeredCalls: number;
+}) {
+  const getCoverageStatus = (rate: number) => {
+    if (rate >= 90) return { color: "green", label: "Excellent", icon: "🟢" };
+    if (rate >= 70) return { color: "amber", label: "Needs Attention", icon: "🟡" };
+    return { color: "red", label: "Critical", icon: "🔴" };
+  };
+
+  const status = getCoverageStatus(coverageRate);
+  
+  const bgGradient = {
+    green: "from-green-500/10 via-emerald-500/5 to-transparent",
+    amber: "from-amber-500/10 via-orange-500/5 to-transparent",
+    red: "from-red-500/10 via-rose-500/5 to-transparent",
+  }[status.color];
+  
+  const borderColor = {
+    green: "border-green-500/30",
+    amber: "border-amber-500/30",
+    red: "border-red-500/30",
+  }[status.color];
+  
+  const textColor = {
+    green: "text-green-600 dark:text-green-400",
+    amber: "text-amber-600 dark:text-amber-400",
+    red: "text-red-600 dark:text-red-400",
+  }[status.color];
+  
+  const progressBg = {
+    green: "bg-green-500",
+    amber: "bg-amber-500",
+    red: "bg-red-500",
+  }[status.color];
+
+  return (
+    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${bgGradient} border-2 ${borderColor} p-6 mt-8`}>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Eye className="w-5 h-5 text-muted-foreground" />
+            <h3 className="text-lg font-semibold">Agent Coverage</h3>
+            <span className="text-xl">{status.icon}</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Last 30 days • {pageviewsTotal} total visitors
+          </p>
+        </div>
+        <div className="text-right">
+          <p className={`text-4xl font-bold ${textColor}`}>
+            {coverageRate.toFixed(0)}%
+          </p>
+          <p className="text-sm text-muted-foreground">{status.label}</p>
+        </div>
+      </div>
+
+      {/* Coverage Progress Bar */}
+      <div className="mb-6">
+        <div className="h-3 bg-muted rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${progressBg}`}
+            style={{ width: `${Math.min(coverageRate, 100)}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-background/50 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Eye className="w-4 h-4 text-blue-500" />
+            <span className="text-sm text-muted-foreground">Covered</span>
+          </div>
+          <p className="text-2xl font-bold">{pageviewsTotal - missedOpportunities}</p>
+          <p className="text-xs text-muted-foreground">visitors had an agent</p>
+        </div>
+        
+        <div className="bg-background/50 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle className={`w-4 h-4 ${missedOpportunities > 0 ? "text-red-500" : "text-muted-foreground"}`} />
+            <span className="text-sm text-muted-foreground">Missed</span>
+          </div>
+          <p className={`text-2xl font-bold ${missedOpportunities > 0 ? "text-red-500" : ""}`}>
+            {missedOpportunities}
+          </p>
+          <p className="text-xs text-muted-foreground">no agent available</p>
+        </div>
+        
+        <div className="bg-background/50 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="w-4 h-4 text-green-500" />
+            <span className="text-sm text-muted-foreground">Answer Rate</span>
+          </div>
+          <p className="text-2xl font-bold">{answerRate.toFixed(1)}%</p>
+          <p className="text-xs text-muted-foreground">{answeredCalls} calls answered</p>
+        </div>
+      </div>
+
+      {/* Recommendation */}
+      {coverageRate < 80 && (
+        <div className={`flex items-center justify-between p-4 rounded-xl bg-background/70 border ${borderColor}`}>
+          <div className="flex items-center gap-3">
+            <UserPlus className={`w-5 h-5 ${textColor}`} />
+            <div>
+              <p className={`font-medium ${textColor}`}>
+                {missedOpportunities > 10 
+                  ? "Consider hiring more agents" 
+                  : "Increase agent availability"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {missedOpportunities} visitors couldn&apos;t connect because no agents were online
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/admin/agents"
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${progressBg} text-white font-medium hover:opacity-90 transition-opacity`}
+          >
+            Add Agents
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
+      
+      {coverageRate >= 80 && coverageRate < 90 && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-background/70 border border-amber-500/30">
+          <Sparkles className="w-5 h-5 text-amber-500" />
+          <p className="text-sm text-muted-foreground">
+            Good coverage! A few more active hours would push you to excellent.
+          </p>
+        </div>
+      )}
+      
+      {coverageRate >= 90 && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-background/70 border border-green-500/30">
+          <Sparkles className="w-5 h-5 text-green-500" />
+          <p className="text-sm text-muted-foreground">
+            Excellent coverage! Your visitors almost always have an agent available.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

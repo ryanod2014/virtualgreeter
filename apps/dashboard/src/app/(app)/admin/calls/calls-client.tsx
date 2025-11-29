@@ -21,13 +21,15 @@ import {
   ExternalLink,
   FileText,
   Video,
-  ChevronDown,
-  ChevronUp,
   Users,
   Eye,
   ArrowRightLeft,
   FileDown,
+  AlertTriangle,
+  UserPlus,
+  ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
 import {
   calculateAgentStats,
   formatDuration,
@@ -88,6 +90,12 @@ interface FilterParams {
   country?: string; // ISO country codes, comma-separated
 }
 
+interface CoverageStats {
+  pageviewsWithAgent: number;
+  missedOpportunities: number;
+  coverageRate: number;
+}
+
 interface Props {
   calls: CallLogWithRelations[];
   dispositions: DispositionForStats[];
@@ -100,6 +108,7 @@ interface Props {
     inCallSeconds: number;
   };
   pageviewCount: number;
+  coverageStats: CoverageStats;
 }
 
 export function CallsClient({
@@ -111,13 +120,13 @@ export function CallsClient({
   currentFilters,
   teamActivity,
   pageviewCount,
+  coverageStats,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [showFilters, setShowFilters] = useState(false);
-  const [showDetailedStats, setShowDetailedStats] = useState(false);
   const [playingCallId, setPlayingCallId] = useState<string | null>(null);
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
   const [videoModalCallId, setVideoModalCallId] = useState<string | null>(null);
@@ -648,50 +657,152 @@ export function CallsClient({
         )}
       </div>
 
-      {/* Team Activity Summary */}
-      {teamActivity.activeSeconds > 0 && (
-        <div className="glass rounded-xl p-5 mb-6 bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/10">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-primary/10">
-                <Users className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Team Active Hours</div>
-                <div className="text-2xl font-bold">
-                  {formatDuration(teamActivity.activeSeconds)}
+      {/* MISSED OPPORTUNITIES ALERT - Very Prominent */}
+      {coverageStats.missedOpportunities > 0 && (
+        <div className="rounded-2xl border-2 border-red-500 bg-gradient-to-r from-red-500/20 via-red-500/10 to-orange-500/10 p-6 mb-6 relative overflow-hidden">
+          {/* Background pattern */}
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-red-500 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          </div>
+          
+          <div className="relative">
+            <div className="flex items-start justify-between gap-6 flex-wrap">
+              <div className="flex items-start gap-4">
+                <div className="p-4 rounded-2xl bg-red-500/20 border border-red-500/30">
+                  <AlertTriangle className="w-8 h-8 text-red-500" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-red-500 mb-1">
+                    {coverageStats.missedOpportunities} Missed Opportunities
+                  </h3>
+                  <p className="text-muted-foreground mb-3 max-w-xl">
+                    <span className="font-semibold text-foreground">{coverageStats.missedOpportunities} visitors</span> wanted to connect but{" "}
+                    <span className="font-semibold text-red-500">no agents were online</span>. 
+                    That&apos;s potential revenue walking away!
+                  </p>
+                  
+                  {/* Coverage breakdown */}
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-muted-foreground" />
+                      <span>{pageviewCount} total visitors</span>
+                    </div>
+                    <div className="w-px h-4 bg-border" />
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-green-500" />
+                      <span>{coverageStats.pageviewsWithAgent} had agent available</span>
+                    </div>
+                    <div className="w-px h-4 bg-border" />
+                    <div className="flex items-center gap-2">
+                      <span className={`font-bold ${coverageStats.coverageRate >= 80 ? "text-green-500" : coverageStats.coverageRate >= 60 ? "text-amber-500" : "text-red-500"}`}>
+                        {coverageStats.coverageRate.toFixed(0)}% coverage
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
+              
+              {/* CTA */}
+              <Link
+                href="/admin/agents"
+                className="flex items-center gap-3 px-6 py-4 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all group"
+              >
+                <UserPlus className="w-5 h-5" />
+                Add More Agents
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
             </div>
-            <div className="flex items-center gap-6">
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Time on Calls</div>
-                <div className="text-xl font-semibold text-green-500">
-                  {formatDuration(teamActivity.inCallSeconds)}
-                </div>
+            
+            {/* Progress bar showing coverage */}
+            <div className="mt-4">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-muted-foreground">Coverage Rate</span>
+                <span className={`font-medium ${coverageStats.coverageRate >= 80 ? "text-green-500" : coverageStats.coverageRate >= 60 ? "text-amber-500" : "text-red-500"}`}>
+                  {coverageStats.coverageRate.toFixed(1)}%
+                </span>
               </div>
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Utilization</div>
-                <div className="text-xl font-semibold">
-                  {teamActivity.activeSeconds > 0
-                    ? `${((teamActivity.inCallSeconds / teamActivity.activeSeconds) * 100).toFixed(0)}%`
-                    : "0%"}
-                </div>
+              <div className="h-2 bg-red-500/20 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all ${
+                    coverageStats.coverageRate >= 80 ? "bg-green-500" : 
+                    coverageStats.coverageRate >= 60 ? "bg-amber-500" : "bg-red-500"
+                  }`}
+                  style={{ width: `${coverageStats.coverageRate}%` }}
+                />
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                💡 Target 90%+ coverage to capture all potential customers
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Main Stats Grid */}
+      {/* Coverage Rate - Hero Card */}
+      <div className={`glass rounded-xl p-6 mb-6 relative overflow-hidden ${coverageStats.coverageRate < 80 ? "ring-2 ring-red-500/50" : "ring-1 ring-green-500/20"}`}>
+        {coverageStats.coverageRate < 80 && (
+          <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 via-red-500/5 to-transparent" />
+        )}
+        {coverageStats.coverageRate >= 80 && (
+          <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 via-transparent to-transparent" />
+        )}
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-xl ${coverageStats.coverageRate >= 80 ? "bg-green-500/10 text-green-500" : coverageStats.coverageRate >= 60 ? "bg-amber-500/10 text-amber-500" : "bg-red-500/10 text-red-500"}`}>
+              <TrendingUp className="w-7 h-7" />
+              </div>
+              <div>
+              <div className="text-sm text-muted-foreground mb-1">Coverage Rate</div>
+              <div className={`text-4xl font-bold ${coverageStats.coverageRate >= 80 ? "text-green-500" : coverageStats.coverageRate >= 60 ? "text-amber-500" : "text-red-500"}`}>
+                {coverageStats.coverageRate.toFixed(1)}%
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold">{pageviewCount}</div>
+              <div className="text-xs text-muted-foreground">Total Pageviews</div>
+                </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-500">{coverageStats.pageviewsWithAgent}</div>
+              <div className="text-xs text-muted-foreground">Widget Popups</div>
+              </div>
+            <div className="text-center">
+              <div className={`text-2xl font-bold ${coverageStats.missedOpportunities > 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                {coverageStats.missedOpportunities}
+                </div>
+              <div className="text-xs text-muted-foreground">Missed Leads</div>
+              </div>
+            </div>
+          {coverageStats.coverageRate < 80 ? (
+                <Link
+                  href="/admin/agents"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-colors"
+                >
+              <UserPlus className="w-4 h-4" />
+              Hire More Agents
+              <ArrowRight className="w-4 h-4" />
+                </Link>
+          ) : (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/10 text-green-500 font-medium">
+              <CheckCircle className="w-4 h-4" />
+              All visitors covered
+              </div>
+            )}
+        </div>
+      </div>
+
+      {/* Call Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
-        <StatCard
-          title="Pageviews"
-          value={pageviewCount}
-          subtitle="Widget popups shown"
-          icon={Eye}
-          color="slate"
-        />
+        {teamActivity.activeSeconds > 0 && (
+          <StatCard
+            title="Active Hours"
+            value={formatDuration(teamActivity.activeSeconds)}
+            subtitle="Total logged-in time"
+            icon={Users}
+            color="blue"
+          />
+        )}
         <StatCard
           title="Total Rings"
           value={stats.totalRings}
@@ -718,31 +829,19 @@ export function CallsClient({
           color="purple"
         />
         <StatCard
-          title="Conversion Rate"
-          value={pageviewCount > 0 ? `${((stats.totalRings / pageviewCount) * 100).toFixed(1)}%` : "0%"}
-          subtitle="Pageviews → Calls"
+          title="Conversion"
+          value={coverageStats.pageviewsWithAgent > 0 ? `${((stats.totalAnswers / coverageStats.pageviewsWithAgent) * 100).toFixed(1)}%` : "0%"}
+          subtitle="Popups → Answered"
           icon={ArrowRightLeft}
           color="cyan"
         />
-      </div>
-
-      {/* Collapsible Detailed Stats */}
-      <button
-        onClick={() => setShowDetailedStats(!showDetailedStats)}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
-      >
-        {showDetailedStats ? (
-          <ChevronUp className="w-4 h-4" />
-        ) : (
-          <ChevronDown className="w-4 h-4" />
-        )}
-        {showDetailedStats ? "Hide" : "Show"} detailed stats
-      </button>
-
-      {showDetailedStats && (
-        <>
-          {/* Time Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <StatCard
+          title="Rejected"
+          value={stats.totalRejected}
+          subtitle="Declined by agents"
+          icon={PhoneOff}
+          color="orange"
+        />
             <StatCard
               title="Avg. Answer Time"
               value={formatDuration(stats.avgAnswerTime)}
@@ -763,17 +862,6 @@ export function CallsClient({
               subtitle="All time on calls"
               icon={BarChart3}
               color="indigo"
-            />
-          </div>
-
-          {/* Additional Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <StatCard
-              title="Rejected Calls"
-              value={stats.totalRejected}
-              subtitle="Calls declined by agents"
-              icon={PhoneOff}
-              color="orange"
             />
           </div>
 
@@ -813,8 +901,6 @@ export function CallsClient({
                 ))}
               </div>
             </div>
-          )}
-        </>
       )}
 
       {/* Results Count */}

@@ -148,7 +148,20 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           widgetSettings,
         });
       } else {
-        // No agents available - emit error
+        // No agents available - record as missed opportunity pageview
+        recordPageview({
+          visitorId,
+          agentId: null, // No agent was available - this is a missed opportunity
+          orgId: data.orgId,
+          pageUrl: data.pageUrl,
+          poolId: null,
+        }).catch(() => {
+          // Silently ignore - pageview tracking is best-effort
+        });
+        
+        console.log(`[Socket] ⚠️ No agents available for visitor ${visitorId} - recorded as missed opportunity`);
+        
+        // Emit error to visitor
         socket.emit(SOCKET_EVENTS.ERROR, {
           code: ERROR_CODES.AGENT_UNAVAILABLE,
           message: "No agents are currently available. Please try again later.",

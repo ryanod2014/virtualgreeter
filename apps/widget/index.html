@@ -123,16 +123,19 @@
     
     <div class="arrow">↘</div>
 
-    <!-- Ghost-Greeter Widget - Production Embed -->
+    <!-- Ghost-Greeter Widget - Local Development Embed -->
+    <script type="module" src="/src/main.tsx"></script>
     <script>
-      (function(w,d,s,o,f,js,fjs){
-        w['GhostGreeter']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
-        js=d.createElement(s);fjs=d.getElementsByTagName(s)[0];
-        js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
-      }(window,document,'script','gg','https://virtualgreeter-widget.vercel.app/widget.js'));
-      gg('init', { 
-        orgId: '880d5d27-3b38-4423-a7b1-6b24636cd04c', 
-        serverUrl: 'https://ghost-greeterserver-production.up.railway.app' 
+      // Wait for the widget to load then initialize
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          if (window.gg) {
+            gg('init', { 
+              orgId: 'c152bd26-cbfd-4367-81ea-7da0467d2e17', 
+              serverUrl: 'http://localhost:3001' 
+            });
+          }
+        }, 500);
       });
     </script>
   </body>

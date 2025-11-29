@@ -111,24 +111,33 @@ export function CancellationsClient({
     });
   }, [cancellations, dateFrom, dateTo]);
 
-  // Calculate reason breakdown
+  // Calculate total lost revenue first (needed for reason breakdown)
+  const totalLostRevenue = filteredCancellations.reduce((sum, c) => sum + c.monthly_cost, 0);
+
+  // Calculate reason breakdown (weighted by MRR)
   const reasonBreakdown = useMemo(() => {
-    const counts: Record<CancellationReason, number> = {} as Record<CancellationReason, number>;
+    const counts: Record<CancellationReason, { count: number; mrr: number }> = {} as Record<CancellationReason, { count: number; mrr: number }>;
     
     filteredCancellations.forEach((c) => {
-      counts[c.primary_reason] = (counts[c.primary_reason] || 0) + 1;
+      if (!counts[c.primary_reason]) {
+        counts[c.primary_reason] = { count: 0, mrr: 0 };
+      }
+      counts[c.primary_reason].count++;
+      counts[c.primary_reason].mrr += c.monthly_cost || 0;
     });
 
     const sorted = Object.entries(counts)
-      .sort(([, a], [, b]) => b - a)
-      .map(([reason, count]) => ({
+      .sort(([, a], [, b]) => b.mrr - a.mrr) // Sort by MRR lost, not count
+      .map(([reason, data]) => ({
         reason: reason as CancellationReason,
-        count,
-        percentage: filteredCancellations.length > 0 ? (count / filteredCancellations.length) * 100 : 0,
+        count: data.count,
+        mrr: data.mrr,
+        countPercentage: filteredCancellations.length > 0 ? (data.count / filteredCancellations.length) * 100 : 0,
+        mrrPercentage: totalLostRevenue > 0 ? (data.mrr / totalLostRevenue) * 100 : 0,
       }));
 
     return sorted;
-  }, [filteredCancellations]);
+  }, [filteredCancellations, totalLostRevenue]);
 
   // Cohort analysis - group by signup month
   const cohortData = useMemo(() => {
@@ -194,8 +203,6 @@ export function CancellationsClient({
   const avgDurationDays = filteredCancellations.length > 0
     ? filteredCancellations.reduce((sum, c) => sum + c.subscription_duration_days, 0) / filteredCancellations.length
     : 0;
-
-  const totalLostRevenue = filteredCancellations.reduce((sum, c) => sum + c.monthly_cost, 0);
 
   // Overall churn rate
   const churnRate = totalOrganizations > 0
@@ -350,32 +357,44 @@ export function CancellationsClient({
       {/* Overview View */}
       {viewMode === "overview" && (
         <>
-          {/* Reason Breakdown Chart */}
+          {/* Reason Breakdown Chart - MRR Weighted */}
           <div className="bg-card rounded-2xl border border-border p-6">
-            <h3 className="font-semibold mb-4">Cancellation Reasons</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold">Cancellation Reasons by Revenue Impact</h3>
+                <p className="text-sm text-muted-foreground">Sorted by MRR lost, not count</p>
+              </div>
+            </div>
             
             {reasonBreakdown.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No data in selected period</p>
             ) : (
-              <div className="space-y-3">
-                {reasonBreakdown.map(({ reason, count, percentage }) => (
-                  <div key={reason} className="flex items-center gap-4">
-                    <div className="w-44 text-sm truncate">
-                      {REASON_LABELS[reason]}
-                    </div>
-                    <div className="flex-1">
-                      <div className="h-6 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${REASON_COLORS[reason]} transition-all duration-500`}
-                          style={{ width: `${percentage}%` }}
-                        />
+              <div className="space-y-4">
+                {reasonBreakdown.map(({ reason, count, mrr, countPercentage, mrrPercentage }) => (
+                  <div key={reason} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {REASON_LABELS[reason]}
+                      </span>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-muted-foreground">
+                          {count} orgs ({countPercentage.toFixed(0)}%)
+                        </span>
+                        <span className="font-bold text-red-500">
+                          ${mrr.toLocaleString()} ({mrrPercentage.toFixed(0)}%)
+                        </span>
                       </div>
                     </div>
-                    <div className="w-24 text-right">
-                      <span className="font-medium">{count}</span>
-                      <span className="text-muted-foreground text-sm ml-1">
-                        ({percentage.toFixed(0)}%)
-                      </span>
+                    <div className="flex gap-2">
+                      {/* MRR bar (primary) */}
+                      <div className="flex-1">
+                        <div className="h-4 bg-muted rounded overflow-hidden">
+                          <div
+                            className={`h-full ${REASON_COLORS[reason]} transition-all duration-500`}
+                            style={{ width: `${mrrPercentage}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}

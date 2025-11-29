@@ -6,12 +6,25 @@ import {
   Filter,
   ArrowUpDown,
   Building2,
-  Users,
   Phone,
   ChevronDown,
   ChevronUp,
+  Eye,
+  AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Heart,
+  Shield,
+  ShieldAlert,
+  ShieldX,
+  DollarSign,
+  Activity,
 } from "lucide-react";
 import type { SubscriptionPlan, SubscriptionStatus } from "@ghost-greeter/domain/database.types";
+
+type RiskLevel = "low" | "medium" | "high" | "critical";
+type CallsTrend = "increasing" | "stable" | "declining";
 
 interface OrgWithStats {
   id: string;
@@ -27,14 +40,53 @@ interface OrgWithStats {
   totalCalls: number;
   callsThisMonth: number;
   lastActivity: string;
+  // Coverage metrics
+  pageviewsTotal: number;
+  pageviewsThisMonth: number;
+  pageviewsWithAgent: number;
+  coverageRate: number;
+  coverageRateThisMonth: number;
+  missedOpportunities: number;
+  missedOpportunitiesThisMonth: number;
+  answeredCalls: number;
+  answerRate: number;
+  answerRateThisMonth: number;
+  // Health metrics
+  healthScore: number;
+  riskLevel: RiskLevel;
+  isAtRisk: boolean;
+  daysSinceLastCall: number | null;
+  callsTrend: CallsTrend;
+  activityScore: number;
+  engagementScore: number;
+  coverageScore: number;
+  growthScore: number;
+  mrr: number;
+}
+
+interface PlatformTotals {
+  pageviewsThisMonth: number;
+  pageviewsWithAgentThisMonth: number;
+  missedOpportunitiesThisMonth: number;
+  answeredCallsThisMonth: number;
+  callsThisMonth: number;
+  totalMRR: number;
+  activeOrgs: number;
+  coverageRate: number;
+  answerRate: number;
 }
 
 interface OrganizationsClientProps {
   organizations: OrgWithStats[];
+  atRiskCount: number;
+  criticalCount: number;
+  atRiskMRR: number;
+  platformTotals: PlatformTotals;
 }
 
-type SortField = "name" | "plan" | "userCount" | "agentCount" | "totalCalls" | "callsThisMonth" | "created_at" | "lastActivity";
+type SortField = "name" | "plan" | "healthScore" | "mrr" | "callsThisMonth" | "created_at" | "lastActivity" | "coverageRateThisMonth" | "answerRateThisMonth";
 type SortDirection = "asc" | "desc";
+type ViewFilter = "all" | "at-risk" | "healthy" | "churned";
 
 const STATUS_COLORS: Record<SubscriptionStatus, string> = {
   active: "bg-green-500/10 text-green-500 border-green-500/20",
@@ -49,12 +101,32 @@ const PLAN_COLORS: Record<SubscriptionPlan, string> = {
   enterprise: "bg-amber-500/10 text-amber-500",
 };
 
-export function OrganizationsClient({ organizations }: OrganizationsClientProps) {
+const RISK_COLORS: Record<RiskLevel, { bg: string; text: string; icon: typeof Shield }> = {
+  low: { bg: "bg-green-500/10", text: "text-green-500", icon: Shield },
+  medium: { bg: "bg-amber-500/10", text: "text-amber-500", icon: ShieldAlert },
+  high: { bg: "bg-orange-500/10", text: "text-orange-500", icon: ShieldAlert },
+  critical: { bg: "bg-red-500/10", text: "text-red-500", icon: ShieldX },
+};
+
+const TREND_ICONS: Record<CallsTrend, { icon: typeof TrendingUp; color: string }> = {
+  increasing: { icon: TrendingUp, color: "text-green-500" },
+  stable: { icon: Minus, color: "text-muted-foreground" },
+  declining: { icon: TrendingDown, color: "text-red-500" },
+};
+
+export function OrganizationsClient({ 
+  organizations, 
+  atRiskCount,
+  criticalCount,
+  atRiskMRR,
+  platformTotals,
+}: OrganizationsClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<SubscriptionStatus | "all">("all");
   const [planFilter, setPlanFilter] = useState<SubscriptionPlan | "all">("all");
-  const [sortField, setSortField] = useState<SortField>("created_at");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
+  const [sortField, setSortField] = useState<SortField>("healthScore");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   // Filter and sort organizations
   const filteredOrgs = useMemo(() => {
@@ -80,6 +152,15 @@ export function OrganizationsClient({ organizations }: OrganizationsClientProps)
       result = result.filter((org) => org.plan === planFilter);
     }
 
+    // Apply view filter
+    if (viewFilter === "at-risk") {
+      result = result.filter((org) => org.isAtRisk);
+    } else if (viewFilter === "healthy") {
+      result = result.filter((org) => org.subscription_status === "active" && !org.isAtRisk);
+    } else if (viewFilter === "churned") {
+      result = result.filter((org) => org.subscription_status === "cancelled");
+    }
+
     // Apply sorting
     result.sort((a, b) => {
       let aVal: string | number = a[sortField];
@@ -97,14 +178,15 @@ export function OrganizationsClient({ organizations }: OrganizationsClientProps)
     });
 
     return result;
-  }, [organizations, searchQuery, statusFilter, planFilter, sortField, sortDirection]);
+  }, [organizations, searchQuery, statusFilter, planFilter, viewFilter, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortDirection("desc");
+      // Default to desc for most fields, asc for healthScore (lowest first = most at risk)
+      setSortDirection(field === "healthScore" ? "asc" : "desc");
     }
   };
 
@@ -128,14 +210,205 @@ export function OrganizationsClient({ organizations }: OrganizationsClientProps)
     return new Date(date).toLocaleDateString();
   };
 
+  const getHealthColor = (score: number) => {
+    if (score >= 80) return "text-green-500";
+    if (score >= 60) return "text-amber-500";
+    if (score >= 40) return "text-orange-500";
+    return "text-red-500";
+  };
+
+  const getHealthBg = (score: number) => {
+    if (score >= 80) return "bg-green-500";
+    if (score >= 60) return "bg-amber-500";
+    if (score >= 40) return "bg-orange-500";
+    return "bg-red-500";
+  };
+
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h2 className="text-2xl font-bold">All Organizations</h2>
-        <p className="text-muted-foreground">
-          {organizations.length} organizations on the platform
-        </p>
+      {/* Page Header with At-Risk Summary */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold">All Organizations</h2>
+          <p className="text-muted-foreground">
+            {organizations.length} organizations on the platform
+          </p>
+        </div>
+
+        {/* At-Risk Summary Cards */}
+        <div className="flex gap-3">
+          {criticalCount > 0 && (
+            <button
+              onClick={() => setViewFilter(viewFilter === "at-risk" ? "all" : "at-risk")}
+              className={`p-3 rounded-xl border-2 transition-all ${
+                viewFilter === "at-risk" 
+                  ? "bg-red-500/20 border-red-500" 
+                  : "bg-red-500/10 border-red-500/30 hover:border-red-500/60"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <ShieldX className="w-5 h-5 text-red-500" />
+                <div className="text-left">
+                  <p className="text-lg font-bold text-red-500">{criticalCount}</p>
+                  <p className="text-xs text-red-400">Critical Risk</p>
+                </div>
+              </div>
+            </button>
+          )}
+          {atRiskCount > 0 && (
+            <button
+              onClick={() => setViewFilter(viewFilter === "at-risk" ? "all" : "at-risk")}
+              className={`p-3 rounded-xl border-2 transition-all ${
+                viewFilter === "at-risk" 
+                  ? "bg-amber-500/20 border-amber-500" 
+                  : "bg-amber-500/10 border-amber-500/30 hover:border-amber-500/60"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                <div className="text-left">
+                  <p className="text-lg font-bold text-amber-500">{atRiskCount}</p>
+                  <p className="text-xs text-amber-400">At Risk</p>
+                </div>
+              </div>
+            </button>
+          )}
+          {atRiskMRR > 0 && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-red-500" />
+                <div className="text-left">
+                  <p className="text-lg font-bold text-red-500">${atRiskMRR.toLocaleString()}</p>
+                  <p className="text-xs text-red-400">MRR at Risk</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Platform Totals - This Month */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Eye className="w-4 h-4 text-blue-500" />
+            <span className="text-xs text-muted-foreground">Pageviews</span>
+          </div>
+          <p className="text-2xl font-bold">{platformTotals.pageviewsThisMonth.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground">this month</p>
+        </div>
+        
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Activity className="w-4 h-4 text-purple-500" />
+            <span className="text-xs text-muted-foreground">Coverage</span>
+          </div>
+          <p className={`text-2xl font-bold ${
+            platformTotals.coverageRate >= 90 ? "text-green-500" :
+            platformTotals.coverageRate >= 70 ? "text-amber-500" : "text-red-500"
+          }`}>
+            {platformTotals.coverageRate.toFixed(1)}%
+          </p>
+          <p className="text-xs text-muted-foreground">agent available</p>
+        </div>
+        
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle className="w-4 h-4 text-red-500" />
+            <span className="text-xs text-muted-foreground">Missed</span>
+          </div>
+          <p className={`text-2xl font-bold ${platformTotals.missedOpportunitiesThisMonth > 0 ? "text-red-500" : ""}`}>
+            {platformTotals.missedOpportunitiesThisMonth.toLocaleString()}
+          </p>
+          <p className="text-xs text-muted-foreground">no agent</p>
+        </div>
+        
+        <div className="bg-gradient-to-br from-primary/10 to-purple-500/10 rounded-xl border-2 border-primary/30 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="w-4 h-4 text-primary" />
+            <span className="text-xs text-muted-foreground">Answer Rate</span>
+          </div>
+          <p className={`text-2xl font-bold ${
+            platformTotals.answerRate >= 20 ? "text-green-500" :
+            platformTotals.answerRate >= 10 ? "text-amber-500" : "text-red-500"
+          }`}>
+            {platformTotals.answerRate.toFixed(1)}%
+          </p>
+          <p className="text-xs text-muted-foreground">pageview → answer</p>
+        </div>
+        
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Phone className="w-4 h-4 text-green-500" />
+            <span className="text-xs text-muted-foreground">Answered</span>
+          </div>
+          <p className="text-2xl font-bold text-green-500">{platformTotals.answeredCallsThisMonth.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground">calls this month</p>
+        </div>
+        
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Phone className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Total Calls</span>
+          </div>
+          <p className="text-2xl font-bold">{platformTotals.callsThisMonth.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground">this month</p>
+        </div>
+        
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <DollarSign className="w-4 h-4 text-green-500" />
+            <span className="text-xs text-muted-foreground">Platform MRR</span>
+          </div>
+          <p className="text-2xl font-bold">${platformTotals.totalMRR.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground">{platformTotals.activeOrgs} active orgs</p>
+        </div>
+      </div>
+
+      {/* View Filter Tabs */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setViewFilter("all")}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            viewFilter === "all"
+              ? "bg-primary/10 text-primary border border-primary/30"
+              : "bg-muted/50 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          All ({organizations.length})
+        </button>
+        <button
+          onClick={() => setViewFilter("at-risk")}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+            viewFilter === "at-risk"
+              ? "bg-red-500/10 text-red-500 border border-red-500/30"
+              : "bg-muted/50 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <AlertTriangle className="w-4 h-4" />
+          At Risk ({atRiskCount})
+        </button>
+        <button
+          onClick={() => setViewFilter("healthy")}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+            viewFilter === "healthy"
+              ? "bg-green-500/10 text-green-500 border border-green-500/30"
+              : "bg-muted/50 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Heart className="w-4 h-4" />
+          Healthy
+        </button>
+        <button
+          onClick={() => setViewFilter("churned")}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            viewFilter === "churned"
+              ? "bg-slate-500/10 text-slate-400 border border-slate-500/30"
+              : "bg-muted/50 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Churned
+        </button>
       </div>
 
       {/* Filters Bar */}
@@ -201,41 +474,41 @@ export function OrganizationsClient({ organizations }: OrganizationsClientProps)
                     <SortIcon field="name" />
                   </button>
                 </th>
-                <th className="text-left p-4">
-                  <button
-                    onClick={() => handleSort("plan")}
-                    className="flex items-center gap-2 font-medium text-sm hover:text-primary transition-colors"
-                  >
-                    Plan
-                    <SortIcon field="plan" />
-                  </button>
-                </th>
-                <th className="text-center p-4">Status</th>
                 <th className="text-center p-4">
                   <button
-                    onClick={() => handleSort("userCount")}
+                    onClick={() => handleSort("healthScore")}
                     className="flex items-center gap-2 font-medium text-sm hover:text-primary transition-colors mx-auto"
                   >
-                    Users
-                    <SortIcon field="userCount" />
+                    Health
+                    <SortIcon field="healthScore" />
                   </button>
                 </th>
                 <th className="text-center p-4">
                   <button
-                    onClick={() => handleSort("agentCount")}
+                    onClick={() => handleSort("mrr")}
                     className="flex items-center gap-2 font-medium text-sm hover:text-primary transition-colors mx-auto"
                   >
-                    Agents
-                    <SortIcon field="agentCount" />
+                    MRR
+                    <SortIcon field="mrr" />
                   </button>
                 </th>
                 <th className="text-center p-4">
                   <button
-                    onClick={() => handleSort("totalCalls")}
+                    onClick={() => handleSort("coverageRateThisMonth")}
                     className="flex items-center gap-2 font-medium text-sm hover:text-primary transition-colors mx-auto"
                   >
-                    Total Calls
-                    <SortIcon field="totalCalls" />
+                    Coverage
+                    <SortIcon field="coverageRateThisMonth" />
+                  </button>
+                </th>
+                <th className="text-center p-4">
+                  <button
+                    onClick={() => handleSort("answerRateThisMonth")}
+                    className="flex items-center gap-2 font-medium text-sm hover:text-primary transition-colors mx-auto"
+                    title="% of pageviews that became answered calls"
+                  >
+                    Answer Rate
+                    <SortIcon field="answerRateThisMonth" />
                   </button>
                 </th>
                 <th className="text-center p-4">
@@ -243,9 +516,12 @@ export function OrganizationsClient({ organizations }: OrganizationsClientProps)
                     onClick={() => handleSort("callsThisMonth")}
                     className="flex items-center gap-2 font-medium text-sm hover:text-primary transition-colors mx-auto"
                   >
-                    This Month
+                    Calls
                     <SortIcon field="callsThisMonth" />
                   </button>
+                </th>
+                <th className="text-center p-4">
+                  <span className="font-medium text-sm">Trend</span>
                 </th>
                 <th className="text-right p-4">
                   <button
@@ -267,67 +543,142 @@ export function OrganizationsClient({ organizations }: OrganizationsClientProps)
                   </td>
                 </tr>
               ) : (
-                filteredOrgs.map((org) => (
-                  <tr
-                    key={org.id}
-                    className="hover:bg-muted/30 transition-colors"
-                  >
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Building2 className="w-5 h-5 text-primary" />
+                filteredOrgs.map((org) => {
+                  const riskConfig = RISK_COLORS[org.riskLevel];
+                  const RiskIcon = riskConfig.icon;
+                  const trendConfig = TREND_ICONS[org.callsTrend];
+                  const TrendIcon = trendConfig.icon;
+
+                  return (
+                    <tr
+                      key={org.id}
+                      className={`hover:bg-muted/30 transition-colors ${
+                        org.isAtRisk ? "bg-red-500/5" : ""
+                      }`}
+                    >
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                            org.isAtRisk ? "bg-red-500/10" : "bg-primary/10"
+                          }`}>
+                            {org.isAtRisk ? (
+                              <AlertTriangle className="w-5 h-5 text-red-500" />
+                            ) : (
+                              <Building2 className="w-5 h-5 text-primary" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium">{org.name}</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">{org.slug}</span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-xs font-medium capitalize ${PLAN_COLORS[org.plan]}`}
+                              >
+                                {org.plan}
+                              </span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-xs font-medium capitalize border ${STATUS_COLORS[org.subscription_status]}`}
+                              >
+                                {org.subscription_status}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{org.name}</p>
-                          <p className="text-sm text-muted-foreground">{org.slug}</p>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-2">
+                            <RiskIcon className={`w-4 h-4 ${riskConfig.text}`} />
+                            <span className={`font-bold ${getHealthColor(org.healthScore)}`}>
+                              {org.healthScore}
+                            </span>
+                          </div>
+                          {/* Mini health bar */}
+                          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${getHealthBg(org.healthScore)}`}
+                              style={{ width: `${org.healthScore}%` }}
+                            />
+                          </div>
+                          {org.riskLevel !== "low" && org.subscription_status === "active" && (
+                            <span className={`text-xs ${riskConfig.text}`}>
+                              {org.riskLevel}
+                            </span>
+                          )}
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${PLAN_COLORS[org.plan]}`}
-                      >
-                        {org.plan}
-                      </span>
-                    </td>
-                    <td className="p-4 text-center">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize border ${STATUS_COLORS[org.subscription_status]}`}
-                      >
-                        {org.subscription_status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Users className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-medium">{org.userCount}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <span className="font-medium">{org.agentCount}</span>
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Phone className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-medium">{org.totalCalls.toLocaleString()}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <span
-                        className={`font-medium ${
-                          org.callsThisMonth > 0 ? "text-green-500" : "text-muted-foreground"
-                        }`}
-                      >
-                        {org.callsThisMonth}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <span className="text-sm text-muted-foreground">
-                        {timeAgo(org.lastActivity)}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className="font-medium">${org.mrr.toLocaleString()}</span>
+                        <p className="text-xs text-muted-foreground">{org.agentCount} seats</p>
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Activity className="w-4 h-4 text-muted-foreground" />
+                          <span
+                            className={`font-bold ${
+                              org.coverageRateThisMonth >= 90 ? "text-green-500" :
+                              org.coverageRateThisMonth >= 70 ? "text-amber-500" : "text-red-500"
+                            }`}
+                          >
+                            {org.coverageRateThisMonth.toFixed(0)}%
+                          </span>
+                        </div>
+                        {org.missedOpportunitiesThisMonth > 0 && (
+                          <p className="text-xs text-red-500">
+                            {org.missedOpportunitiesThisMonth} missed
+                          </p>
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Eye className="w-4 h-4 text-muted-foreground" />
+                          <span
+                            className={`font-bold ${
+                              org.answerRateThisMonth >= 20 ? "text-green-500" :
+                              org.answerRateThisMonth >= 10 ? "text-amber-500" : 
+                              org.pageviewsThisMonth > 0 ? "text-red-500" : "text-muted-foreground"
+                            }`}
+                          >
+                            {org.answerRateThisMonth.toFixed(1)}%
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {org.pageviewsThisMonth} views
+                        </p>
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Phone className="w-4 h-4 text-muted-foreground" />
+                          <span className={`font-medium ${org.callsThisMonth > 0 ? "text-green-500" : "text-muted-foreground"}`}>
+                            {org.callsThisMonth}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {org.totalCalls} total
+                        </span>
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center">
+                          <TrendIcon className={`w-5 h-5 ${trendConfig.color}`} />
+                        </div>
+                      </td>
+                      <td className="p-4 text-right">
+                        <span className={`text-sm ${
+                          org.daysSinceLastCall !== null && org.daysSinceLastCall > 14 
+                            ? "text-red-500 font-medium" 
+                            : "text-muted-foreground"
+                        }`}>
+                          {timeAgo(org.lastActivity)}
+                        </span>
+                        {org.daysSinceLastCall !== null && org.daysSinceLastCall > 7 && (
+                          <p className="text-xs text-red-500">
+                            {org.daysSinceLastCall}d since call
+                          </p>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -336,4 +687,3 @@ export function OrganizationsClient({ organizations }: OrganizationsClientProps)
     </div>
   );
 }
-

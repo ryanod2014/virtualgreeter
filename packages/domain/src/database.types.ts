@@ -47,7 +47,7 @@ export interface RecordingSettings {
 export type WidgetSize = "small" | "medium" | "large";
 export type WidgetPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left" | "center";
 export type WidgetDevices = "all" | "desktop" | "mobile";
-export type WidgetTheme = "light" | "dark" | "auto";
+export type WidgetTheme = "light" | "dark" | "liquid-glass";
 
 export interface WidgetSettings {
   size: WidgetSize;
@@ -571,6 +571,94 @@ export type PmfSurveyInsert = Database["public"]["Tables"]["pmf_surveys"]["Inser
 
 export type SurveyCooldown = Database["public"]["Tables"]["survey_cooldowns"]["Row"];
 export type SurveyCooldownInsert = Database["public"]["Tables"]["survey_cooldowns"]["Insert"];
+
+// MRR Tracking types
+export type MrrChangeType = "new" | "expansion" | "contraction" | "churn" | "reactivation";
+export type RiskLevel = "low" | "medium" | "high" | "critical";
+export type CallsTrend = "increasing" | "stable" | "declining";
+
+export interface MrrSnapshot {
+  id: string;
+  organization_id: string;
+  mrr: number;
+  seat_count: number;
+  plan: string;
+  subscription_status: string;
+  snapshot_date: string;
+  created_at: string;
+}
+
+export interface MrrChange {
+  id: string;
+  organization_id: string;
+  change_type: MrrChangeType;
+  mrr_before: number;
+  mrr_after: number;
+  mrr_delta: number;
+  seat_count_before: number | null;
+  seat_count_after: number | null;
+  plan_before: string | null;
+  plan_after: string | null;
+  reason: string | null;
+  changed_at: string;
+  created_at: string;
+}
+
+export interface OrganizationHealth {
+  organization_id: string;
+  health_score: number;
+  risk_level: RiskLevel;
+  activity_score: number;
+  engagement_score: number;
+  coverage_score: number;
+  growth_score: number;
+  days_since_last_call: number | null;
+  calls_trend: CallsTrend | null;
+  coverage_rate: number | null;
+  agent_utilization: number | null;
+  last_calculated_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlyMetrics {
+  id: string;
+  month_start: string;
+  total_orgs: number;
+  active_orgs: number;
+  new_orgs: number;
+  churned_orgs: number;
+  reactivated_orgs: number;
+  starting_mrr: number;
+  ending_mrr: number;
+  new_mrr: number;
+  expansion_mrr: number;
+  contraction_mrr: number;
+  churned_mrr: number;
+  reactivation_mrr: number;
+  logo_churn_rate: number | null;
+  revenue_churn_rate: number | null;
+  net_revenue_retention: number | null;
+  quick_ratio: number | null;
+  total_calls: number;
+  total_pageviews: number;
+  avg_coverage_rate: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CohortRetention {
+  id: string;
+  cohort_month: string;
+  months_since_signup: number;
+  starting_count: number;
+  retained_count: number;
+  retained_mrr: number;
+  starting_mrr: number;
+  logo_retention_rate: number | null;
+  revenue_retention_rate: number | null;
+  calculated_at: string;
+}
 
 // Feedback item with author info for display
 export interface FeedbackItemWithAuthor extends FeedbackItem {

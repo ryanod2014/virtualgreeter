@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Copy, Check, Code, ExternalLink, Sparkles, Monitor, Smartphone, Layout, Clock, Info, RotateCcw, CheckCircle2, Loader2, TimerOff, Minimize2, Sun, Moon, SunMoon } from "lucide-react";
+import { Copy, Check, Code, ExternalLink, Sparkles, Monitor, Smartphone, Layout, Clock, Info, RotateCcw, CheckCircle2, Loader2, TimerOff, Minimize2, Sun, Moon, Droplets } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { WidgetSettings, WidgetSize, WidgetPosition, WidgetDevices, WidgetTheme } from "@ghost-greeter/domain/database.types";
@@ -144,11 +144,18 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
     mobile: { label: "Mobile Only", icons: <Smartphone className="w-5 h-5" /> },
   };
 
+  const isStaging = process.env.NEXT_PUBLIC_STAGING === "true";
+
   const themeLabels: Record<WidgetTheme, { label: string; desc: string; icon: React.ReactNode }> = {
     light: { label: "Light", desc: "Bright & clean", icon: <Sun className="w-5 h-5" /> },
     dark: { label: "Dark", desc: "Sleek & modern", icon: <Moon className="w-5 h-5" /> },
-    auto: { label: "Auto", desc: "Match system", icon: <SunMoon className="w-5 h-5" /> },
+    "liquid-glass": { label: "Glass", desc: "Frosted blur", icon: <Droplets className="w-5 h-5" /> },
   };
+
+  // Themes available based on environment
+  const availableThemes: WidgetTheme[] = isStaging 
+    ? ["light", "dark", "liquid-glass"] 
+    : ["light", "dark"];
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -425,8 +432,8 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
           {/* Theme */}
           <div>
             <label className="block text-sm font-medium mb-3">Theme</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(["light", "dark", "auto"] as WidgetTheme[]).map((theme) => (
+            <div className={`grid gap-2 ${availableThemes.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+              {availableThemes.map((theme) => (
                 <button
                   key={theme}
                   onClick={() => setSettings({ ...settings, theme })}
@@ -434,7 +441,7 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
                     settings.theme === theme
                       ? "border-primary bg-primary/5"
                       : "border-border hover:border-primary/50"
-                  }`}
+                  } ${theme === "liquid-glass" ? "bg-gradient-to-br from-indigo-500/10 to-purple-500/10" : ""}`}
                 >
                   <div className="flex justify-center items-center mb-1.5 h-5 text-muted-foreground">
                     {themeLabels[theme].icon}
@@ -676,18 +683,28 @@ function WidgetPreview({ settings }: { settings: WidgetSettings }) {
 
   // Theme-based widget colors
   const isLightTheme = settings.theme === "light";
-  const widgetBg = isLightTheme 
-    ? "bg-gradient-to-br from-white via-gray-50 to-gray-100 border border-gray-200" 
-    : "bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950";
-  const widgetVideoArea = isLightTheme
-    ? "bg-gradient-to-b from-gray-100 to-gray-200"
-    : "bg-gradient-to-b from-white/30 to-white/10";
-  const widgetControlArea = isLightTheme
-    ? "bg-gray-100"
-    : "bg-black/20";
-  const widgetAvatarRing = isLightTheme
-    ? "bg-gray-300 border border-gray-400"
-    : "bg-white/40 border border-white/60";
+  const isLiquidGlass = settings.theme === "liquid-glass";
+  
+  const widgetBg = isLiquidGlass
+    ? "bg-gradient-to-br from-white/20 via-white/10 to-white/5 backdrop-blur-md border border-white/30"
+    : isLightTheme 
+      ? "bg-gradient-to-br from-white via-gray-50 to-gray-100 border border-gray-200" 
+      : "bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950";
+  const widgetVideoArea = isLiquidGlass
+    ? "bg-gradient-to-b from-white/20 to-white/5"
+    : isLightTheme
+      ? "bg-gradient-to-b from-gray-100 to-gray-200"
+      : "bg-gradient-to-b from-white/30 to-white/10";
+  const widgetControlArea = isLiquidGlass
+    ? "bg-white/10"
+    : isLightTheme
+      ? "bg-gray-100"
+      : "bg-black/20";
+  const widgetAvatarRing = isLiquidGlass
+    ? "bg-white/30 border border-white/50"
+    : isLightTheme
+      ? "bg-gray-300 border border-gray-400"
+      : "bg-white/40 border border-white/60";
 
   return (
     <div className="flex gap-6">
@@ -731,8 +748,8 @@ function WidgetPreview({ settings }: { settings: WidgetSettings }) {
                   <div className={`w-6 h-6 rounded-full ${widgetAvatarRing}`} />
                 </div>
                 <div className={`h-1/3 ${widgetControlArea} flex items-center justify-center gap-1`}>
-                  <div className={`w-3 h-3 rounded-full ${isLightTheme ? "bg-gray-400" : "bg-white/20"}`} />
-                  <div className={`w-3 h-3 rounded-full ${isLightTheme ? "bg-gray-400" : "bg-white/20"}`} />
+                  <div className={`w-3 h-3 rounded-full ${isLiquidGlass ? "bg-white/30" : isLightTheme ? "bg-gray-400" : "bg-white/20"}`} />
+                  <div className={`w-3 h-3 rounded-full ${isLiquidGlass ? "bg-white/30" : isLightTheme ? "bg-gray-400" : "bg-white/20"}`} />
                 </div>
               </div>
             </div>

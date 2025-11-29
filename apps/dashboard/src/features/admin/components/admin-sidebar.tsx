@@ -16,6 +16,7 @@ import {
   Palette,
   ChevronDown,
   Check,
+  TrendingUp,
 } from "lucide-react";
 import type { User, Organization, AgentProfile } from "@ghost-greeter/domain/database.types";
 import type { ActiveCall } from "@ghost-greeter/domain";
@@ -213,6 +214,9 @@ export function AdminSidebar({
           </NavLink>
           <NavLink href="/admin/calls" icon={BarChart3} pathname={pathname}>
             Calls
+          </NavLink>
+          <NavLink href="/admin/analytics" icon={TrendingUp} pathname={pathname}>
+            Analytics
           </NavLink>
           
           <div className="pt-4 pb-2">

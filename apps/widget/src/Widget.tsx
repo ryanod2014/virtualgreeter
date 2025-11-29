@@ -147,7 +147,7 @@ export function Widget({ config }: WidgetProps) {
     const host = shadowRoot.host;
     
     // Remove existing theme classes
-    host.classList.remove("gg-theme-light", "gg-theme-dark", "gg-theme-auto");
+    host.classList.remove("gg-theme-light", "gg-theme-dark", "gg-theme-auto", "gg-theme-liquid-glass");
     
     // Add new theme class
     host.classList.add(`gg-theme-${theme}`);
