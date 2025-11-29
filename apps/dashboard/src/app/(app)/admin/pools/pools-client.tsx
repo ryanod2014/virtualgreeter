@@ -97,6 +97,65 @@ const getPriorityBadgeColor = (rank: number): string => {
   }
 };
 
+// Agent card with priority selector - extracted for cleaner code
+function AgentPriorityCard({ 
+  member, 
+  poolId, 
+  onUpdatePriority, 
+  onRemove 
+}: { 
+  member: PoolMember; 
+  poolId: string; 
+  onUpdatePriority: (poolId: string, memberId: string, priority: number) => void;
+  onRemove: (poolId: string, memberId: string) => void;
+}) {
+  const currentPriority = member.priority_rank || 1;
+  
+  return (
+    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-background border border-border group hover:border-primary/30 transition-colors">
+      {/* Avatar */}
+      <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium">
+        {member.agent_profiles?.display_name?.charAt(0).toUpperCase() || "?"}
+      </div>
+      
+      {/* Name */}
+      <span className="text-sm font-medium">
+        {member.agent_profiles?.display_name || "Unnamed Agent"}
+      </span>
+      
+      {/* Priority Selector - Clear dropdown with label */}
+      <div className="relative">
+        <select
+          value={currentPriority}
+          onChange={(e) => onUpdatePriority(poolId, member.id, parseInt(e.target.value))}
+          className={`text-xs pl-2 pr-6 py-1 rounded-lg font-semibold cursor-pointer border outline-none appearance-none transition-colors ${
+            currentPriority === 1 
+              ? "bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30 hover:border-green-500/50" 
+              : currentPriority === 2 
+                ? "bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30 hover:border-blue-500/50"
+                : "bg-orange-500/20 text-orange-700 dark:text-orange-400 border-orange-500/30 hover:border-orange-500/50"
+          }`}
+          title="Change when this agent receives leads"
+        >
+          <option value={1}>🥇 Primary</option>
+          <option value={2}>🥈 Standard</option>
+          <option value={3}>🥉 Backup</option>
+        </select>
+        <ChevronDown className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+      </div>
+      
+      {/* Remove Button */}
+      <button
+        onClick={() => onRemove(poolId, member.id)}
+        className="p-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
+        title="Remove from pool"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
 interface Pool {
   id: string;
   organization_id: string;
@@ -2433,7 +2492,7 @@ export function PoolsClient({
 
                   {/* Agents Section */}
                   <div className="p-6 bg-muted/10">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-2">
                       <h4 className="font-semibold flex items-center gap-2">
                         <Users className="w-4 h-4 text-primary" />
                         Agents ({memberCount})
@@ -2446,6 +2505,18 @@ export function PoolsClient({
                         Add Agent
                       </button>
                     </div>
+                    
+                    {/* Priority Explanation - Always visible when agents exist */}
+                    {memberCount > 0 && (
+                      <div className="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                          <strong>Lead Priority:</strong> Leads go to <span className="font-semibold text-green-600 dark:text-green-400">Primary</span> agents first. 
+                          If all are busy, leads go to <span className="font-semibold text-blue-600 dark:text-blue-400">Standard</span>, 
+                          then <span className="font-semibold text-orange-600 dark:text-orange-400">Backup</span>.
+                          Click the priority badge to change an agent&apos;s tier.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Add Agent Dropdown */}
                     {addingAgentToPool === pool.id && (
@@ -2466,7 +2537,10 @@ export function PoolsClient({
                                 <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-medium">
                                   {agent.display_name?.charAt(0).toUpperCase() || "?"}
                                 </div>
-                                <span className="font-medium">{agent.display_name || "Unnamed Agent"}</span>
+                                <div className="flex-1">
+                                  <span className="font-medium">{agent.display_name || "Unnamed Agent"}</span>
+                                  <span className="text-xs text-muted-foreground ml-2">(Added as Primary)</span>
+                                </div>
                               </button>
                             ))}
                           </div>
@@ -2474,46 +2548,93 @@ export function PoolsClient({
                       </div>
                     )}
 
-                    {/* Current Agents - Sorted by Priority */}
+                    {/* Current Agents - Grouped by Priority Tier */}
                     {memberCount > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {[...pool.agent_pool_members]
-                          .sort((a, b) => (a.priority_rank || 1) - (b.priority_rank || 1))
-                          .map((member) => (
-                          <div
-                            key={member.id}
-                            className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-background border border-border group hover:border-primary/30 transition-colors"
-                          >
-                            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium">
-                              {member.agent_profiles?.display_name?.charAt(0).toUpperCase() || "?"}
+                      <div className="space-y-4">
+                        {/* Primary Tier */}
+                        {(() => {
+                          const primaryAgents = pool.agent_pool_members.filter(m => (m.priority_rank || 1) === 1);
+                          if (primaryAgents.length === 0) return null;
+                          return (
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                <span className="text-xs font-semibold text-green-700 dark:text-green-400 uppercase tracking-wide">
+                                  Primary — Gets leads first
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {primaryAgents.map((member) => (
+                                  <AgentPriorityCard 
+                                    key={member.id}
+                                    member={member}
+                                    poolId={pool.id}
+                                    onUpdatePriority={handleUpdateAgentPriority}
+                                    onRemove={handleRemoveAgentFromPool}
+                                  />
+                                ))}
+                              </div>
                             </div>
-                            <span className="text-sm font-medium">
-                              {member.agent_profiles?.display_name || "Unnamed Agent"}
-                            </span>
-                            {/* Priority Badge & Selector */}
-                            <select
-                              value={member.priority_rank || 1}
-                              onChange={(e) => handleUpdateAgentPriority(pool.id, member.id, parseInt(e.target.value))}
-                              className={`text-xs px-2 py-0.5 rounded-full font-medium cursor-pointer border-0 outline-none ${getPriorityBadgeColor(member.priority_rank || 1)}`}
-                              title="Change priority tier"
-                            >
-                              <option value={1}>Primary</option>
-                              <option value={2}>Standard</option>
-                              <option value={3}>Backup</option>
-                            </select>
-                            <button
-                              onClick={() => handleRemoveAgentFromPool(pool.id, member.id)}
-                              className="p-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
-                              title="Remove from pool"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
+                          );
+                        })()}
+                        
+                        {/* Standard Tier */}
+                        {(() => {
+                          const standardAgents = pool.agent_pool_members.filter(m => m.priority_rank === 2);
+                          if (standardAgents.length === 0) return null;
+                          return (
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                <span className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                                  Standard — Overflow when Primary is busy
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {standardAgents.map((member) => (
+                                  <AgentPriorityCard 
+                                    key={member.id}
+                                    member={member}
+                                    poolId={pool.id}
+                                    onUpdatePriority={handleUpdateAgentPriority}
+                                    onRemove={handleRemoveAgentFromPool}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        
+                        {/* Backup Tier */}
+                        {(() => {
+                          const backupAgents = pool.agent_pool_members.filter(m => m.priority_rank === 3);
+                          if (backupAgents.length === 0) return null;
+                          return (
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                                <span className="text-xs font-semibold text-orange-700 dark:text-orange-400 uppercase tracking-wide">
+                                  Backup — Only when others are at capacity
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {backupAgents.map((member) => (
+                                  <AgentPriorityCard 
+                                    key={member.id}
+                                    member={member}
+                                    poolId={pool.id}
+                                    onUpdatePriority={handleUpdateAgentPriority}
+                                    onRemove={handleRemoveAgentFromPool}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <div className="text-sm text-muted-foreground py-4 text-center bg-muted/20 rounded-xl">
-                        No agents assigned yet. Click "Add Agent" to get started.
+                        No agents assigned yet. Click &quot;Add Agent&quot; to get started.
                       </div>
                     )}
                   </div>
