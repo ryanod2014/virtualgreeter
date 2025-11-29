@@ -15,16 +15,17 @@ import type {
 
 const PORT = process.env["PORT"] ?? 3001;
 // CORS configuration
-// In production, we allow any origin for the widget since it can be embedded anywhere
-// The ALLOWED_ORIGINS env var is for API endpoints, not Socket.io
-const ALLOWED_ORIGINS = process.env["ALLOWED_ORIGINS"]?.split(",") ?? [
-  "http://localhost:3000",
-  "http://localhost:5173",
-];
+// If ALLOWED_ORIGINS is "*" or not set (in production), allow all origins
+// This is needed because the widget can be embedded on any customer website
+const ALLOWED_ORIGINS_ENV = process.env["ALLOWED_ORIGINS"];
+const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV && ALLOWED_ORIGINS_ENV !== "*"
+  ? ALLOWED_ORIGINS_ENV.split(",")
+  : ["http://localhost:3000", "http://localhost:5173"];
 
-// Allow all origins in production for widget embedding
-const CORS_ORIGIN = process.env["NODE_ENV"] === "production" 
-  ? true  // Allow all origins in production (widget can be embedded anywhere)
+// Allow all origins if ALLOWED_ORIGINS is "*" or if running on Railway/production
+const IS_PRODUCTION = !!process.env["RAILWAY_ENVIRONMENT"] || process.env["NODE_ENV"] === "production";
+const CORS_ORIGIN = ALLOWED_ORIGINS_ENV === "*" || IS_PRODUCTION
+  ? true  // Allow all origins (widget can be embedded anywhere)
   : ALLOWED_ORIGINS;
 
 // Initialize Express
