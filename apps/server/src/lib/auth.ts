@@ -66,10 +66,18 @@ export async function verifyAgentToken(
 }
 
 /**
- * Fetch the pool memberships for an agent
- * Returns array of pool IDs the agent belongs to
+ * Pool membership with priority rank for tiered routing
  */
-export async function fetchAgentPoolMemberships(agentId: string): Promise<string[]> {
+export interface PoolMembership {
+  poolId: string;
+  priorityRank: number; // Lower = higher priority (1 = primary, 2+ = overflow)
+}
+
+/**
+ * Fetch the pool memberships for an agent with their priority ranks
+ * Returns array of {poolId, priorityRank} objects for tiered routing
+ */
+export async function fetchAgentPoolMemberships(agentId: string): Promise<PoolMembership[]> {
   if (!isSupabaseConfigured || !supabase) {
     console.warn("[Auth] Supabase not configured - returning empty pool memberships");
     return [];
@@ -78,7 +86,7 @@ export async function fetchAgentPoolMemberships(agentId: string): Promise<string
   try {
     const { data: memberships, error } = await supabase
       .from("agent_pool_members")
-      .select("pool_id")
+      .select("pool_id, priority_rank")
       .eq("agent_profile_id", agentId);
 
     if (error) {
@@ -86,9 +94,15 @@ export async function fetchAgentPoolMemberships(agentId: string): Promise<string
       return [];
     }
 
-    const poolIds = memberships?.map((m) => m.pool_id) ?? [];
-    console.log(`[Auth] Agent ${agentId} belongs to ${poolIds.length} pools`);
-    return poolIds;
+    const poolMemberships: PoolMembership[] = memberships?.map((m) => ({
+      poolId: m.pool_id,
+      priorityRank: m.priority_rank ?? 1, // Default to 1 if not set
+    })) ?? [];
+    
+    console.log(`[Auth] Agent ${agentId} belongs to ${poolMemberships.length} pools:`, 
+      poolMemberships.map(m => `${m.poolId.slice(0,8)}... (rank ${m.priorityRank})`).join(", ")
+    );
+    return poolMemberships;
   } catch (err) {
     console.error("[Auth] Pool memberships fetch error:", err);
     return [];

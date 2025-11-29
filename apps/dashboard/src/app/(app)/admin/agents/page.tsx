@@ -30,6 +30,7 @@ export default async function AgentsPage() {
       user:users!agent_profiles_user_id_fkey(email, full_name),
       agent_pool_members(
         id,
+        priority_rank,
         wave_video_url,
         intro_video_url,
         loop_video_url,
@@ -102,6 +103,7 @@ export default async function AgentsPage() {
     agent_pool_members: (agent.agent_pool_members ?? []).map((m: { 
       id: string; 
       pool: unknown;
+      priority_rank?: number;
       wave_video_url: string | null;
       intro_video_url: string | null;
       loop_video_url: string | null;

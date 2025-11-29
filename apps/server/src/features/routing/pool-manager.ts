@@ -54,6 +54,14 @@ interface OrgConfig {
  * - Implement "least connections" algorithm for agent assignment within pools
  * - Handle re-assignment when agents become unavailable
  */
+/**
+ * Pool membership with priority rank for tiered routing
+ */
+interface PoolMembership {
+  poolId: string;
+  priorityRank: number; // Lower = higher priority (1 = primary, 2+ = overflow)
+}
+
 export class PoolManager {
   private agents: Map<string, AgentState> = new Map();
   private visitors: Map<string, VisitorSession> = new Map();
@@ -64,6 +72,10 @@ export class PoolManager {
   private poolMemberships: Map<string, Set<string>> = new Map(); // poolId -> Set<agentId>
   private agentPools: Map<string, Set<string>> = new Map(); // agentId -> Set<poolId>
   private orgConfigs: Map<string, OrgConfig> = new Map(); // orgId -> config
+  
+  // Priority-based routing: tracks agent priority within each pool
+  // Structure: agentId -> (poolId -> priorityRank)
+  private agentPoolPriorities: Map<string, Map<string, number>> = new Map();
 
   // Track assignment order for fair round-robin distribution
   // Uses a monotonically increasing counter to ensure unique ordering
@@ -87,9 +99,10 @@ export class PoolManager {
   }
 
   /**
-   * Add an agent to a pool
+   * Add an agent to a pool with a priority rank
+   * @param priorityRank - Lower number = higher priority (1 = primary, 2+ = overflow). Default: 1
    */
-  addAgentToPool(agentId: string, poolId: string): void {
+  addAgentToPool(agentId: string, poolId: string, priorityRank: number = 1): void {
     // Add to pool -> agents mapping
     if (!this.poolMemberships.has(poolId)) {
       this.poolMemberships.set(poolId, new Set());
@@ -101,8 +114,14 @@ export class PoolManager {
       this.agentPools.set(agentId, new Set());
     }
     this.agentPools.get(agentId)!.add(poolId);
+    
+    // Track priority rank for this agent in this pool
+    if (!this.agentPoolPriorities.has(agentId)) {
+      this.agentPoolPriorities.set(agentId, new Map());
+    }
+    this.agentPoolPriorities.get(agentId)!.set(poolId, priorityRank);
 
-    console.log(`[PoolManager] Agent ${agentId} added to pool ${poolId}`);
+    console.log(`[PoolManager] Agent ${agentId} added to pool ${poolId} with priority ${priorityRank}`);
   }
 
   /**
@@ -111,12 +130,14 @@ export class PoolManager {
   removeAgentFromPool(agentId: string, poolId: string): void {
     this.poolMemberships.get(poolId)?.delete(agentId);
     this.agentPools.get(agentId)?.delete(poolId);
+    this.agentPoolPriorities.get(agentId)?.delete(poolId);
   }
 
   /**
-   * Load all pool memberships for an agent (called when agent connects)
+   * Load all pool memberships for an agent with their priority ranks (called when agent connects)
+   * @param memberships - Array of {poolId, priorityRank} objects
    */
-  setAgentPoolMemberships(agentId: string, poolIds: string[]): void {
+  setAgentPoolMemberships(agentId: string, memberships: PoolMembership[]): void {
     // Clear existing memberships
     const existingPools = this.agentPools.get(agentId);
     if (existingPools) {
@@ -125,11 +146,20 @@ export class PoolManager {
       }
     }
     this.agentPools.set(agentId, new Set());
+    this.agentPoolPriorities.set(agentId, new Map());
 
-    // Add new memberships
-    for (const poolId of poolIds) {
-      this.addAgentToPool(agentId, poolId);
+    // Add new memberships with priority ranks
+    for (const { poolId, priorityRank } of memberships) {
+      this.addAgentToPool(agentId, poolId, priorityRank);
     }
+  }
+  
+  /**
+   * Get an agent's priority rank within a specific pool
+   * Returns 1 (highest priority) if not explicitly set
+   */
+  getAgentPriorityInPool(agentId: string, poolId: string): number {
+    return this.agentPoolPriorities.get(agentId)?.get(poolId) ?? 1;
   }
 
   /**
@@ -501,26 +531,76 @@ export class PoolManager {
   }
 
   // ---------------------------------------------------------------------------
-  // AGENT ASSIGNMENT (Elastic Pooling)
+  // AGENT ASSIGNMENT (Tiered Routing with Elastic Pooling)
   // ---------------------------------------------------------------------------
 
   /**
-   * Find the best available agent using "least connections" algorithm
-   * Priority: idle agents (fair round-robin by oldest assignment order) > agents with fewer simulations
+   * Find the best available agent using tiered routing algorithm
+   * 
+   * Tiered Routing Logic:
+   * 1. Group agents by priority rank (lower rank = higher priority)
+   * 2. Try each tier in order (tier 1 first, then tier 2, etc.)
+   * 3. Within each tier: use round-robin for idle agents, then least-connections
+   * 4. Only move to next tier if all agents in current tier are at capacity
+   * 
+   * This allows senior reps to get leads first while junior reps provide overflow coverage.
    * 
    * @param poolId - Optional pool ID to restrict search to a specific pool
    */
   findBestAgent(poolId?: string | null): AgentState | undefined {
-    let bestAgent: AgentState | undefined;
-    let lowestLoad = Infinity;
-    let oldestOrder = Infinity;
-
     // Get candidate agents - either from a specific pool or all agents
     const candidates = poolId 
       ? this.getAgentsInPool(poolId)
       : Array.from(this.agents.values());
 
+    // If no pool specified (fallback case), use original algorithm without tiering
+    if (!poolId) {
+      return this.findBestAgentInTier(candidates);
+    }
+
+    // Group agents by priority rank for tiered routing
+    const tiers = new Map<number, AgentState[]>();
     for (const agent of candidates) {
+      const priorityRank = this.getAgentPriorityInPool(agent.agentId, poolId);
+      if (!tiers.has(priorityRank)) {
+        tiers.set(priorityRank, []);
+      }
+      tiers.get(priorityRank)!.push(agent);
+    }
+
+    // Sort tiers by priority rank (lower = higher priority)
+    const sortedTierRanks = [...tiers.keys()].sort((a, b) => a - b);
+
+    // Try each tier in order
+    for (const tierRank of sortedTierRanks) {
+      const tierAgents = tiers.get(tierRank)!;
+      
+      // Check if anyone in this tier has capacity
+      const availableAgent = this.findBestAgentInTier(tierAgents);
+      
+      if (availableAgent) {
+        console.log(`[PoolManager] Found agent ${availableAgent.profile.displayName} in tier ${tierRank}`);
+        return availableAgent;
+      }
+      
+      // All agents in this tier are at capacity, try next tier
+      console.log(`[PoolManager] Tier ${tierRank} at capacity, trying next tier...`);
+    }
+
+    // No agent available in any tier
+    return undefined;
+  }
+
+  /**
+   * Find the best agent within a single tier using round-robin + least-connections
+   * This is the original algorithm, now applied per-tier
+   */
+  private findBestAgentInTier(tierAgents: AgentState[]): AgentState | undefined {
+    let bestAgent: AgentState | undefined;
+    let lowestLoad = Infinity;
+    let oldestOrder = Infinity;
+
+    for (const agent of tierAgents) {
       // Skip agents in call, offline, or away
       if (agent.profile.status === "in_call" || agent.profile.status === "offline" || agent.profile.status === "away") {
         continue;

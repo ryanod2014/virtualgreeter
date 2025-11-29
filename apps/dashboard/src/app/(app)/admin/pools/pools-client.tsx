@@ -73,8 +73,29 @@ interface Agent {
 interface PoolMember {
   id: string;
   agent_profile_id: string;
+  priority_rank: number; // 1 = Primary (highest priority), 2+ = overflow/backup
   agent_profiles: Agent;
 }
+
+// Priority rank labels for UI display
+const PRIORITY_LABELS: Record<number, string> = {
+  1: "Primary",
+  2: "Standard", 
+  3: "Backup",
+};
+
+const getPriorityLabel = (rank: number): string => {
+  return PRIORITY_LABELS[rank] || `Tier ${rank}`;
+};
+
+const getPriorityBadgeColor = (rank: number): string => {
+  switch (rank) {
+    case 1: return "bg-green-500/20 text-green-700 dark:text-green-400";
+    case 2: return "bg-blue-500/20 text-blue-700 dark:text-blue-400";
+    case 3: return "bg-orange-500/20 text-orange-700 dark:text-orange-400";
+    default: return "bg-muted text-muted-foreground";
+  }
+};
 
 interface Pool {
   id: string;
@@ -1507,7 +1528,7 @@ export function PoolsClient({
       .select(`
         *,
         pool_routing_rules(*),
-        agent_pool_members(id, agent_profile_id, agent_profiles(id, display_name))
+        agent_pool_members(id, agent_profile_id, priority_rank, agent_profiles(id, display_name))
       `)
       .single();
 
@@ -1533,7 +1554,7 @@ export function PoolsClient({
   };
 
   // Agent management
-  const handleAddAgentToPool = async (poolId: string, agentId: string) => {
+  const handleAddAgentToPool = async (poolId: string, agentId: string, priorityRank: number = 1) => {
     const agent = agents.find(a => a.id === agentId);
     if (!agent) return;
 
@@ -1542,8 +1563,9 @@ export function PoolsClient({
       .insert({
         pool_id: poolId,
         agent_profile_id: agentId,
+        priority_rank: priorityRank,
       })
-      .select("id, agent_profile_id")
+      .select("id, agent_profile_id, priority_rank")
       .single();
 
     if (data && !error) {
@@ -1560,6 +1582,34 @@ export function PoolsClient({
         return p;
       }));
       setAddingAgentToPool(null);
+      
+      // Sync to signaling server
+      syncConfigToServer();
+    }
+  };
+  
+  // Update agent priority rank in a pool
+  const handleUpdateAgentPriority = async (poolId: string, memberId: string, newPriority: number) => {
+    const { error } = await supabase
+      .from("agent_pool_members")
+      .update({ priority_rank: newPriority })
+      .eq("id", memberId);
+
+    if (!error) {
+      setPools(pools.map(p => {
+        if (p.id === poolId) {
+          return {
+            ...p,
+            agent_pool_members: p.agent_pool_members.map(m => 
+              m.id === memberId ? { ...m, priority_rank: newPriority } : m
+            ),
+          };
+        }
+        return p;
+      }));
+      
+      // Sync to signaling server so tiered routing takes effect immediately
+      syncConfigToServer();
     }
   };
 
@@ -2424,10 +2474,12 @@ export function PoolsClient({
                       </div>
                     )}
 
-                    {/* Current Agents */}
+                    {/* Current Agents - Sorted by Priority */}
                     {memberCount > 0 ? (
                       <div className="flex flex-wrap gap-2">
-                        {pool.agent_pool_members.map((member) => (
+                        {[...pool.agent_pool_members]
+                          .sort((a, b) => (a.priority_rank || 1) - (b.priority_rank || 1))
+                          .map((member) => (
                           <div
                             key={member.id}
                             className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-background border border-border group hover:border-primary/30 transition-colors"
@@ -2438,6 +2490,17 @@ export function PoolsClient({
                             <span className="text-sm font-medium">
                               {member.agent_profiles?.display_name || "Unnamed Agent"}
                             </span>
+                            {/* Priority Badge & Selector */}
+                            <select
+                              value={member.priority_rank || 1}
+                              onChange={(e) => handleUpdateAgentPriority(pool.id, member.id, parseInt(e.target.value))}
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium cursor-pointer border-0 outline-none ${getPriorityBadgeColor(member.priority_rank || 1)}`}
+                              title="Change priority tier"
+                            >
+                              <option value={1}>Primary</option>
+                              <option value={2}>Standard</option>
+                              <option value={3}>Backup</option>
+                            </select>
                             <button
                               onClick={() => handleRemoveAgentFromPool(pool.id, member.id)}
                               className="p-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"

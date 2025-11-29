@@ -36,6 +36,7 @@ interface Pool {
 interface PoolMembership {
   id: string;
   pool: Pool;
+  priority_rank?: number; // 1 = Primary, 2 = Standard, 3 = Backup
   wave_video_url: string | null;
   intro_video_url: string | null;
   loop_video_url: string | null;

@@ -337,10 +337,10 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         return;
       }
 
-      // Fetch and set agent's pool memberships
-      const poolIds = await fetchAgentPoolMemberships(data.agentId);
-      if (poolIds.length > 0) {
-        poolManager.setAgentPoolMemberships(data.agentId, poolIds);
+      // Fetch and set agent's pool memberships (with priority ranks for tiered routing)
+      const poolMemberships = await fetchAgentPoolMemberships(data.agentId);
+      if (poolMemberships.length > 0) {
+        poolManager.setAgentPoolMemberships(data.agentId, poolMemberships);
       }
 
       // Use profile from login payload (already verified ownership via token)
@@ -364,7 +364,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         agentId: data.agentId,
         socketId: socket.id,
         status: agentState.profile.status,
-        poolCount: poolIds.length,
+        poolCount: poolMemberships.length,
       });
 
       // Start activity session tracking

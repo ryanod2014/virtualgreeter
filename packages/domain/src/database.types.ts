@@ -294,6 +294,7 @@ export interface Database {
           id: string;
           pool_id: string;
           agent_profile_id: string;
+          priority_rank: number; // 1 = Primary (highest priority), 2+ = overflow/backup
           wave_video_url: string | null;
           intro_video_url: string | null;
           loop_video_url: string | null;

@@ -6,7 +6,7 @@ export default async function PoolsPage() {
   const auth = await getCurrentUser();
   const supabase = await createClient();
 
-  // Fetch pools with routing rules and members
+  // Fetch pools with routing rules and members (including priority_rank for tiered routing)
   const { data: pools } = await supabase
     .from("agent_pools")
     .select(`
@@ -15,6 +15,7 @@ export default async function PoolsPage() {
       agent_pool_members(
         id,
         agent_profile_id,
+        priority_rank,
         agent_profiles(id, display_name)
       )
     `)
