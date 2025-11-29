@@ -29,6 +29,9 @@ export type FeedbackType = "bug" | "feature";
 export type FeedbackStatus = "open" | "in_progress" | "completed" | "closed" | "declined";
 export type FeedbackPriority = "low" | "medium" | "high" | "critical";
 
+// PMF Survey types
+export type DisappointmentLevel = "very_disappointed" | "somewhat_disappointed" | "not_disappointed";
+
 export type SubscriptionStatus = "active" | "paused" | "cancelled";
 
 export type RuleMatchType = "is_exactly" | "contains" | "does_not_contain" | "starts_with" | "ends_with";
@@ -156,10 +159,11 @@ export interface Database {
           full_name: string;
           avatar_url: string | null;
           role: UserRole;
+          is_platform_admin: boolean;
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["users"]["Row"], "created_at" | "updated_at">;
+        Insert: Omit<Database["public"]["Tables"]["users"]["Row"], "created_at" | "updated_at" | "is_platform_admin">;
         Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
       };
       
@@ -412,6 +416,8 @@ export interface Database {
           actual_behavior: string | null;
           browser_info: string | null;
           page_url: string | null;
+          screenshot_url: string | null;
+          recording_url: string | null;
           // Feature-specific fields
           use_case: string | null;
           // Metadata
@@ -420,10 +426,13 @@ export interface Database {
           admin_response: string | null;
           admin_responded_at: string | null;
           admin_responded_by: string | null;
+          assignee_id: string | null;
+          resolved_at: string | null;
+          first_response_at: string | null;
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["feedback_items"]["Row"], "id" | "created_at" | "updated_at" | "vote_count" | "comment_count">;
+        Insert: Omit<Database["public"]["Tables"]["feedback_items"]["Row"], "id" | "created_at" | "updated_at" | "vote_count" | "comment_count" | "resolved_at" | "first_response_at">;
         Update: Partial<Database["public"]["Tables"]["feedback_items"]["Insert"]>;
       };
 
@@ -451,6 +460,35 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["feedback_comments"]["Row"], "id" | "created_at" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["feedback_comments"]["Insert"]>;
+      };
+
+      pmf_surveys: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          user_role: string;
+          disappointment_level: DisappointmentLevel;
+          follow_up_text: string | null;
+          triggered_by: string;
+          page_url: string | null;
+          dismissed: boolean;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["pmf_surveys"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["pmf_surveys"]["Insert"]>;
+      };
+
+      survey_cooldowns: {
+        Row: {
+          user_id: string;
+          last_survey_at: string;
+          total_surveys: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["survey_cooldowns"]["Row"], "created_at" | "updated_at">;
+        Update: Partial<Database["public"]["Tables"]["survey_cooldowns"]["Insert"]>;
       };
     };
   };
@@ -527,6 +565,12 @@ export type FeedbackVoteInsert = Database["public"]["Tables"]["feedback_votes"][
 
 export type FeedbackComment = Database["public"]["Tables"]["feedback_comments"]["Row"];
 export type FeedbackCommentInsert = Database["public"]["Tables"]["feedback_comments"]["Insert"];
+
+export type PmfSurvey = Database["public"]["Tables"]["pmf_surveys"]["Row"];
+export type PmfSurveyInsert = Database["public"]["Tables"]["pmf_surveys"]["Insert"];
+
+export type SurveyCooldown = Database["public"]["Tables"]["survey_cooldowns"]["Row"];
+export type SurveyCooldownInsert = Database["public"]["Tables"]["survey_cooldowns"]["Insert"];
 
 // Feedback item with author info for display
 export interface FeedbackItemWithAuthor extends FeedbackItem {

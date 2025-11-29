@@ -93,6 +93,7 @@ export async function getCurrentUser() {
     agentProfile,
     isAdmin: profile.role === "admin",
     isAgent: profile.role === "agent",
+    isPlatformAdmin: profile.is_platform_admin === true,
   };
 }
 

@@ -19,6 +19,10 @@ import {
   PlayCircle,
   X,
   ArrowLeft,
+  Send,
+  Trash2,
+  Reply,
+  CornerDownRight,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -37,7 +41,17 @@ interface FeatureRequest {
   vote_count: number;
   comment_count: number;
   created_at: string;
-  has_voted?: boolean;
+  user_vote?: number | null; // 1 = upvote, -1 = downvote, null = no vote
+}
+
+interface Comment {
+  id: string;
+  user_id: string;
+  content: string;
+  parent_comment_id: string | null;
+  created_at: string;
+  updated_at: string;
+  replies?: Comment[];
 }
 
 type SortOption = "votes" | "recent";
@@ -71,6 +85,14 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
   const [newDescription, setNewDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Comments state
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [isPostingComment, setIsPostingComment] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; content: string } | null>(null);
 
   const supabase = createClient();
 
@@ -108,19 +130,19 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
       return;
     }
 
-    // Check if current user has voted on each item
+    // Check user's votes on each item
     const itemIds = data.map((item) => item.id);
     const { data: votes } = await supabase
       .from("feedback_votes")
-      .select("feedback_item_id")
+      .select("feedback_item_id, vote_type")
       .eq("user_id", userId)
       .in("feedback_item_id", itemIds);
 
-    const votedItemIds = new Set(votes?.map((v) => v.feedback_item_id) || []);
+    const userVotes = new Map(votes?.map((v) => [v.feedback_item_id, v.vote_type]) || []);
 
     const itemsWithVotes = data.map((item) => ({
       ...item,
-      has_voted: votedItemIds.has(item.id),
+      user_vote: userVotes.get(item.id) || null,
     }));
 
     setItems(itemsWithVotes);
@@ -131,18 +153,136 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
     fetchItems();
   }, [fetchItems]);
 
-  const handleVote = async (itemId: string, hasVoted: boolean) => {
+  // Fetch comments for selected item and organize into threads
+  const fetchComments = useCallback(async (itemId: string) => {
+    setIsLoadingComments(true);
+    const { data, error } = await supabase
+      .from("feedback_comments")
+      .select("id, user_id, content, parent_comment_id, created_at, updated_at")
+      .eq("feedback_item_id", itemId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching comments:", error);
+      setComments([]);
+    } else {
+      // Organize into threaded structure
+      const commentMap = new Map<string, Comment>();
+      const rootComments: Comment[] = [];
+
+      // First pass: create all comments with empty replies
+      (data || []).forEach((c) => {
+        commentMap.set(c.id, { ...c, replies: [] });
+      });
+
+      // Second pass: organize into tree
+      (data || []).forEach((c) => {
+        const comment = commentMap.get(c.id)!;
+        if (c.parent_comment_id && commentMap.has(c.parent_comment_id)) {
+          commentMap.get(c.parent_comment_id)!.replies!.push(comment);
+        } else {
+          rootComments.push(comment);
+        }
+      });
+
+      setComments(rootComments);
+    }
+    setIsLoadingComments(false);
+  }, [supabase]);
+
+  // Post a new comment or reply
+  const handlePostComment = async (parentCommentId?: string) => {
+    if (!newComment.trim() || !selectedItem || isPostingComment) return;
+
+    setIsPostingComment(true);
     try {
-      if (hasVoted) {
+      const { error } = await supabase
+        .from("feedback_comments")
+        .insert({
+          feedback_item_id: selectedItem.id,
+          user_id: userId,
+          content: newComment.trim(),
+          is_admin_comment: false,
+          parent_comment_id: parentCommentId || null,
+        });
+
+      if (error) throw error;
+
+      setNewComment("");
+      setReplyingTo(null);
+      fetchComments(selectedItem.id);
+      // Update comment count locally
+      setSelectedItem({
+        ...selectedItem,
+        comment_count: selectedItem.comment_count + 1,
+      });
+      fetchItems(); // Refresh list to update comment counts
+    } catch (err) {
+      console.error("Error posting comment:", err);
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
+
+  // Delete a comment
+  const handleDeleteComment = async (commentId: string) => {
+    if (!selectedItem) return;
+
+    setDeletingCommentId(commentId);
+    try {
+      const { error } = await supabase
+        .from("feedback_comments")
+        .delete()
+        .eq("id", commentId)
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      fetchComments(selectedItem.id);
+      // Update comment count locally
+      setSelectedItem({
+        ...selectedItem,
+        comment_count: Math.max(0, selectedItem.comment_count - 1),
+      });
+      fetchItems(); // Refresh list to update comment counts
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
+  // Load comments when selecting an item
+  useEffect(() => {
+    if (selectedItem) {
+      fetchComments(selectedItem.id);
+      setNewComment("");
+    } else {
+      setComments([]);
+    }
+  }, [selectedItem?.id, fetchComments]);
+
+  const handleVote = async (itemId: string, voteType: 1 | -1, currentVote: number | null) => {
+    try {
+      if (currentVote === voteType) {
+        // Clicking same vote again = remove vote
         await supabase
           .from("feedback_votes")
           .delete()
           .eq("feedback_item_id", itemId)
           .eq("user_id", userId);
-      } else {
+      } else if (currentVote === null) {
+        // No existing vote = insert new vote
         await supabase
           .from("feedback_votes")
-          .insert({ feedback_item_id: itemId, user_id: userId });
+          .insert({ feedback_item_id: itemId, user_id: userId, vote_type: voteType });
+      } else {
+        // Switching vote (up to down or down to up) = update
+        await supabase
+          .from("feedback_votes")
+          .update({ vote_type: voteType })
+          .eq("feedback_item_id", itemId)
+          .eq("user_id", userId);
       }
       fetchItems();
     } catch (err) {
@@ -359,33 +499,39 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (!item.has_voted) {
-                            handleVote(item.id, false);
-                          } else {
-                            handleVote(item.id, true);
-                          }
+                          handleVote(item.id, 1, item.user_vote ?? null);
                         }}
-                        title={item.has_voted ? "Remove vote" : "Upvote"}
+                        title={item.user_vote === 1 ? "Remove upvote" : "Upvote"}
                         className={`p-1 rounded transition-colors ${
-                          item.has_voted
+                          item.user_vote === 1
                             ? "text-orange-500 hover:bg-orange-500/10"
                             : "text-muted-foreground/50 hover:text-orange-500 hover:bg-orange-500/10"
                         }`}
                       >
-                        <ChevronUp className="w-6 h-6" strokeWidth={item.has_voted ? 3 : 2} />
+                        <ChevronUp className="w-6 h-6" strokeWidth={item.user_vote === 1 ? 3 : 2} />
                       </button>
                       <span className={`text-xs font-bold tabular-nums py-0.5 ${
-                        item.has_voted ? "text-orange-500" : "text-muted-foreground"
+                        item.user_vote === 1 
+                          ? "text-orange-500" 
+                          : item.user_vote === -1 
+                            ? "text-blue-500" 
+                            : "text-muted-foreground"
                       }`}>
                         {item.vote_count}
                       </span>
                       <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1 rounded text-muted-foreground/30 cursor-not-allowed"
-                        disabled
-                        title="Downvoting disabled"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleVote(item.id, -1, item.user_vote ?? null);
+                        }}
+                        title={item.user_vote === -1 ? "Remove downvote" : "Downvote"}
+                        className={`p-1 rounded transition-colors ${
+                          item.user_vote === -1
+                            ? "text-blue-500 hover:bg-blue-500/10"
+                            : "text-muted-foreground/50 hover:text-blue-500 hover:bg-blue-500/10"
+                        }`}
                       >
-                        <ChevronDown className="w-6 h-6" strokeWidth={2} />
+                        <ChevronDown className="w-6 h-6" strokeWidth={item.user_vote === -1 ? 3 : 2} />
                       </button>
                     </div>
 
@@ -529,35 +675,55 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleVote(selectedItem.id, selectedItem.has_voted || false);
+                      const currentVote = selectedItem.user_vote ?? null;
+                      const newVote = currentVote === 1 ? null : 1;
+                      const voteDiff = (newVote ?? 0) - (currentVote ?? 0);
+                      handleVote(selectedItem.id, 1, currentVote);
                       setSelectedItem({
                         ...selectedItem,
-                        has_voted: !selectedItem.has_voted,
-                        vote_count: selectedItem.has_voted
-                          ? selectedItem.vote_count - 1
-                          : selectedItem.vote_count + 1,
+                        user_vote: newVote,
+                        vote_count: selectedItem.vote_count + voteDiff,
                       });
                     }}
-                    title={selectedItem.has_voted ? "Remove vote" : "Upvote"}
+                    title={selectedItem.user_vote === 1 ? "Remove upvote" : "Upvote"}
                     className={`p-1.5 rounded-lg transition-colors ${
-                      selectedItem.has_voted
+                      selectedItem.user_vote === 1
                         ? "text-orange-500 bg-orange-500/10 hover:bg-orange-500/20"
                         : "text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10"
                     }`}
                   >
-                    <ChevronUp className="w-7 h-7" strokeWidth={selectedItem.has_voted ? 3 : 2} />
+                    <ChevronUp className="w-7 h-7" strokeWidth={selectedItem.user_vote === 1 ? 3 : 2} />
                   </button>
                   <span className={`text-base font-bold tabular-nums py-1 ${
-                    selectedItem.has_voted ? "text-orange-500" : "text-muted-foreground"
+                    selectedItem.user_vote === 1 
+                      ? "text-orange-500" 
+                      : selectedItem.user_vote === -1 
+                        ? "text-blue-500" 
+                        : "text-muted-foreground"
                   }`}>
                     {selectedItem.vote_count}
                   </span>
                   <button
-                    className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"
-                    disabled
-                    title="Downvoting disabled"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentVote = selectedItem.user_vote ?? null;
+                      const newVote = currentVote === -1 ? null : -1;
+                      const voteDiff = (newVote ?? 0) - (currentVote ?? 0);
+                      handleVote(selectedItem.id, -1, currentVote);
+                      setSelectedItem({
+                        ...selectedItem,
+                        user_vote: newVote,
+                        vote_count: selectedItem.vote_count + voteDiff,
+                      });
+                    }}
+                    title={selectedItem.user_vote === -1 ? "Remove downvote" : "Downvote"}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      selectedItem.user_vote === -1
+                        ? "text-blue-500 bg-blue-500/10 hover:bg-blue-500/20"
+                        : "text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10"
+                    }`}
                   >
-                    <ChevronDown className="w-7 h-7" strokeWidth={2} />
+                    <ChevronDown className="w-7 h-7" strokeWidth={selectedItem.user_vote === -1 ? 3 : 2} />
                   </button>
                 </div>
 
@@ -603,14 +769,192 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                 <p className="text-foreground whitespace-pre-wrap">{selectedItem.description}</p>
               </div>
 
+              {/* Comments Section */}
               <div className="pt-4 border-t border-border">
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <ChevronUp className="w-4 h-4 text-orange-500" />
-                  <span>Upvote to help prioritize this feature</span>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
+                  Comments ({selectedItem.comment_count})
+                </h3>
+
+                {/* Comment Input */}
+                <div className="flex gap-3 mb-6">
+                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-bold text-primary">You</span>
+                  </div>
+                  <div className="flex-1">
+                    {replyingTo && (
+                      <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-muted/50 text-sm">
+                        <CornerDownRight className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Replying to:</span>
+                        <span className="text-foreground truncate flex-1">{replyingTo.content.slice(0, 50)}...</span>
+                        <button
+                          onClick={() => setReplyingTo(null)}
+                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder={replyingTo ? "Write a reply..." : "What are your thoughts?"}
+                      rows={3}
+                      className="w-full px-4 py-3 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors resize-none text-sm"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                          handlePostComment(replyingTo?.id);
+                        }
+                      }}
+                    />
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-xs text-muted-foreground">
+                        {newComment.length > 0 && "⌘/Ctrl + Enter to submit"}
+                      </span>
+                      <button
+                        onClick={() => handlePostComment(replyingTo?.id)}
+                        disabled={!newComment.trim() || isPostingComment}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {isPostingComment ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                        {replyingTo ? "Reply" : "Comment"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Comments List */}
+                {isLoadingComments ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : comments.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No comments yet. Be the first to share your thoughts!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {comments.map((comment) => (
+                      <CommentThread
+                        key={comment.id}
+                        comment={comment}
+                        userId={userId}
+                        depth={0}
+                        onReply={(c) => setReplyingTo({ id: c.id, content: c.content })}
+                        onDelete={handleDeleteComment}
+                        deletingId={deletingCommentId}
+                        timeAgo={timeAgo}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Recursive comment thread component
+function CommentThread({
+  comment,
+  userId,
+  depth,
+  onReply,
+  onDelete,
+  deletingId,
+  timeAgo,
+}: {
+  comment: Comment;
+  userId: string;
+  depth: number;
+  onReply: (comment: Comment) => void;
+  onDelete: (id: string) => void;
+  deletingId: string | null;
+  timeAgo: (date: string) => string;
+}) {
+  const isOwn = comment.user_id === userId;
+  const hasReplies = comment.replies && comment.replies.length > 0;
+  const maxDepth = 4; // Maximum nesting depth
+
+  return (
+    <div className={depth > 0 ? "ml-6 pl-4 border-l-2 border-border/50" : ""}>
+      <div className="group py-3">
+        <div className="flex gap-3">
+          {/* Avatar */}
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+            isOwn ? "bg-primary/20" : "bg-muted"
+          }`}>
+            <span className={`text-[10px] font-bold ${isOwn ? "text-primary" : "text-muted-foreground"}`}>
+              {isOwn ? "You" : "U"}
+            </span>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`text-sm font-medium ${isOwn ? "text-primary" : "text-foreground"}`}>
+                {isOwn ? "You" : "Anonymous"}
+              </span>
+              <span className="text-xs text-muted-foreground">•</span>
+              <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
+            </div>
+            
+            <p className="text-sm text-foreground whitespace-pre-wrap break-words mb-2">
+              {comment.content}
+            </p>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3">
+              {depth < maxDepth && (
+                <button
+                  onClick={() => onReply(comment)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Reply className="w-3.5 h-3.5" />
+                  Reply
+                </button>
+              )}
+              {isOwn && (
+                <button
+                  onClick={() => onDelete(comment.id)}
+                  disabled={deletingId === comment.id}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  {deletingId === comment.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                  Delete
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Nested Replies */}
+      {hasReplies && (
+        <div className="space-y-0">
+          {comment.replies!.map((reply) => (
+            <CommentThread
+              key={reply.id}
+              comment={reply}
+              userId={userId}
+              depth={depth + 1}
+              onReply={onReply}
+              onDelete={onDelete}
+              deletingId={deletingId}
+              timeAgo={timeAgo}
+            />
+          ))}
         </div>
       )}
     </div>

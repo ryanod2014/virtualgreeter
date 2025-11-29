@@ -6,6 +6,7 @@ import { Coffee } from "lucide-react";
 import { SignalingProvider, useSignalingContext } from "./signaling-provider";
 import { IncomingCallModal } from "@/features/workbench/incoming-call-modal";
 import { PostCallDispositionModal } from "@/features/workbench/post-call-disposition-modal";
+import { SurveyTrigger } from "@/features/surveys";
 import type { User, Organization, AgentProfile } from "@ghost-greeter/domain/database.types";
 
 interface AppShellProps {
@@ -143,6 +144,9 @@ function AppShellInner({
         organizationId={organization.id}
         onClose={() => setEndedCallId(null)}
       />
+
+      {/* PMF Survey Trigger - random prompt for eligible users */}
+      <SurveyTrigger user={user} />
     </>
   );
 }
