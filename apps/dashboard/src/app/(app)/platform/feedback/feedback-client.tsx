@@ -19,6 +19,10 @@ import {
   Image,
   Video,
   ExternalLink,
+  Target,
+  Heart,
+  Meh,
+  Frown,
 } from "lucide-react";
 import { subDays } from "date-fns";
 import { DateRangePicker } from "@/lib/components/date-range-picker";
@@ -47,9 +51,29 @@ interface FeedbackItem {
   updated_at: string;
 }
 
+interface PmfSurvey {
+  id: string;
+  organization_id: string;
+  organization_name: string;
+  organization_plan: SubscriptionPlan;
+  organization_status: SubscriptionStatus;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  user_role: string;
+  disappointment_level: "very_disappointed" | "somewhat_disappointed" | "not_disappointed";
+  follow_up_text: string | null;
+  page_url: string | null;
+  dismissed: boolean;
+  created_at: string;
+}
+
 interface FeedbackClientProps {
   feedbackItems: FeedbackItem[];
+  pmfSurveys: PmfSurvey[];
 }
+
+type TabType = "bug" | "feature" | "pmf";
 
 const statusConfig: Record<FeedbackStatus, { label: string; icon: typeof Clock; color: string }> = {
   open: { label: "Open", icon: Clock, color: "text-blue-500 bg-blue-500/10" },
@@ -73,11 +97,12 @@ const planColors: Record<SubscriptionPlan, string> = {
   enterprise: "bg-amber-500/10 text-amber-500",
 };
 
-export function FeedbackClient({ feedbackItems }: FeedbackClientProps) {
-  const [activeTab, setActiveTab] = useState<FeedbackType>("bug");
+export function FeedbackClient({ feedbackItems, pmfSurveys }: FeedbackClientProps) {
+  const [activeTab, setActiveTab] = useState<TabType>("bug");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | "all">("all");
   const [selectedItem, setSelectedItem] = useState<FeedbackItem | null>(null);
+  const [selectedSurvey, setSelectedSurvey] = useState<PmfSurvey | null>(null);
   
   // Date range state
   const [dateFrom, setDateFrom] = useState<Date>(subDays(new Date(), 30));
@@ -88,8 +113,10 @@ export function FeedbackClient({ feedbackItems }: FeedbackClientProps) {
     setDateTo(to);
   };
 
-  // Filter items by type, search, status, and date
+  // Filter feedback items by type, search, status, and date
   const filteredItems = useMemo(() => {
+    if (activeTab === "pmf") return [];
+    
     let result = feedbackItems.filter((item) => item.type === activeTab);
 
     if (searchQuery.trim()) {
@@ -117,9 +144,59 @@ export function FeedbackClient({ feedbackItems }: FeedbackClientProps) {
     return result;
   }, [feedbackItems, activeTab, searchQuery, statusFilter, dateFrom, dateTo]);
 
+  // Filter PMF surveys by search and date
+  const filteredSurveys = useMemo(() => {
+    if (activeTab !== "pmf") return [];
+    
+    let result = [...pmfSurveys];
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(
+        (survey) =>
+          (survey.follow_up_text?.toLowerCase().includes(query) ?? false) ||
+          survey.organization_name.toLowerCase().includes(query) ||
+          survey.user_email.toLowerCase().includes(query) ||
+          survey.user_name.toLowerCase().includes(query) ||
+          survey.user_role.toLowerCase().includes(query)
+      );
+    }
+
+    // Date filtering
+    result = result.filter((survey) => {
+      const surveyDate = new Date(survey.created_at);
+      return surveyDate >= dateFrom && surveyDate <= dateTo;
+    });
+
+    return result;
+  }, [pmfSurveys, activeTab, searchQuery, dateFrom, dateTo]);
+
   // Count by type
   const bugCount = feedbackItems.filter((item) => item.type === "bug").length;
   const featureCount = feedbackItems.filter((item) => item.type === "feature").length;
+  const pmfCount = pmfSurveys.length;
+
+  // PMF level configs
+  const levelConfigs = {
+    very_disappointed: {
+      label: "Very disappointed",
+      icon: Heart,
+      color: "text-rose-500",
+      bg: "bg-rose-500/10",
+    },
+    somewhat_disappointed: {
+      label: "Somewhat disappointed",
+      icon: Meh,
+      color: "text-amber-500",
+      bg: "bg-amber-500/10",
+    },
+    not_disappointed: {
+      label: "Not disappointed",
+      icon: Frown,
+      color: "text-slate-400",
+      bg: "bg-slate-500/10",
+    },
+  };
 
   const timeAgo = (date: string) => {
     const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -170,6 +247,20 @@ export function FeedbackClient({ feedbackItems }: FeedbackClientProps) {
             {featureCount}
           </span>
         </button>
+        <button
+          onClick={() => setActiveTab("pmf")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === "pmf"
+              ? "bg-purple-500/10 text-purple-500 border border-purple-500/30"
+              : "bg-muted/50 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Target className="w-4 h-4" />
+          PMF Surveys
+          <span className="px-2 py-0.5 rounded-full bg-background text-xs">
+            {pmfCount}
+          </span>
+        </button>
       </div>
 
       {/* Filters */}
@@ -180,23 +271,25 @@ export function FeedbackClient({ feedbackItems }: FeedbackClientProps) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search feedback, email, org..."
+            placeholder={activeTab === "pmf" ? "Search surveys, email, org..." : "Search feedback, email, org..."}
             className="w-full pl-10 pr-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors"
           />
         </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as FeedbackStatus | "all")}
-          className="px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors"
-        >
-          <option value="all">All Status</option>
-          <option value="open">Open</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="closed">Closed</option>
-          <option value="declined">Declined</option>
-        </select>
+        {activeTab !== "pmf" && (
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as FeedbackStatus | "all")}
+            className="px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors"
+          >
+            <option value="all">All Status</option>
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="closed">Closed</option>
+            <option value="declined">Declined</option>
+          </select>
+        )}
 
         {/* Date Range Picker */}
         <DateRangePicker
@@ -206,11 +299,76 @@ export function FeedbackClient({ feedbackItems }: FeedbackClientProps) {
         />
 
         <span className="text-sm text-muted-foreground">
-          {filteredItems.length} results
+          {activeTab === "pmf" ? filteredSurveys.length : filteredItems.length} results
         </span>
       </div>
 
+      {/* PMF Surveys List */}
+      {activeTab === "pmf" && (
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          {filteredSurveys.length === 0 ? (
+            <div className="p-12 text-center">
+              <Target className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              <p className="text-muted-foreground">No PMF survey responses found</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {filteredSurveys.map((survey) => {
+                const levelConfig = levelConfigs[survey.disappointment_level] ?? levelConfigs.not_disappointed;
+                const Icon = levelConfig.icon;
+
+                return (
+                  <div
+                    key={survey.id}
+                    onClick={() => setSelectedSurvey(survey)}
+                    className="p-4 hover:bg-muted/30 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`p-2 rounded-lg ${levelConfig.bg}`}>
+                        <Icon className={`w-5 h-5 ${levelConfig.color}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-sm font-medium ${levelConfig.color}`}>
+                            {levelConfig.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            • {survey.user_role}
+                          </span>
+                        </div>
+                        {survey.follow_up_text && (
+                          <p className="text-sm text-foreground line-clamp-2 mb-2">
+                            &quot;{survey.follow_up_text}&quot;
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Building2 className="w-3.5 h-3.5" />
+                            {survey.organization_name}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Mail className="w-3.5 h-3.5" />
+                            {survey.user_email}
+                          </span>
+                          <span>{timeAgo(survey.created_at)}</span>
+                        </div>
+                        {survey.page_url && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            From: {survey.page_url}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Feedback List */}
+      {activeTab !== "pmf" && (
       <div className="bg-card rounded-2xl border border-border overflow-hidden">
         {filteredItems.length === 0 ? (
           <div className="p-12 text-center">
@@ -301,6 +459,7 @@ export function FeedbackClient({ feedbackItems }: FeedbackClientProps) {
           </div>
         )}
       </div>
+      )}
 
       {/* Detail Modal */}
       {selectedItem && (
@@ -454,6 +613,121 @@ export function FeedbackClient({ feedbackItems }: FeedbackClientProps) {
                   <span>{selectedItem.comment_count} comments</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PMF Survey Detail Modal */}
+      {selectedSurvey && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setSelectedSurvey(null)}
+        >
+          <div
+            className="w-full max-w-2xl max-h-[85vh] bg-background rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between p-6 border-b border-border">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  {(() => {
+                    const lc = levelConfigs[selectedSurvey.disappointment_level] ?? levelConfigs.not_disappointed;
+                    const LcIcon = lc.icon;
+                    return (
+                      <>
+                        <div className={`p-1.5 rounded-lg ${lc.bg}`}>
+                          <LcIcon className={`w-4 h-4 ${lc.color}`} />
+                        </div>
+                        <span className={`text-sm font-medium ${lc.color}`}>
+                          {lc.label}
+                        </span>
+                      </>
+                    );
+                  })()}
+                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs capitalize">
+                    {selectedSurvey.user_role}
+                  </span>
+                </div>
+                <h2 className="text-xl font-bold">PMF Survey Response</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {new Date(selectedSurvey.created_at).toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedSurvey(null)}
+                className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* User & Org Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-muted/30 border border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Submitted By</span>
+                  </div>
+                  <p className="font-medium">{selectedSurvey.user_name}</p>
+                  <p className="text-sm text-muted-foreground">{selectedSurvey.user_email}</p>
+                  <span className="inline-block mt-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs capitalize">
+                    {selectedSurvey.user_role}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-muted/30 border border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Building2 className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Organization</span>
+                  </div>
+                  <p className="font-medium">{selectedSurvey.organization_name}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${planColors[selectedSurvey.organization_plan]}`}>
+                      {selectedSurvey.organization_plan}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${
+                      selectedSurvey.organization_status === "active"
+                        ? "bg-green-500/10 text-green-500"
+                        : selectedSurvey.organization_status === "paused"
+                        ? "bg-amber-500/10 text-amber-500"
+                        : "bg-red-500/10 text-red-500"
+                    }`}>
+                      {selectedSurvey.organization_status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Follow-up Response */}
+              {selectedSurvey.follow_up_text && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                    Response
+                  </h3>
+                  <p className="text-foreground whitespace-pre-wrap">&quot;{selectedSurvey.follow_up_text}&quot;</p>
+                </div>
+              )}
+
+              {/* Page URL */}
+              {selectedSurvey.page_url && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                    Submitted From
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{selectedSurvey.page_url}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

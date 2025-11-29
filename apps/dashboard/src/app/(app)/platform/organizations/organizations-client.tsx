@@ -67,13 +67,10 @@ interface OrgWithStats {
 interface PlatformTotals {
   pageviewsThisMonth: number;
   pageviewsWithAgentThisMonth: number;
-  missedOpportunitiesThisMonth: number;
-  answeredCallsThisMonth: number;
   callsThisMonth: number;
-  totalMRR: number;
-  activeOrgs: number;
-  coverageRate: number;
-  answerRate: number;
+  answeredCallsThisMonth: number;
+  ringRate: number;
+  agentAnswerRate: number;
 }
 
 interface OrganizationsClientProps {
@@ -288,80 +285,60 @@ export function OrganizationsClient({
       </div>
 
       {/* Platform Totals - This Month */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-center gap-2 mb-1">
             <Eye className="w-4 h-4 text-blue-500" />
             <span className="text-xs text-muted-foreground">Pageviews</span>
           </div>
           <p className="text-2xl font-bold">{platformTotals.pageviewsThisMonth.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">this month</p>
+          <p className="text-xs text-muted-foreground">total this month</p>
         </div>
         
         <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-center gap-2 mb-1">
             <Activity className="w-4 h-4 text-purple-500" />
-            <span className="text-xs text-muted-foreground">Coverage</span>
+            <span className="text-xs text-muted-foreground">Widget Popups</span>
           </div>
-          <p className={`text-2xl font-bold ${
-            platformTotals.coverageRate >= 90 ? "text-green-500" :
-            platformTotals.coverageRate >= 70 ? "text-amber-500" : "text-red-500"
-          }`}>
-            {platformTotals.coverageRate.toFixed(1)}%
-          </p>
+          <p className="text-2xl font-bold">{platformTotals.pageviewsWithAgentThisMonth.toLocaleString()}</p>
           <p className="text-xs text-muted-foreground">agent available</p>
         </div>
         
         <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-center gap-2 mb-1">
-            <AlertTriangle className="w-4 h-4 text-red-500" />
-            <span className="text-xs text-muted-foreground">Missed</span>
+            <Phone className="w-4 h-4 text-green-500" />
+            <span className="text-xs text-muted-foreground">Rings</span>
           </div>
-          <p className={`text-2xl font-bold ${platformTotals.missedOpportunitiesThisMonth > 0 ? "text-red-500" : ""}`}>
-            {platformTotals.missedOpportunitiesThisMonth.toLocaleString()}
-          </p>
-          <p className="text-xs text-muted-foreground">no agent</p>
+          <p className="text-2xl font-bold">{platformTotals.callsThisMonth.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground">user clicked answer</p>
         </div>
         
         <div className="bg-gradient-to-br from-primary/10 to-purple-500/10 rounded-xl border-2 border-primary/30 p-4">
           <div className="flex items-center gap-2 mb-1">
             <TrendingUp className="w-4 h-4 text-primary" />
-            <span className="text-xs text-muted-foreground">Answer Rate</span>
+            <span className="text-xs text-muted-foreground">Ring Rate</span>
           </div>
           <p className={`text-2xl font-bold ${
-            platformTotals.answerRate >= 20 ? "text-green-500" :
-            platformTotals.answerRate >= 10 ? "text-amber-500" : "text-red-500"
+            platformTotals.ringRate >= 20 ? "text-green-500" :
+            platformTotals.ringRate >= 10 ? "text-amber-500" : "text-red-500"
           }`}>
-            {platformTotals.answerRate.toFixed(1)}%
+            {platformTotals.ringRate.toFixed(1)}%
           </p>
-          <p className="text-xs text-muted-foreground">pageview → answer</p>
+          <p className="text-xs text-muted-foreground">popups → rings</p>
         </div>
         
         <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-center gap-2 mb-1">
             <Phone className="w-4 h-4 text-green-500" />
-            <span className="text-xs text-muted-foreground">Answered</span>
+            <span className="text-xs text-muted-foreground">Agent Answer Rate</span>
           </div>
-          <p className="text-2xl font-bold text-green-500">{platformTotals.answeredCallsThisMonth.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">calls this month</p>
-        </div>
-        
-        <div className="bg-card rounded-xl border border-border p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Phone className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Total Calls</span>
-          </div>
-          <p className="text-2xl font-bold">{platformTotals.callsThisMonth.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">this month</p>
-        </div>
-        
-        <div className="bg-card rounded-xl border border-border p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <DollarSign className="w-4 h-4 text-green-500" />
-            <span className="text-xs text-muted-foreground">Platform MRR</span>
-          </div>
-          <p className="text-2xl font-bold">${platformTotals.totalMRR.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">{platformTotals.activeOrgs} active orgs</p>
+          <p className={`text-2xl font-bold ${
+            platformTotals.agentAnswerRate >= 80 ? "text-green-500" :
+            platformTotals.agentAnswerRate >= 60 ? "text-amber-500" : "text-red-500"
+          }`}>
+            {platformTotals.agentAnswerRate.toFixed(1)}%
+          </p>
+          <p className="text-xs text-muted-foreground">rings answered</p>
         </div>
       </div>
 

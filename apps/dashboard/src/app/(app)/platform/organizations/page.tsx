@@ -239,29 +239,30 @@ export default async function PlatformOrganizationsPage() {
   const atRiskMRR = atRiskOrgs.reduce((sum, o) => sum + o.mrr, 0);
 
   // Calculate platform-wide totals (this month)
-  const platformTotals = {
-    pageviewsThisMonth: orgStats.reduce((sum, o) => sum + o.pageviewsThisMonth, 0),
-    pageviewsWithAgentThisMonth: orgStats.reduce((sum, o) => sum + (o.pageviewsThisMonth - o.missedOpportunitiesThisMonth), 0),
-    missedOpportunitiesThisMonth: orgStats.reduce((sum, o) => sum + o.missedOpportunitiesThisMonth, 0),
-    answeredCallsThisMonth: orgStats.reduce((sum, o) => sum + 
-      (o.answerRateThisMonth > 0 ? Math.round((o.pageviewsThisMonth - o.missedOpportunitiesThisMonth) * o.answerRateThisMonth / 100) : 0), 0),
-    callsThisMonth: orgStats.reduce((sum, o) => sum + o.callsThisMonth, 0),
-    totalMRR: orgStats.reduce((sum, o) => sum + o.mrr, 0),
-    activeOrgs: orgStats.filter((o) => o.subscription_status === "active").length,
-  };
+  const pageviewsThisMonth = orgStats.reduce((sum, o) => sum + o.pageviewsThisMonth, 0);
+  const pageviewsWithAgentThisMonth = orgStats.reduce((sum, o) => sum + (o.pageviewsThisMonth - o.missedOpportunitiesThisMonth), 0);
+  const callsThisMonth = orgStats.reduce((sum, o) => sum + o.callsThisMonth, 0);
+  const answeredCallsThisMonth = orgStats.reduce((sum, o) => sum + 
+    (o.answerRateThisMonth > 0 ? Math.round((o.pageviewsThisMonth - o.missedOpportunitiesThisMonth) * o.answerRateThisMonth / 100) : 0), 0);
   
-  // Calculate platform-wide rates
-  platformTotals.answeredCallsThisMonth = orgStats.reduce((sum, o) => {
-    const pageviewsWithAgent = o.pageviewsThisMonth - o.missedOpportunitiesThisMonth;
-    return sum + (pageviewsWithAgent > 0 ? Math.round(pageviewsWithAgent * o.answerRateThisMonth / 100) : 0);
-  }, 0);
-  
-  const platformCoverageRate = platformTotals.pageviewsThisMonth > 0 
-    ? (platformTotals.pageviewsWithAgentThisMonth / platformTotals.pageviewsThisMonth) * 100 
-    : 100;
-  const platformAnswerRate = platformTotals.pageviewsWithAgentThisMonth > 0 
-    ? (platformTotals.answeredCallsThisMonth / platformTotals.pageviewsWithAgentThisMonth) * 100 
+  // Ring Rate: widget popups → rings (user clicked answer)
+  const ringRate = pageviewsWithAgentThisMonth > 0 
+    ? (callsThisMonth / pageviewsWithAgentThisMonth) * 100 
     : 0;
+  
+  // Agent Answer Rate: % of rings that agents answered
+  const agentAnswerRate = callsThisMonth > 0 
+    ? (answeredCallsThisMonth / callsThisMonth) * 100 
+    : 0;
+  
+  const platformTotals = {
+    pageviewsThisMonth,
+    pageviewsWithAgentThisMonth,
+    callsThisMonth,
+    answeredCallsThisMonth,
+    ringRate,
+    agentAnswerRate,
+  };
 
   return (
     <OrganizationsClient 
@@ -269,11 +270,7 @@ export default async function PlatformOrganizationsPage() {
       atRiskCount={atRiskOrgs.length}
       criticalCount={criticalOrgs.length}
       atRiskMRR={atRiskMRR}
-      platformTotals={{
-        ...platformTotals,
-        coverageRate: platformCoverageRate,
-        answerRate: platformAnswerRate,
-      }}
+      platformTotals={platformTotals}
     />
   );
 }

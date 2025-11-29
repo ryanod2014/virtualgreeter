@@ -4,33 +4,49 @@ import { FeedbackClient } from "./feedback-client";
 export default async function PlatformFeedbackPage() {
   const supabase = await createClient();
 
-  // Fetch all feedback items with organization info
-  const { data: feedbackItems, error } = await supabase
-    .from("feedback_items")
-    .select(`
-      id,
-      organization_id,
-      user_id,
-      type,
-      title,
-      description,
-      status,
-      priority,
-      vote_count,
-      comment_count,
-      screenshot_url,
-      recording_url,
-      created_at,
-      updated_at
-    `)
-    .order("created_at", { ascending: false });
+  // Fetch all feedback items and PMF surveys in parallel
+  const [feedbackResult, pmfSurveysResult] = await Promise.all([
+    supabase
+      .from("feedback_items")
+      .select(`
+        id,
+        organization_id,
+        user_id,
+        type,
+        title,
+        description,
+        status,
+        priority,
+        vote_count,
+        comment_count,
+        screenshot_url,
+        recording_url,
+        created_at,
+        updated_at
+      `)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("pmf_surveys")
+      .select("*")
+      .eq("dismissed", false)
+      .order("created_at", { ascending: false }),
+  ]);
 
-  if (error) {
-    console.error("Error fetching feedback:", error);
+  const feedbackItems = feedbackResult.data ?? [];
+  const pmfSurveys = pmfSurveysResult.data ?? [];
+
+  if (feedbackResult.error) {
+    console.error("Error fetching feedback:", feedbackResult.error);
+  }
+  if (pmfSurveysResult.error) {
+    console.error("Error fetching PMF surveys:", pmfSurveysResult.error);
   }
 
   // Get organization names and details
-  const orgIds = Array.from(new Set(feedbackItems?.map((f) => f.organization_id) ?? []));
+  const feedbackOrgIds = feedbackItems.map((f) => f.organization_id);
+  const pmfOrgIds = pmfSurveys.map((s) => s.organization_id);
+  const orgIds = Array.from(new Set([...feedbackOrgIds, ...pmfOrgIds]));
+  
   const { data: organizations } = await supabase
     .from("organizations")
     .select("id, name, plan, subscription_status")
@@ -39,7 +55,10 @@ export default async function PlatformFeedbackPage() {
   const orgMap = new Map(organizations?.map((o) => [o.id, o]) ?? []);
 
   // Get user details
-  const userIds = Array.from(new Set(feedbackItems?.map((f) => f.user_id) ?? []));
+  const feedbackUserIds = feedbackItems.map((f) => f.user_id);
+  const pmfUserIds = pmfSurveys.map((s) => s.user_id);
+  const userIds = Array.from(new Set([...feedbackUserIds, ...pmfUserIds]));
+  
   const { data: users } = await supabase
     .from("users")
     .select("id, email, full_name, role")
@@ -48,7 +67,7 @@ export default async function PlatformFeedbackPage() {
   const userMap = new Map(users?.map((u) => [u.id, u]) ?? []);
 
   // Add org and user details to feedback items
-  const itemsWithDetails = (feedbackItems ?? []).map((item) => {
+  const itemsWithDetails = feedbackItems.map((item) => {
     const org = orgMap.get(item.organization_id);
     const user = userMap.get(item.user_id);
     return {
@@ -62,6 +81,20 @@ export default async function PlatformFeedbackPage() {
     };
   });
 
-  return <FeedbackClient feedbackItems={itemsWithDetails} />;
+  // Add org and user details to PMF surveys
+  const surveysWithDetails = pmfSurveys.map((survey) => {
+    const org = orgMap.get(survey.organization_id);
+    const user = userMap.get(survey.user_id);
+    return {
+      ...survey,
+      organization_name: org?.name ?? "Unknown",
+      organization_plan: org?.plan ?? "free",
+      organization_status: org?.subscription_status ?? "active",
+      user_email: user?.email ?? "Unknown",
+      user_name: user?.full_name ?? "Unknown",
+    };
+  });
+
+  return <FeedbackClient feedbackItems={itemsWithDetails} pmfSurveys={surveysWithDetails} />;
 }
 

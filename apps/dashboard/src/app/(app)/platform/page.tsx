@@ -242,11 +242,6 @@ export default async function PlatformOverviewPage() {
   ).length;
   const adminPmfScore = adminSurveys.length > 0 ? (adminVeryDisappointed / adminSurveys.length) * 100 : 0;
 
-  // Get recent surveys for the table
-  const recentSurveys = surveys
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 10);
-
   // PMF Score color
   const getPmfColor = (score: number) => {
     if (score >= 40) return "text-green-500";
@@ -422,7 +417,7 @@ export default async function PlatformOverviewPage() {
           </div>
         </div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           {/* LTV */}
           <div className="p-4 rounded-xl bg-background/50 border border-border">
             <div className="flex items-center gap-2 mb-1">
@@ -476,30 +471,6 @@ export default async function PlatformOverviewPage() {
             </p>
           </div>
 
-          {/* LTV:CAC placeholder */}
-          <div className="p-4 rounded-xl bg-background/50 border border-border border-dashed">
-            <p className="text-sm font-medium text-muted-foreground mb-1">LTV:CAC Ratio</p>
-            <p className="text-3xl font-bold text-muted-foreground">—</p>
-            <p className="text-xs text-muted-foreground mt-1">Add CAC to calculate</p>
-          </div>
-        </div>
-
-        {/* LTV Explanation */}
-        <div className="mt-4 p-3 rounded-lg bg-background/30 border border-border/50">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">How LTV is calculated:</span>{" "}
-            {revenueChurnRate > 0 ? (
-              <>
-                With {revenueChurnRate.toFixed(1)}% monthly churn, customers stay ~{avgLifetimeMonths?.toFixed(1)} months on average. 
-                At ${arpu.toFixed(0)}/mo ARPU, each customer is worth ~${ltv ? Math.round(ltv).toLocaleString() : "—"} over their lifetime.
-              </>
-            ) : (
-              <>
-                No churn yet! Once you have churn data, LTV = ARPU ÷ Monthly Churn Rate.
-                Industry benchmark: LTV:CAC ratio should be &gt;3x.
-              </>
-            )}
-          </p>
         </div>
       </div>
 
@@ -791,85 +762,6 @@ export default async function PlatformOverviewPage() {
         </div>
       </div>
 
-      {/* Recent PMF Surveys */}
-      <div className="bg-card rounded-2xl border border-border overflow-hidden">
-        <div className="p-5 border-b border-border">
-          <h3 className="font-semibold">Recent PMF Survey Responses</h3>
-          <p className="text-sm text-muted-foreground">
-            Latest feedback from users
-          </p>
-        </div>
-
-        {recentSurveys.length === 0 ? (
-          <div className="p-12 text-center">
-            <Target className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">No survey responses yet</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Surveys will appear after users complete them
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {recentSurveys.map((survey) => {
-              const levelConfigs = {
-                very_disappointed: {
-                  label: "Very disappointed",
-                  icon: Heart,
-                  color: "text-rose-500",
-                  bg: "bg-rose-500/10",
-                },
-                somewhat_disappointed: {
-                  label: "Somewhat disappointed",
-                  icon: Meh,
-                  color: "text-amber-500",
-                  bg: "bg-amber-500/10",
-                },
-                not_disappointed: {
-                  label: "Not disappointed",
-                  icon: Frown,
-                  color: "text-slate-400",
-                  bg: "bg-slate-500/10",
-                },
-              };
-              const level = survey.disappointment_level as keyof typeof levelConfigs;
-              const levelConfig = levelConfigs[level] ?? levelConfigs.not_disappointed;
-
-              const Icon = levelConfig.icon;
-
-              return (
-                <div key={survey.id} className="p-4 hover:bg-muted/30 transition-colors">
-                  <div className="flex items-start gap-4">
-                    <div className={`p-2 rounded-lg ${levelConfig.bg}`}>
-                      <Icon className={`w-5 h-5 ${levelConfig.color}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-sm font-medium ${levelConfig.color}`}>
-                          {levelConfig.label}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          • {survey.user_role} •{" "}
-                          {new Date(survey.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {survey.follow_up_text && (
-                        <p className="text-sm text-foreground">
-                          &quot;{survey.follow_up_text}&quot;
-                        </p>
-                      )}
-                      {survey.page_url && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          From: {survey.page_url}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
