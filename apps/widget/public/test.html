@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ghost-Greeter Widget Test</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        min-height: 100vh;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      }
+      .container { max-width: 800px; text-align: center; }
+      h1 {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        background: linear-gradient(135deg, #a855f7, #6366f1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .subtitle { font-size: 1.25rem; color: #94a3b8; margin-bottom: 3rem; }
+      .card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+      }
+      .status {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+      }
+      .status-dot {
+        width: 12px;
+        height: 12px;
+        background: #22c55e;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+      .info { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; }
+      .arrow {
+        position: fixed;
+        bottom: 120px;
+        right: 120px;
+        font-size: 3rem;
+        animation: bounce 1s infinite;
+      }
+      @keyframes bounce {
+        0%, 100% { transform: translateY(0) rotate(-45deg); }
+        50% { transform: translateY(-10px) rotate(-45deg); }
+      }
+      .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 2rem;
+      }
+      .feature {
+        background: rgba(168, 85, 247, 0.1);
+        border: 1px solid rgba(168, 85, 247, 0.2);
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+      }
+      .feature h3 { color: #a855f7; margin-bottom: 0.5rem; }
+      .feature p { color: #94a3b8; font-size: 0.85rem; }
+      footer { margin-top: 3rem; color: #64748b; font-size: 0.85rem; }
+      a { color: #a855f7; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎥 Ghost-Greeter</h1>
+      <p class="subtitle">Live Video Greeter Widget Test Page</p>
+      
+      <div class="card">
+        <div class="status">
+          <div class="status-dot"></div>
+          <span>Widget Active - Look for the video in the corner! →</span>
+        </div>
+        <p class="info">
+          This page has the Ghost-Greeter widget embedded. If an agent is online and broadcasting,
+          you'll see a video widget appear in the bottom-right corner. Click it to start a live video call!
+        </p>
+      </div>
+      
+      <div class="features">
+        <div class="feature">
+          <h3>📹 Live Video</h3>
+          <p>Real-time video calls with website visitors</p>
+        </div>
+        <div class="feature">
+          <h3>🎭 Pre-recorded Intro</h3>
+          <p>Attention-grabbing video loops while waiting</p>
+        </div>
+        <div class="feature">
+          <h3>⚡ Instant Connect</h3>
+          <p>One-click to start a conversation</p>
+        </div>
+      </div>
+      
+      <footer>
+        <p>Production Test Page • <a href="https://virtualgreeter-dashboard.vercel.app">Dashboard</a></p>
+      </footer>
+    </div>
+    
+    <div class="arrow">↘</div>
+
+    <!-- Ghost-Greeter Widget - Production Embed -->
+    <script>
+      (function(w,d,s,o,f,js,fjs){
+        w['GhostGreeter']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
+        js=d.createElement(s);fjs=d.getElementsByTagName(s)[0];
+        js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
+      }(window,document,'script','gg','https://virtualgreeter-widget.vercel.app/widget.js'));
+      gg('init', { 
+        orgId: '880d5d27-3b38-4423-a7b1-6b24636cd04c', 
+        serverUrl: 'https://ghost-greeterserver-production.up.railway.app' 
+      });
+    </script>
+  </body>
+</html>
+

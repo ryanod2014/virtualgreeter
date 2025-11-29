@@ -4,6 +4,7 @@ import path from "path";
 
 export default defineConfig({
   plugins: [preact()],
+  publicDir: "public", // Copy public folder to dist
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -25,6 +26,7 @@ export default defineConfig({
       },
     },
     minify: "esbuild",
+    copyPublicDir: true, // Ensure public files are copied
   },
   define: {
     "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV ?? "production"),
