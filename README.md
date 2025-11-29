@@ -34,34 +34,49 @@ Ghost-Greeter creates the illusion of a live video agent watching your website. 
 ## Project Structure
 
 ```
-/root
-  ├── apps/
-  │   ├── widget/          # Embeddable Preact widget (~30KB)
-  │   ├── dashboard/       # Agent dashboard (Next.js)
-  │   └── server/          # Signaling & routing server
-  │
-  └── packages/
-      ├── domain/          # Shared types & constants (SOURCE OF TRUTH)
-      ├── config/          # Shared TSConfig, ESLint
-      └── ui/              # Shared UI components
+/
+├── apps/
+│   ├── widget/          # Embeddable Preact widget (~30KB)
+│   ├── dashboard/       # Agent dashboard (Next.js)
+│   └── server/          # Signaling & routing server
+│
+├── packages/
+│   ├── domain/          # Shared types & constants (SOURCE OF TRUTH)
+│   ├── config/          # Shared TSConfig, ESLint
+│   └── ui/              # Shared UI components
+│
+├── supabase/
+│   └── migrations/      # Database migrations
+│
+└── .github/
+    └── workflows/       # CI/CD pipelines
 ```
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm 8+
+- **Node.js** 20+
+- **pnpm** 8+ (`npm install -g pnpm`)
 
 ### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/your-org/Digital_greeter.git
+cd Digital_greeter
+
 # Install dependencies
 pnpm install
 
+# Set up environment variables
+cp apps/dashboard/.env.example apps/dashboard/.env.local
+cp apps/server/.env.example apps/server/.env
+# Edit the .env files with your Supabase credentials
+
 # Build shared packages
-pnpm build --filter @ghost-greeter/domain
-pnpm build --filter @ghost-greeter/config
+pnpm build --filter=@ghost-greeter/domain
+pnpm build --filter=@ghost-greeter/config
 
 # Start all apps in development
 pnpm dev
@@ -69,35 +84,20 @@ pnpm dev
 
 ### Running Individual Apps
 
-```bash
-# Widget (http://localhost:5173)
-pnpm dev --filter @ghost-greeter/widget
-
-# Dashboard (http://localhost:3000)
-pnpm dev --filter @ghost-greeter/dashboard
-
-# Server (http://localhost:3001)
-pnpm dev --filter @ghost-greeter/server
-```
+| App | Command | URL |
+|-----|---------|-----|
+| Dashboard | `pnpm dev --filter=@ghost-greeter/dashboard` | http://localhost:3000 |
+| Server | `pnpm dev --filter=@ghost-greeter/server` | http://localhost:3001 |
+| Widget | `pnpm dev --filter=@ghost-greeter/widget` | http://localhost:5173 |
 
 ## Configuration
 
-### Environment Variables
+Environment variables are documented in the `.env.example` files:
 
-**Server (`apps/server/.env`)**
-```env
-PORT=3001
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_KEY=your_service_key
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
-```
+- **Dashboard**: `apps/dashboard/.env.example`
+- **Server**: `apps/server/.env.example`
 
-**Dashboard (`apps/dashboard/.env.local`)**
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-NEXT_PUBLIC_SIGNALING_SERVER=http://localhost:3001
-```
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for production configuration.
 
 ## Widget Embedding
 
@@ -148,7 +148,7 @@ Add this script to any website:
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │                    Agent Dashboard                       │   │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │   │
-│  │  │  Bullpen   │  │  Signaling   │  │   WebRTC     │   │   │
+│  │  │  Bullpen     │  │  Signaling   │  │   WebRTC     │   │   │
 │  │  │  (Call UI)   │  │   Client     │  │   Peer       │   │   │
 │  │  └──────────────┘  └──────────────┘  └──────────────┘   │   │
 │  └─────────────────────────────────────────────────────────┘   │
@@ -165,7 +165,33 @@ All shared types are defined in `packages/domain/src/types.ts`:
 - `SocketEvents` - All Socket.io event definitions
 - `CallRequest` / `ActiveCall` - Call lifecycle types
 
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for:
+
+- Development setup
+- Branch strategy (`main` / `develop`)
+- Code style guidelines
+- Pull request process
+- Database migration guidelines
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/ONBOARDING.md](./docs/ONBOARDING.md) | **Start here!** New developer guide |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Code style & PR workflow |
+| [ENVIRONMENTS.md](./ENVIRONMENTS.md) | Local / Staging / Production overview |
+| [docs/STAGING_SETUP.md](./docs/STAGING_SETUP.md) | Complete staging infrastructure setup |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Production deployment guide |
+| [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) | Database setup instructions |
+
+### Verify Your Setup
+
+```bash
+./scripts/verify-setup.sh
+```
+
 ## License
 
 Proprietary - All rights reserved
-

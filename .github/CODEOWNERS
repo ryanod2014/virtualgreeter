@@ -1,0 +1,49 @@
+# Ghost-Greeter Code Owners
+# These owners will be automatically requested for review when a PR touches these paths.
+# 
+# Learn more: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @ryanodonnell
+
+# =============================================================================
+# Apps
+# =============================================================================
+
+# Dashboard (Next.js admin panel)
+/apps/dashboard/ @ryanodonnell
+
+# Widget (embeddable Preact widget)
+/apps/widget/ @ryanodonnell
+
+# Server (Socket.io signaling server)
+/apps/server/ @ryanodonnell
+
+# =============================================================================
+# Packages
+# =============================================================================
+
+# Shared domain types - changes here affect everything
+/packages/domain/ @ryanodonnell
+
+# Shared UI components
+/packages/ui/ @ryanodonnell
+
+# Shared config (TypeScript, ESLint)
+/packages/config/ @ryanodonnell
+
+# =============================================================================
+# Critical Files - Require extra attention
+# =============================================================================
+
+# Database migrations - be very careful with these
+/supabase/migrations/ @ryanodonnell
+
+# CI/CD configuration
+/.github/ @ryanodonnell
+
+# Root config files
+/package.json @ryanodonnell
+/pnpm-workspace.yaml @ryanodonnell
+/turbo.json @ryanodonnell
+

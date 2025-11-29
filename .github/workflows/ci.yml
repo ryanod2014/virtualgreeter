@@ -2,14 +2,19 @@ name: CI
 
 on:
   push:
-    branches: [master, develop]
+    branches: [main, develop]
   pull_request:
-    branches: [master, develop]
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "8"
 
 jobs:
   build:
+    name: Build & Test
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,12 +22,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
           cache: "pnpm"
 
       - name: Install dependencies
@@ -36,7 +41,6 @@ jobs:
 
       - name: Lint
         run: pnpm lint
-        continue-on-error: true  # Don't fail on lint warnings initially
 
       - name: Build dashboard
         run: pnpm build --filter=@ghost-greeter/dashboard
@@ -51,4 +55,3 @@ jobs:
 
       - name: Build widget
         run: pnpm build --filter=@ghost-greeter/widget
-
