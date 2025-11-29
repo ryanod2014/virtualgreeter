@@ -6,8 +6,8 @@ RUN corepack enable && corepack prepare pnpm@8 --activate
 
 WORKDIR /app
 
-# Copy package files for dependency installation
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+# Copy package files and turbo config for dependency installation
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
 COPY packages/domain/package.json ./packages/domain/
 COPY packages/config/package.json ./packages/config/
 COPY apps/server/package.json ./apps/server/
