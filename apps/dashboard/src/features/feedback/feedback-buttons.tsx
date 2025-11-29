@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Bug, Lightbulb, Loader2, X, Check, Bell, ChevronUp, MessageCircle, Camera, Video, Square, Trash2 } from "lucide-react";
+import { Bug, Lightbulb, Loader2, X, Check, Bell, ChevronUp, MessageCircle, Camera, Video, Square, Trash2, Circle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface FeedbackButtonsProps {
@@ -181,6 +181,8 @@ export function FeedbackButtons({ organizationId, userId }: FeedbackButtonsProps
         setRecording(blob);
         setRecordingUrl(URL.createObjectURL(blob));
         stream.getTracks().forEach(track => track.stop());
+        // Re-open the bug modal after recording completes
+        setShowBugModal(true);
       };
       
       // Stop recording if user stops sharing
@@ -194,6 +196,9 @@ export function FeedbackButtons({ organizationId, userId }: FeedbackButtonsProps
       mediaRecorder.start(1000); // Collect data every second
       setIsRecording(true);
       setRecordingTime(0);
+      
+      // Hide the modal while recording
+      setShowBugModal(false);
       
       // Start timer
       recordingTimerRef.current = setInterval(() => {
@@ -214,7 +219,7 @@ export function FeedbackButtons({ organizationId, userId }: FeedbackButtonsProps
   };
 
   // Stop screen recording
-  const stopRecording = () => {
+  const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
     }
@@ -222,7 +227,7 @@ export function FeedbackButtons({ organizationId, userId }: FeedbackButtonsProps
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
     }
-  };
+  }, []);
 
   // Format recording time
   const formatTime = (seconds: number) => {
@@ -440,6 +445,39 @@ export function FeedbackButtons({ organizationId, userId }: FeedbackButtonsProps
         </button>
       </div>
 
+      {/* Floating Recording Indicator */}
+      {isRecording && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center gap-4 px-5 py-3 rounded-2xl bg-red-500 text-white shadow-2xl shadow-red-500/30 border border-red-400">
+            {/* Pulsing Recording Dot */}
+            <div className="relative flex items-center justify-center">
+              <Circle className="w-4 h-4 fill-white animate-pulse" />
+              <div className="absolute w-6 h-6 rounded-full bg-white/30 animate-ping" />
+            </div>
+            
+            {/* Recording Info */}
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold tracking-wide">Recording Screen</span>
+              <span className="text-xs text-red-100 font-mono">{formatTime(recordingTime)} / 1:00</span>
+            </div>
+            
+            {/* Stop Button */}
+            <button
+              onClick={stopRecording}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-red-500 font-semibold text-sm hover:bg-red-50 transition-colors ml-2"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+              Stop Recording
+            </button>
+          </div>
+          
+          {/* Help Text */}
+          <p className="text-center text-xs text-muted-foreground mt-2 bg-background/80 backdrop-blur-sm px-3 py-1.5 rounded-lg mx-auto w-fit">
+            Perform the actions you want to capture, then click Stop
+          </p>
+        </div>
+      )}
+
       {/* Bug Report Modal */}
       {showBugModal && (
         <div
@@ -521,33 +559,29 @@ export function FeedbackButtons({ organizationId, userId }: FeedbackButtonsProps
                     className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-sm hover:bg-muted transition-colors disabled:opacity-50"
                   >
                     <Camera className="w-4 h-4" />
-                    Screenshot
+                    {screenshot ? "Retake Screenshot" : "Screenshot"}
                   </button>
                   
-                  {!isRecording ? (
+                  {!recordingUrl && (
                     <button
                       type="button"
                       onClick={startRecording}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-sm hover:bg-muted transition-colors"
+                      disabled={isRecording}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-sm hover:bg-muted transition-colors disabled:opacity-50"
                     >
                       <Video className="w-4 h-4" />
                       Record Screen
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={stopRecording}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500 text-white text-sm hover:bg-red-600 transition-colors"
-                    >
-                      <Square className="w-4 h-4" />
-                      Stop ({formatTime(recordingTime)})
                     </button>
                   )}
                 </div>
 
                 {/* Screenshot Preview */}
                 {screenshot && (
-                  <div className="relative mb-2">
+                  <div className="relative mb-3">
+                    <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-black/60 text-white text-xs font-medium flex items-center gap-1.5">
+                      <Camera className="w-3 h-3" />
+                      Screenshot attached
+                    </div>
                     <img 
                       src={screenshot} 
                       alt="Screenshot" 
@@ -557,6 +591,7 @@ export function FeedbackButtons({ organizationId, userId }: FeedbackButtonsProps
                       type="button"
                       onClick={() => setScreenshot(null)}
                       className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white hover:bg-black/70 transition-colors"
+                      title="Remove screenshot"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -566,6 +601,10 @@ export function FeedbackButtons({ organizationId, userId }: FeedbackButtonsProps
                 {/* Recording Preview */}
                 {recordingUrl && (
                   <div className="relative">
+                    <div className="absolute top-2 left-2 z-10 px-2 py-1 rounded-md bg-red-500/90 text-white text-xs font-medium flex items-center gap-1.5">
+                      <Video className="w-3 h-3" />
+                      Recording attached
+                    </div>
                     <video 
                       src={recordingUrl} 
                       controls 
@@ -577,7 +616,8 @@ export function FeedbackButtons({ organizationId, userId }: FeedbackButtonsProps
                         setRecording(null);
                         setRecordingUrl(null);
                       }}
-                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white hover:bg-black/70 transition-colors"
+                      className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-black/50 text-white hover:bg-black/70 transition-colors"
+                      title="Remove recording"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
