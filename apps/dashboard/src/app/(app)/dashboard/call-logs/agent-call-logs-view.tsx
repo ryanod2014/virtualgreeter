@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useMemo } from "react";
-import type { FilterCondition } from "@/lib/components/call-log-filter-conditions";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Filter,

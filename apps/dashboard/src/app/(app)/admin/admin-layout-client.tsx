@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { AdminSidebar } from "@/features/admin/components/admin-sidebar";
 import { useSignalingContext } from "@/features/signaling/signaling-provider";
+import { FeedbackButtons } from "@/features/feedback";
 import type { User, Organization, AgentProfile } from "@ghost-greeter/domain/database.types";
 
 interface AdminLayoutClientProps {
@@ -43,6 +44,7 @@ export function AdminLayoutClient({
         onSetBack={setBack}
       />
       <main className="ml-64 min-h-screen">{children}</main>
+      <FeedbackButtons organizationId={organization.id} userId={user.id} />
     </div>
   );
 }

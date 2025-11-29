@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { AgentSidebar } from "@/features/workbench/agent-sidebar";
 import { useSignalingContext } from "@/features/signaling/signaling-provider";
+import { FeedbackButtons } from "@/features/feedback";
 import type { User, Organization, AgentProfile } from "@ghost-greeter/domain/database.types";
 
 interface DashboardLayoutClientProps {
@@ -46,6 +47,7 @@ export function DashboardLayoutClient({
         onSetBack={setBack}
       />
       <main className="ml-64 min-h-screen">{children}</main>
+      <FeedbackButtons organizationId={organization.id} userId={user.id} />
     </div>
   );
 }

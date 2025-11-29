@@ -25,6 +25,10 @@ export type CancellationReason =
   | "business_closed"
   | "other";
 
+export type FeedbackType = "bug" | "feature";
+export type FeedbackStatus = "open" | "in_progress" | "completed" | "closed" | "declined";
+export type FeedbackPriority = "low" | "medium" | "high" | "critical";
+
 export type SubscriptionStatus = "active" | "paused" | "cancelled";
 
 export type RuleMatchType = "is_exactly" | "contains" | "does_not_contain" | "starts_with" | "ends_with";
@@ -391,6 +395,63 @@ export interface Database {
         Insert: Omit<Database["public"]["Tables"]["widget_pageviews"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["widget_pageviews"]["Insert"]>;
       };
+
+      feedback_items: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          type: FeedbackType;
+          title: string;
+          description: string;
+          status: FeedbackStatus;
+          priority: FeedbackPriority;
+          // Bug-specific fields
+          steps_to_reproduce: string | null;
+          expected_behavior: string | null;
+          actual_behavior: string | null;
+          browser_info: string | null;
+          page_url: string | null;
+          // Feature-specific fields
+          use_case: string | null;
+          // Metadata
+          vote_count: number;
+          comment_count: number;
+          admin_response: string | null;
+          admin_responded_at: string | null;
+          admin_responded_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["feedback_items"]["Row"], "id" | "created_at" | "updated_at" | "vote_count" | "comment_count">;
+        Update: Partial<Database["public"]["Tables"]["feedback_items"]["Insert"]>;
+      };
+
+      feedback_votes: {
+        Row: {
+          id: string;
+          feedback_item_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["feedback_votes"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["feedback_votes"]["Insert"]>;
+      };
+
+      feedback_comments: {
+        Row: {
+          id: string;
+          feedback_item_id: string;
+          user_id: string;
+          content: string;
+          is_admin_comment: boolean;
+          parent_comment_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["feedback_comments"]["Row"], "id" | "created_at" | "updated_at">;
+        Update: Partial<Database["public"]["Tables"]["feedback_comments"]["Insert"]>;
+      };
     };
   };
 }
@@ -457,6 +518,34 @@ export type AgentStatusChangeInsert = Database["public"]["Tables"]["agent_status
 
 export type WidgetPageview = Database["public"]["Tables"]["widget_pageviews"]["Row"];
 export type WidgetPageviewInsert = Database["public"]["Tables"]["widget_pageviews"]["Insert"];
+
+export type FeedbackItem = Database["public"]["Tables"]["feedback_items"]["Row"];
+export type FeedbackItemInsert = Database["public"]["Tables"]["feedback_items"]["Insert"];
+
+export type FeedbackVote = Database["public"]["Tables"]["feedback_votes"]["Row"];
+export type FeedbackVoteInsert = Database["public"]["Tables"]["feedback_votes"]["Insert"];
+
+export type FeedbackComment = Database["public"]["Tables"]["feedback_comments"]["Row"];
+export type FeedbackCommentInsert = Database["public"]["Tables"]["feedback_comments"]["Insert"];
+
+// Feedback item with author info for display
+export interface FeedbackItemWithAuthor extends FeedbackItem {
+  user: {
+    full_name: string;
+    avatar_url: string | null;
+    role: UserRole;
+  };
+  has_voted?: boolean;
+}
+
+// Comment with author info for display
+export interface FeedbackCommentWithAuthor extends FeedbackComment {
+  user: {
+    full_name: string;
+    avatar_url: string | null;
+    role: UserRole;
+  };
+}
 
 // ----------------------------------------------------------------------------
 // AUTH SESSION TYPES
