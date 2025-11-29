@@ -170,7 +170,7 @@ All shared types are defined in `packages/domain/src/types.ts`:
 We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for:
 
 - Development setup
-- Branch strategy (`main` / `develop`)
+- Branch strategy (main-only workflow)
 - Code style guidelines
 - Pull request process
 - Database migration guidelines

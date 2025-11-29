@@ -330,14 +330,15 @@ For customer websites, you'll need to add their domains or use a wildcard strate
 
 ---
 
-## Staging Environment (Optional)
+## Staging Environment (Future)
 
-To create a staging environment:
+When you're ready for a staging environment, follow [docs/STAGING_SETUP.md](./docs/STAGING_SETUP.md).
 
-1. Create a separate Supabase project (`ghost-greeter-staging`)
-2. In Vercel, the `develop` branch auto-deploys to preview URLs
-3. Create a separate Railway service for staging
-4. Use different environment variables for staging
+This will involve:
+1. Creating a separate Supabase project
+2. Creating a `develop` branch
+3. Setting up a separate Railway service
+4. Configuring Vercel preview environments
 
 ---
 
