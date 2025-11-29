@@ -4,8 +4,8 @@
 -- Track when an organization first successfully installs the widget
 
 ALTER TABLE public.organizations 
-ADD COLUMN embed_verified_at TIMESTAMPTZ,
-ADD COLUMN embed_verified_domain TEXT;
+ADD COLUMN IF NOT EXISTS embed_verified_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS embed_verified_domain TEXT;
 
 -- Add comments for clarity
 COMMENT ON COLUMN public.organizations.embed_verified_at IS 'Timestamp of first successful widget connection';

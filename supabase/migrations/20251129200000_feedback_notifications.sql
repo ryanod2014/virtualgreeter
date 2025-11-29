@@ -3,10 +3,13 @@
 -- ============================================================================
 
 -- Notification types
-CREATE TYPE notification_type AS ENUM ('reply', 'upvote', 'status_change');
+DO $$ BEGIN
+    CREATE TYPE notification_type AS ENUM ('reply', 'upvote', 'status_change');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Notifications table
-CREATE TABLE feedback_notifications (
+CREATE TABLE IF NOT EXISTS feedback_notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     type notification_type NOT NULL,
@@ -19,26 +22,29 @@ CREATE TABLE feedback_notifications (
 );
 
 -- Indexes
-CREATE INDEX idx_notifications_user_id ON feedback_notifications(user_id);
-CREATE INDEX idx_notifications_unread ON feedback_notifications(user_id, is_read) WHERE is_read = FALSE;
-CREATE INDEX idx_notifications_created_at ON feedback_notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON feedback_notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON feedback_notifications(user_id, is_read) WHERE is_read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON feedback_notifications(created_at DESC);
 
 -- RLS
 ALTER TABLE feedback_notifications ENABLE ROW LEVEL SECURITY;
 
 -- Users can only see their own notifications
+DROP POLICY IF EXISTS "Users can view own notifications" ON feedback_notifications;
 CREATE POLICY "Users can view own notifications"
 ON feedback_notifications FOR SELECT
 TO authenticated
 USING (user_id = auth.uid());
 
 -- System can create notifications (via triggers/functions)
+DROP POLICY IF EXISTS "Users can receive notifications" ON feedback_notifications;
 CREATE POLICY "Users can receive notifications"
 ON feedback_notifications FOR INSERT
 TO authenticated
 WITH CHECK (true);
 
 -- Users can update their own notifications (mark as read)
+DROP POLICY IF EXISTS "Users can update own notifications" ON feedback_notifications;
 CREATE POLICY "Users can update own notifications"
 ON feedback_notifications FOR UPDATE
 TO authenticated
@@ -46,6 +52,7 @@ USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
 
 -- Users can delete their own notifications
+DROP POLICY IF EXISTS "Users can delete own notifications" ON feedback_notifications;
 CREATE POLICY "Users can delete own notifications"
 ON feedback_notifications FOR DELETE
 TO authenticated
@@ -89,6 +96,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS trigger_notify_on_reply ON feedback_comments;
 CREATE TRIGGER trigger_notify_on_reply
 AFTER INSERT ON feedback_comments
 FOR EACH ROW EXECUTE FUNCTION notify_on_comment_reply();
@@ -125,6 +133,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS trigger_notify_on_upvote ON feedback_votes;
 CREATE TRIGGER trigger_notify_on_upvote
 AFTER INSERT ON feedback_votes
 FOR EACH ROW EXECUTE FUNCTION notify_on_upvote();

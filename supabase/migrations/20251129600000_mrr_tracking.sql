@@ -45,6 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_mrr_snapshots_org_date ON public.mrr_snapshots(or
 ALTER TABLE public.mrr_snapshots ENABLE ROW LEVEL SECURITY;
 
 -- Platform admins can view all snapshots
+DROP POLICY IF EXISTS "Platform admins can view all MRR snapshots" ON public.mrr_snapshots;
 CREATE POLICY "Platform admins can view all MRR snapshots"
 ON public.mrr_snapshots FOR SELECT
 USING (public.is_platform_admin());
@@ -55,13 +56,17 @@ COMMENT ON TABLE public.mrr_snapshots IS 'Daily MRR snapshots for historical tra
 -- 3. MRR CHANGES LOG (for tracking expansion/contraction/churn)
 -- ----------------------------------------------------------------------------
 
-CREATE TYPE mrr_change_type AS ENUM (
+DO $$ BEGIN
+    CREATE TYPE mrr_change_type AS ENUM (
   'new',           -- New customer
   'expansion',     -- Existing customer increased MRR (upgrade, add seats)
   'contraction',   -- Existing customer decreased MRR (downgrade, remove seats)
   'churn',         -- Customer cancelled
   'reactivation'   -- Previously churned customer came back
 );
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.mrr_changes (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -89,6 +94,7 @@ CREATE INDEX IF NOT EXISTS idx_mrr_changes_type_date ON public.mrr_changes(chang
 ALTER TABLE public.mrr_changes ENABLE ROW LEVEL SECURITY;
 
 -- Platform admins can view all changes
+DROP POLICY IF EXISTS "Platform admins can view all MRR changes" ON public.mrr_changes;
 CREATE POLICY "Platform admins can view all MRR changes"
 ON public.mrr_changes FOR SELECT
 USING (public.is_platform_admin());
@@ -126,11 +132,13 @@ CREATE TABLE IF NOT EXISTS public.organization_health (
 ALTER TABLE public.organization_health ENABLE ROW LEVEL SECURITY;
 
 -- Platform admins can view all health scores
+DROP POLICY IF EXISTS "Platform admins can view all health scores" ON public.organization_health;
 CREATE POLICY "Platform admins can view all health scores"
 ON public.organization_health FOR SELECT
 USING (public.is_platform_admin());
 
 -- Admins can view their own org's health
+DROP POLICY IF EXISTS "Admins can view own org health" ON public.organization_health;
 CREATE POLICY "Admins can view own org health"
 ON public.organization_health FOR SELECT
 USING (
@@ -185,6 +193,7 @@ CREATE INDEX IF NOT EXISTS idx_monthly_metrics_date ON public.monthly_metrics(mo
 ALTER TABLE public.monthly_metrics ENABLE ROW LEVEL SECURITY;
 
 -- Platform admins can view all metrics
+DROP POLICY IF EXISTS "Platform admins can view monthly metrics" ON public.monthly_metrics;
 CREATE POLICY "Platform admins can view monthly metrics"
 ON public.monthly_metrics FOR SELECT
 USING (public.is_platform_admin());
@@ -223,6 +232,7 @@ CREATE INDEX IF NOT EXISTS idx_cohort_retention_months ON public.cohort_retentio
 ALTER TABLE public.cohort_retention ENABLE ROW LEVEL SECURITY;
 
 -- Platform admins can view all retention data
+DROP POLICY IF EXISTS "Platform admins can view cohort retention" ON public.cohort_retention;
 CREATE POLICY "Platform admins can view cohort retention"
 ON public.cohort_retention FOR SELECT
 USING (public.is_platform_admin());

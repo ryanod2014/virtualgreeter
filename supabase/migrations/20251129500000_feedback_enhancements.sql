@@ -7,7 +7,7 @@
 -- Add new fields to feedback_items
 ALTER TABLE feedback_items ADD COLUMN IF NOT EXISTS screenshot_url TEXT;
 ALTER TABLE feedback_items ADD COLUMN IF NOT EXISTS recording_url TEXT;
-ALTER TABLE feedback_items ADD COLUMN IF NOT EXISTS assignee_id UUID REFERENCES users(id);
+ALTER TABLE feedback_items ADD COLUMN IF NOT EXISTS assignee_id UUID REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE feedback_items ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE feedback_items ADD COLUMN IF NOT EXISTS first_response_at TIMESTAMP WITH TIME ZONE;
 
@@ -17,6 +17,7 @@ VALUES ('feedback-attachments', 'feedback-attachments', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage policy: Users can upload to their org folder
+DROP POLICY IF EXISTS "Users can upload feedback attachments" ON storage.objects;
 CREATE POLICY "Users can upload feedback attachments"
 ON storage.objects FOR INSERT
 TO authenticated
@@ -28,6 +29,7 @@ WITH CHECK (
 );
 
 -- Storage policy: Anyone can view feedback attachments (public bucket)
+DROP POLICY IF EXISTS "Anyone can view feedback attachments" ON storage.objects;
 CREATE POLICY "Anyone can view feedback attachments"
 ON storage.objects FOR SELECT
 TO authenticated

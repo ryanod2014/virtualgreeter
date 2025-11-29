@@ -28,6 +28,7 @@ ON public.cancellation_feedback(organization_id);
 ALTER TABLE public.cancellation_feedback ENABLE ROW LEVEL SECURITY;
 
 -- Only admins can view their org's cancellation feedback
+DROP POLICY IF EXISTS "Admins can view their org feedback" ON public.cancellation_feedback;
 CREATE POLICY "Admins can view their org feedback"
 ON public.cancellation_feedback FOR SELECT
 USING (
@@ -36,6 +37,7 @@ USING (
 );
 
 -- Users can insert feedback for their own org
+DROP POLICY IF EXISTS "Users can submit cancellation feedback" ON public.cancellation_feedback;
 CREATE POLICY "Users can submit cancellation feedback"
 ON public.cancellation_feedback FOR INSERT
 WITH CHECK (organization_id = public.get_user_organization_id());

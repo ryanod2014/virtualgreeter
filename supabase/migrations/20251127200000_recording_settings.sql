@@ -28,6 +28,7 @@ ON CONFLICT (id) DO NOTHING;
 -- ============================================================================
 
 -- Allow authenticated users to upload recordings to their org folder
+DROP POLICY IF EXISTS "Users can upload recordings to their org folder" ON storage.objects;
 CREATE POLICY "Users can upload recordings to their org folder"
 ON storage.objects FOR INSERT
 WITH CHECK (
@@ -38,6 +39,7 @@ WITH CHECK (
 );
 
 -- Allow users to update their own recordings (for overwriting)
+DROP POLICY IF EXISTS "Users can update their own recordings" ON storage.objects;
 CREATE POLICY "Users can update their own recordings"
 ON storage.objects FOR UPDATE
 USING (
@@ -48,6 +50,7 @@ USING (
 );
 
 -- Allow users to delete recordings in their org
+DROP POLICY IF EXISTS "Users can delete recordings in their org" ON storage.objects;
 CREATE POLICY "Users can delete recordings in their org"
 ON storage.objects FOR DELETE
 USING (
@@ -58,6 +61,7 @@ USING (
 );
 
 -- Allow public read access to recordings (for playback)
+DROP POLICY IF EXISTS "Public recording read access" ON storage.objects;
 CREATE POLICY "Public recording read access"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'recordings');

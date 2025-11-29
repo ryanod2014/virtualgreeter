@@ -3,7 +3,7 @@
 -- ============================================================================
 
 -- Add vote_type column to feedback_votes
-ALTER TABLE feedback_votes ADD COLUMN vote_type SMALLINT NOT NULL DEFAULT 1;
+ALTER TABLE feedback_votes ADD COLUMN IF NOT EXISTS vote_type SMALLINT NOT NULL DEFAULT 1;
 -- 1 = upvote, -1 = downvote
 
 -- Update the vote count trigger to handle up and down votes

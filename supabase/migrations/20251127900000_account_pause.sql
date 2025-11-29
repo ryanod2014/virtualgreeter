@@ -63,6 +63,7 @@ ON public.pause_history(organization_id);
 ALTER TABLE public.pause_history ENABLE ROW LEVEL SECURITY;
 
 -- Admins can view their org's pause history
+DROP POLICY IF EXISTS "Admins can view org pause history" ON public.pause_history;
 CREATE POLICY "Admins can view org pause history"
 ON public.pause_history FOR SELECT
 USING (
@@ -73,6 +74,7 @@ USING (
 );
 
 -- Admins can insert pause history for their org
+DROP POLICY IF EXISTS "Admins can insert pause history" ON public.pause_history;
 CREATE POLICY "Admins can insert pause history"
 ON public.pause_history FOR INSERT
 WITH CHECK (

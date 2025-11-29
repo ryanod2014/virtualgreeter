@@ -13,7 +13,7 @@
 -- Tracks each login-to-logout session for an agent.
 -- A session starts when agent connects to signaling server and ends on disconnect.
 
-CREATE TABLE public.agent_sessions (
+CREATE TABLE IF NOT EXISTS public.agent_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_id UUID NOT NULL REFERENCES public.agent_profiles(id) ON DELETE CASCADE,
     organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
@@ -38,15 +38,15 @@ CREATE TABLE public.agent_sessions (
 );
 
 -- Index for querying agent's sessions by date (most common query)
-CREATE INDEX idx_agent_sessions_agent_date 
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_agent_date 
 ON public.agent_sessions(agent_id, started_at DESC);
 
 -- Index for org-wide queries (team overview)
-CREATE INDEX idx_agent_sessions_org_date 
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_org_date 
 ON public.agent_sessions(organization_id, started_at DESC);
 
 -- Index for finding active sessions
-CREATE INDEX idx_agent_sessions_active 
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_active 
 ON public.agent_sessions(agent_id) 
 WHERE ended_at IS NULL;
 
@@ -64,7 +64,7 @@ COMMENT ON COLUMN public.agent_sessions.away_seconds IS 'Time spent in away stat
 -- Audit log of every status change within a session.
 -- Used to calculate time breakdowns and for detailed timeline view.
 
-CREATE TABLE public.agent_status_changes (
+CREATE TABLE IF NOT EXISTS public.agent_status_changes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES public.agent_sessions(id) ON DELETE CASCADE,
     agent_id UUID NOT NULL REFERENCES public.agent_profiles(id) ON DELETE CASCADE,
@@ -79,11 +79,11 @@ CREATE TABLE public.agent_status_changes (
 );
 
 -- Index for querying status changes within a session
-CREATE INDEX idx_status_changes_session 
+CREATE INDEX IF NOT EXISTS idx_status_changes_session 
 ON public.agent_status_changes(session_id, changed_at);
 
 -- Index for querying by agent
-CREATE INDEX idx_status_changes_agent 
+CREATE INDEX IF NOT EXISTS idx_status_changes_agent 
 ON public.agent_status_changes(agent_id, changed_at DESC);
 
 -- Comments for documentation
@@ -99,6 +99,7 @@ ALTER TABLE public.agent_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agent_status_changes ENABLE ROW LEVEL SECURITY;
 
 -- Admins can see all sessions in their org
+DROP POLICY IF EXISTS "Admins can view org sessions" ON public.agent_sessions;
 CREATE POLICY "Admins can view org sessions"
 ON public.agent_sessions FOR SELECT
 TO authenticated
@@ -110,6 +111,7 @@ USING (
 );
 
 -- Agents can see their own sessions
+DROP POLICY IF EXISTS "Agents can view own sessions" ON public.agent_sessions;
 CREATE POLICY "Agents can view own sessions"
 ON public.agent_sessions FOR SELECT
 TO authenticated
@@ -121,6 +123,7 @@ USING (
 );
 
 -- Admins can view org status changes
+DROP POLICY IF EXISTS "Admins can view org status changes" ON public.agent_status_changes;
 CREATE POLICY "Admins can view org status changes"
 ON public.agent_status_changes FOR SELECT
 TO authenticated
@@ -133,6 +136,7 @@ USING (
 );
 
 -- Agents can view own status changes
+DROP POLICY IF EXISTS "Agents can view own status changes" ON public.agent_status_changes;
 CREATE POLICY "Agents can view own status changes"
 ON public.agent_status_changes FOR SELECT
 TO authenticated
