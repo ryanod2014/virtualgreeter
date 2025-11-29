@@ -29,7 +29,7 @@ export default async function PlatformCancellationsPage() {
   }
 
   // Get organization details including signup date for cohort analysis
-  const orgIds = [...new Set(cancellations?.map((c) => c.organization_id) ?? [])];
+  const orgIds = Array.from(new Set(cancellations?.map((c) => c.organization_id) ?? []));
   const { data: organizations } = await supabase
     .from("organizations")
     .select("id, name, plan, created_at")
@@ -38,7 +38,7 @@ export default async function PlatformCancellationsPage() {
   const orgMap = new Map(organizations?.map((o) => [o.id, o]) ?? []);
 
   // Get user details
-  const userIds = [...new Set(cancellations?.map((c) => c.user_id) ?? [])];
+  const userIds = Array.from(new Set(cancellations?.map((c) => c.user_id) ?? []));
   const { data: users } = await supabase
     .from("users")
     .select("id, email, full_name")

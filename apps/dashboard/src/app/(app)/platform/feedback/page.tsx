@@ -30,7 +30,7 @@ export default async function PlatformFeedbackPage() {
   }
 
   // Get organization names and details
-  const orgIds = [...new Set(feedbackItems?.map((f) => f.organization_id) ?? [])];
+  const orgIds = Array.from(new Set(feedbackItems?.map((f) => f.organization_id) ?? []));
   const { data: organizations } = await supabase
     .from("organizations")
     .select("id, name, plan, subscription_status")
@@ -39,7 +39,7 @@ export default async function PlatformFeedbackPage() {
   const orgMap = new Map(organizations?.map((o) => [o.id, o]) ?? []);
 
   // Get user details
-  const userIds = [...new Set(feedbackItems?.map((f) => f.user_id) ?? [])];
+  const userIds = Array.from(new Set(feedbackItems?.map((f) => f.user_id) ?? []));
   const { data: users } = await supabase
     .from("users")
     .select("id, email, full_name, role")
