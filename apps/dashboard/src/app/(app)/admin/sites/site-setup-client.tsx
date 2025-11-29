@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Copy, Check, Code, ExternalLink, Sparkles, Monitor, Smartphone, Layout, Clock, Info, RotateCcw, CheckCircle2, Loader2, TimerOff, Minimize2, Sun, Moon, Droplets, Globe, Activity } from "lucide-react";
+import { Copy, Check, Code, ExternalLink, Sparkles, Monitor, Smartphone, Layout, Clock, Info, RotateCcw, Loader2, TimerOff, Minimize2, Sun, Moon, Droplets, Globe } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { WidgetSettings, WidgetSize, WidgetPosition, WidgetDevices, WidgetTheme } from "@ghost-greeter/domain/database.types";
@@ -261,94 +261,68 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Installation Status */}
-      <div className="mb-6">
-        {isVerified ? (
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/30">
-            <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-            <div>
-              <span className="text-green-600 dark:text-green-400 font-medium">Widget installed successfully!</span>
-              <span className="text-muted-foreground ml-1">Detected on <strong className="text-foreground">{verifiedDomain}</strong></span>
+        {/* Installation Status & Detected Sites - Integrated */}
+        <div className="mt-8 pt-6 border-t border-border/50">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              {isVerified ? (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-sm font-medium text-green-600 dark:text-green-400">Installed</span>
+                </>
+              ) : (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />
+                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Waiting for installation</span>
+                </>
+              )}
             </div>
+            {detectedSites.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {detectedSites.reduce((sum, s) => sum + s.pageCount, 0).toLocaleString()} total pageviews
+              </span>
+            )}
           </div>
-        ) : (
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
-            <Loader2 className="w-5 h-5 text-amber-500 animate-spin flex-shrink-0" />
-            <div>
-              <span className="text-amber-600 dark:text-amber-400 font-medium">Waiting for installation...</span>
-              <span className="text-muted-foreground ml-1">Add the code to your site and visit a page to verify</span>
+
+          {detectedSites.length === 0 ? (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 text-muted-foreground">
+              <Globe className="w-5 h-5 opacity-40" />
+              <span className="text-sm">Add the code to your site and visit a page to see it here</span>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Detected Sites */}
-      <div className="glass rounded-2xl p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-            <Globe className="w-5 h-5 text-blue-500" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">Detected Sites</h2>
-            <p className="text-sm text-muted-foreground">
-              {detectedSites.length === 0 
-                ? "No sites detected yet" 
-                : `Widget detected on ${detectedSites.length} site${detectedSites.length !== 1 ? 's' : ''}`}
-            </p>
-          </div>
-        </div>
-
-        {detectedSites.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Globe className="w-12 h-12 mx-auto mb-3 opacity-20" />
-            <p className="text-sm">Once visitors load pages with your widget code,</p>
-            <p className="text-sm">the detected sites will appear here.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {detectedSites.map((site) => {
-              const lastSeenDate = new Date(site.lastSeen);
-              const isRecent = Date.now() - lastSeenDate.getTime() < 24 * 60 * 60 * 1000; // Last 24h
-              
-              return (
-                <div
-                  key={site.domain}
-                  className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isRecent ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
-                    <div className="min-w-0">
-                      <a
-                        href={site.domain}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-sm hover:text-primary transition-colors flex items-center gap-1.5 truncate"
-                      >
+          ) : (
+            <div className="grid gap-2">
+              {detectedSites.map((site) => {
+                const lastSeenDate = new Date(site.lastSeen);
+                const isRecent = Date.now() - lastSeenDate.getTime() < 24 * 60 * 60 * 1000;
+                
+                return (
+                  <a
+                    key={site.domain}
+                    href={site.domain}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${isRecent ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+                      <span className="font-medium text-sm group-hover:text-primary transition-colors">
                         {site.domain.replace(/^https?:\/\//, '')}
-                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0" />
-                      </a>
-                      <div className="text-xs text-muted-foreground">
-                        {site.pageCount.toLocaleString()} pageview{site.pageCount !== 1 ? 's' : ''}
-                      </div>
+                      </span>
+                      <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-40 transition-opacity" />
                     </div>
-                  </div>
-                  <div className="text-right flex-shrink-0 ml-4">
-                    <div className="text-xs text-muted-foreground flex items-center gap-1.5 justify-end">
-                      <Activity className="w-3 h-3" />
-                      {isRecent ? (
-                        <span className="text-green-600 dark:text-green-400">Active today</span>
-                      ) : (
-                        <span>Last: {lastSeenDate.toLocaleDateString()}</span>
-                      )}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>{site.pageCount.toLocaleString()} views</span>
+                      <span className={isRecent ? 'text-green-600 dark:text-green-400' : ''}>
+                        {isRecent ? 'Active today' : lastSeenDate.toLocaleDateString()}
+                      </span>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Widget Settings Section */}
