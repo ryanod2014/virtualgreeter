@@ -63,8 +63,8 @@ Ghost-Greeter creates the illusion of a live video agent watching your website. 
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/Digital_greeter.git
-cd Digital_greeter
+git clone https://github.com/ryanod2014/virtualgreeter.git
+cd virtualgreeter
 
 # Install dependencies
 pnpm install

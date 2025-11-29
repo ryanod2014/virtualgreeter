@@ -19,8 +19,8 @@ Ghost-Greeter is a B2B SaaS widget that creates the illusion of live video agent
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-org/Digital_greeter.git
-cd Digital_greeter
+git clone https://github.com/ryanod2014/virtualgreeter.git
+cd virtualgreeter
 
 # Install pnpm if you don't have it
 npm install -g pnpm

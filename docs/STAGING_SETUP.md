@@ -48,7 +48,13 @@ Before starting, ensure you have:
    - Click **"Run"**
    - Verify: "Success. No rows returned"
 
-**Migration files** (run in this order):
+**Option A: Use Supabase CLI (Recommended)**
+```bash
+supabase link --project-ref YOUR_STAGING_PROJECT_REF
+supabase db push --linked
+```
+
+**Option B: Manual** - Run these migration files in order:
 ```
 20251125200000_initial_schema.sql
 20251125200001_storage_policies.sql
@@ -74,12 +80,20 @@ Before starting, ensure you have:
 20251128000000_facebook_integration.sql
 20251128100000_widget_settings.sql
 20251128200000_agent_sessions.sql
-20251128200000_founding_admin_not_agent.sql
+20251128250000_founding_admin_not_agent.sql
 20251128300000_embed_verification.sql
 20251128400000_widget_pageviews.sql
 20251128500000_widget_theme.sql
 20251128600000_call_location.sql
 20251128700000_country_blocklist.sql
+20251129000000_feedback_system.sql
+20251129100000_feedback_downvotes.sql
+20251129200000_feedback_notifications.sql
+20251129300000_pmf_surveys.sql
+20251129400000_fix_platform_admin_rls.sql
+20251129450000_feedback_enhancements.sql
+20251129500000_agent_priority_ranking.sql
+20251129600000_mrr_tracking.sql
 ```
 
 ### 1.3 Create Storage Buckets

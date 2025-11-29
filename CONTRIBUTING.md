@@ -26,8 +26,8 @@ Welcome! This guide will help you get started contributing to Ghost-Greeter.
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/Digital_greeter.git
-cd Digital_greeter
+git clone https://github.com/ryanod2014/virtualgreeter.git
+cd virtualgreeter
 
 # Install dependencies
 pnpm install
@@ -56,17 +56,19 @@ pnpm dev
 
 ## Branch Strategy
 
-We use a simple trunk-based workflow with **local + production** environments:
+We use a **main-only (trunk-based)** workflow:
 
 ```
-main        ← Production (protected, requires PR + CI passing)
-  ↑              → Deploys to: Vercel + Railway + Supabase
-feature/*   ← Your feature branches
-bugfix/*    ← Bug fix branches
-hotfix/*    ← Urgent production fixes
+feature/*  ──┐
+bugfix/*   ──┼──► main ──► Production (Vercel + Railway)
+hotfix/*   ──┘
 ```
 
-> 💡 **Note:** We'll add a `develop` branch and staging environment when we have real users. For now, test thoroughly locally before merging to `main`.
+All feature branches merge directly to `main`, which auto-deploys to production.
+
+> 💡 **Testing:** We have a separate dev/test Supabase project for local development. Test thoroughly before merging to `main`!
+
+> 📋 **Future:** When we have paying customers, we'll add a `develop` branch + staging environment. See [docs/STAGING_SETUP.md](./docs/STAGING_SETUP.md).
 
 ### Branch Naming
 
@@ -78,9 +80,10 @@ hotfix/*    ← Urgent production fixes
 
 ### Workflow
 
-1. **Features**: `feature/*` → Test locally → PR to `main` → Production
-2. **Bug fixes**: `bugfix/*` → PR to `main`
-3. **Hotfixes**: `hotfix/*` → PR to `main` (expedited review)
+1. Create branch from `main`
+2. Test locally with dev database
+3. Open PR to `main`
+4. Merge → Deploys to production automatically
 
 ### Environment Details
 
@@ -93,9 +96,9 @@ See [ENVIRONMENTS.md](./ENVIRONMENTS.md) for local and production setup.
 ### 1. Create a Branch
 
 ```bash
-# Start from develop for features
-git checkout develop
-git pull origin develop
+# Start from main
+git checkout main
+git pull origin main
 git checkout -b feature/your-feature-name
 ```
 
@@ -140,7 +143,7 @@ git commit -m "refactor(server): simplify socket event handling"
 git push origin feature/your-feature-name
 ```
 
-Then open a Pull Request on GitHub targeting `develop`.
+Then open a Pull Request on GitHub targeting `main`.
 
 ---
 

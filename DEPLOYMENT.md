@@ -35,6 +35,19 @@ This guide walks you through deploying Ghost-Greeter to production.
 
 ### 1.2 Run Database Migrations
 
+You have two options:
+
+**Option A: Use Supabase CLI (Recommended)**
+```bash
+# Link to your project
+supabase link --project-ref YOUR_PROJECT_REF
+
+# Push all migrations
+supabase db push --linked
+```
+
+**Option B: Manual via SQL Editor**
+
 1. In Supabase Dashboard, go to **SQL Editor**
 2. Run each migration file from `supabase/migrations/` **in order**:
 
@@ -63,12 +76,20 @@ This guide walks you through deploying Ghost-Greeter to production.
 20251128000000_facebook_integration.sql
 20251128100000_widget_settings.sql
 20251128200000_agent_sessions.sql
-20251128200000_founding_admin_not_agent.sql
+20251128250000_founding_admin_not_agent.sql
 20251128300000_embed_verification.sql
 20251128400000_widget_pageviews.sql
 20251128500000_widget_theme.sql
 20251128600000_call_location.sql
 20251128700000_country_blocklist.sql
+20251129000000_feedback_system.sql
+20251129100000_feedback_downvotes.sql
+20251129200000_feedback_notifications.sql
+20251129300000_pmf_surveys.sql
+20251129400000_fix_platform_admin_rls.sql
+20251129450000_feedback_enhancements.sql
+20251129500000_agent_priority_ranking.sql
+20251129600000_mrr_tracking.sql
 ```
 
 **Tip**: Copy each file's contents, paste into SQL Editor, and click "Run".
