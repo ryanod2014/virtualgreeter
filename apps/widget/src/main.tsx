@@ -149,4 +149,44 @@ window.GhostGreeter = {
   destroy,
 };
 
+// Process queued commands from the embed snippet
+// The embed snippet uses: gg('init', { orgId: '...', serverUrl: '...' })
+// which queues commands as: gg.q = [['init', config], ...]
+declare global {
+  interface Window {
+    gg?: {
+      q?: Array<[string, ...unknown[]]>;
+      (...args: unknown[]): void;
+    };
+  }
+}
+
+function processQueue(): void {
+  const queue = window.gg?.q;
+  if (queue && Array.isArray(queue)) {
+    console.log("[Ghost-Greeter] Processing queued commands:", queue.length);
+    queue.forEach((args) => {
+      if (args[0] === "init" && args[1]) {
+        init(args[1] as GhostGreeterConfig);
+      }
+    });
+  }
+
+  // Replace the queue function with a real implementation
+  window.gg = function (...args: unknown[]) {
+    if (args[0] === "init" && args[1]) {
+      init(args[1] as GhostGreeterConfig);
+    } else if (args[0] === "destroy") {
+      destroy();
+    }
+  };
+}
+
+// Process queue when DOM is ready
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", processQueue);
+} else {
+  processQueue();
+}
+
 export { init, destroy };
