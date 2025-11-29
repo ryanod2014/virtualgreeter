@@ -62,7 +62,6 @@ export function EllisSurveyModal({
   const [followUpText, setFollowUpText] = useState("");
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
 
   const supabase = createClient();
 
@@ -89,7 +88,9 @@ export function EllisSurveyModal({
         dismissed: false,
       });
 
-      if (surveyError) throw surveyError;
+      if (surveyError) {
+        console.error("Survey submission error:", surveyError);
+      }
 
       // Update or insert cooldown
       const { error: cooldownError } = await supabase.from("survey_cooldowns").upsert(
@@ -105,17 +106,13 @@ export function EllisSurveyModal({
 
       if (cooldownError) {
         console.error("Cooldown update error:", cooldownError);
-        // Non-fatal, continue
       }
-
-      setSubmitted(true);
-      setTimeout(() => {
-        onClose();
-      }, 2000);
     } catch (error) {
       console.error("Survey submission error:", error);
     } finally {
       setIsSubmitting(false);
+      // Always close modal after submit attempt
+      onClose();
     }
   };
 
@@ -163,20 +160,7 @@ export function EllisSurveyModal({
 
       {/* Modal */}
       <div className="relative w-full max-w-md bg-background rounded-2xl border border-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-        {submitted ? (
-          // Success State
-          <div className="p-8 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/10 flex items-center justify-center">
-              <Heart className="w-8 h-8 text-green-500" />
-            </div>
-            <h3 className="text-xl font-bold mb-2">Thank you!</h3>
-            <p className="text-muted-foreground">
-              Your feedback helps us build a better product.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Header */}
+        {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-border">
               <div>
                 <h3 className="font-semibold text-lg">Quick question</h3>
@@ -258,32 +242,30 @@ export function EllisSurveyModal({
               )}
             </div>
 
-            {/* Footer */}
-            {showFollowUp && (
-              <div className="flex justify-end gap-3 p-5 pt-0">
-                <button
-                  onClick={handleDismiss}
-                  className="px-4 py-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-                >
-                  Skip
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={!selectedLevel || isSubmitting}
-                  className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    "Submit"
-                  )}
-                </button>
-              </div>
-            )}
-          </>
+        {/* Footer */}
+        {showFollowUp && (
+          <div className="flex justify-end gap-3 p-5 pt-0">
+            <button
+              onClick={handleDismiss}
+              className="px-4 py-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+            >
+              Skip
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!selectedLevel || isSubmitting}
+              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                "Submit"
+              )}
+            </button>
+          </div>
         )}
       </div>
     </div>

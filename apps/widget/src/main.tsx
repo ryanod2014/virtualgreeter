@@ -151,32 +151,51 @@ window.GhostGreeter = {
 
 // Process queued commands from the embed snippet
 // The embed snippet uses: gg('init', { orgId: '...', serverUrl: '...' })
-// which queues commands as: gg.q = [['init', config], ...]
+// which queues commands as: gg.q = [Arguments, Arguments, ...]
+// where each Arguments is like {0: 'command', 1: config, ...}
 declare global {
   interface Window {
-    gg?: {
-      q?: Array<[string, ...unknown[]]>;
-      (...args: unknown[]): void;
+    gg?: ((...args: unknown[]) => void) & {
+      q?: IArguments[];
     };
   }
 }
 
 function processQueue(): void {
-  const queue = window.gg?.q;
-  if (queue && Array.isArray(queue)) {
-    console.log("[Ghost-Greeter] Processing queued commands:", queue.length);
-    queue.forEach((args) => {
-      if (args[0] === "init" && args[1]) {
-        init(args[1] as GhostGreeterConfig);
+  try {
+    const ggFunc = window.gg as (((...args: unknown[]) => void) & { q?: IArguments[] }) | undefined;
+    const queue = ggFunc?.q;
+    
+    if (queue && Array.isArray(queue) && queue.length > 0) {
+      console.log("[Ghost-Greeter] Processing queued commands:", queue.length);
+      
+      for (let i = 0; i < queue.length; i++) {
+        const args = queue[i];
+        // Args is an Arguments object (array-like)
+        const command = args[0];
+        const config = args[1];
+        
+        console.log("[Ghost-Greeter] Queue item:", { command, config });
+        
+        if (command === "init" && config) {
+          init(config as GhostGreeterConfig);
+        }
       }
-    });
+    } else {
+      console.log("[Ghost-Greeter] No queued commands found");
+    }
+  } catch (e) {
+    console.error("[Ghost-Greeter] Error processing queue:", e);
   }
 
   // Replace the queue function with a real implementation
   window.gg = function (...args: unknown[]) {
-    if (args[0] === "init" && args[1]) {
-      init(args[1] as GhostGreeterConfig);
-    } else if (args[0] === "destroy") {
+    const command = args[0];
+    const config = args[1];
+    
+    if (command === "init" && config) {
+      init(config as GhostGreeterConfig);
+    } else if (command === "destroy") {
       destroy();
     }
   };
