@@ -1,217 +1,197 @@
 # Ghost-Greeter Environments
 
-This document describes the three environments and how to work with them.
+This document describes our environment setup and workflow.
 
-> 📖 **Setting up staging for the first time?** See [docs/STAGING_SETUP.md](./docs/STAGING_SETUP.md) for the complete step-by-step guide.
+## Current Setup: Local + Production
 
-## Environment Overview
+We're using a simplified two-environment setup:
 
-| Environment | Branch | Purpose | URL |
-|-------------|--------|---------|-----|
-| **Local** | Any | Development & debugging | `localhost:3000` |
-| **Staging** | `develop` | Pre-production testing | `staging.ghost-greeter.com` |
-| **Production** | `main` | Live customer traffic | `app.ghost-greeter.com` |
+| Environment | Branch | Purpose | Infrastructure |
+|-------------|--------|---------|----------------|
+| **Local** | Any | Development & testing | localhost |
+| **Production** | `main` | Live application | Vercel + Railway + Supabase |
+
+> 💡 **Future:** When we have real users and need isolated testing, we'll add a staging environment. See [docs/STAGING_SETUP.md](./docs/STAGING_SETUP.md) for the guide.
 
 ---
 
-## Infrastructure by Environment
+## Local Development
 
-### Production
+### Services
+
+| Service | URL | Command |
+|---------|-----|---------|
+| Dashboard | http://localhost:3000 | `pnpm dev --filter=@ghost-greeter/dashboard` |
+| Server | http://localhost:3001 | `pnpm dev --filter=@ghost-greeter/server` |
+| Widget | http://localhost:5173 | `pnpm dev --filter=@ghost-greeter/widget` |
+
+### Setup
+
+```bash
+# Copy environment files
+cp apps/dashboard/.env.example apps/dashboard/.env.local
+cp apps/server/.env.example apps/server/.env
+
+# Edit with your Supabase credentials (use production or a dev project)
+# Then start all services:
+pnpm dev
+```
+
+### Database
+
+For local development, you can:
+1. **Use production Supabase** (⚠️ be careful with data!)
+2. **Use a separate dev Supabase project** (recommended)
+3. **Run Supabase locally** with the Supabase CLI
+
+---
+
+## Production
+
+### Infrastructure
 
 | Service | Platform | URL |
 |---------|----------|-----|
 | Dashboard | Vercel | https://app.ghost-greeter.com |
 | Server | Railway | https://ghost-greeterserver-production.up.railway.app |
-| Database | Supabase | `ghost-greeter-prod` project |
+| Database | Supabase | `greeter-prod` project |
 
-### Staging
+### Deployment
 
-| Service | Platform | URL |
-|---------|----------|-----|
-| Dashboard | Vercel (preview) | https://develop.ghost-greeter.vercel.app |
-| Server | Railway | https://ghost-greeter-staging.up.railway.app |
-| Database | Supabase | `ghost-greeter-staging` project |
+**Automatic:** Push to `main` branch triggers deployment on Vercel and Railway.
 
-### Local
-
-| Service | URL |
-|---------|-----|
-| Dashboard | http://localhost:3000 |
-| Server | http://localhost:3001 |
-| Widget | http://localhost:5173 |
-| Database | Your dev Supabase project or local |
+**Manual verification:**
+1. Vercel: Check deployment status in Vercel dashboard
+2. Railway: Check deployment logs in Railway dashboard
+3. Supabase: Run migrations manually in SQL Editor
 
 ---
 
-## Branch → Environment Mapping
+## Branch Workflow
 
 ```
 feature/* ──┐
-bugfix/*  ──┼──► develop (staging) ──► main (production)
-refactor/*──┘
+bugfix/*  ──┼──► main (production)
+hotfix/*  ──┘
 ```
 
-### Workflow
+### Development Flow
 
-1. **Create feature branch** from `develop`
-2. **Open PR** to `develop` → Deploys to staging automatically
-3. **Test on staging** with isolated database
-4. **Merge to develop** → Staging updated
-5. **Open PR** from `develop` to `main` → Production deploy
-6. **Merge to main** → Live!
+1. **Create feature branch** from `main`
+   ```bash
+   git checkout main
+   git pull
+   git checkout -b feature/your-feature
+   ```
+
+2. **Develop locally** - Test thoroughly on localhost
+
+3. **Open PR** to `main`
+   - CI runs automatically
+   - Review changes carefully (goes directly to production!)
+
+4. **Merge** - Deploys to production automatically
+
+### Testing Before Merge
+
+Since we don't have staging, **test thoroughly locally**:
+
+- [ ] Auth flows work
+- [ ] Dashboard navigation works  
+- [ ] Widget loads and connects
+- [ ] WebRTC calls work
+- [ ] No console errors
+- [ ] Database operations succeed
 
 ---
 
-## Environment Variables by Branch (Vercel)
+## Environment Variables
 
-### Setting Up Branch-Specific Variables
+### Dashboard (Vercel)
 
-In Vercel Dashboard → Project → Settings → Environment Variables:
-
-#### Production Variables (main branch only)
+Set in Vercel → Project → Settings → Environment Variables:
 
 ```bash
-# Scope: Production
-NEXT_PUBLIC_SUPABASE_URL=https://[PROD-PROJECT].supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=[PROD-ANON-KEY]
+NEXT_PUBLIC_SUPABASE_URL=https://sldbpqyvksdxsuuxqtgg.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[your-anon-key]
 NEXT_PUBLIC_APP_URL=https://app.ghost-greeter.com
 NEXT_PUBLIC_SIGNALING_SERVER=https://ghost-greeterserver-production.up.railway.app
 NEXT_PUBLIC_WIDGET_CDN_URL=https://ghost-greeterserver-production.up.railway.app/widget.js
 ```
 
-#### Staging Variables (develop branch / Preview)
+### Server (Railway)
 
-```bash
-# Scope: Preview
-NEXT_PUBLIC_SUPABASE_URL=https://[STAGING-PROJECT].supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=[STAGING-ANON-KEY]
-NEXT_PUBLIC_APP_URL=https://develop.ghost-greeter.vercel.app
-NEXT_PUBLIC_SIGNALING_SERVER=https://ghost-greeter-staging.up.railway.app
-NEXT_PUBLIC_WIDGET_CDN_URL=https://ghost-greeter-staging.up.railway.app/widget.js
-```
-
----
-
-## Setting Up Staging Infrastructure
-
-### 1. Create Staging Supabase Project
-
-1. Go to [supabase.com](https://supabase.com) → New Project
-2. Name: `ghost-greeter-staging`
-3. Choose same region as production
-4. Run all migrations from `supabase/migrations/` in order
-5. Create storage buckets: `videos`, `recordings`
-6. Copy API keys for Vercel/Railway config
-
-### 2. Create Staging Railway Service
-
-1. Go to [railway.app](https://railway.app)
-2. In your project, click **+ New Service**
-3. Choose **Deploy from GitHub repo**
-4. Configure:
-   - **Root Directory**: `apps/server`
-   - **Build Command**: `cd ../.. && pnpm install && pnpm build --filter=@ghost-greeter/server`
-   - **Start Command**: `node dist/index.js`
-5. Add environment variables:
+Set in Railway → Service → Variables:
 
 ```bash
 PORT=3001
-NODE_ENV=staging
-SUPABASE_URL=https://[STAGING-PROJECT].supabase.co
-SUPABASE_SERVICE_ROLE_KEY=[STAGING-SERVICE-KEY]
-ALLOWED_ORIGINS=https://develop.ghost-greeter.vercel.app,http://localhost:3000
+NODE_ENV=production
+SUPABASE_URL=https://sldbpqyvksdxsuuxqtgg.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=[your-service-key]
+ALLOWED_ORIGINS=https://app.ghost-greeter.com,https://your-customer-domains.com
 RATE_LIMIT_ENABLED=true
 ```
 
-6. Set deploy trigger to `develop` branch only
-
-### 3. Configure Vercel Branch Deployments
-
-1. Go to Vercel → Project Settings → Git
-2. Ensure **Production Branch** is set to `main`
-3. Preview deployments will auto-deploy from `develop` and feature branches
-
-4. Go to **Environment Variables**
-5. For each production variable, set **Scope: Production**
-6. Add staging variables with **Scope: Preview**
-
 ---
 
-## Testing on Staging
+## Database Migrations
 
-### Before Merging to Production
+**⚠️ Without staging, migrations go directly to production!**
 
-Always verify on staging:
+### Safe Migration Process
 
-- [ ] Auth flows work (sign up, sign in, sign out)
-- [ ] Dashboard navigation works
-- [ ] Widget loads and connects
-- [ ] WebRTC calls complete successfully
-- [ ] Database operations don't error
-- [ ] No console errors
+1. **Backup first** (Supabase has automatic backups, but consider manual)
+2. **Test migration SQL locally** if possible
+3. **Run during low-traffic periods**
+4. **Have a rollback plan**
 
-### Database Migrations on Staging
+### Running Migrations
 
-**Always test migrations on staging first:**
-
-1. Run migration on staging Supabase
-2. Test all affected features
-3. If successful, run on production
+1. Go to Supabase Dashboard → SQL Editor
+2. Copy migration file contents
+3. Run and verify
 
 ---
 
 ## Hotfixes
 
-For urgent production fixes:
+For urgent production issues:
 
 ```bash
-# Branch from main
 git checkout main
 git pull
-git checkout -b hotfix/critical-bug
+git checkout -b hotfix/critical-fix
 
-# Fix the issue
-# ...
+# Make fix
+git add -A
+git commit -m "fix: critical issue description"
+git push -u origin hotfix/critical-fix
 
-# PR directly to main (skip staging for true emergencies)
-# After merge, sync back to develop:
-git checkout develop
-git merge main
-git push
+# Open PR, get quick review, merge ASAP
 ```
 
 ---
 
-## Common Issues
+## When to Add Staging
 
-### "Staging shows production data"
+Consider adding staging environment when:
 
-Your Vercel preview is using production environment variables. Check:
-- Vercel → Settings → Environment Variables
-- Ensure staging vars have **Scope: Preview** (not Production)
+- [ ] You have paying customers
+- [ ] Multiple developers working simultaneously
+- [ ] Complex features need extended testing
+- [ ] Database migrations are risky
+- [ ] QA team needs stable test environment
 
-### "Can't connect to staging server"
-
-1. Check Railway staging service is running
-2. Verify `ALLOWED_ORIGINS` includes your preview URL
-3. Check the staging server logs in Railway
-
-### "Migrations work on staging but fail on production"
-
-- Check for data-dependent migrations
-- Ensure production has required seed data
-- Review RLS policies that might differ
+When ready, follow [docs/STAGING_SETUP.md](./docs/STAGING_SETUP.md).
 
 ---
 
 ## Quick Reference
 
-| Task | Command / Action |
-|------|-----------------|
-| Deploy to staging | Push to `develop` or merge PR |
-| Deploy to production | Merge `develop` → `main` |
-| Check staging logs | Railway Dashboard → staging service |
-| Check prod logs | Railway Dashboard → production service |
-| Run migration on staging | Supabase Dashboard (staging) → SQL Editor |
-| Run migration on prod | Supabase Dashboard (prod) → SQL Editor |
-
+| Task | Action |
+|------|--------|
+| Start local dev | `pnpm dev` |
+| Deploy to prod | Merge PR to `main` |
+| Check prod logs | Railway Dashboard |
+| Run migration | Supabase SQL Editor |
+| View prod errors | Vercel → Deployments → Functions |

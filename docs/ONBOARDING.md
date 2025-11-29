@@ -178,27 +178,32 @@ pnpm --filter=@ghost-greeter/widget <command>
 
 1. **Create a branch**
    ```bash
-   git checkout develop
+   git checkout main
    git pull
    git checkout -b feature/your-feature-name
    ```
 
 2. **Make your changes**
 
-3. **Run checks**
+3. **Test locally** (important - we don't have staging yet!)
+   ```bash
+   pnpm dev  # Test your changes thoroughly
+   ```
+
+4. **Run checks**
    ```bash
    pnpm typecheck
    pnpm lint
    ```
 
-4. **Commit & push**
+5. **Commit & push**
    ```bash
    git add -A
    git commit -m "feat(dashboard): add your feature"
    git push -u origin feature/your-feature-name
    ```
 
-5. **Open a PR** to `develop` branch
+6. **Open a PR** to `main` branch → Merging deploys to production!
 
 ---
 

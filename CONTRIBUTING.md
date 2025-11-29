@@ -56,17 +56,17 @@ pnpm dev
 
 ## Branch Strategy
 
-We use a simple Git flow with **isolated staging infrastructure**:
+We use a simple trunk-based workflow with **local + production** environments:
 
 ```
-main        ← Production (protected, requires PR)
-  ↑              → Deploys to: Vercel (prod) + Railway (prod) + Supabase (prod)
-develop     ← Staging (PR target for features)  
-  ↑              → Deploys to: Vercel (preview) + Railway (staging) + Supabase (staging)
+main        ← Production (protected, requires PR + CI passing)
+  ↑              → Deploys to: Vercel + Railway + Supabase
 feature/*   ← Your feature branches
 bugfix/*    ← Bug fix branches
-hotfix/*    ← Urgent production fixes (branch from main)
+hotfix/*    ← Urgent production fixes
 ```
+
+> 💡 **Note:** We'll add a `develop` branch and staging environment when we have real users. For now, test thoroughly locally before merging to `main`.
 
 ### Branch Naming
 
@@ -78,13 +78,13 @@ hotfix/*    ← Urgent production fixes (branch from main)
 
 ### Workflow
 
-1. **Features**: `feature/*` → PR to `develop` (test on staging) → PR to `main`
-2. **Bug fixes**: `bugfix/*` → PR to `develop`
-3. **Hotfixes**: `hotfix/*` → PR to `main` (then merge `main` back to `develop`)
+1. **Features**: `feature/*` → Test locally → PR to `main` → Production
+2. **Bug fixes**: `bugfix/*` → PR to `main`
+3. **Hotfixes**: `hotfix/*` → PR to `main` (expedited review)
 
 ### Environment Details
 
-See [ENVIRONMENTS.md](./ENVIRONMENTS.md) for complete staging/production infrastructure setup.
+See [ENVIRONMENTS.md](./ENVIRONMENTS.md) for local and production setup.
 
 ---
 

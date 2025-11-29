@@ -1,14 +1,16 @@
 # 🔧 Staging Environment Setup Guide
 
+> ⏳ **Future Enhancement:** This guide is for when you're ready to add a staging environment. You'll need this when you have real paying customers and want isolated testing before production deployments.
+
 This guide walks you through setting up the complete staging infrastructure for Ghost-Greeter.
 
 **Time required**: ~30 minutes
 
 **What you'll create**:
 - Staging Supabase project
-- Staging Railway service
-- Vercel environment configuration
-- Branch protection rules
+- Staging Railway service  
+- Vercel environment configuration (branch-specific)
+- `develop` branch with protection rules
 
 ---
 
