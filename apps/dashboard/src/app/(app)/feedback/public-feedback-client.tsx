@@ -11,6 +11,7 @@ import {
   Loader2,
   Sparkles,
   ChevronUp,
+  ChevronDown,
   MessageCircle,
   CheckCircle2,
   XCircle,
@@ -18,7 +19,6 @@ import {
   PlayCircle,
   X,
   ArrowLeft,
-  Shield,
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -33,7 +33,6 @@ interface FeatureRequest {
   id: string;
   title: string;
   description: string;
-  use_case: string | null;
   status: FeedbackStatus;
   vote_count: number;
   comment_count: number;
@@ -70,7 +69,6 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
   // Submit form state
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
-  const [newUseCase, setNewUseCase] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -82,7 +80,7 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
     // Fetch all feature requests (cross-org, anonymous)
     let query = supabase
       .from("feedback_items")
-      .select("id, title, description, use_case, status, vote_count, comment_count, created_at")
+      .select("id, title, description, status, vote_count, comment_count, created_at")
       .eq("type", "feature");
 
     // Apply status filter
@@ -165,13 +163,15 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
 
     try {
       // Get user's org for the record (even though it won't be displayed)
-      const { data: userData } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from("users")
         .select("organization_id")
         .eq("id", userId)
         .single();
 
-      if (!userData) throw new Error("User not found");
+      if (userError || !userData) {
+        throw new Error("Could not find user organization");
+      }
 
       const { error } = await supabase
         .from("feedback_items")
@@ -181,29 +181,22 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
           type: "feature",
           title: newTitle.trim(),
           description: newDescription.trim(),
-          use_case: newUseCase.trim() || null,
           status: "open",
           priority: "medium",
-          steps_to_reproduce: null,
-          expected_behavior: null,
-          actual_behavior: null,
-          browser_info: null,
-          page_url: null,
-          admin_response: null,
-          admin_responded_at: null,
-          admin_responded_by: null,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Insert error:", error);
+        throw new Error(error.message);
+      }
 
       setShowSubmitForm(false);
       setNewTitle("");
       setNewDescription("");
-      setNewUseCase("");
       fetchItems();
     } catch (err) {
       console.error("Submit error:", err);
-      setSubmitError("Failed to submit. Please try again.");
+      setSubmitError(err instanceof Error ? err.message : "Failed to submit. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -239,7 +232,7 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
             <div>
               <h1 className="text-3xl font-bold">Feature Requests</h1>
               <p className="text-muted-foreground">
-                Vote on ideas or suggest new features for the platform
+                Vote for features you want · Top voted get built first
               </p>
             </div>
           </div>
@@ -358,48 +351,67 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                 <div
                   key={item.id}
                   onClick={() => setSelectedItem(item)}
-                  className="group relative bg-card/50 hover:bg-card border border-border hover:border-primary/30 rounded-xl p-4 transition-all cursor-pointer"
+                  className="group relative bg-card/50 hover:bg-card border border-border hover:border-primary/30 rounded-xl p-3 transition-all cursor-pointer"
                 >
-                  <div className="flex gap-4">
-                    {/* Vote Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleVote(item.id, item.has_voted || false);
-                      }}
-                      className={`flex flex-col items-center justify-center w-14 h-16 rounded-xl border-2 transition-all flex-shrink-0 ${
-                        item.has_voted
-                          ? "bg-amber-500/10 border-amber-500 text-amber-500"
-                          : "bg-muted/30 border-border hover:border-amber-500/50 text-muted-foreground hover:text-amber-500"
-                      }`}
-                    >
-                      <ChevronUp className="w-5 h-5" />
-                      <span className="text-sm font-bold tabular-nums">{item.vote_count}</span>
-                    </button>
+                  <div className="flex gap-3">
+                    {/* Reddit-style Vote Buttons */}
+                    <div className="flex flex-col items-center flex-shrink-0 w-10">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!item.has_voted) {
+                            handleVote(item.id, false);
+                          } else {
+                            handleVote(item.id, true);
+                          }
+                        }}
+                        title={item.has_voted ? "Remove vote" : "Upvote"}
+                        className={`p-1 rounded transition-colors ${
+                          item.has_voted
+                            ? "text-orange-500 hover:bg-orange-500/10"
+                            : "text-muted-foreground/50 hover:text-orange-500 hover:bg-orange-500/10"
+                        }`}
+                      >
+                        <ChevronUp className="w-6 h-6" strokeWidth={item.has_voted ? 3 : 2} />
+                      </button>
+                      <span className={`text-xs font-bold tabular-nums py-0.5 ${
+                        item.has_voted ? "text-orange-500" : "text-muted-foreground"
+                      }`}>
+                        {item.vote_count}
+                      </span>
+                      <button
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-1 rounded text-muted-foreground/30 cursor-not-allowed"
+                        disabled
+                        title="Downvoting disabled"
+                      >
+                        <ChevronDown className="w-6 h-6" strokeWidth={2} />
+                      </button>
+                    </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-start justify-between gap-3 mb-1">
                         <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
                           {item.title}
                         </h3>
                         <div
-                          className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.color}`}
+                          className={`flex-shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}
                         >
-                          <StatusIcon className="w-3.5 h-3.5" />
+                          <StatusIcon className="w-3 h-3" />
                           {status.label}
                         </div>
                       </div>
 
-                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
                         {item.description}
                       </p>
 
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span>{timeAgo(item.created_at)}</span>
                         <div className="flex items-center gap-1">
                           <MessageCircle className="w-3.5 h-3.5" />
-                          <span>{item.comment_count}</span>
+                          <span>{item.comment_count} comments</span>
                         </div>
                       </div>
                     </div>
@@ -471,19 +483,6 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1.5">
-                  Use case <span className="text-muted-foreground font-normal">(optional)</span>
-                </label>
-                <textarea
-                  value={newUseCase}
-                  onChange={(e) => setNewUseCase(e.target.value)}
-                  placeholder="Describe a specific scenario where this would help..."
-                  rows={2}
-                  className="w-full px-4 py-2.5 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors resize-none"
-                />
-              </div>
-
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -525,28 +524,42 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
             {/* Header */}
             <div className="flex items-start justify-between p-6 border-b border-border">
               <div className="flex gap-4 flex-1 min-w-0">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleVote(selectedItem.id, selectedItem.has_voted || false);
-                    setSelectedItem({
-                      ...selectedItem,
-                      has_voted: !selectedItem.has_voted,
-                      vote_count: selectedItem.has_voted
-                        ? selectedItem.vote_count - 1
-                        : selectedItem.vote_count + 1,
-                    });
-                  }}
-                  className={`flex flex-col items-center justify-center w-16 h-20 rounded-xl border-2 transition-all flex-shrink-0 ${
-                    selectedItem.has_voted
-                      ? "bg-amber-500/10 border-amber-500 text-amber-500"
-                      : "bg-muted/30 border-border hover:border-amber-500/50 text-muted-foreground hover:text-amber-500"
-                  }`}
-                >
-                  <ChevronUp className="w-6 h-6" />
-                  <span className="text-lg font-bold tabular-nums">{selectedItem.vote_count}</span>
-                  <span className="text-[10px] uppercase tracking-wide">votes</span>
-                </button>
+                {/* Reddit-style Vote in Detail */}
+                <div className="flex flex-col items-center flex-shrink-0 w-12">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleVote(selectedItem.id, selectedItem.has_voted || false);
+                      setSelectedItem({
+                        ...selectedItem,
+                        has_voted: !selectedItem.has_voted,
+                        vote_count: selectedItem.has_voted
+                          ? selectedItem.vote_count - 1
+                          : selectedItem.vote_count + 1,
+                      });
+                    }}
+                    title={selectedItem.has_voted ? "Remove vote" : "Upvote"}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      selectedItem.has_voted
+                        ? "text-orange-500 bg-orange-500/10 hover:bg-orange-500/20"
+                        : "text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10"
+                    }`}
+                  >
+                    <ChevronUp className="w-7 h-7" strokeWidth={selectedItem.has_voted ? 3 : 2} />
+                  </button>
+                  <span className={`text-base font-bold tabular-nums py-1 ${
+                    selectedItem.has_voted ? "text-orange-500" : "text-muted-foreground"
+                  }`}>
+                    {selectedItem.vote_count}
+                  </span>
+                  <button
+                    className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"
+                    disabled
+                    title="Downvoting disabled"
+                  >
+                    <ChevronDown className="w-7 h-7" strokeWidth={2} />
+                  </button>
+                </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
@@ -590,19 +603,11 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                 <p className="text-foreground whitespace-pre-wrap">{selectedItem.description}</p>
               </div>
 
-              {selectedItem.use_case && (
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    Use Case
-                  </h3>
-                  <p className="text-foreground whitespace-pre-wrap">{selectedItem.use_case}</p>
-                </div>
-              )}
-
               <div className="pt-4 border-t border-border">
-                <p className="text-center text-sm text-muted-foreground">
-                  💡 Upvote this request if you&apos;d find it useful!
-                </p>
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <ChevronUp className="w-4 h-4 text-orange-500" />
+                  <span>Upvote to help prioritize this feature</span>
+                </div>
               </div>
             </div>
           </div>
