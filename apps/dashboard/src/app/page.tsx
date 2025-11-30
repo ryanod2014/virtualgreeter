@@ -10,7 +10,6 @@ import {
   Clock,
   TrendingUp,
   Target,
-  MessageSquare,
   Shield,
   Globe,
   ChevronDown,
@@ -80,33 +79,37 @@ const newWayBenefits = [
 
 const stats = [
   {
-    value: "97%",
-    label: "Never Opt-In",
-    description: "of visitors leave without filling out your form",
-    source: "You're losing almost everyone",
+    value: "86%",
+    label: "Prefer Humans",
+    description: "of consumers prefer humans to chatbots",
+    source: "Forbes",
+    sourceUrl: "https://www.forbes.com",
   },
   {
-    value: "8%",
-    label: "Pick Up Rate",
-    description: "is the average for cold outbound calls",
-    source: "92 out of 100 = wasted",
+    value: "32%",
+    label: "Higher Conversion",
+    description: "increase in conversion rates with video vs phone calls",
+    source: "Industry Research",
+    sourceUrl: null,
   },
   {
-    value: "5 min",
-    label: "Too Late",
-    description: "wait drops your chances of qualifying a lead by 80%",
-    source: "Speed to lead research",
+    value: "34x",
+    label: "More Successful",
+    description: "face-to-face requests outperform email",
+    source: "Harvard Business Review",
+    sourceUrl: "https://hbr.org",
   },
   {
-    value: "391%",
-    label: "More Closes",
-    description: "when you respond in under 1 minute",
-    source: "While they're still hot",
+    value: "72%",
+    label: "Trust on Video",
+    description: "of consumers trust brands more when they see the rep on video",
+    source: "Consumer Study",
+    sourceUrl: null,
   },
 ];
 
 const perfectFor = [
-  { icon: DollarSign, label: "High-Ticket Services ($3K+)" },
+  { icon: DollarSign, label: "High-Ticket Services ($1K+)" },
   { icon: Users, label: "Coaches & Consultants" },
   { icon: Shield, label: "Professional Services" },
   { icon: Globe, label: "Home Services" },
@@ -117,21 +120,21 @@ const perfectFor = [
 const howItWorks = [
   {
     step: "01",
-    title: "Your 'live greeter' appears",
+    title: "Start instant video calls",
     description:
-      "The moment someone lands on your site, they see what looks like a real person waiting to help. It's actually a seamless video loop—but they don't know that.",
+      "Start instant video calls with website visitors while they're on your site.",
     icon: Video,
   },
   {
     step: "02",
-    title: "They click to talk",
+    title: "They click to unmute",
     description:
-      "No forms. No scheduling. No friction. They click, and suddenly they're face-to-face with you or your team. The loop cuts to live video in milliseconds.",
+      "No forms. No scheduling. No friction. They click to unmute, and suddenly they're face-to-face with you or your team.",
     icon: Zap,
   },
   {
     step: "03",
-    title: "You close while they're hot",
+    title: "Book the appointment / close while they're hot",
     description:
       "They called YOU. They're on your site right now. The problem they need solved is top-of-mind. This is the highest-converting sales conversation possible.",
     icon: Flame,
@@ -299,11 +302,8 @@ export default function HomePage() {
               </h1>
 
               {/* Subheadline - The mechanism */}
-              <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-4 leading-relaxed">
-                Leads are never &quot;hotter&quot; than the moment they land on your page. <span className="text-foreground font-semibold">GreetNow</span> lets your setters treat website traffic like walk-in customers.
-              </p>
               <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed">
-                The &quot;live greeter&quot; that makes visitors feel like they just walked into your office—and someone&apos;s already there to help.
+                Leads are never &quot;hotter&quot; than the moment they land on your page. <span className="text-foreground font-semibold">GreetNow</span> lets your setters treat website traffic like walk-in customers.
               </p>
 
               {/* CTA buttons */}
@@ -370,6 +370,33 @@ export default function HomePage() {
                   </svg>
                   <span className="text-sm font-semibold text-muted-foreground">Webflow</span>
                 </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ===== PERFECT FOR SECTION ===== */}
+        <section id="features" className="py-16 relative">
+          <div className="container mx-auto px-6">
+            <div className="max-w-5xl mx-auto">
+              <div className="text-center mb-10">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2">
+                  Built For High-Ticket Businesses
+                </h2>
+                <p className="text-muted-foreground">
+                  Where one conversation can be worth $5K, $10K, or $50K+
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-4">
+                {perfectFor.map((item, index) => (
+                  <div
+                    key={item.label}
+                    className="flex items-center gap-3 px-5 py-3 rounded-full bg-muted/30 border border-border/50 hover:border-primary/30 hover:bg-muted/50 transition-all"
+                  >
+                    <item.icon className="w-5 h-5 text-primary" />
+                    <span className="font-medium text-sm">{item.label}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -462,33 +489,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ===== PERFECT FOR SECTION ===== */}
-        <section id="features" className="py-16 relative">
-          <div className="container mx-auto px-6">
-            <div className="max-w-5xl mx-auto">
-              <div className="text-center mb-10">
-                <h2 className="text-2xl md:text-3xl font-bold mb-2">
-                  Built For High-Ticket Businesses
-                </h2>
-                <p className="text-muted-foreground">
-                  Where one conversation can be worth $5K, $10K, or $50K+
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-4">
-                {perfectFor.map((item, index) => (
-                  <div
-                    key={item.label}
-                    className="flex items-center gap-3 px-5 py-3 rounded-full bg-muted/30 border border-border/50 hover:border-primary/30 hover:bg-muted/50 transition-all"
-                  >
-                    <item.icon className="w-5 h-5 text-primary" />
-                    <span className="font-medium text-sm">{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* ===== STATS SECTION - THE HARSH REALITY ===== */}
         <section id="stats" className="py-24 relative">
           <div className="container mx-auto px-6">
@@ -506,23 +506,32 @@ export default function HomePage() {
                 {stats.map((stat, index) => (
                   <div
                     key={stat.label}
-                    className="feature-card relative bg-muted/30 border border-border/50 rounded-2xl p-6 text-center overflow-hidden"
+                    className="feature-card relative bg-muted/30 border border-border/50 rounded-2xl p-6 text-center overflow-hidden flex flex-col"
                   >
                     {/* Accent glow */}
                     <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-40 h-40 bg-primary/20 rounded-full blur-3xl" />
 
-                    <div className="relative">
+                    <div className="relative flex-1">
                       <div className="text-5xl font-bold gradient-text mb-2">
                         {stat.value}
                       </div>
                       <div className="text-lg font-semibold mb-2">
                         {stat.label}
                       </div>
-                      <p className="text-sm text-muted-foreground mb-3">
+                      <p className="text-sm text-muted-foreground mb-4">
                         {stat.description}
                       </p>
-                      <div className="text-xs text-primary font-medium">
-                        {stat.source}
+                    </div>
+                    
+                    {/* Source info card */}
+                    <div className="relative mt-auto pt-4 border-t border-border/30">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+                        <svg className="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-xs font-medium text-primary">
+                          {stat.source}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -612,16 +621,15 @@ export default function HomePage() {
                   <div className="relative">
                     <PhoneIncoming className="w-8 h-8 text-primary mb-4" />
                     <h3 className="text-2xl font-bold mb-3">
-                      Inbound vs Outbound Psychology
+                      No More Chasing Leads
                     </h3>
                     <p className="text-muted-foreground leading-relaxed mb-6">
-                      When YOU call THEM, they&apos;re defensive. &quot;Who is this? What do they want?&quot; 
-                      When THEY call YOU, they&apos;re open. They initiated. They&apos;re ready to buy. 
-                      <span className="text-foreground font-semibold"> Same person, completely different conversation.</span>
+                      Your setters are done with cold calls that hit spam, prospects who ghost, and the burnout that comes with endless rejection.
+                      <span className="text-foreground font-semibold"> Let warm leads come to them instead.</span>
                     </p>
                     <div className="flex items-center gap-2 text-primary font-medium">
                       <CheckCircle2 className="w-5 h-5" />
-                      <span>Zero resistance = faster closes</span>
+                      <span>Happier team, better conversations</span>
                     </div>
                   </div>
                 </div>
@@ -711,18 +719,6 @@ export default function HomePage() {
                 ))}
               </div>
 
-              <div className="mt-12 text-center">
-                <p className="text-muted-foreground mb-4">
-                  Have more questions?
-                </p>
-                <Link
-                  href="mailto:hello@greetnow.io"
-                  className="inline-flex items-center gap-2 border border-border/50 px-6 py-3 rounded-full font-medium hover:bg-muted/50 transition-all"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Contact Us
-                </Link>
-              </div>
             </div>
           </div>
         </section>
@@ -750,7 +746,7 @@ export default function HomePage() {
               </h2>
               
               <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-                While they&apos;re dialing 100 numbers to reach 8 people, you could be answering inbound calls from warm prospects who are ready to buy. <span className="text-foreground font-semibold">Right now. On your website.</span>
+                While they&apos;re spending a fortune on opt-ins, cold calling leads who never pick up, and fighting spam filters—<span className="text-foreground font-semibold">you&apos;re talking to warm prospects who called you.</span>
               </p>
               
               <Link

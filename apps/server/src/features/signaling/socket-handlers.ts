@@ -359,8 +359,8 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       }
 
       // Use profile from login payload (already verified ownership via token)
-      // If reconnecting, use the previous status; otherwise default to "idle"
-      const statusToUse = pendingDisconnect?.previousStatus ?? "idle";
+      // If reconnecting, use the previous status; otherwise default to "away"
+      const statusToUse = pendingDisconnect?.previousStatus ?? "away";
       const profile: AgentProfile = {
         id: data.agentId,
         userId: verification.userId ?? data.agentId,
