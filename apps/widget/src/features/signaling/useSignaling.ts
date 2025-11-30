@@ -219,9 +219,10 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
 
     // Server error
     socket.on(SOCKET_EVENTS.ERROR, (error) => {
-      console.error("[Widget] Socket error:", error);
+      console.log("[Widget] 📥 Received ERROR event:", error);
       
       if (error.code === "AGENT_UNAVAILABLE") {
+        console.log("[Widget] 🚫 Agent unavailable - hiding widget");
         optionsRef.current.onAgentUnavailable();
       } else {
         setConnectionError(error.message);

@@ -152,6 +152,14 @@ export function useSignaling(agentId: string, options?: UseSignalingOptions): Us
 
     socket.on(SOCKET_EVENTS.LOGIN_SUCCESS, (data) => {
       console.log("[Signaling] Login successful", data);
+      // Restore away status from server (important for reconnects/page reloads)
+      if (data.agentState?.profile?.status === "away") {
+        console.log("[Signaling] Restoring away status from server");
+        setIsMarkedAway(true);
+        // Use "set yourself" in the message to prevent the "Are you back?" modal from showing
+        // (the modal only shows for automatic away, not manual)
+        setAwayReason("You set yourself as away");
+      }
     });
 
     socket.on(SOCKET_EVENTS.CALL_INCOMING, (data: CallIncomingPayload) => {
@@ -250,13 +258,42 @@ export function useSignaling(agentId: string, options?: UseSignalingOptions): Us
   }, []);
 
   const setAway = useCallback((reason: "idle" | "manual") => {
-    socketRef.current?.emit(SOCKET_EVENTS.AGENT_AWAY, { reason });
+    const socket = socketRef.current;
+    console.log("[Signaling] 🚫 Setting away, reason:", reason, "socket connected:", socket?.connected);
+    
+    if (!socket?.connected) {
+      console.error("[Signaling] ⚠️ Cannot set away - socket disconnected! Reconnecting...");
+      socket?.connect();
+      // Try again after a brief delay
+      setTimeout(() => {
+        if (socketRef.current?.connected) {
+          socketRef.current.emit(SOCKET_EVENTS.AGENT_AWAY, { reason });
+        }
+      }, 500);
+    } else {
+      socket.emit(SOCKET_EVENTS.AGENT_AWAY, { reason });
+    }
+    
     setIsMarkedAway(true);
     setAwayReason(reason === "idle" ? "You were marked away due to inactivity" : "You set yourself as away");
   }, []);
 
   const setBack = useCallback(() => {
-    socketRef.current?.emit(SOCKET_EVENTS.AGENT_BACK);
+    const socket = socketRef.current;
+    console.log("[Signaling] ✅ Setting back, socket connected:", socket?.connected);
+    
+    if (!socket?.connected) {
+      console.error("[Signaling] ⚠️ Cannot set back - socket disconnected! Reconnecting...");
+      socket?.connect();
+      setTimeout(() => {
+        if (socketRef.current?.connected) {
+          socketRef.current.emit(SOCKET_EVENTS.AGENT_BACK);
+        }
+      }, 500);
+    } else {
+      socket.emit(SOCKET_EVENTS.AGENT_BACK);
+    }
+    
     setIsMarkedAway(false);
     setAwayReason(null);
   }, []);

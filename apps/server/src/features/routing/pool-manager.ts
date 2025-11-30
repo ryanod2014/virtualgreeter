@@ -385,8 +385,10 @@ export class PoolManager {
     const existingAgent = this.agents.get(profile.id);
     
     if (existingAgent) {
-      // Agent is reconnecting - update socket ID but preserve state
-      console.log(`[PoolManager] Agent reconnecting: ${profile.displayName} (${profile.id}), updating socket ${existingAgent.socketId} -> ${socketId}`);
+      // Agent is reconnecting - update socket ID and profile
+      // The profile.status passed in should already have the correct value
+      // (either from pendingDisconnects for quick reconnects, or "idle" for new sessions)
+      console.log(`[PoolManager] Agent reconnecting: ${profile.displayName} (${profile.id}), updating socket ${existingAgent.socketId} -> ${socketId}, status: ${profile.status}`);
       existingAgent.socketId = socketId;
       existingAgent.profile = profile;
       return existingAgent;

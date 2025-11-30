@@ -248,7 +248,7 @@ export interface AgentAssignedPayload {
 export interface AgentReassignedPayload {
   previousAgentId: string;
   newAgent: Pick<AgentProfile, "id" | "displayName" | "avatarUrl" | "waveVideoUrl" | "introVideoUrl" | "connectVideoUrl" | "loopVideoUrl">;
-  reason: "agent_busy" | "agent_offline";
+  reason: "agent_busy" | "agent_offline" | "agent_away";
   widgetSettings?: WidgetSettings; // Optional - only included if settings changed
 }
 
