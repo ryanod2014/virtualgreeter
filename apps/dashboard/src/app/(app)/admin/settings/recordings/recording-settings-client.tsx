@@ -114,6 +114,7 @@ export function RecordingSettingsClient({
     { value: 90, label: "90 days" },
     { value: 180, label: "180 days" },
     { value: 365, label: "1 year" },
+    { value: -1, label: "Forever" },
   ];
 
   return (
@@ -236,10 +237,14 @@ export function RecordingSettingsClient({
           <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
             <HardDrive className="w-4 h-4" />
             <span>
-              Recordings will be deleted after{" "}
-              <strong className="text-foreground">
-                {settings.retention_days} days
-              </strong>
+              {settings.retention_days === -1 ? (
+                <>Recordings will be kept <strong className="text-foreground">forever</strong></>
+              ) : (
+                <>Recordings will be deleted after{" "}
+                <strong className="text-foreground">
+                  {settings.retention_days} days
+                </strong></>
+              )}
             </span>
           </div>
         </div>
