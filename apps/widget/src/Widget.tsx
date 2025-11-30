@@ -218,7 +218,7 @@ export function Widget({ config }: WidgetProps) {
     connectionError,
     socket,
   } = useSignaling({
-    serverUrl: config.serverUrl,
+    serverUrl: config.serverUrl ?? "http://localhost:3001",
     orgId: config.orgId,
     onAgentAssigned: (data) => {
       console.log("[Widget] ✅ Agent assigned:", data.agent.id, data.agent.displayName, "settings:", data.widgetSettings);
@@ -616,17 +616,25 @@ export function Widget({ config }: WidgetProps) {
     // Start snapping animation - keep current position class until animation completes
     setIsSnapping(true);
     
+    // Safety check (snapPositions always has 5 elements, but satisfies TypeScript)
+    if (!nearestPosition) {
+      setIsSnapping(false);
+      return;
+    }
+    
+    const targetPos = nearestPosition;
+    
     // Wait for snapping class to be applied before animating
     requestAnimationFrame(() => {
       // Force a reflow to ensure transition is active
       widgetRef.current?.offsetHeight;
       
       // Animate to target pixel position
-      setPosition({ x: nearestPosition.targetX, y: nearestPosition.targetY });
+      setPosition({ x: targetPos.targetX, y: targetPos.targetY });
       
       // After animation completes, update the position class and clear pixel position
       setTimeout(() => {
-        setDraggedPosition(nearestPosition.name);
+        setDraggedPosition(targetPos.name);
         setPosition(null);
         setIsSnapping(false);
       }, 320); // Slightly longer than CSS transition to ensure completion

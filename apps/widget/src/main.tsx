@@ -171,6 +171,7 @@ function processQueue(): void {
       
       for (let i = 0; i < queue.length; i++) {
         const args = queue[i];
+        if (!args) continue;
         // Args is an Arguments object (array-like)
         const command = args[0];
         const config = args[1];
