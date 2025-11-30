@@ -8,7 +8,6 @@ import {
   LogOut,
   LayoutDashboard,
   BarChart3,
-  FileText,
   ChevronDown,
   Check,
   Users,
@@ -201,11 +200,8 @@ export function AgentSidebar({
           <NavLink href="/dashboard/videos" icon={Film} pathname={pathname}>
             Pre-recorded Intro
           </NavLink>
-          <NavLink href="/dashboard/stats" icon={BarChart3} pathname={pathname}>
-            Stats
-          </NavLink>
-          <NavLink href="/dashboard/call-logs" icon={FileText} pathname={pathname}>
-            Call Logs
+          <NavLink href="/dashboard/calls" icon={BarChart3} pathname={pathname}>
+            Calls
           </NavLink>
           
           {isAdmin && (

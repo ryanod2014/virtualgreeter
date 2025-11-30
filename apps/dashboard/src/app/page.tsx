@@ -299,8 +299,11 @@ export default function HomePage() {
               </h1>
 
               {/* Subheadline - The mechanism */}
+              <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-4 leading-relaxed">
+                Leads are never &quot;hotter&quot; than the moment they land on your page. <span className="text-foreground font-semibold">GreetNow</span> lets your setters treat website traffic like walk-in customers.
+              </p>
               <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed">
-                The &quot;live greeter&quot; that makes visitors feel like they just walked into your office—<span className="text-foreground font-semibold">and someone&apos;s already there to help.</span>
+                The &quot;live greeter&quot; that makes visitors feel like they just walked into your office—and someone&apos;s already there to help.
               </p>
 
               {/* CTA buttons */}
@@ -332,22 +335,41 @@ export default function HomePage() {
               <WidgetDemo />
             </div>
 
-            {/* Trust logos */}
+            {/* Integration logos */}
             <div className="mt-16 text-center animate-fade-in opacity-0 [animation-delay:0.8s]">
               <p className="text-sm text-muted-foreground mb-6">
-                Trusted by fast-growing teams
+                Embed on any website with 1 line of code
               </p>
-              <div className="flex items-center justify-center gap-8 flex-wrap opacity-50">
-                {["TechCorp", "StartupX", "GrowthCo", "ScaleUp", "VelocityHQ"].map(
-                  (name) => (
-                    <div
-                      key={name}
-                      className="text-lg font-semibold text-muted-foreground/60"
-                    >
-                      {name}
-                    </div>
-                  )
-                )}
+              <div className="flex items-center justify-center gap-10 flex-wrap opacity-70">
+                {/* ClickFunnels */}
+                <div className="flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  </svg>
+                  <span className="text-sm font-semibold text-muted-foreground">ClickFunnels</span>
+                </div>
+                {/* GoHighLevel */}
+                <div className="flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor">
+                    <path d="M12 2v20M2 12h20M4 4l16 16M20 4L4 20" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  </svg>
+                  <span className="text-sm font-semibold text-muted-foreground">GoHighLevel</span>
+                </div>
+                {/* WordPress */}
+                <div className="flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none"/>
+                    <path d="M3 12h18M12 3v18" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                  </svg>
+                  <span className="text-sm font-semibold text-muted-foreground">WordPress</span>
+                </div>
+                {/* Webflow */}
+                <div className="flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor">
+                    <path d="M17.5 7c-1.5 0-2.5 1-3 2.5-.5-1.5-2-2.5-4-2.5v7c0 1.5-1.5 3-3.5 3v-7l-4 7h4c2 0 3.5-1.5 4-3 .5 1.5 2 3 4 3l3-7v7h-3.5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                  </svg>
+                  <span className="text-sm font-semibold text-muted-foreground">Webflow</span>
+                </div>
               </div>
             </div>
           </div>
@@ -507,24 +529,6 @@ export default function HomePage() {
                 ))}
               </div>
 
-              {/* Reframe callout */}
-              <div className="mt-12 p-8 rounded-2xl bg-gradient-to-r from-primary/10 via-muted/50 to-fuchsia-500/10 border border-primary/20">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                      <DollarSign className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-xl mb-2">
-                        Do the math on YOUR business:
-                      </p>
-                      <p className="text-muted-foreground leading-relaxed">
-                        If you get 1,000 visitors/month and your service is worth $5,000... the 97% who leave without opting in represent <span className="text-primary font-semibold">$4.85 million in potential revenue</span> walking away. What if you could talk to just 1% more of them?
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </section>
@@ -745,12 +749,8 @@ export default function HomePage() {
                 <span className="gradient-text block mt-2">Chasing Cold Leads</span>
               </h2>
               
-              <p className="text-xl md:text-2xl text-muted-foreground mb-6 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
                 While they&apos;re dialing 100 numbers to reach 8 people, you could be answering inbound calls from warm prospects who are ready to buy. <span className="text-foreground font-semibold">Right now. On your website.</span>
-              </p>
-
-              <p className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto">
-                Set up takes 15 minutes. The first call could change everything.
               </p>
               
               <Link
@@ -760,10 +760,6 @@ export default function HomePage() {
                 Start Getting Inbound Calls
                 <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
               </Link>
-              
-              <p className="mt-6 text-sm text-muted-foreground">
-                Free to try. No credit card required. Cancel anytime.
-              </p>
             </div>
           </div>
         </section>
