@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import a distinctive font */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -58,8 +61,13 @@
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: 'Outfit', system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
@@ -89,7 +97,106 @@
 
 /* Gradient text */
 .gradient-text {
-  @apply bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent;
+  @apply bg-gradient-to-r from-primary via-purple-400 to-fuchsia-400 bg-clip-text text-transparent;
+}
+
+/* Glow effects */
+.glow-primary {
+  box-shadow: 0 0 60px 20px hsl(var(--primary) / 0.3);
+}
+
+.glow-text {
+  text-shadow: 0 0 40px hsl(var(--primary) / 0.5);
+}
+
+/* Hero glow orb */
+.glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+}
+
+/* Animated border gradient */
+.border-gradient {
+  position: relative;
+  background: hsl(var(--muted));
+  border-radius: var(--radius);
+}
+
+.border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.3), transparent, hsl(var(--primary) / 0.3), hsl(var(--primary)));
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.border-gradient:hover::before {
+  opacity: 1;
+}
+
+/* Feature card hover effect */
+.feature-card {
+  position: relative;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), hsl(var(--primary) / 0.15), transparent 40%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+}
+
+.feature-card:hover::before {
+  opacity: 1;
+}
+
+/* Stat counter animation */
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stat-animate {
+  animation: count-up 0.6s ease-out forwards;
+}
+
+/* Stagger animations */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+/* FAQ accordion */
+.faq-item {
+  transition: all 0.3s ease;
+}
+
+.faq-item[data-state="open"] {
+  background: hsl(var(--primary) / 0.05);
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+.float-animation {
+  animation: float 6s ease-in-out infinite;
 }
 
 /* Pulse animation for live indicator */
@@ -98,3 +205,44 @@
   @apply absolute inset-0 rounded-full bg-success animate-pulse-ring;
 }
 
+/* Grid pattern */
+.grid-pattern {
+  background-image: 
+    linear-gradient(rgba(139, 92, 246, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 92, 246, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* Mockup container */
+.mockup-glow {
+  position: relative;
+}
+
+.mockup-glow::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.5), hsl(var(--primary)));
+  border-radius: inherit;
+  z-index: -1;
+  filter: blur(20px);
+  opacity: 0.5;
+}
+
+/* Large brand text at footer */
+.brand-fade {
+  background: linear-gradient(to top, hsl(var(--primary) / 0.15), transparent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Noise texture overlay */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}

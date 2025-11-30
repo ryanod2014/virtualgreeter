@@ -4,7 +4,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import type { RecordingSettings } from "@blitz/domain/database.types";
+import type { RecordingSettings } from "@ghost-greeter/domain/database.types";
 
 // Pricing constants (2x API costs)
 const TRANSCRIPTION_COST_PER_MIN = 0.01; // ~2x Deepgram Nova-2 ($0.0043/min)
@@ -93,7 +93,10 @@ async function transcribeWithDeepgram(audioUrl: string): Promise<TranscriptionRe
       return { success: false, error: `Deepgram API error: ${response.status}` };
     }
 
-    const result = await response.json();
+    const result = await response.json() as {
+      results?: { channels?: Array<{ alternatives?: Array<{ transcript?: string }> }> };
+      metadata?: { duration?: number };
+    };
     
     // Extract transcription from Deepgram response
     const transcript = result.results?.channels?.[0]?.alternatives?.[0]?.transcript;
@@ -158,7 +161,9 @@ async function generateAISummary(transcription: string, customFormat: string | n
       return { success: false, error: `OpenAI API error: ${response.status}` };
     }
 
-    const result = await response.json();
+    const result = await response.json() as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
     const summary = result.choices?.[0]?.message?.content;
 
     if (!summary) {

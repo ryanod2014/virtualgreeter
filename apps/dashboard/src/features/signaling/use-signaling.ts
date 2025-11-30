@@ -15,10 +15,16 @@ import type {
   CobrowseSelectionPayload,
   AgentMarkedAwayPayload,
   CallRNATimeoutPayload,
+  StatusAckPayload,
 } from "@ghost-greeter/domain";
 import { SOCKET_EVENTS } from "@ghost-greeter/domain";
 
 const SIGNALING_SERVER = process.env.NEXT_PUBLIC_SIGNALING_SERVER ?? "http://localhost:3001";
+
+// Retry configuration for status change operations
+const MAX_RETRIES = 3;
+const BASE_RETRY_DELAY = 500; // ms
+const ACK_TIMEOUT = 5000; // 5 seconds to wait for server acknowledgment
 
 interface CobrowseState {
   snapshot: CobrowseSnapshotPayload | null;
@@ -257,45 +263,135 @@ export function useSignaling(agentId: string, options?: UseSignalingOptions): Us
     setActiveCall(null);
   }, []);
 
-  const setAway = useCallback((reason: "idle" | "manual") => {
+  const setAway = useCallback(async (reason: "idle" | "manual") => {
     const socket = socketRef.current;
     console.log("[Signaling] 🚫 Setting away, reason:", reason, "socket connected:", socket?.connected);
     
-    if (!socket?.connected) {
-      console.error("[Signaling] ⚠️ Cannot set away - socket disconnected! Reconnecting...");
-      socket?.connect();
-      // Try again after a brief delay
-      setTimeout(() => {
-        if (socketRef.current?.connected) {
-          socketRef.current.emit(SOCKET_EVENTS.AGENT_AWAY, { reason });
+    const awayMessage = reason === "idle" 
+      ? "You were marked away due to inactivity" 
+      : "You set yourself as away";
+
+    // Emit with acknowledgment and retry logic
+    const emitWithRetry = async (attempt: number = 0): Promise<boolean> => {
+      // Wait for socket to be connected
+      if (!socketRef.current?.connected) {
+        if (attempt >= MAX_RETRIES) {
+          console.error("[Signaling] ⚠️ Max retries reached for setAway, socket not connected");
+          return false;
         }
-      }, 500);
-    } else {
-      socket.emit(SOCKET_EVENTS.AGENT_AWAY, { reason });
-    }
+        console.log(`[Signaling] Socket disconnected, reconnecting (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+        socketRef.current?.connect();
+        await new Promise(resolve => setTimeout(resolve, BASE_RETRY_DELAY * Math.pow(2, attempt)));
+        return emitWithRetry(attempt + 1);
+      }
+
+      return new Promise((resolve) => {
+        const timeoutId = setTimeout(() => {
+          console.warn(`[Signaling] Ack timeout for setAway (attempt ${attempt + 1})`);
+          if (attempt < MAX_RETRIES - 1) {
+            emitWithRetry(attempt + 1).then(resolve);
+          } else {
+            // Fallback: assume it worked if we're still connected after max retries
+            console.warn("[Signaling] Max retries reached, assuming setAway succeeded");
+            resolve(true);
+          }
+        }, ACK_TIMEOUT);
+
+        socketRef.current?.emit(SOCKET_EVENTS.AGENT_AWAY, { reason }, (response: StatusAckPayload) => {
+          clearTimeout(timeoutId);
+          console.log("[Signaling] setAway ack received:", response);
+          
+          if (response.success) {
+            resolve(true);
+          } else {
+            console.error("[Signaling] setAway failed:", response.error);
+            if (attempt < MAX_RETRIES - 1) {
+              setTimeout(() => {
+                emitWithRetry(attempt + 1).then(resolve);
+              }, BASE_RETRY_DELAY * Math.pow(2, attempt));
+            } else {
+              resolve(false);
+            }
+          }
+        });
+      });
+    };
+
+    const success = await emitWithRetry();
     
-    setIsMarkedAway(true);
-    setAwayReason(reason === "idle" ? "You were marked away due to inactivity" : "You set yourself as away");
+    if (success) {
+      setIsMarkedAway(true);
+      setAwayReason(awayMessage);
+    } else {
+      console.error("[Signaling] Failed to set away status after all retries");
+      // Optionally still set local state as a last resort
+      // This prevents the agent from appearing available when they're not
+      setIsMarkedAway(true);
+      setAwayReason(awayMessage + " (sync pending)");
+    }
   }, []);
 
-  const setBack = useCallback(() => {
+  const setBack = useCallback(async () => {
     const socket = socketRef.current;
     console.log("[Signaling] ✅ Setting back, socket connected:", socket?.connected);
-    
-    if (!socket?.connected) {
-      console.error("[Signaling] ⚠️ Cannot set back - socket disconnected! Reconnecting...");
-      socket?.connect();
-      setTimeout(() => {
-        if (socketRef.current?.connected) {
-          socketRef.current.emit(SOCKET_EVENTS.AGENT_BACK);
+
+    // Emit with acknowledgment and retry logic
+    const emitWithRetry = async (attempt: number = 0): Promise<boolean> => {
+      // Wait for socket to be connected
+      if (!socketRef.current?.connected) {
+        if (attempt >= MAX_RETRIES) {
+          console.error("[Signaling] ⚠️ Max retries reached for setBack, socket not connected");
+          return false;
         }
-      }, 500);
-    } else {
-      socket.emit(SOCKET_EVENTS.AGENT_BACK);
-    }
+        console.log(`[Signaling] Socket disconnected, reconnecting (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+        socketRef.current?.connect();
+        await new Promise(resolve => setTimeout(resolve, BASE_RETRY_DELAY * Math.pow(2, attempt)));
+        return emitWithRetry(attempt + 1);
+      }
+
+      return new Promise((resolve) => {
+        const timeoutId = setTimeout(() => {
+          console.warn(`[Signaling] Ack timeout for setBack (attempt ${attempt + 1})`);
+          if (attempt < MAX_RETRIES - 1) {
+            emitWithRetry(attempt + 1).then(resolve);
+          } else {
+            // Fallback: assume it worked if we're still connected after max retries
+            console.warn("[Signaling] Max retries reached, assuming setBack succeeded");
+            resolve(true);
+          }
+        }, ACK_TIMEOUT);
+
+        socketRef.current?.emit(SOCKET_EVENTS.AGENT_BACK, (response: StatusAckPayload) => {
+          clearTimeout(timeoutId);
+          console.log("[Signaling] setBack ack received:", response);
+          
+          if (response.success) {
+            resolve(true);
+          } else {
+            console.error("[Signaling] setBack failed:", response.error);
+            if (attempt < MAX_RETRIES - 1) {
+              setTimeout(() => {
+                emitWithRetry(attempt + 1).then(resolve);
+              }, BASE_RETRY_DELAY * Math.pow(2, attempt));
+            } else {
+              resolve(false);
+            }
+          }
+        });
+      });
+    };
+
+    const success = await emitWithRetry();
     
-    setIsMarkedAway(false);
-    setAwayReason(null);
+    if (success) {
+      setIsMarkedAway(false);
+      setAwayReason(null);
+    } else {
+      console.error("[Signaling] Failed to set back status after all retries");
+      // Still try to update local state - better to show as available than stuck away
+      setIsMarkedAway(false);
+      setAwayReason(null);
+    }
   }, []);
 
   return {

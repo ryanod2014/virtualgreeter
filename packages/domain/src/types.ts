@@ -36,6 +36,7 @@ export interface AgentState {
   currentSimulations: string[]; // visitor IDs watching this agent's simulation
   currentCallVisitorId: string | null;
   connectedAt: number;
+  lastActivityAt: number; // Last heartbeat/activity timestamp for staleness detection
 }
 
 // ----------------------------------------------------------------------------
@@ -115,13 +116,14 @@ export interface WidgetToServerEvents {
 export interface DashboardToServerEvents {
   "agent:login": (data: AgentLoginPayload) => void;
   "agent:status": (data: AgentStatusPayload) => void;
-  "agent:away": (data: AgentAwayPayload) => void;
-  "agent:back": () => void;
+  "agent:away": (data: AgentAwayPayload, ack?: (response: StatusAckPayload) => void) => void;
+  "agent:back": (ack?: (response: StatusAckPayload) => void) => void;
   "call:accept": (data: CallAcceptPayload) => void;
   "call:reject": (data: CallRejectPayload) => void;
   "call:end": (data: CallEndPayload) => void;
   "webrtc:signal": (data: WebRTCSignalPayload) => void;
   "agent:logout": () => void;
+  "heartbeat": (data: { timestamp: number }) => void;
 }
 
 /** Server-to-Client events sent to the Widget */
@@ -214,6 +216,13 @@ export interface CallEndPayload {
 
 export interface AgentAwayPayload {
   reason: "idle" | "manual";
+}
+
+/** Acknowledgment payload for status change operations */
+export interface StatusAckPayload {
+  success: boolean;
+  status: AgentStatus;
+  error?: string;
 }
 
 // Shared Payloads

@@ -10,6 +10,7 @@ import type {
   AgentLoginPayload,
   AgentStatusPayload,
   AgentAwayPayload,
+  StatusAckPayload,
   CallRequestPayload,
   CallAcceptPayload,
   CallRejectPayload,
@@ -441,9 +442,15 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     });
 
     // Agent manually sets themselves as away (e.g., from idle timer)
-    socket.on(SOCKET_EVENTS.AGENT_AWAY, async (data: AgentAwayPayload) => {
+    socket.on(SOCKET_EVENTS.AGENT_AWAY, async (data: AgentAwayPayload, ack?: (response: StatusAckPayload) => void) => {
       const agent = poolManager.getAgentBySocketId(socket.id);
-      if (agent) {
+      if (!agent) {
+        console.error(`[Socket] AGENT_AWAY failed - agent not found for socket ${socket.id}`);
+        ack?.({ success: false, status: "offline", error: "Agent not found" });
+        return;
+      }
+
+      try {
         console.log(`[Socket] 🚫 Agent ${agent.agentId} marked as away, reason: ${data.reason}`);
         console.log(`[Socket] Agent had ${agent.currentSimulations.length} visitors in simulations:`, agent.currentSimulations);
         
@@ -451,6 +458,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         
         // Track away status for activity reporting
         await recordStatusChange(agent.agentId, "away", data.reason);
+        
+        // Send acknowledgment first so client knows the status change succeeded
+        ack?.({ success: true, status: "away" });
         
         // Reassign visitors watching this agent's simulation to another agent
         // (or notify them if no agent available - widget will hide)
@@ -506,18 +516,30 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
             }
           }
         }
+      } catch (error) {
+        console.error(`[Socket] Error in AGENT_AWAY handler:`, error);
+        ack?.({ success: false, status: agent.profile.status, error: "Internal error" });
       }
     });
 
     // Agent returns from away
-    socket.on(SOCKET_EVENTS.AGENT_BACK, async () => {
+    socket.on(SOCKET_EVENTS.AGENT_BACK, async (ack?: (response: StatusAckPayload) => void) => {
       const agent = poolManager.getAgentBySocketId(socket.id);
-      if (agent) {
+      if (!agent) {
+        console.error(`[Socket] AGENT_BACK failed - agent not found for socket ${socket.id}`);
+        ack?.({ success: false, status: "offline", error: "Agent not found" });
+        return;
+      }
+
+      try {
         console.log(`[Socket] Agent ${agent.agentId} is back from away`);
         poolManager.updateAgentStatus(agent.agentId, "idle");
         
         // Track status change for activity reporting
         await recordStatusChange(agent.agentId, "idle", "back_from_away");
+        
+        // Send acknowledgment first so client knows the status change succeeded
+        ack?.({ success: true, status: "idle" });
         
         // Re-assign unassigned visitors (whose widgets were hidden when agent went away)
         const unassignedVisitors = poolManager.getUnassignedVisitors();
@@ -563,6 +585,17 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
             startRNATimeout(io, poolManager, waitingRequest.requestId, agent.agentId, visitor.visitorId);
           }
         }
+      } catch (error) {
+        console.error(`[Socket] Error in AGENT_BACK handler:`, error);
+        ack?.({ success: false, status: agent.profile.status, error: "Internal error" });
+      }
+    });
+
+    // Handle heartbeat from client - update activity timestamp for staleness detection
+    socket.on("heartbeat" as never, (_data: { timestamp: number }) => {
+      const agent = poolManager.getAgentBySocketId(socket.id);
+      if (agent) {
+        poolManager.updateAgentActivity(agent.agentId);
       }
     });
 
@@ -971,6 +1004,43 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       }
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // PERIODIC STALENESS CHECK
+  // ---------------------------------------------------------------------------
+  // Check every 60 seconds for agents with no heartbeat for 2+ minutes
+  const STALENESS_CHECK_INTERVAL = 60_000; // 60 seconds
+  const STALENESS_THRESHOLD = 120_000; // 2 minutes without heartbeat = stale
+
+  setInterval(() => {
+    const staleAgents = poolManager.getStaleAgents(STALENESS_THRESHOLD);
+    
+    for (const agent of staleAgents) {
+      console.log(`[Staleness] ⚠️ Agent ${agent.agentId} is stale (no heartbeat for ${STALENESS_THRESHOLD / 1000}s), marking as away`);
+      
+      // Mark agent as away
+      poolManager.updateAgentStatus(agent.agentId, "away");
+      
+      // Track away status for activity reporting
+      recordStatusChange(agent.agentId, "away", "heartbeat_stale");
+      
+      // Notify the agent they've been marked away
+      const agentSocket = io.sockets.sockets.get(agent.socketId);
+      if (agentSocket) {
+        agentSocket.emit(SOCKET_EVENTS.AGENT_MARKED_AWAY, {
+          reason: "idle",
+          message: "You've been marked as Away due to connection inactivity.",
+        });
+      }
+      
+      // Reassign visitors watching this agent's simulation to another agent
+      const reassignments = poolManager.reassignVisitors(agent.agentId);
+      if (reassignments.reassigned.size > 0 || reassignments.unassigned.length > 0) {
+        console.log(`[Staleness] Reassignment results for ${agent.agentId}: ${reassignments.reassigned.size} reassigned, ${reassignments.unassigned.length} unassigned`);
+        notifyReassignments(io, poolManager, reassignments, "agent_away");
+      }
+    }
+  }, STALENESS_CHECK_INTERVAL);
 }
 
 /**

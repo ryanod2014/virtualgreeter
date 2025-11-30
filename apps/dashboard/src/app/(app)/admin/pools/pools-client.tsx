@@ -1643,7 +1643,7 @@ export function PoolsClient({
       setAddingAgentToPool(null);
       
       // Sync to signaling server
-      syncConfigToServer();
+      syncConfigToServer(pools);
     }
   };
   
@@ -1668,7 +1668,7 @@ export function PoolsClient({
       }));
       
       // Sync to signaling server so tiered routing takes effect immediately
-      syncConfigToServer();
+      syncConfigToServer(pools);
     }
   };
 

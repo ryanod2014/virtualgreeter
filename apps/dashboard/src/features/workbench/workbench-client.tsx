@@ -38,6 +38,9 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
   const [recordingSettings, setRecordingSettings] = useState<RecordingSettings>({
     enabled: false,
     retention_days: 30,
+    transcription_enabled: false,
+    ai_summary_enabled: false,
+    ai_summary_prompt_format: null,
   });
 
   useEffect(() => {

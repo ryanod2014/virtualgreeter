@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { RecordingSettings } from "@blitz/domain/database.types";
+import type { RecordingSettings } from "@ghost-greeter/domain/database.types";
 
 // Pricing constants (2x API costs)
 const TRANSCRIPTION_COST_PER_MIN = 0.01; // ~2x Deepgram Nova-2

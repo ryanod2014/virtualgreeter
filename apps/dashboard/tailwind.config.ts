@@ -8,6 +8,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Outfit', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -53,10 +56,45 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(10px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(30px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "scale-in": {
+          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "slide-in-left": {
+          "0%": { opacity: "0", transform: "translateX(-30px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        "slide-in-right": {
+          "0%": { opacity: "0", transform: "translateX(30px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        "glow-pulse": {
+          "0%, 100%": { opacity: "0.5" },
+          "50%": { opacity: "0.8" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-20px)" },
+        },
+        "shimmer": {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
       },
       animation: {
         "pulse-ring": "pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "fade-in": "fade-in 0.3s ease-out",
+        "fade-in": "fade-in 0.5s ease-out forwards",
+        "fade-in-up": "fade-in-up 0.7s ease-out forwards",
+        "scale-in": "scale-in 0.5s ease-out forwards",
+        "slide-in-left": "slide-in-left 0.6s ease-out forwards",
+        "slide-in-right": "slide-in-right 0.6s ease-out forwards",
+        "glow-pulse": "glow-pulse 3s ease-in-out infinite",
+        "float": "float 6s ease-in-out infinite",
+        "shimmer": "shimmer 3s linear infinite",
       },
     },
   },
@@ -64,4 +102,3 @@ const config: Config = {
 };
 
 export default config;
-

@@ -391,17 +391,20 @@ export class PoolManager {
       console.log(`[PoolManager] Agent reconnecting: ${profile.displayName} (${profile.id}), updating socket ${existingAgent.socketId} -> ${socketId}, status: ${profile.status}`);
       existingAgent.socketId = socketId;
       existingAgent.profile = profile;
+      existingAgent.lastActivityAt = Date.now(); // Reset activity on reconnect
       return existingAgent;
     }
     
     // New agent registration
+    const now = Date.now();
     const agentState: AgentState = {
       agentId: profile.id,
       socketId,
       profile,
       currentSimulations: [],
       currentCallVisitorId: null,
-      connectedAt: Date.now(),
+      connectedAt: now,
+      lastActivityAt: now,
     };
     
     this.agents.set(profile.id, agentState);
@@ -446,6 +449,38 @@ export class PoolManager {
       agent.currentCallVisitorId = visitorId;
       agent.profile.status = visitorId ? "in_call" : "idle";
     }
+  }
+
+  /**
+   * Update agent's last activity timestamp (called on heartbeat)
+   */
+  updateAgentActivity(agentId: string): void {
+    const agent = this.agents.get(agentId);
+    if (agent) {
+      agent.lastActivityAt = Date.now();
+    }
+  }
+
+  /**
+   * Get all agents whose last activity is older than the threshold
+   * Only returns agents who are currently "idle" (not in call, not already away)
+   * @param threshold Time in milliseconds since last activity
+   */
+  getStaleAgents(threshold: number): AgentState[] {
+    const now = Date.now();
+    const staleAgents: AgentState[] = [];
+    
+    for (const agent of this.agents.values()) {
+      // Only check idle agents - don't mark agents as stale if they're in a call or already away
+      if (agent.profile.status === "idle") {
+        const timeSinceActivity = now - agent.lastActivityAt;
+        if (timeSinceActivity > threshold) {
+          staleAgents.push(agent);
+        }
+      }
+    }
+    
+    return staleAgents;
   }
 
   // ---------------------------------------------------------------------------

@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-sans",
-});
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
@@ -13,8 +8,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GreetNow | Agent Dashboard",
-  description: "Digital greeter agent dashboard - Convert visitors with live video presence",
+  title: "GreetNow | Turn Visitors Into Live Conversations",
+  description: "GreetNow creates the illusion of a live video presence for every visitor. When they engage, you connect instantly via WebRTC. Respond in seconds, not hours.",
+  openGraph: {
+    title: "GreetNow | Turn Visitors Into Live Conversations",
+    description: "Respond to leads 21x more effectively. Create live video presence and connect instantly via WebRTC.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -25,11 +25,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans antialiased`}
+        className={`${jetbrainsMono.variable} antialiased`}
       >
         {children}
       </body>
     </html>
   );
 }
-
