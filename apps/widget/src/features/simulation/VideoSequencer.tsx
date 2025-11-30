@@ -16,6 +16,10 @@ interface VideoSequencerProps {
   audioUnlocked?: boolean;
   /** Called when a video error occurs */
   onError?: (error: string) => void;
+  /** Skip directly to loop video (used when reopening after minimize) */
+  skipToLoop?: boolean;
+  /** Called when intro sequence completes (reached loop state) */
+  onIntroComplete?: () => void;
 }
 
 type VideoState = "loading" | "wave" | "intro" | "loop" | "connecting" | "live" | "error";
@@ -44,6 +48,8 @@ export function VideoSequencer({
   isLive,
   audioUnlocked = false,
   onError,
+  skipToLoop = false,
+  onIntroComplete,
 }: VideoSequencerProps) {
   const [state, setState] = useState<VideoState>("loading");
   const [isMuted, setIsMuted] = useState(true);
@@ -72,13 +78,13 @@ export function VideoSequencer({
   }, []);
 
   /**
-   * Switch to loop video - ONLY after intro has completed (or no intro exists)
+   * Switch to loop video - ONLY after intro has completed (or no intro exists or skipToLoop)
    */
-  const switchToLoop = useCallback(() => {
+  const switchToLoop = useCallback((force = false) => {
     if (!loopVideoRef.current) return;
 
-    // Safety check: don't switch to loop if intro exists and hasn't completed
-    if (introUrl && !introCompleted) {
+    // Safety check: don't switch to loop if intro exists and hasn't completed (unless forced)
+    if (!force && introUrl && !introCompleted) {
       console.warn("[VideoSequencer] ⚠️ Cannot switch to loop - intro not completed yet");
       return;
     }
@@ -105,7 +111,10 @@ export function VideoSequencer({
         });
       }
     });
-  }, [introUrl, introCompleted]);
+
+    // Notify parent that intro sequence is complete
+    onIntroComplete?.();
+  }, [introUrl, introCompleted, onIntroComplete]);
 
   /**
    * Switch to intro video with audio
@@ -320,8 +329,36 @@ export function VideoSequencer({
     }
   }, [loopUrl]);
 
-  // Start playing wave video MUTED when URLs are available
+  // Skip directly to loop if skipToLoop is true (e.g., reopening after minimize)
   useEffect(() => {
+    if (skipToLoop && loopUrl && loopVideoRef.current) {
+      console.log("[VideoSequencer] ⏭️ Skipping to loop (reopening widget)");
+      
+      // Wait for loop video to be ready
+      const loopVideo = loopVideoRef.current;
+      
+      const startLoop = () => {
+        switchToLoop(true); // force=true to bypass intro check
+      };
+      
+      if (loopVideo.readyState >= 3) {
+        // Already ready
+        startLoop();
+      } else {
+        // Wait for it to be ready
+        loopVideo.addEventListener("canplaythrough", startLoop, { once: true });
+        return () => {
+          loopVideo.removeEventListener("canplaythrough", startLoop);
+        };
+      }
+    }
+  }, [skipToLoop, loopUrl, switchToLoop]);
+
+  // Start playing wave video MUTED when URLs are available (skip if skipToLoop)
+  useEffect(() => {
+    // Don't start wave sequence if we're skipping to loop
+    if (skipToLoop) return;
+
     const videoUrl = waveUrl || introUrl;
     const videoRef = waveVideoRef.current;
 
@@ -353,7 +390,7 @@ export function VideoSequencer({
     return () => {
       videoRef.removeEventListener("error", handleError);
     };
-  }, [waveUrl, introUrl, handleVideoError]);
+  }, [waveUrl, introUrl, handleVideoError, skipToLoop]);
 
   // Handle connecting state change
   useEffect(() => {

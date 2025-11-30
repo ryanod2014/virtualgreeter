@@ -121,6 +121,8 @@ export function Widget({ config }: WidgetProps) {
   const [agent, setAgent] = useState<AgentAssignedPayload["agent"] | null>(null);
   const [handoffMessage, setHandoffMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasCompletedIntroSequence, setHasCompletedIntroSequence] = useState(false);
+  const [hasHadCall, setHasHadCall] = useState(false); // Track if visitor has had a call (enables minimize after)
 
   // Widget appearance settings (from server)
   const [widgetSettings, setWidgetSettings] = useState<WidgetSettings>(DEFAULT_WIDGET_SETTINGS);
@@ -266,10 +268,11 @@ export function Widget({ config }: WidgetProps) {
       console.log("[Widget] Call rejected - but visitor keeps waiting");
     },
     onCallEnded: () => {
-      console.log("[Widget] Call ended - resetting state");
-      setState("open");
+      console.log("[Widget] Call ended - minimizing widget");
+      setState("minimized");
       setIsCameraOn(false);
       setIsMicOn(false);
+      setHasHadCall(true); // Enable minimize button for future interactions
       cleanupPreviewStream();
     },
     onConnectionError: (error) => {
@@ -821,7 +824,8 @@ export function Widget({ config }: WidgetProps) {
     cleanupPreviewStream();
     setIsCameraOn(false);
     setIsMicOn(false);
-    setState("open");
+    setHasHadCall(true); // Enable minimize button for future interactions
+    setState("minimized");
   }, [currentCallId, endSignalingCall, endWebRTCCall, cleanupPreviewStream]);
 
   // Handle keyboard navigation
@@ -958,8 +962,8 @@ export function Widget({ config }: WidgetProps) {
                   </svg>
                 )}
               </button>
-              {/* Minimize button - only shown when enabled in settings, positioned rightmost */}
-              {widgetSettings.show_minimize_button && !isFullscreen && (
+              {/* Minimize button - shown when enabled in settings OR after a call has ended */}
+              {(widgetSettings.show_minimize_button || hasHadCall) && !isFullscreen && (
                 <button
                   className="gg-video-control-btn"
                   onClick={handleMinimize}
@@ -991,6 +995,8 @@ export function Widget({ config }: WidgetProps) {
                 isLive={false}
                 audioUnlocked={audioUnlocked}
                 onError={showError}
+                skipToLoop={hasCompletedIntroSequence}
+                onIntroComplete={() => setHasCompletedIntroSequence(true)}
               />
             )}
 
