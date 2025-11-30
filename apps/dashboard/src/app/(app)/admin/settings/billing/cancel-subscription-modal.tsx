@@ -278,7 +278,7 @@ export function CancelSubscriptionModal({
                 your current billing period.
               </p>
               <p className="text-sm text-muted-foreground">
-                Thank you for your honest feedback — it helps us improve Ghost Greeter for everyone.
+                Thank you for your honest feedback — it helps us improve GreetNow for everyone.
               </p>
             </div>
           )}
@@ -418,7 +418,7 @@ export function CancelSubscriptionModal({
               {/* Would return? */}
               <div>
                 <label className="block text-sm font-medium mb-3">
-                  Would you consider using Ghost Greeter again in the future?
+                  Would you consider using GreetNow again in the future?
                 </label>
                 <div className="flex gap-3">
                   <button

@@ -181,7 +181,7 @@ export function EllisSurveyModal({
               {/* Question */}
               <p className="text-lg font-medium mb-6 leading-relaxed">
                 How would you feel if you could no longer use{" "}
-                <span className="text-primary">Ghost Greeter</span>?
+                <span className="text-primary">GreetNow</span>?
               </p>
 
               {/* Options */}

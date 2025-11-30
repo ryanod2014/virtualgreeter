@@ -63,7 +63,7 @@ export default function PreviewSurveyPage() {
         <h2 className="font-semibold mb-3">About this Survey</h2>
         <ul className="space-y-2 text-sm text-muted-foreground">
           <li>• <strong>Purpose:</strong> Measure Product-Market Fit (PMF) using the Sean Ellis test</li>
-          <li>• <strong>Question:</strong> "How disappointed would you be if you could no longer use Ghost Greeter?"</li>
+          <li>• <strong>Question:</strong> "How disappointed would you be if you could no longer use GreetNow?"</li>
           <li>• <strong>Target:</strong> 40%+ "Very disappointed" = strong PMF</li>
           <li>• <strong>Trigger:</strong> Randomly 5-20 minutes into a user session</li>
           <li>• <strong>Cooldown:</strong> Won't show again for 30 days after responding</li>

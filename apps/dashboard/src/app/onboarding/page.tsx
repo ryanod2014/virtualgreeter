@@ -123,7 +123,7 @@ export default function OnboardingPage() {
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <Ghost className="w-10 h-10 text-primary" />
-          <span className="text-2xl font-bold">Ghost-Greeter</span>
+          <span className="text-2xl font-bold">GreetNow</span>
         </div>
 
         {/* Progress */}
@@ -141,7 +141,7 @@ export default function OnboardingPage() {
         <div className="glass rounded-2xl p-8">
           {step === "welcome" && (
             <div className="text-center">
-              <h1 className="text-3xl font-bold mb-4">Welcome to Ghost-Greeter! 👋</h1>
+              <h1 className="text-3xl font-bold mb-4">Welcome to GreetNow! 👋</h1>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto">
                 Let's get you set up to start converting website visitors with your
                 simulated live presence.

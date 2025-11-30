@@ -13,7 +13,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ghost-Greeter | Agent Dashboard",
+  title: "GreetNow | Agent Dashboard",
   description: "Digital greeter agent dashboard - Convert visitors with live video presence",
 };
 

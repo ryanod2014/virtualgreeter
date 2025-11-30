@@ -59,7 +59,7 @@ export default function SignupPage() {
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <Ghost className="w-10 h-10 text-primary" />
-          <span className="text-2xl font-bold">Ghost-Greeter</span>
+          <span className="text-2xl font-bold">GreetNow</span>
         </div>
 
         {/* Card */}

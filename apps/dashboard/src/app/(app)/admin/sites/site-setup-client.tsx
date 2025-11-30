@@ -122,7 +122,7 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
       : `${rawWidgetUrl}/widget.js`;
   const serverUrl = process.env.NEXT_PUBLIC_SIGNALING_SERVER || "http://localhost:3001";
 
-  const embedCode = `<!-- Ghost-Greeter Widget -->
+  const embedCode = `<!-- GreetNow Widget -->
 <script>
   (function(w,d,s,o,f,js,fjs){
     w['GhostGreeter']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};

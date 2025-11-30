@@ -119,14 +119,14 @@ export async function POST(request: NextRequest) {
     const inviteUrl = `${baseUrl}/accept-invite?token=${token}`;
     // Handle Supabase returning organization as array due to join
     const org = Array.isArray(profile.organization) ? profile.organization[0] : profile.organization;
-    const orgName = (org as { name: string })?.name || "Ghost-Greeter";
+    const orgName = (org as { name: string })?.name || "GreetNow";
 
     if (resend) {
       try {
         await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || "Ghost-Greeter <noreply@ghost-greeter.com>",
+          from: process.env.RESEND_FROM_EMAIL || "GreetNow <noreply@greetnow.com>",
           to: email,
-          subject: `You've been invited to join ${orgName} on Ghost-Greeter`,
+          subject: `You've been invited to join ${orgName} on GreetNow`,
           html: `
             <!DOCTYPE html>
             <html>
@@ -136,12 +136,12 @@ export async function POST(request: NextRequest) {
               </head>
               <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 32px;">
-                  <h1 style="font-size: 24px; font-weight: bold; margin: 0;">👻 Ghost-Greeter</h1>
+                  <h1 style="font-size: 24px; font-weight: bold; margin: 0;">👋 GreetNow</h1>
                 </div>
                 
                 <div style="background: #f9fafb; border-radius: 12px; padding: 32px; margin-bottom: 24px;">
                   <h2 style="font-size: 20px; font-weight: 600; margin: 0 0 16px 0;">Hi ${fullName}!</h2>
-                  <p style="margin: 0 0 16px 0;">You've been invited to join <strong>${orgName}</strong> on Ghost-Greeter as ${role === 'admin' ? 'an Admin' : 'an Agent'}.</p>
+                  <p style="margin: 0 0 16px 0;">You've been invited to join <strong>${orgName}</strong> on GreetNow as ${role === 'admin' ? 'an Admin' : 'an Agent'}.</p>
                   <p style="margin: 0 0 24px 0;">Click the button below to set up your account and get started:</p>
                   
                   <a href="${inviteUrl}" style="display: inline-block; background: #6366f1; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600;">

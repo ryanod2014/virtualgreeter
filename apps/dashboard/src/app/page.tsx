@@ -33,7 +33,7 @@ export default function HomePage() {
             <div className="flex items-center gap-2">
               <Ghost className="w-8 h-8 text-primary" />
               <span className="text-xl font-bold tracking-tight">
-                Ghost-Greeter
+                GreetNow
               </span>
             </div>
             <div className="flex items-center gap-4">
@@ -69,7 +69,7 @@ export default function HomePage() {
             </h1>
 
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-              Ghost-Greeter creates the illusion of a live video presence for
+              GreetNow creates the illusion of a live video presence for
               every visitor. When they engage, you connect instantly via WebRTC.
             </p>
 
