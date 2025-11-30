@@ -76,19 +76,19 @@ export function AgentSidebar({
       <div className="flex h-full flex-col">
         {/* Logo & Org */}
         <div className="p-6 border-b border-border">
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex flex-col items-center gap-3 mb-3">
             {organization.logo_url ? (
               <img
                 src={organization.logo_url}
                 alt={organization.name}
-                className="w-10 h-10 rounded-lg object-contain bg-muted/50"
+                className="w-12 h-12 rounded-lg object-contain bg-muted/50"
               />
             ) : (
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Logo size="sm" />
               </div>
             )}
-            <div className="flex-1 min-w-0">
+            <div className="text-center">
               <div className="font-bold text-lg truncate">{organization.name}</div>
               <div 
                 className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
