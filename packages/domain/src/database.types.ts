@@ -12,6 +12,10 @@ export type AgentStatus = "offline" | "idle" | "in_simulation" | "in_call";
 
 export type CallStatus = "pending" | "accepted" | "rejected" | "completed" | "missed";
 
+export type TranscriptionStatus = "pending" | "processing" | "completed" | "failed";
+export type AISummaryStatus = "pending" | "processing" | "completed" | "failed";
+export type UsageType = "transcription" | "ai_summary";
+
 export type CancellationReason = 
   | "reps_not_using"
   | "not_enough_reps"
@@ -41,7 +45,54 @@ export type RuleConditionType = "domain" | "path" | "query_param";
 export interface RecordingSettings {
   enabled: boolean;
   retention_days: number;
+  // Transcription settings (charged per transcription)
+  transcription_enabled: boolean;
+  // AI Summary settings (requires transcription)
+  ai_summary_enabled: boolean;
+  ai_summary_prompt_format: string | null; // User-editable format for AI summaries
 }
+
+// Pricing constants (2x API costs)
+export const TRANSCRIPTION_COST_PER_MIN = 0.01; // ~2x Deepgram Nova-2 ($0.0043/min)
+export const AI_SUMMARY_COST_PER_MIN = 0.02; // ~2x estimated LLM token costs
+
+// Default AI summary format for sales calls
+export const DEFAULT_AI_SUMMARY_FORMAT = `## Summary
+Brief 2-3 sentence overview of the call.
+
+## Customer Interest
+- What product/service were they interested in?
+- What problem are they trying to solve?
+- Budget or timeline mentioned?
+
+## Key Discussion Points
+1. 
+2. 
+3. 
+
+## Objections & Concerns
+- List any objections or hesitations raised
+
+## Action Items
+- [ ] Follow-up tasks for the sales rep
+- [ ] Next steps discussed with customer
+
+## Call Outcome
+(Qualified Lead / Needs Follow-up / Not Interested / Scheduled Demo / Closed Deal)
+
+## Notes
+Any additional context or observations`;
+
+// Backend prompt template for AI summaries
+export const AI_SUMMARY_SYSTEM_PROMPT = `Your job is to summarize this call following the EXACT format given. Fill in each section based on the call transcription. If a section doesn't apply or information wasn't discussed, write "N/A" or "Not discussed".`;
+
+export const buildAISummaryPrompt = (transcription: string, format: string): string => {
+  return `Call transcription:
+${transcription}
+
+Summary format:
+${format}`;
+};
 
 // Widget settings for organization (defaults) and pools (overrides)
 export type WidgetSize = "small" | "medium" | "large";
@@ -224,6 +275,19 @@ export interface Database {
           disposition_id: string | null;
           started_at: string | null;
           ended_at: string | null;
+          // Transcription fields
+          transcription: string | null;
+          transcription_status: TranscriptionStatus | null;
+          transcription_error: string | null;
+          transcription_duration_seconds: number | null;
+          transcription_cost: number | null;
+          transcribed_at: string | null;
+          // AI Summary fields
+          ai_summary: string | null;
+          ai_summary_status: AISummaryStatus | null;
+          ai_summary_error: string | null;
+          ai_summary_cost: number | null;
+          summarized_at: string | null;
           created_at: string;
         };
         Insert: Omit<Database["public"]["Tables"]["call_logs"]["Row"], "id" | "created_at">;
@@ -491,6 +555,22 @@ export interface Database {
         Insert: Omit<Database["public"]["Tables"]["survey_cooldowns"]["Row"], "created_at" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["survey_cooldowns"]["Insert"]>;
       };
+
+      usage_records: {
+        Row: {
+          id: string;
+          organization_id: string;
+          call_log_id: string | null;
+          usage_type: UsageType;
+          duration_seconds: number;
+          cost: number;
+          billed: boolean;
+          billed_at: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["usage_records"]["Row"], "id" | "created_at">;
+        Update: Partial<Database["public"]["Tables"]["usage_records"]["Insert"]>;
+      };
     };
   };
 }
@@ -572,6 +652,9 @@ export type PmfSurveyInsert = Database["public"]["Tables"]["pmf_surveys"]["Inser
 
 export type SurveyCooldown = Database["public"]["Tables"]["survey_cooldowns"]["Row"];
 export type SurveyCooldownInsert = Database["public"]["Tables"]["survey_cooldowns"]["Insert"];
+
+export type UsageRecord = Database["public"]["Tables"]["usage_records"]["Row"];
+export type UsageRecordInsert = Database["public"]["Tables"]["usage_records"]["Insert"];
 
 // MRR Tracking types
 export type MrrChangeType = "new" | "expansion" | "contraction" | "churn" | "reactivation";

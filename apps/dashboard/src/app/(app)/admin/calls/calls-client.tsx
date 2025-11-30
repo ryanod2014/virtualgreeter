@@ -28,6 +28,11 @@ import {
   AlertTriangle,
   UserPlus,
   ArrowRight,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  MessageSquareText,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -75,6 +80,12 @@ interface CallLogWithRelations extends CallLogForStats {
   visitor_region: string | null;
   visitor_country: string | null;
   visitor_country_code: string | null;
+  // Transcription fields
+  transcription: string | null;
+  transcription_status: "pending" | "processing" | "completed" | "failed" | null;
+  // AI Summary fields
+  ai_summary: string | null;
+  ai_summary_status: "pending" | "processing" | "completed" | "failed" | null;
 }
 
 interface FilterParams {
@@ -941,6 +952,12 @@ export function CallsClient({
                 <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">
                   Recording
                 </th>
+                <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">
+                  Transcription
+                </th>
+                <th className="text-left px-6 py-4 text-sm font-medium text-muted-foreground">
+                  AI Summary
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -1038,6 +1055,12 @@ function CallLogRow({
   onPlayToggle: () => void;
   onDownload: (url: string, filename?: string) => void;
 }) {
+  const [showTranscription, setShowTranscription] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  
+  const hasTranscription = call.transcription_status === "completed" && call.transcription;
+  const hasSummary = call.ai_summary_status === "completed" && call.ai_summary;
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
@@ -1057,7 +1080,68 @@ function CallLogRow({
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
+  const getTranscriptionStatusBadge = () => {
+    if (!call.transcription_status) return null;
+    
+    switch (call.transcription_status) {
+      case "processing":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-500/10 text-blue-500">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Processing
+          </span>
+        );
+      case "completed":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-500/10 text-green-500">
+            <FileText className="w-3 h-3" />
+            Transcribed
+          </span>
+        );
+      case "failed":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-500">
+            <AlertTriangle className="w-3 h-3" />
+            Failed
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getSummaryStatusBadge = () => {
+    if (!call.ai_summary_status) return null;
+    
+    switch (call.ai_summary_status) {
+      case "processing":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-500/10 text-purple-500">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Summarizing
+          </span>
+        );
+      case "completed":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-500/10 text-purple-500">
+            <Sparkles className="w-3 h-3" />
+            AI Summary
+          </span>
+        );
+      case "failed":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-500">
+            <AlertTriangle className="w-3 h-3" />
+            Summary Failed
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
+    <>
     <tr className="border-b border-border/50 hover:bg-muted/20">
       <td className="px-6 py-4">
         <div className="text-sm font-medium">
@@ -1165,7 +1249,7 @@ function CallLogRow({
           <div className="flex items-center gap-2">
             {call.recording_url.includes('.webm') || call.recording_url.includes('video') ? (
               <button
-                onClick={onPlayToggle}
+                onClick={(e) => { e.stopPropagation(); onPlayToggle(); }}
                 className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors flex items-center gap-1.5"
                 title="Play video recording"
               >
@@ -1174,7 +1258,7 @@ function CallLogRow({
               </button>
             ) : (
               <button
-                onClick={onPlayToggle}
+                onClick={(e) => { e.stopPropagation(); onPlayToggle(); }}
                 className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
                 title={isPlaying ? "Pause audio" : "Play audio recording"}
               >
@@ -1186,7 +1270,7 @@ function CallLogRow({
               </button>
             )}
             <button
-              onClick={() => onDownload(call.recording_url!, `call-recording-${call.id}.webm`)}
+              onClick={(e) => { e.stopPropagation(); onDownload(call.recording_url!, `call-recording-${call.id}.webm`); }}
               className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
               title="Download recording"
             >
@@ -1197,7 +1281,92 @@ function CallLogRow({
           <span className="text-sm text-muted-foreground">-</span>
         )}
       </td>
+      {/* Transcription column */}
+      <td className="px-6 py-4">
+        {call.transcription_status === "processing" && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-500/10 text-blue-500">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Processing
+          </span>
+        )}
+        {call.transcription_status === "completed" && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowTranscription(!showTranscription); }}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-500/10 text-green-500 hover:bg-green-500/20 transition-colors cursor-pointer"
+          >
+            <FileText className="w-3 h-3" />
+            Transcribed
+            {showTranscription ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+        )}
+        {call.transcription_status === "failed" && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-500">
+            <AlertTriangle className="w-3 h-3" />
+            Failed
+          </span>
+        )}
+        {!call.transcription_status && <span className="text-sm text-muted-foreground">—</span>}
+      </td>
+      {/* AI Summary column */}
+      <td className="px-6 py-4">
+        {call.ai_summary_status === "processing" && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-500/10 text-purple-500">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Summarizing
+          </span>
+        )}
+        {call.ai_summary_status === "completed" && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowSummary(!showSummary); }}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-colors cursor-pointer"
+          >
+            <Sparkles className="w-3 h-3" />
+            AI Summary
+            {showSummary ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+        )}
+        {call.ai_summary_status === "failed" && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-500">
+            <AlertTriangle className="w-3 h-3" />
+            Failed
+          </span>
+        )}
+        {!call.ai_summary_status && <span className="text-sm text-muted-foreground">—</span>}
+      </td>
     </tr>
+    {/* Expandable Transcription Section */}
+    {showTranscription && hasTranscription && (
+      <tr className="bg-muted/10">
+        <td colSpan={10} className="px-6 py-4">
+          <div className="bg-muted/30 border border-border rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <MessageSquareText className="w-4 h-4 text-muted-foreground" />
+              <h4 className="font-semibold">Transcription</h4>
+            </div>
+            <div className="max-h-96 overflow-y-auto">
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{call.transcription}</p>
+            </div>
+          </div>
+        </td>
+      </tr>
+    )}
+    {/* Expandable AI Summary Section */}
+    {showSummary && hasSummary && (
+      <tr className="bg-muted/10">
+        <td colSpan={10} className="px-6 py-4">
+          <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-purple-500" />
+              <h4 className="font-semibold text-purple-500">AI Summary</h4>
+            </div>
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <div className="whitespace-pre-wrap text-sm">{call.ai_summary}</div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
 

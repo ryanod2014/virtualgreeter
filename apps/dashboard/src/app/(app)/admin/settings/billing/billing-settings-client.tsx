@@ -17,11 +17,20 @@ import {
   AlertTriangle,
   Snowflake,
   PlayCircle,
+  FileText,
+  Sparkles,
 } from "lucide-react";
 import type { Organization } from "@ghost-greeter/domain/database.types";
 import { CancelSubscriptionModal, type CancellationData } from "./cancel-subscription-modal";
 import { PauseAccountModal } from "./pause-account-modal";
 import { submitCancellationFeedback, pauseAccount, resumeAccount } from "./actions";
+
+interface AIUsage {
+  transcriptionCost: number;
+  transcriptionMinutes: number;
+  summaryCost: number;
+  summaryMinutes: number;
+}
 
 interface Props {
   organization: Organization;
@@ -29,6 +38,7 @@ interface Props {
   storageUsedGB: number;
   userId: string;
   subscriptionStartDate: Date;
+  aiUsage?: AIUsage;
 }
 
 // Flat rate pricing
@@ -38,7 +48,7 @@ const STORAGE_PRICE_PER_GB = 0.50;
 const FREE_STORAGE_GB = 10;
 const INCLUDED_SEATS = 1;
 
-export function BillingSettingsClient({ organization, agentCount, storageUsedGB, userId, subscriptionStartDate }: Props) {
+export function BillingSettingsClient({ organization, agentCount, storageUsedGB, userId, subscriptionStartDate, aiUsage }: Props) {
   const [isManaging, setIsManaging] = useState(false);
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -54,7 +64,10 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
   const billableStorageGB = Math.max(0, storageUsedGB - FREE_STORAGE_GB);
   const storageCost = billableStorageGB * STORAGE_PRICE_PER_GB;
   
-  const monthlyTotal = agentCost + storageCost;
+  // AI usage costs
+  const aiCost = (aiUsage?.transcriptionCost ?? 0) + (aiUsage?.summaryCost ?? 0);
+  
+  const monthlyTotal = agentCost + storageCost + aiCost;
   
   // Mock billing data - in production this would come from Stripe
   const billingCycle = {
@@ -254,7 +267,7 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
                 <span className="text-sm font-medium">Monthly Total</span>
               </div>
               <div className="text-sm text-muted-foreground">
-                Agents + Recording Storage
+                Agents + Storage + AI Usage
               </div>
             </div>
             <div className="text-right">
@@ -321,6 +334,54 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
               <p className="text-sm text-muted-foreground">
                 First {FREE_STORAGE_GB} GB free. Additional storage billed at ${STORAGE_PRICE_PER_GB.toFixed(2)} per GB per month.
               </p>
+            </div>
+          </div>
+          
+          {/* AI Transcription pricing */}
+          <div className="flex items-start gap-4 p-4 rounded-xl bg-muted/20">
+            <div className="p-2 rounded-lg bg-green-500/10">
+              <FileText className="w-5 h-5 text-green-500" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-medium">Call Transcription</h3>
+                <span className="text-lg font-bold">$0.01<span className="text-sm font-normal text-muted-foreground">/min</span></span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Automatic audio-to-text transcription for recorded calls.
+              </p>
+              {aiUsage && aiUsage.transcriptionMinutes > 0 && (
+                <div className="mt-2 text-sm">
+                  <span className="text-muted-foreground">This period: </span>
+                  <span className="font-medium">{aiUsage.transcriptionMinutes.toFixed(1)} min</span>
+                  <span className="text-muted-foreground"> = </span>
+                  <span className="font-medium text-green-500">${aiUsage.transcriptionCost.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* AI Summary pricing */}
+          <div className="flex items-start gap-4 p-4 rounded-xl bg-muted/20">
+            <div className="p-2 rounded-lg bg-purple-500/10">
+              <Sparkles className="w-5 h-5 text-purple-500" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-medium">AI Call Summary</h3>
+                <span className="text-lg font-bold">$0.02<span className="text-sm font-normal text-muted-foreground">/min</span></span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                AI-generated summaries from call transcriptions.
+              </p>
+              {aiUsage && aiUsage.summaryMinutes > 0 && (
+                <div className="mt-2 text-sm">
+                  <span className="text-muted-foreground">This period: </span>
+                  <span className="font-medium">{aiUsage.summaryMinutes.toFixed(1)} min</span>
+                  <span className="text-muted-foreground"> = </span>
+                  <span className="font-medium text-purple-500">${aiUsage.summaryCost.toFixed(2)}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

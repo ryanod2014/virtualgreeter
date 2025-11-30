@@ -48,6 +48,33 @@ export default async function BillingSettingsPage() {
   }
   const storageUsedGB = totalStorageBytes / (1024 * 1024 * 1024); // Convert bytes to GB
 
+  // Get AI usage for current billing period (this month)
+  // Note: usage_records table is created by migration - may not exist yet
+  const billingPeriodStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  let transcriptionCost = 0;
+  let transcriptionMinutes = 0;
+  let summaryCost = 0;
+  let summaryMinutes = 0;
+  
+  try {
+    const { data: usageRecords } = await supabase
+      .from("usage_records")
+      .select("usage_type, cost, duration_seconds")
+      .eq("organization_id", auth.organization.id)
+      .gte("created_at", billingPeriodStart.toISOString());
+
+    // Calculate AI costs
+    const transcriptionUsage = usageRecords?.filter(u => u.usage_type === "transcription") ?? [];
+    const summaryUsage = usageRecords?.filter(u => u.usage_type === "ai_summary") ?? [];
+    
+    transcriptionCost = transcriptionUsage.reduce((sum, u) => sum + (u.cost || 0), 0);
+    transcriptionMinutes = transcriptionUsage.reduce((sum, u) => sum + ((u.duration_seconds || 0) / 60), 0);
+    summaryCost = summaryUsage.reduce((sum, u) => sum + (u.cost || 0), 0);
+    summaryMinutes = summaryUsage.reduce((sum, u) => sum + ((u.duration_seconds || 0) / 60), 0);
+  } catch {
+    // Table doesn't exist yet - migration not run
+  }
+
   // Use organization created_at as subscription start date (in production, get from Stripe)
   const subscriptionStartDate = new Date(auth.organization.created_at);
 
@@ -58,6 +85,12 @@ export default async function BillingSettingsPage() {
       storageUsedGB={storageUsedGB}
       userId={auth.user.id}
       subscriptionStartDate={subscriptionStartDate}
+      aiUsage={{
+        transcriptionCost,
+        transcriptionMinutes,
+        summaryCost,
+        summaryMinutes,
+      }}
     />
   );
 }

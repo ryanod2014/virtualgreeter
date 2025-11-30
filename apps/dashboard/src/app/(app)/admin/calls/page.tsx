@@ -62,6 +62,10 @@ export default async function CallsPage({ searchParams }: Props) {
       visitor_region,
       visitor_country,
       visitor_country_code,
+      transcription,
+      transcription_status,
+      ai_summary,
+      ai_summary_status,
       agent:agent_profiles(id, display_name),
       site:sites(id, name, domain),
       disposition:dispositions(id, name, color)

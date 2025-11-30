@@ -18,10 +18,18 @@ export default async function RecordingSettingsPage() {
 
   if (!organization) redirect("/admin");
 
+  const defaultSettings = {
+    enabled: false,
+    retention_days: 30,
+    transcription_enabled: false,
+    ai_summary_enabled: false,
+    ai_summary_prompt_format: null,
+  };
+
   return (
     <RecordingSettingsClient
       organizationId={organization.id}
-      initialSettings={organization.recording_settings ?? { enabled: false, retention_days: 30 }}
+      initialSettings={{ ...defaultSettings, ...organization.recording_settings }}
     />
   );
 }

@@ -70,6 +70,10 @@ export default async function CallLogsPage({ searchParams }: Props) {
       visitor_region,
       visitor_country,
       visitor_country_code,
+      transcription,
+      transcription_status,
+      ai_summary,
+      ai_summary_status,
       site:sites(id, name, domain),
       disposition:dispositions(id, name, color)
     `

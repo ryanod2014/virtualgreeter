@@ -278,6 +278,22 @@ export function useCallRecording({
             console.error("[Recording] Failed to update call log:", updateError);
           }
 
+          // Trigger transcription processing in background (fire and forget)
+          // This will transcribe and optionally generate AI summary based on org settings
+          fetch("/api/transcription/process", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ callLogId: storedCallLogId }),
+          }).then(response => {
+            if (response.ok) {
+              console.log("[Recording] Transcription processing triggered");
+            } else {
+              console.warn("[Recording] Transcription trigger failed:", response.status);
+            }
+          }).catch(err => {
+            console.warn("[Recording] Failed to trigger transcription:", err);
+          });
+
           resolve(recordingUrl);
         } catch (err) {
           console.error("[Recording] Error processing recording:", err);
