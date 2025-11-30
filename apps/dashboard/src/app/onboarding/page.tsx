@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ghost, Upload, Check, ArrowRight, Loader2, Video, Shield, Phone } from "lucide-react";
+import { Upload, Check, ArrowRight, Loader2, Video, Shield, Phone } from "lucide-react";
+import { Logo } from "@/lib/components/logo";
 import { createClient } from "@/lib/supabase/client";
 
 type Step = "welcome" | "role-choice" | "videos" | "complete";
@@ -121,9 +122,8 @@ export default function OnboardingPage() {
 
       <div className="relative w-full max-w-2xl">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <Ghost className="w-10 h-10 text-primary" />
-          <span className="text-2xl font-bold">GreetNow</span>
+        <div className="flex items-center justify-center mb-8">
+          <Logo size="lg" />
         </div>
 
         {/* Progress */}

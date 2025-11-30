@@ -1,12 +1,12 @@
 import Link from "next/link";
 import {
-  Ghost,
   Zap,
   Users,
   Video,
   ArrowRight,
   Sparkles,
 } from "lucide-react";
+import { Logo } from "@/lib/components/logo";
 
 export default function HomePage() {
   return (
@@ -30,12 +30,7 @@ export default function HomePage() {
         {/* Header */}
         <header className="container mx-auto px-6 py-6">
           <nav className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Ghost className="w-8 h-8 text-primary" />
-              <span className="text-xl font-bold tracking-tight">
-                GreetNow
-              </span>
-            </div>
+            <Logo size="md" />
             <div className="flex items-center gap-4">
               <Link
                 href="/login"

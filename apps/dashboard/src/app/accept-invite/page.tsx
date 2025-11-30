@@ -2,7 +2,8 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Ghost, Mail, Lock, User, Loader2, AlertCircle, Video, Shield, Phone } from "lucide-react";
+import { Mail, Lock, User, Loader2, AlertCircle, Video, Shield, Phone } from "lucide-react";
+import { Logo } from "@/lib/components/logo";
 import { createClient } from "@/lib/supabase/client";
 
 function AcceptInviteContent() {
@@ -212,9 +213,8 @@ function AcceptInviteContent() {
 
       <div className="relative w-full max-w-md">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <Ghost className="w-10 h-10 text-primary" />
-          <span className="text-2xl font-bold">GreetNow</span>
+        <div className="flex items-center justify-center mb-8">
+          <Logo size="lg" />
         </div>
 
         {/* Card */}

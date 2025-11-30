@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
-  Ghost,
   Video,
   Film,
   LogOut,
@@ -14,6 +13,7 @@ import {
   Check,
   Users,
 } from "lucide-react";
+import { Logo } from "@/lib/components/logo";
 import type { User, Organization, AgentProfile } from "@ghost-greeter/domain/database.types";
 import type { ActiveCall } from "@ghost-greeter/domain";
 import { createClient } from "@/lib/supabase/client";
@@ -85,7 +85,7 @@ export function AgentSidebar({
               />
             ) : (
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Ghost className="w-6 h-6 text-primary" />
+                <Logo size="sm" />
               </div>
             )}
             <div className="flex-1 min-w-0">

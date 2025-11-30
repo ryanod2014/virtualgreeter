@@ -1528,38 +1528,64 @@ const POWERED_BY_STYLES = `
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 8px 16px;
-    background: rgba(0, 0, 0, 0.3);
+    gap: 4px;
+    padding: 5px 12px;
+    background: rgba(0, 0, 0, 0.2);
     color: var(--gg-text-muted);
-    font-size: 11px;
+    font-size: 9px;
     text-decoration: none;
     cursor: pointer;
     transition: all var(--gg-transition-fast);
     border-top: 1px solid var(--gg-border);
+    opacity: 0.7;
   }
-
+  
   .gg-powered-by:hover {
+    opacity: 1;
     background: rgba(99, 102, 241, 0.1);
     color: var(--gg-text);
   }
 
-  .gg-powered-by:hover strong {
-    color: var(--gg-primary);
+  .gg-powered-by:hover .gg-logo-greet,
+  .gg-powered-by:hover .gg-logo-now {
+    color: var(--gg-text);
   }
 
-  .gg-powered-by strong {
-    font-weight: 600;
+  /* Logo styles */
+  .gg-logo {
+    position: relative;
+    display: inline-flex;
+    align-items: baseline;
+    font-size: 10px;
+    letter-spacing: -0.02em;
+  }
+
+  .gg-logo-greet {
+    font-weight: 800;
+    color: var(--gg-text);
     transition: color var(--gg-transition-fast);
   }
 
-  .gg-powered-by svg {
-    opacity: 0.5;
-    transition: opacity var(--gg-transition-fast);
+  .gg-logo-now {
+    font-weight: 300;
+    color: var(--gg-text-muted);
+    transition: color var(--gg-transition-fast);
   }
 
-  .gg-powered-by:hover svg {
-    opacity: 0.8;
+  .gg-logo-dot {
+    position: absolute;
+    top: -1px;
+    right: -4px;
+    width: 3px;
+    height: 3px;
+    background: #ef4444;
+    border-radius: 50%;
+    animation: gg-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes gg-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.1); }
   }
 `;
 

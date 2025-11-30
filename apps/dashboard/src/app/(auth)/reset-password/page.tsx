@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Ghost, Lock, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Lock, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Logo } from "@/lib/components/logo";
 import { createClient } from "@/lib/supabase/client";
 
 function ResetPasswordContent() {
@@ -130,9 +131,8 @@ function ResetPasswordContent() {
 
       <div className="relative w-full max-w-md">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <Ghost className="w-10 h-10 text-primary" />
-          <span className="text-2xl font-bold">GreetNow</span>
+        <div className="flex items-center justify-center mb-8">
+          <Logo size="lg" />
         </div>
 
         {/* Card */}
