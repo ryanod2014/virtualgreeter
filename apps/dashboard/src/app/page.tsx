@@ -10,106 +10,164 @@ import {
   Clock,
   TrendingUp,
   Target,
-  AlertTriangle,
   MessageSquare,
-  BarChart3,
   Shield,
   Globe,
   ChevronDown,
   ChevronUp,
-  Phone,
   PlayCircle,
   Sparkles,
-  Timer,
   Award,
   CheckCircle2,
+  XCircle,
+  PhoneOff,
+  PhoneIncoming,
+  Flame,
+  DollarSign,
+  Calendar,
+  UserX,
+  MousePointerClick,
+  Eye,
 } from "lucide-react";
 import { Logo } from "@/lib/components/logo";
+import { WidgetDemo } from "@/lib/components/WidgetDemo";
+
+const oldWayProblems = [
+  {
+    icon: UserX,
+    problem: "Pray for opt-ins",
+    reality: "97% of visitors leave without filling out your form. You're fighting for scraps.",
+  },
+  {
+    icon: PhoneOff,
+    problem: "Cold outbound hell",
+    reality: "Dial 100 numbers, reach 8 people. The rest? Voicemail purgatory.",
+  },
+  {
+    icon: Clock,
+    problem: "The timing trap",
+    reality: "By the time you call back, they've already talked to 3 competitors. You're dead on arrival.",
+  },
+  {
+    icon: Calendar,
+    problem: "Calendar chaos",
+    reality: "Scheduled calls = no-shows. People book when they're hot, cancel when they're cold.",
+  },
+];
+
+const newWayBenefits = [
+  {
+    icon: Eye,
+    problem: "They see a live greeter",
+    reality: "The moment they land, someone's already 'there.' Feels like walking into a store with great service.",
+  },
+  {
+    icon: PhoneIncoming,
+    problem: "THEY call YOU",
+    reality: "No more chasing. They click, you answer. Inbound psychology = no resistance.",
+  },
+  {
+    icon: Flame,
+    problem: "Peak buying temperature",
+    reality: "You're talking while they're researching. While the problem is top of mind. While the credit card is warm.",
+  },
+  {
+    icon: MousePointerClick,
+    problem: "Zero opt-in required",
+    reality: "Turn pageviews into sales calls. Even the 97% who never would've filled out your form.",
+  },
+];
 
 const stats = [
   {
-    value: "21x",
-    label: "More Effective",
-    description: "Companies calling within 5 minutes",
-    source: "MIT Study",
+    value: "97%",
+    label: "Never Opt-In",
+    description: "of visitors leave without filling out your form",
+    source: "You're losing almost everyone",
+  },
+  {
+    value: "8%",
+    label: "Pick Up Rate",
+    description: "is the average for cold outbound calls",
+    source: "92 out of 100 = wasted",
+  },
+  {
+    value: "5 min",
+    label: "Too Late",
+    description: "wait drops your chances of qualifying a lead by 80%",
+    source: "Speed to lead research",
   },
   {
     value: "391%",
-    label: "More Conversions",
-    description: "When responding in under 1 minute",
-    source: "Zillow Research",
-  },
-  {
-    value: "7%",
-    label: "Of Companies",
-    description: "Actually respond within 5 minutes",
-    source: "Industry Average",
-  },
-  {
-    value: "80%",
-    label: "Drop in Qualification",
-    description: "When waiting over 5 minutes",
-    source: "Lead Response Study",
+    label: "More Closes",
+    description: "when you respond in under 1 minute",
+    source: "While they're still hot",
   },
 ];
 
-const features = [
-  { icon: Video, label: "Simulated live video presence" },
-  { icon: Zap, label: "Instant WebRTC connections" },
-  { icon: Users, label: "Multi-agent pooling" },
-  { icon: Clock, label: "Sub-second response times" },
-  { icon: MessageSquare, label: "Real-time visitor engagement" },
-  { icon: BarChart3, label: "Conversion analytics" },
-  { icon: Shield, label: "Enterprise-grade security" },
-  { icon: Globe, label: "Global CDN delivery" },
+const perfectFor = [
+  { icon: DollarSign, label: "High-Ticket Services ($3K+)" },
+  { icon: Users, label: "Coaches & Consultants" },
+  { icon: Shield, label: "Professional Services" },
+  { icon: Globe, label: "Home Services" },
+  { icon: Target, label: "B2B Sales Teams" },
+  { icon: TrendingUp, label: "Agencies" },
 ];
 
-const whyChoose = [
+const howItWorks = [
   {
-    title: "Create an always-on presence",
+    step: "01",
+    title: "Your 'live greeter' appears",
     description:
-      "Your pre-recorded video loops seamlessly, creating the illusion that a real person is always available. Visitors feel welcomed the moment they land on your site.",
+      "The moment someone lands on your site, they see what looks like a real person waiting to help. It's actually a seamless video loop—but they don't know that.",
     icon: Video,
   },
   {
-    title: "Connect in milliseconds",
+    step: "02",
+    title: "They click to talk",
     description:
-      "When a visitor clicks to engage, the pre-recorded video instantly cuts to your live WebRTC stream. No waiting, no loading—just instant human connection.",
+      "No forms. No scheduling. No friction. They click, and suddenly they're face-to-face with you or your team. The loop cuts to live video in milliseconds.",
     icon: Zap,
   },
   {
-    title: "Scale without limits",
+    step: "03",
+    title: "You close while they're hot",
     description:
-      "One agent can broadcast to hundreds of visitors simultaneously. When they're busy, visitors seamlessly route to available team members.",
-    icon: Users,
+      "They called YOU. They're on your site right now. The problem they need solved is top-of-mind. This is the highest-converting sales conversation possible.",
+    icon: Flame,
   },
 ];
 
 const faqs = [
   {
-    question: "What exactly is GreetNow?",
+    question: "Who is this for?",
     answer:
-      "GreetNow is a video engagement platform that simulates a live presence on your website. Pre-recorded videos create the appearance of always-available staff, and when visitors engage, you connect instantly via WebRTC for real-time video conversations.",
+      "GreetNow is built for businesses selling high-ticket services—where one conversation can be worth $5K, $10K, or $50K+. Coaches, consultants, professional services, home services, agencies. If your business model depends on getting people on calls, this changes everything.",
   },
   {
-    question: "How does the 'live illusion' work?",
+    question: "How is this different from chatbots or live chat?",
     answer:
-      "You record short intro videos that loop seamlessly on your site. Visitors see what appears to be a live person ready to help. When they click to engage, the recording instantly switches to your actual live video feed.",
+      "Chat is text. Text is low-trust, low-conversion. GreetNow puts your actual face in front of prospects—creating the feeling of walking into a business and being greeted by a real human. The psychological difference is massive. Face-to-face builds trust instantly.",
   },
   {
-    question: "What's the response time improvement?",
+    question: "What if I'm not available when someone clicks?",
     answer:
-      "Traditional lead forms can take hours or days. With GreetNow, you're connecting in under 1 minute—that's the 391% conversion increase window that most companies miss.",
+      "GreetNow includes team routing. When you're on a call, visitors automatically connect to the next available team member. No missed opportunities. No voicemail. Always someone there.",
   },
   {
-    question: "Can I use this with my existing team?",
+    question: "Do visitors need to download anything?",
     answer:
-      "Absolutely. GreetNow includes elastic agent pooling, so your entire team can share the workload. When one agent is busy, calls automatically route to available team members.",
+      "No. Zero friction. It works in any modern browser using WebRTC—the same technology that powers Google Meet and Zoom. They click, you connect. That's it.",
   },
   {
-    question: "Is my video data secure?",
+    question: "How hard is this to set up?",
     answer:
-      "Yes. All video streams use end-to-end encryption via WebRTC. No video data is stored on our servers—it's peer-to-peer between you and your visitors.",
+      "Record a short welcome video, paste one line of code on your site. That's it. Most teams are live in under 15 minutes. No developers required.",
+  },
+  {
+    question: "What about my existing lead flow?",
+    answer:
+      "Keep your forms. Keep your calendar. GreetNow doesn't replace anything—it captures the 97% of visitors who would NEVER fill out your form anyway. It's pure upside.",
   },
 ];
 
@@ -179,10 +237,10 @@ export default function HomePage() {
             <Logo size="md" />
             <div className="hidden md:flex items-center gap-8">
               <Link
-                href="#features"
+                href="#old-vs-new"
                 className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
               >
-                Features
+                Why It Works
               </Link>
               <Link
                 href="#how-it-works"
@@ -194,7 +252,7 @@ export default function HomePage() {
                 href="#stats"
                 className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
               >
-                Why Speed Matters
+                The Math
               </Link>
               <Link
                 href="#faq"
@@ -221,114 +279,57 @@ export default function HomePage() {
         </header>
 
         {/* ===== HERO SECTION ===== */}
-        <section className="container mx-auto px-6 pt-20 pb-32">
+        <section className="container mx-auto px-6 pt-16 pb-24">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-16">
-              {/* Badge */}
+              {/* Badge - Pattern interrupt */}
               <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 mb-8 animate-fade-in">
                 <Sparkles className="w-4 h-4 text-primary" />
                 <span className="text-sm font-medium text-primary">
-                  Response time is everything
+                  Opt-in forms are dead. Here&apos;s what&apos;s replacing them.
                 </span>
               </div>
 
-              {/* Main headline */}
-              <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 animate-fade-in-up">
-                Turn every visitor into a
+              {/* Main headline - Big promise */}
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6 animate-fade-in-up leading-[1.15]">
+                Turn Pageviews Into Live Sales Calls...
                 <span className="gradient-text block mt-2">
-                  live conversation
+                  Without Them Ever Opting In Or Booking An Appointment
                 </span>
               </h1>
 
-              {/* Subheadline */}
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-in-up opacity-0 [animation-delay:0.2s]">
-                GreetNow creates the illusion of a live video presence for every
-                visitor. When they engage, you connect instantly via WebRTC.
-                Respond in seconds, not hours.
+              {/* Subheadline - The mechanism */}
+              <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed">
+                The &quot;live greeter&quot; that makes visitors feel like they just walked into your office—<span className="text-foreground font-semibold">and someone&apos;s already there to help.</span>
               </p>
 
               {/* CTA buttons */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up opacity-0 [animation-delay:0.4s]">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
                 <Link
                   href="/signup"
                   className="group bg-primary text-primary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-primary/90 transition-all flex items-center gap-2 hover:shadow-xl hover:shadow-primary/30"
                 >
-                  Get started for free
+                  See It In Action
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
                 <Link
-                  href="#how-it-works"
+                  href="#old-vs-new"
                   className="group glass px-8 py-4 rounded-full font-semibold text-lg hover:bg-muted/50 transition-all flex items-center gap-2"
                 >
                   <PlayCircle className="w-5 h-5 text-primary" />
-                  See how it works
+                  Why This Works
                 </Link>
               </div>
+
+              {/* Target audience callout */}
+              <p className="text-sm text-muted-foreground">
+                Built for <span className="text-primary font-medium">high-ticket businesses</span>: Coaches, Consultants, Professional Services, Home Services, Agencies
+              </p>
             </div>
 
-            {/* Product mockup */}
-            <div className="relative animate-fade-in-up opacity-0 [animation-delay:0.6s]">
-              <div className="mockup-glow rounded-2xl overflow-hidden border border-border/50 bg-muted/50 backdrop-blur-sm">
-                {/* Browser chrome */}
-                <div className="flex items-center gap-2 px-4 py-3 bg-muted/80 border-b border-border/50">
-                  <div className="flex gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                    <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                    <div className="w-3 h-3 rounded-full bg-green-500/80" />
-                  </div>
-                  <div className="flex-1 ml-4">
-                    <div className="bg-background/50 rounded-lg px-4 py-1.5 text-sm text-muted-foreground max-w-md mx-auto text-center">
-                      yourwebsite.com
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mock content */}
-                <div className="p-8 min-h-[400px] flex items-center justify-center relative">
-                  {/* Simulated page content */}
-                  <div className="absolute inset-8 flex">
-                    {/* Left side - page content skeleton */}
-                    <div className="flex-1 pr-8">
-                      <div className="h-8 w-48 bg-muted/60 rounded mb-4" />
-                      <div className="h-4 w-full bg-muted/40 rounded mb-2" />
-                      <div className="h-4 w-4/5 bg-muted/40 rounded mb-2" />
-                      <div className="h-4 w-3/4 bg-muted/40 rounded mb-6" />
-                      <div className="h-10 w-32 bg-primary/20 rounded-lg" />
-                    </div>
-
-                    {/* Right side - video widget */}
-                    <div className="w-80">
-                      <div className="bg-gradient-to-br from-muted to-muted/50 rounded-2xl p-1 shadow-2xl shadow-primary/20">
-                        <div className="bg-muted/80 rounded-xl overflow-hidden">
-                          {/* Video area */}
-                          <div className="aspect-video bg-gradient-to-br from-purple-900/40 to-muted relative flex items-center justify-center">
-                            <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center">
-                              <Video className="w-8 h-8 text-primary" />
-                            </div>
-                            {/* Live indicator */}
-                            <div className="absolute top-3 left-3 flex items-center gap-2 bg-success/90 px-2 py-1 rounded-full">
-                              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                              <span className="text-xs font-medium text-white">
-                                LIVE
-                              </span>
-                            </div>
-                          </div>
-                          {/* CTA area */}
-                          <div className="p-4 space-y-3">
-                            <p className="text-sm text-foreground font-medium">
-                              Hi! I'm Sarah, ready to help.
-                            </p>
-                            <button className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
-                              <Phone className="w-4 h-4" />
-                              Start Video Call
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* Animated Widget Demo */}
+            <div className="relative mt-16">
+              <WidgetDemo />
             </div>
 
             {/* Trust logos */}
@@ -352,30 +353,113 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ===== FEATURES LIST SECTION ===== */}
-        <section id="features" className="py-24 relative">
+        {/* ===== OLD WAY VS NEW WAY SECTION ===== */}
+        <section id="old-vs-new" className="py-24 relative">
           <div className="container mx-auto px-6">
-            <div className="max-w-6xl mx-auto flex flex-col lg:flex-row items-start gap-16">
-              {/* Left side - heading */}
-              <div className="lg:w-1/3 lg:sticky lg:top-24">
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                  Your instant engagement
-                  <span className="gradient-text block">platform for...</span>
+            <div className="max-w-6xl mx-auto">
+              {/* Section header */}
+              <div className="text-center mb-16">
+                <h2 className="text-3xl md:text-5xl font-bold mb-4">
+                  The Old Way Is Broken.
+                  <span className="gradient-text block mt-2">Here&apos;s What&apos;s Next.</span>
                 </h2>
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                  You&apos;ve been playing a losing game. Let us show you a better one.
+                </p>
               </div>
 
-              {/* Right side - feature list */}
-              <div className="lg:w-2/3 grid sm:grid-cols-2 gap-4">
-                {features.map((feature, index) => (
-                  <div
-                    key={feature.label}
-                    className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all group"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <feature.icon className="w-5 h-5 text-primary" />
+              {/* Two column comparison */}
+              <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
+                {/* OLD WAY */}
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-gradient-to-br from-muted/50 to-transparent rounded-3xl blur-xl" />
+                  <div className="relative bg-muted/30 border border-border/50 rounded-2xl p-8">
+                    <div className="flex items-center gap-3 mb-8">
+                      <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
+                        <XCircle className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold">The Old Way</h3>
+                        <p className="text-muted-foreground text-sm">What everyone else is still doing</p>
+                      </div>
                     </div>
-                    <span className="font-medium">{feature.label}</span>
+                    <div className="space-y-6">
+                      {oldWayProblems.map((item, index) => (
+                        <div key={index} className="flex gap-4">
+                          <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0 mt-1">
+                            <item.icon className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold mb-1">{item.problem}</h4>
+                            <p className="text-muted-foreground text-sm leading-relaxed">{item.reality}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* NEW WAY */}
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-gradient-to-br from-primary/20 to-fuchsia-500/10 rounded-3xl blur-xl" />
+                  <div className="relative bg-muted/30 border border-primary/20 rounded-2xl p-8">
+                    <div className="flex items-center gap-3 mb-8">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <CheckCircle2 className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold gradient-text">The GreetNow Way</h3>
+                        <p className="text-muted-foreground text-sm">The unfair advantage</p>
+                      </div>
+                    </div>
+                    <div className="space-y-6">
+                      {newWayBenefits.map((item, index) => (
+                        <div key={index} className="flex gap-4">
+                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                            <item.icon className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold mb-1">{item.problem}</h4>
+                            <p className="text-muted-foreground text-sm leading-relaxed">{item.reality}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bridge statement */}
+              <div className="mt-16 text-center">
+                <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
+                  This isn&apos;t an &quot;improvement&quot; to lead generation. 
+                  <span className="text-foreground font-semibold block mt-2">It&apos;s a completely different game.</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ===== PERFECT FOR SECTION ===== */}
+        <section id="features" className="py-16 relative">
+          <div className="container mx-auto px-6">
+            <div className="max-w-5xl mx-auto">
+              <div className="text-center mb-10">
+                <h2 className="text-2xl md:text-3xl font-bold mb-2">
+                  Built For High-Ticket Businesses
+                </h2>
+                <p className="text-muted-foreground">
+                  Where one conversation can be worth $5K, $10K, or $50K+
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-4">
+                {perfectFor.map((item, index) => (
+                  <div
+                    key={item.label}
+                    className="flex items-center gap-3 px-5 py-3 rounded-full bg-muted/30 border border-border/50 hover:border-primary/30 hover:bg-muted/50 transition-all"
+                  >
+                    <item.icon className="w-5 h-5 text-primary" />
+                    <span className="font-medium text-sm">{item.label}</span>
                   </div>
                 ))}
               </div>
@@ -383,17 +467,16 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ===== STATS SECTION ===== */}
+        {/* ===== STATS SECTION - THE HARSH REALITY ===== */}
         <section id="stats" className="py-24 relative">
           <div className="container mx-auto px-6">
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-16">
                 <h2 className="text-3xl md:text-5xl font-bold mb-4">
-                  Why speed matters
+                  The Brutal Math You Can&apos;t Ignore
                 </h2>
                 <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                  The data is clear: responding faster means more conversions.
-                  Here's what the research shows.
+                  This is why your current approach is leaving money on the table. Every. Single. Day.
                 </p>
               </div>
 
@@ -424,48 +507,44 @@ export default function HomePage() {
                 ))}
               </div>
 
-              {/* Urgency callout */}
-              <div className="mt-12 p-6 rounded-2xl bg-gradient-to-r from-primary/10 via-muted/50 to-fuchsia-500/10 border border-primary/20 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                    <AlertTriangle className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-lg">
-                      Only 7% of companies respond within 5 minutes
-                    </p>
-                    <p className="text-muted-foreground">
-                      Be in the top 7%. Get the competitive advantage.
-                    </p>
+              {/* Reframe callout */}
+              <div className="mt-12 p-8 rounded-2xl bg-gradient-to-r from-primary/10 via-muted/50 to-fuchsia-500/10 border border-primary/20">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <DollarSign className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-xl mb-2">
+                        Do the math on YOUR business:
+                      </p>
+                      <p className="text-muted-foreground leading-relaxed">
+                        If you get 1,000 visitors/month and your service is worth $5,000... the 97% who leave without opting in represent <span className="text-primary font-semibold">$4.85 million in potential revenue</span> walking away. What if you could talk to just 1% more of them?
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <Link
-                  href="/signup"
-                  className="bg-primary text-primary-foreground px-6 py-3 rounded-full font-medium hover:bg-primary/90 transition-all whitespace-nowrap"
-                >
-                  Start responding faster
-                </Link>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ===== WHY CHOOSE SECTION ===== */}
+        {/* ===== HOW IT WORKS SECTION ===== */}
         <section id="how-it-works" className="py-24 relative">
           <div className="container mx-auto px-6">
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-16">
                 <h2 className="text-3xl md:text-5xl font-bold mb-4">
-                  Why teams choose GreetNow
+                  How It Works
+                  <span className="gradient-text block mt-2">(It&apos;s Almost Unfair)</span>
                 </h2>
                 <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                  Turn passive visitors into active conversations with
-                  technology that feels like magic.
+                  Three steps to turn your website into a live sales floor.
                 </p>
               </div>
 
               <div className="grid gap-8">
-                {whyChoose.map((item, index) => (
+                {howItWorks.map((item, index) => (
                   <div
                     key={item.title}
                     className={`flex flex-col ${
@@ -474,8 +553,11 @@ export default function HomePage() {
                   >
                     {/* Content */}
                     <div className="flex-1">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                        <item.icon className="w-6 h-6 text-primary" />
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-6xl font-black text-primary/20">{item.step}</span>
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <item.icon className="w-6 h-6 text-primary" />
+                        </div>
                       </div>
                       <h3 className="text-2xl md:text-3xl font-bold mb-4">
                         {item.title}
@@ -506,46 +588,96 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ===== ADDITIONAL FEATURES ===== */}
+        {/* ===== THE PSYCHOLOGY SECTION ===== */}
         <section className="py-24 relative">
           <div className="container mx-auto px-6">
-            <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-8">
-              {/* Feature card 1 */}
-              <div className="feature-card relative bg-muted/30 border border-border/50 rounded-2xl p-8 overflow-hidden">
-                <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary/20 rounded-full blur-3xl" />
-                <div className="relative">
-                  <Timer className="w-8 h-8 text-primary mb-4" />
-                  <h3 className="text-2xl font-bold mb-3">
-                    Catch leads before they bounce
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed mb-6">
-                    The average visitor leaves in under 60 seconds. GreetNow
-                    engages them instantly with a video presence that feels
-                    personal—before they click away to a competitor.
-                  </p>
-                  <div className="flex items-center gap-2 text-primary font-medium">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>Increase engagement by 3x</span>
+            <div className="max-w-6xl mx-auto">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                  Why This Works So Well
+                </h2>
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                  It&apos;s not magic. It&apos;s psychology.
+                </p>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Psychology card 1 */}
+                <div className="feature-card relative bg-muted/30 border border-border/50 rounded-2xl p-8 overflow-hidden">
+                  <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary/20 rounded-full blur-3xl" />
+                  <div className="relative">
+                    <PhoneIncoming className="w-8 h-8 text-primary mb-4" />
+                    <h3 className="text-2xl font-bold mb-3">
+                      Inbound vs Outbound Psychology
+                    </h3>
+                    <p className="text-muted-foreground leading-relaxed mb-6">
+                      When YOU call THEM, they&apos;re defensive. &quot;Who is this? What do they want?&quot; 
+                      When THEY call YOU, they&apos;re open. They initiated. They&apos;re ready to buy. 
+                      <span className="text-foreground font-semibold"> Same person, completely different conversation.</span>
+                    </p>
+                    <div className="flex items-center gap-2 text-primary font-medium">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>Zero resistance = faster closes</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Feature card 2 */}
-              <div className="feature-card relative bg-muted/30 border border-border/50 rounded-2xl p-8 overflow-hidden">
-                <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-fuchsia-500/20 rounded-full blur-3xl" />
-                <div className="relative">
-                  <Award className="w-8 h-8 text-primary mb-4" />
-                  <h3 className="text-2xl font-bold mb-3">
-                    Stand out from the crowd
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed mb-6">
-                    While 93% of companies take over 5 minutes to respond,
-                    you'll be connecting in seconds. That's not just faster—it's
-                    a completely different experience.
-                  </p>
-                  <div className="flex items-center gap-2 text-primary font-medium">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>Join the top 7%</span>
+                {/* Psychology card 2 */}
+                <div className="feature-card relative bg-muted/30 border border-border/50 rounded-2xl p-8 overflow-hidden">
+                  <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-fuchsia-500/20 rounded-full blur-3xl" />
+                  <div className="relative">
+                    <Flame className="w-8 h-8 text-primary mb-4" />
+                    <h3 className="text-2xl font-bold mb-3">
+                      Strike While The Iron Is Hot
+                    </h3>
+                    <p className="text-muted-foreground leading-relaxed mb-6">
+                      When someone&apos;s on your website, they&apos;re actively researching. The problem is fresh. The pain is real. The credit card is within reach.
+                      <span className="text-foreground font-semibold"> Wait 5 minutes and they&apos;re already on a competitor&apos;s site.</span>
+                    </p>
+                    <div className="flex items-center gap-2 text-primary font-medium">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>Talk when they&apos;re ready to buy</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Psychology card 3 */}
+                <div className="feature-card relative bg-muted/30 border border-border/50 rounded-2xl p-8 overflow-hidden">
+                  <div className="absolute -top-20 -left-20 w-60 h-60 bg-primary/20 rounded-full blur-3xl" />
+                  <div className="relative">
+                    <Eye className="w-8 h-8 text-primary mb-4" />
+                    <h3 className="text-2xl font-bold mb-3">
+                      The &quot;Someone&apos;s Here&quot; Effect
+                    </h3>
+                    <p className="text-muted-foreground leading-relaxed mb-6">
+                      Walk into an empty store? You browse and leave. Walk into a store where someone greets you?
+                      <span className="text-foreground font-semibold"> You engage. You ask questions. You buy.</span> 
+                      Your website finally gets that same energy.
+                    </p>
+                    <div className="flex items-center gap-2 text-primary font-medium">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>From website to sales floor</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Psychology card 4 */}
+                <div className="feature-card relative bg-muted/30 border border-border/50 rounded-2xl p-8 overflow-hidden">
+                  <div className="absolute -bottom-20 -right-20 w-60 h-60 bg-fuchsia-500/20 rounded-full blur-3xl" />
+                  <div className="relative">
+                    <Award className="w-8 h-8 text-primary mb-4" />
+                    <h3 className="text-2xl font-bold mb-3">
+                      Face-to-Face Trust
+                    </h3>
+                    <p className="text-muted-foreground leading-relaxed mb-6">
+                      Text chat is anonymous. Email is forgettable. But when they see your face?
+                      <span className="text-foreground font-semibold"> You become real. Trustworthy. Human.</span> 
+                      High-ticket sales require high trust. Video builds it instantly.
+                    </p>
+                    <div className="flex items-center gap-2 text-primary font-medium">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>Build trust in seconds, not weeks</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -599,22 +731,39 @@ export default function HomePage() {
           </div>
 
           <div className="container mx-auto px-6 relative">
-            <div className="max-w-3xl mx-auto text-center">
-              <h2 className="text-4xl md:text-6xl font-bold mb-6">
-                Start converting
-                <span className="gradient-text block mt-2">visitors today</span>
+            <div className="max-w-4xl mx-auto text-center">
+              {/* Urgency/Scarcity frame */}
+              <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 mb-8">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-primary">
+                  Most businesses won&apos;t do this. That&apos;s your advantage.
+                </span>
+              </div>
+              
+              <h2 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+                Your Competitors Are Still
+                <span className="gradient-text block mt-2">Chasing Cold Leads</span>
               </h2>
-              <p className="text-xl text-muted-foreground mb-10 max-w-xl mx-auto">
-                Join the companies that respond in seconds, not hours. Start
-                your free trial and see the difference speed makes.
+              
+              <p className="text-xl md:text-2xl text-muted-foreground mb-6 max-w-2xl mx-auto leading-relaxed">
+                While they&apos;re dialing 100 numbers to reach 8 people, you could be answering inbound calls from warm prospects who are ready to buy. <span className="text-foreground font-semibold">Right now. On your website.</span>
               </p>
+
+              <p className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto">
+                Set up takes 15 minutes. The first call could change everything.
+              </p>
+              
               <Link
                 href="/signup"
                 className="group inline-flex items-center gap-2 bg-primary text-primary-foreground px-10 py-5 rounded-full font-semibold text-xl hover:bg-primary/90 transition-all hover:shadow-2xl hover:shadow-primary/30"
               >
-                Get started for free
+                Start Getting Inbound Calls
                 <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
               </Link>
+              
+              <p className="mt-6 text-sm text-muted-foreground">
+                Free to try. No credit card required. Cancel anytime.
+              </p>
             </div>
           </div>
         </section>
@@ -628,9 +777,9 @@ export default function HomePage() {
                 <div className="md:col-span-1">
                   <Logo size="lg" />
                   <p className="mt-4 text-muted-foreground text-sm leading-relaxed">
-                    GreetNow works alongside you, creating live video presence,
-                    connecting visitors, and accelerating your workflow from
-                    landing to close.
+                    Turn website visitors into inbound sales calls—even when they 
+                    never fill out a form. The live greeter platform for high-ticket 
+                    businesses.
                   </p>
                   <div className="flex items-center gap-4 mt-6">
                     {/* Social icons placeholder */}
