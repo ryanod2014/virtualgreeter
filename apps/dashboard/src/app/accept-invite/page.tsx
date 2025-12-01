@@ -156,14 +156,8 @@ function AcceptInviteContent() {
         .update({ accepted_at: new Date().toISOString() })
         .eq("id", invite.id);
 
-      // 5. Redirect based on role
-      if (shouldCreateAgentProfile) {
-        // Go to video onboarding if they're taking calls
-        window.location.href = "/onboarding";
-      } else {
-        // Admin-only, skip onboarding and go to admin dashboard
-        window.location.href = "/admin";
-      }
+      // 5. Redirect to admin dashboard
+      window.location.href = "/admin";
     } catch (err) {
       console.error("Signup error:", err);
       setError("An unexpected error occurred");

@@ -15,6 +15,7 @@ import {
   Shield,
   ChevronUp,
   ChevronDown,
+  ChevronDownCircle,
 } from "lucide-react";
 
 // Feature carousel data
@@ -22,7 +23,7 @@ const FEATURES = [
   {
     icon: Settings,
     title: "Customize Everything",
-    description: "Control the look, pages it shows on, and which leads it blocks. Your brand, your rules.",
+    description: "Control the look, size, pages it shows on, and which leads it blocks. Your brand, your rules.",
   },
   {
     icon: Layers,
@@ -80,11 +81,13 @@ export function FeatureCarousel() {
   const [startIndex, setStartIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [direction, setDirection] = useState<'up' | 'down' | null>(null);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
   const visibleCount = 4;
   const canScrollUp = startIndex > 0;
   const canScrollDown = startIndex < FEATURES.length - visibleCount;
 
   const visibleFeatures = FEATURES.slice(startIndex, startIndex + visibleCount);
+  const remainingFeatures = FEATURES.slice(visibleCount);
 
   const handleScroll = (dir: 'up' | 'down') => {
     if (isAnimating) return;
@@ -143,8 +146,38 @@ export function FeatureCarousel() {
         })}
       </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between pt-2">
+      {/* Mobile Expanded Features */}
+      {mobileExpanded && (
+        <div className="md:hidden space-y-3 animate-in slide-in-from-top-2 duration-300">
+          {remainingFeatures.map((feature, idx) => {
+            const Icon = feature.icon;
+            return (
+              <div 
+                key={`${feature.title}-expanded`}
+                className="bg-muted/30 border border-border/50 rounded-xl p-5 hover:border-primary/30 hover:bg-muted/50 transition-colors group"
+                style={{
+                  animationDelay: `${idx * 50}ms`
+                }}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                    <Icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-base text-foreground">{feature.title}</h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed mt-1">
+                      {feature.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Navigation - Desktop */}
+      <div className="hidden md:flex items-center justify-between pt-2">
         <span className="text-xs text-muted-foreground">
           {startIndex + 1}-{Math.min(startIndex + visibleCount, FEATURES.length)} of {FEATURES.length}
         </span>
@@ -171,6 +204,22 @@ export function FeatureCarousel() {
             }`}
           >
             <ChevronDown className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Navigation - Mobile */}
+      <div className="md:hidden pt-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {mobileExpanded ? `1-${FEATURES.length}` : `1-${visibleCount}`} of {FEATURES.length}
+          </span>
+          <button
+            onClick={() => setMobileExpanded(!mobileExpanded)}
+            className="flex items-center gap-2 text-xs text-primary hover:text-primary/80 transition-colors group"
+          >
+            <span>{mobileExpanded ? 'Show less' : 'See more features'}</span>
+            <ChevronDownCircle className={`w-5 h-5 transition-transform duration-300 ${mobileExpanded ? 'rotate-180' : ''}`} />
           </button>
         </div>
       </div>

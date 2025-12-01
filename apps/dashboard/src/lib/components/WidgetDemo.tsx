@@ -153,56 +153,56 @@ export function WidgetDemo() {
       {/* Main container - Mock browser window */}
       <div className="relative rounded-2xl overflow-hidden border border-primary/20 shadow-2xl shadow-primary/20 bg-slate-950">
         {/* Browser chrome */}
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-900/80 border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="flex gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-red-500" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500" />
-              <div className="w-3 h-3 rounded-full bg-green-500" />
+        <div className="flex items-center justify-between px-2 py-2 sm:px-3 sm:py-2.5 md:px-4 md:py-3 bg-slate-900/80 border-b border-white/5">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex gap-1 sm:gap-1.5">
+              <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 rounded-full bg-red-500" />
+              <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 rounded-full bg-yellow-500" />
+              <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 rounded-full bg-green-500" />
             </div>
           </div>
-          <div className="flex-1 mx-8">
-            <div className="bg-slate-800 rounded-lg px-4 py-1.5 text-center">
-              <span className="text-white/40 text-sm">https://</span>
-              <span className="text-white/80 text-sm">yourwebsite.com/pricing</span>
+          <div className="flex-1 mx-2 sm:mx-4 md:mx-8">
+            <div className="bg-slate-800 rounded-md sm:rounded-lg px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 text-center">
+              <span className="text-white/40 text-[10px] sm:text-xs md:text-sm">https://</span>
+              <span className="text-white/80 text-[10px] sm:text-xs md:text-sm">yourwebsite.com/pricing</span>
             </div>
           </div>
-          <div className="w-20" />
+          <div className="w-8 sm:w-12 md:w-20" />
         </div>
 
-        {/* Website content mockup */}
-        <div className="relative h-[400px] md:h-[480px] bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 overflow-hidden">
+        {/* Website content mockup - uses aspect ratio for proper browser proportions */}
+        <div className="relative aspect-[16/10] bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 overflow-hidden">
           {/* Mock website content */}
-          <div className="absolute inset-0 p-8">
+          <div className="absolute inset-0 p-3 sm:p-5 md:p-8">
             {/* Mock header */}
-            <div className="flex items-center justify-between mb-12">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500" />
-                <div className="w-24 h-3 bg-white/20 rounded" />
+            <div className="flex items-center justify-between mb-4 sm:mb-8 md:mb-12">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 rounded-md sm:rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500" />
+                <div className="w-12 sm:w-16 md:w-24 h-2 sm:h-2.5 md:h-3 bg-white/20 rounded" />
               </div>
-              <div className="flex gap-4">
+              <div className="hidden sm:flex gap-2 md:gap-4">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="w-16 h-2 bg-white/10 rounded" />
+                  <div key={i} className="w-8 md:w-16 h-1.5 md:h-2 bg-white/10 rounded" />
                 ))}
-                <div className="w-20 h-7 bg-blue-500/30 rounded-lg" />
+                <div className="w-12 md:w-20 h-5 md:h-7 bg-blue-500/30 rounded-md md:rounded-lg" />
               </div>
             </div>
 
             {/* Mock hero content */}
             <div className="max-w-lg">
-              <div className="w-3/4 h-8 bg-white/20 rounded mb-4" />
-              <div className="w-full h-4 bg-white/10 rounded mb-2" />
-              <div className="w-5/6 h-4 bg-white/10 rounded mb-8" />
+              <div className="w-3/4 h-4 sm:h-6 md:h-8 bg-white/20 rounded mb-2 sm:mb-3 md:mb-4" />
+              <div className="w-full h-2 sm:h-3 md:h-4 bg-white/10 rounded mb-1 sm:mb-1.5 md:mb-2" />
+              <div className="w-5/6 h-2 sm:h-3 md:h-4 bg-white/10 rounded mb-4 sm:mb-6 md:mb-8" />
               
               {/* Mock pricing cards */}
-              <div className="flex gap-4 mt-8">
+              <div className="flex gap-1.5 sm:gap-2.5 md:gap-4 mt-4 sm:mt-6 md:mt-8">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex-1 p-4 rounded-xl bg-white/5 border border-white/10">
-                    <div className="w-12 h-3 bg-white/20 rounded mb-3" />
-                    <div className="w-16 h-6 bg-white/15 rounded mb-3" />
-                    <div className="space-y-2">
+                  <div key={i} className="flex-1 p-1.5 sm:p-2.5 md:p-4 rounded-lg sm:rounded-xl bg-white/5 border border-white/10">
+                    <div className="w-8 sm:w-10 md:w-12 h-2 sm:h-2.5 md:h-3 bg-white/20 rounded mb-1.5 sm:mb-2 md:mb-3" />
+                    <div className="w-10 sm:w-12 md:w-16 h-3 sm:h-4 md:h-6 bg-white/15 rounded mb-1.5 sm:mb-2 md:mb-3" />
+                    <div className="space-y-1 sm:space-y-1.5 md:space-y-2">
                       {[1, 2, 3].map((j) => (
-                        <div key={j} className="w-full h-2 bg-white/10 rounded" />
+                        <div key={j} className="w-full h-1 sm:h-1.5 md:h-2 bg-white/10 rounded" />
                       ))}
                     </div>
                   </div>
@@ -214,15 +214,15 @@ export function WidgetDemo() {
           {/* The Widget - Exact replica */}
           <div 
             className={`
-              absolute bottom-5 right-5 z-10 
+              absolute bottom-2 right-2 sm:bottom-4 sm:right-4 md:bottom-5 md:right-5 z-10 
               transition-[opacity,transform] duration-500 ease-out
               ${isWidgetVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95"}
             `}
           >
-            {/* Full widget card - appears directly */}
+            {/* Full widget card - appears directly, scales proportionally on mobile */}
             {isWidgetVisible && (
               <div 
-                className="w-72 bg-[#0f0f14] rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+                className="w-32 xs:w-36 sm:w-48 md:w-56 lg:w-72 bg-[#0f0f14] rounded-lg sm:rounded-xl md:rounded-2xl overflow-hidden shadow-2xl border border-white/10"
               >
                 {/* Video container */}
                 <div className="relative aspect-[4/3] bg-[#1a1a24] overflow-hidden">
@@ -240,48 +240,48 @@ export function WidgetDemo() {
 
                   {/* Live badge */}
                   {isCallActive && (
-                    <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-full">
-                      <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                      <span className="text-white text-[10px] font-semibold">LIVE</span>
+                    <div className="absolute top-1 left-1 sm:top-2 sm:left-2 md:top-3 md:left-3 flex items-center gap-0.5 sm:gap-1 md:gap-1.5 bg-black/60 backdrop-blur-sm px-1 py-0.5 sm:px-1.5 md:px-2.5 md:py-1 rounded-full">
+                      <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 md:w-2 md:h-2 bg-red-500 rounded-full animate-pulse" />
+                      <span className="text-white text-[6px] sm:text-[8px] md:text-[10px] font-semibold">LIVE</span>
                     </div>
                   )}
 
                   {/* Top right controls */}
-                  <div className="absolute top-2 right-2 flex gap-1">
-                    <button className="w-7 h-7 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-white">
-                      <Maximize2 className="w-3.5 h-3.5" />
+                  <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 md:top-2 md:right-2 flex gap-1">
+                    <button className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 rounded sm:rounded-md md:rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-white">
+                      <Maximize2 className="w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 lg:w-3.5 lg:h-3.5" />
                     </button>
                   </div>
 
                   {/* Self-view PiP - camera stays off, only mic is clicked */}
-                  <div className="absolute bottom-3 right-3 w-16 h-16 rounded-xl overflow-hidden border-2 border-white/10 bg-[#1a1a24]">
+                  <div className="absolute bottom-1 right-1 w-7 h-7 sm:bottom-2 sm:right-2 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 rounded-md sm:rounded-lg md:rounded-xl overflow-hidden border border-white/10 sm:border-2 bg-[#1a1a24]">
                     {/* Camera off placeholder */}
                     <div className="w-full h-full flex items-center justify-center">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/30">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/30 sm:w-3 sm:h-3 md:w-4 md:h-4 lg:w-5 lg:h-5">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                         <circle cx="12" cy="7" r="4" />
                       </svg>
                     </div>
                     {/* Camera off badge */}
-                    <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-red-500/90 flex items-center justify-center">
-                      <VideoOff className="w-2.5 h-2.5 text-white" />
+                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:bottom-0.5 sm:right-0.5 sm:w-3 sm:h-3 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4 rounded-full bg-red-500/90 flex items-center justify-center">
+                      <VideoOff className="w-1.5 h-1.5 sm:w-2 sm:h-2 md:w-2.5 md:h-2.5 text-white" />
                     </div>
                   </div>
 
                   {/* Connecting overlay */}
                   {isConnecting && (
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-black/60 py-3 px-4 flex flex-col items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white/20 border-t-primary rounded-full animate-spin" />
-                      <span className="text-white text-xs">Connecting you to Sarah...</span>
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-black/60 py-1.5 px-2 sm:py-2 sm:px-3 md:py-3 md:px-4 flex flex-col items-center gap-1 sm:gap-1.5 md:gap-2">
+                      <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 border-2 border-white/20 border-t-primary rounded-full animate-spin" />
+                      <span className="text-white text-[8px] sm:text-[10px] md:text-xs">Connecting you to Sarah...</span>
                     </div>
                   )}
                 </div>
 
                 {/* Agent info */}
-                <div className="px-4 py-3 border-b border-white/10">
-                  <div className="text-white font-semibold text-sm">Sarah Johnson</div>
-                  <div className="flex items-center gap-1.5 text-green-400 text-xs">
-                    <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor">
+                <div className="px-1.5 py-1 sm:px-2 sm:py-1.5 md:px-3 md:py-2 lg:px-4 lg:py-3 border-b border-white/10">
+                  <div className="text-white font-semibold text-[10px] sm:text-xs md:text-sm">Sarah Johnson</div>
+                  <div className="flex items-center gap-0.5 sm:gap-1 md:gap-1.5 text-green-400 text-[8px] sm:text-[10px] md:text-xs">
+                    <svg className="w-1.5 h-1.5 sm:w-2 sm:h-2 md:w-2.5 md:h-2.5" viewBox="0 0 12 12" fill="currentColor">
                       <circle cx="6" cy="6" r="6" />
                     </svg>
                     {isCallActive ? "Live with you" : isConnecting ? "Connecting..." : "Joined you live"}
@@ -289,11 +289,11 @@ export function WidgetDemo() {
                 </div>
 
                 {/* Call controls */}
-                <div className="flex justify-center gap-4 p-4 bg-[#0f0f14]">
+                <div className="flex justify-center gap-1.5 sm:gap-2 md:gap-3 lg:gap-4 p-1.5 sm:p-2 md:p-3 lg:p-4 bg-[#0f0f14]">
                   {/* Mic button - the target for cursor click */}
                   <button 
                     className={`
-                      w-11 h-11 rounded-full flex items-center justify-center
+                      w-6 h-6 sm:w-7 sm:h-7 md:w-9 md:h-9 lg:w-11 lg:h-11 rounded-full flex items-center justify-center
                       transition-[background-color,transform,box-shadow] duration-200
                       ${isMicOn 
                         ? "bg-green-500/20 text-green-400" 
@@ -304,27 +304,27 @@ export function WidgetDemo() {
                     `}
                   >
                     {isMicOn ? (
-                      <Mic className="w-5 h-5" />
+                      <Mic className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5" />
                     ) : (
-                      <MicOff className="w-5 h-5" />
+                      <MicOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5" />
                     )}
                   </button>
 
                   {/* Camera button - stays off */}
-                  <button className="w-11 h-11 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center">
-                    <VideoOff className="w-5 h-5" />
+                  <button className="w-6 h-6 sm:w-7 sm:h-7 md:w-9 md:h-9 lg:w-11 lg:h-11 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center">
+                    <VideoOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5" />
                   </button>
 
                   {/* End call button - only shown when in call */}
                   {(isCallActive || isConnecting) && (
-                    <button className="w-11 h-11 rounded-full bg-red-500 text-white flex items-center justify-center">
-                      <Phone className="w-5 h-5 rotate-[135deg]" />
+                    <button className="w-6 h-6 sm:w-7 sm:h-7 md:w-9 md:h-9 lg:w-11 lg:h-11 rounded-full bg-red-500 text-white flex items-center justify-center">
+                      <Phone className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 rotate-[135deg]" />
                     </button>
                   )}
                 </div>
 
                 {/* Powered by footer */}
-                <div className="flex items-center justify-center gap-1 py-1.5 bg-black/30 border-t border-white/5 text-white/40 text-[9px]">
+                <div className="flex items-center justify-center gap-0.5 sm:gap-1 py-0.5 sm:py-1 md:py-1.5 bg-black/30 border-t border-white/5 text-white/40 text-[6px] sm:text-[7px] md:text-[8px] lg:text-[9px]">
                   <span>Powered by</span>
                   <span className="relative">
                     <span className="font-bold text-white/60">GREET</span>
@@ -374,8 +374,8 @@ export function WidgetDemo() {
 
           {/* Instructions overlay - subtle hint */}
           {phase === "website_idle" && (
-            <div className="absolute bottom-8 left-8">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted/30 border border-border/50 text-muted-foreground text-sm animate-pulse">
+            <div className="absolute bottom-3 left-3 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8">
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-3 sm:py-2 md:px-4 rounded-full bg-muted/30 border border-border/50 text-muted-foreground text-xs sm:text-sm animate-pulse">
                 Watch how it works...
               </div>
             </div>
@@ -384,8 +384,8 @@ export function WidgetDemo() {
       </div>
 
       {/* Caption below the demo */}
-      <div className="mt-6 flex justify-center">
-        <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-muted/30 border border-border/50 text-base text-muted-foreground">
+      <div className="mt-3 sm:mt-4 md:mt-6 flex justify-center">
+        <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 md:px-5 rounded-full bg-muted/30 border border-border/50 text-xs sm:text-sm md:text-base text-muted-foreground">
           {phase === "website_idle" && "🌐 Visitor lands on your website..."}
           {(phase === "widget_appears" || phase === "widget_shown") && "👋 Your live greeter appears automatically"}
           {(phase === "cursor_moves" || phase === "cursor_hovers") && "👀 Visitor sees someone ready to help"}

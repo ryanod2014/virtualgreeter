@@ -148,7 +148,7 @@ function PaywallForm() {
 
           {/* Pricing card */}
           <div className="bg-muted/30 border border-border/50 rounded-2xl p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Monthly per seat</div>
                 <div className="flex items-baseline gap-2">
@@ -156,11 +156,9 @@ function PaywallForm() {
                   <span className="text-muted-foreground">/month</span>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-medium">
-                  <Clock className="w-3.5 h-3.5" />
-                  7 days free
-                </div>
+              <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-medium w-fit">
+                <Clock className="w-3.5 h-3.5" />
+                7 days free
               </div>
             </div>
 

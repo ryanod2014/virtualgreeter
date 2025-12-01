@@ -253,20 +253,22 @@ export default function HomePage() {
                 </div>
                 
                 {/* Steps */}
-                <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 mb-10">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">1</div>
-                    <span className="text-sm text-muted-foreground">Copy one line of code</span>
-                  </div>
-                  <div className="hidden md:block text-muted-foreground/30">→</div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">2</div>
-                    <span className="text-sm text-muted-foreground">Paste it on your site</span>
-                  </div>
-                  <div className="hidden md:block text-muted-foreground/30">→</div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">3</div>
-                    <span className="text-sm text-muted-foreground">You&apos;re live</span>
+                <div className="flex justify-center mb-10">
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-8">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">1</div>
+                      <span className="text-sm text-muted-foreground">Copy one line of code</span>
+                    </div>
+                    <div className="hidden md:block text-muted-foreground/30">→</div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">2</div>
+                      <span className="text-sm text-muted-foreground">Paste it on your site</span>
+                    </div>
+                    <div className="hidden md:block text-muted-foreground/30">→</div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">3</div>
+                      <span className="text-sm text-muted-foreground">You&apos;re live</span>
+                    </div>
                   </div>
                 </div>
 
@@ -606,27 +608,33 @@ export default function HomePage() {
                 <div className="border-t border-border/30 pt-8">
                   <p className="text-center text-muted-foreground mb-6">And don&apos;t worry—<span className="text-white font-semibold">visitors don&apos;t need to be on camera</span>:</p>
                   <div className="bg-muted/20 border border-border/30 rounded-2xl p-6">
-                    <div className="grid md:grid-cols-3 gap-6">
-                      <div className="text-center">
-                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-3">
-                          <Eye className="w-6 h-6 text-primary" />
+                    <div className="grid md:grid-cols-3 gap-4 md:gap-6">
+                      <div className="flex items-center gap-3 md:flex-col md:text-center">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0 md:mx-auto md:mb-3">
+                          <Eye className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                         </div>
-                        <div className="text-2xl font-bold text-primary mb-1">1</div>
-                        <p className="text-sm text-muted-foreground">They see & hear you first</p>
+                        <div className="flex items-center gap-2 md:flex-col md:gap-0">
+                          <span className="text-lg md:text-2xl font-bold text-primary md:mb-1">1</span>
+                          <p className="text-sm text-muted-foreground">They see & hear you first</p>
+                        </div>
                       </div>
-                      <div className="text-center">
-                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-3">
-                          <Volume2 className="w-6 h-6 text-primary" />
+                      <div className="flex items-center gap-3 md:flex-col md:text-center">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0 md:mx-auto md:mb-3">
+                          <Volume2 className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                         </div>
-                        <div className="text-2xl font-bold text-primary mb-1">2</div>
-                        <p className="text-sm text-muted-foreground">They click unmute to talk back</p>
+                        <div className="flex items-center gap-2 md:flex-col md:gap-0">
+                          <span className="text-lg md:text-2xl font-bold text-primary md:mb-1">2</span>
+                          <p className="text-sm text-muted-foreground">They click unmute to talk back</p>
+                        </div>
                       </div>
-                      <div className="text-center">
-                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-3">
-                          <VideoOff className="w-6 h-6 text-primary" />
+                      <div className="flex items-center gap-3 md:flex-col md:text-center">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0 md:mx-auto md:mb-3">
+                          <VideoOff className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                         </div>
-                        <div className="text-2xl font-bold text-primary mb-1">3</div>
-                        <p className="text-sm text-muted-foreground">Their camera stays <span className="text-white font-semibold">off</span> until they enable video</p>
+                        <div className="flex items-center gap-2 md:flex-col md:gap-0">
+                          <span className="text-lg md:text-2xl font-bold text-primary md:mb-1">3</span>
+                          <p className="text-sm text-muted-foreground">Their camera stays <span className="text-white font-semibold">off</span> until they enable video</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -809,7 +817,7 @@ export default function HomePage() {
             <div className="max-w-4xl mx-auto">
               <div className="grid md:grid-cols-2 gap-12 items-center">
                 {/* Ice cream visual */}
-                <div className="flex items-center justify-center order-2 md:order-1">
+                <div className="flex items-center justify-center md:order-1">
                   <div className="relative">
                     <svg className="w-48 h-48 md:w-72 md:h-72 lg:w-80 lg:h-80" viewBox="0 0 512 512" fill="#8B5CF6" xmlns="http://www.w3.org/2000/svg">
                       <g transform="translate(0,512) scale(0.1,-0.1)">
@@ -828,7 +836,7 @@ export default function HomePage() {
                 </div>
                 
                 {/* Copy */}
-                <div className="order-1 md:order-2">
+                <div className="md:order-2">
                   <h2 className="text-3xl md:text-4xl font-bold mb-6">
                     Leads Are <span className="text-primary">Ice Cream</span>, Not Wine
                   </h2>

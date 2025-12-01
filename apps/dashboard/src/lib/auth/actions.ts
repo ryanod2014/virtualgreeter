@@ -25,8 +25,8 @@ export async function signUp(formData: FormData) {
     return { error: error.message };
   }
 
-  // Redirect to onboarding after signup
-  redirect("/onboarding");
+  // Redirect to admin dashboard after signup
+  redirect("/admin");
 }
 
 export async function signIn(formData: FormData) {

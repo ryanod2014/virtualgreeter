@@ -7,7 +7,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 const faqs = [
   {
     question: "Who is this for?",
-    answer: "GreetNow is built for businesses selling high-ticket services—where one conversation can be worth $5K, $10K, or $50K+. Coaches, consultants, professional services, home services, agencies. If your business model depends on getting people on calls, this changes everything.",
+    answer: "GreetNow is built for businesses selling high-ticket services. Coaches, consultants, professional services, home services, agencies. If your business model depends on getting people on calls, this changes everything.",
   },
   {
     question: "We're not awake 24/7. How do I staff this?",
@@ -35,7 +35,7 @@ const faqs = [
   },
   {
     question: "What if it doesn't work for my business?",
-    answer: "Start your free 7-day trial. If it's not booking more appointments than relying on the old way, cancel with one click in your dashboard—no phone calls, no guilt trips, no hostage situations. If it doesn't pay for itself, we don't want your money.",
+    answer: "Start your free 7-day trial. If it's not booking more appointments than relying on the old way, cancel anytime under your billing dashboard—no phone calls, no guilt trips, no hostage situations. If it doesn't pay for itself, we don't want your money.",
   },
 ];
 

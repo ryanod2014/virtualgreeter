@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Sparkles, Users, Minus, Plus, Gift, Check, Info } from "lucide-react";
+import { ArrowRight, Sparkles, Users, Minus, Plus, Gift, Info } from "lucide-react";
 
 export default function PaywallStep2() {
   const [seatCount, setSeatCount] = useState(1);
@@ -126,26 +126,6 @@ export default function PaywallStep2() {
             <p className="text-sm text-muted-foreground">
               Each seat allows one team member to greet visitors via live video. You can adjust your seat count anytime from your billing settings.
             </p>
-          </div>
-
-          {/* What's included */}
-          <div className="mb-8">
-            <div className="text-sm font-medium text-muted-foreground mb-3">Each seat includes:</div>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                "Unlimited visitor interactions",
-                "Live video calling",
-                "Custom intro/loop videos",
-                "Real-time notifications",
-                "Call analytics",
-                "Priority support",
-              ].map((feature) => (
-                <div key={feature} className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-primary flex-shrink-0" />
-                  <span className="text-sm text-muted-foreground">{feature}</span>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* CTA */}
