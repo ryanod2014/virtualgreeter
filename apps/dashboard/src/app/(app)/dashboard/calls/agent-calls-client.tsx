@@ -363,11 +363,11 @@ export function AgentCallsClient({
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             onClick={closeVideoModal}
           />
-          <div className="relative glass rounded-2xl p-6 max-w-4xl w-full mx-4 animate-fade-in">
+          <div className="relative bg-background/95 backdrop-blur-xl border border-border/50 rounded-2xl p-6 max-w-4xl w-full mx-4 animate-fade-in">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-500/10">
-                  <Video className="w-5 h-5 text-red-500" />
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Video className="w-5 h-5 text-primary" />
                 </div>
                 <div>
                   <h3 className="font-semibold">Call Recording</h3>
@@ -399,7 +399,7 @@ export function AgentCallsClient({
                     `call-recording-${Date.now()}.webm`
                   )
                 }
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted hover:bg-muted/80 transition-colors"
               >
                 <Download className="w-4 h-4" />
                 Download
@@ -418,7 +418,7 @@ export function AgentCallsClient({
       </div>
 
       {/* Filters Bar */}
-      <div className="glass rounded-2xl p-4 mb-6">
+      <div className="bg-muted/30 border border-border/50 rounded-2xl p-4 mb-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           {/* Date Range Picker */}
           <DateRangePicker
@@ -561,72 +561,60 @@ export function AgentCallsClient({
         )}
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+      {/* Stats Grid - 2 rows of 4 cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard
           title="Total Rings"
           value={stats.totalRings}
           icon={PhoneIncoming}
-          color="blue"
         />
         <StatCard
           title="Total Answers"
           value={stats.totalAnswers}
           icon={Phone}
-          color="green"
         />
         <StatCard
           title="Missed Calls"
           value={stats.totalMissed}
           icon={PhoneMissed}
-          color="red"
         />
         <StatCard
           title="Answer Rate"
           value={`${stats.answerPercentage.toFixed(1)}%`}
           subtitle="Rings → Answers"
           icon={TrendingUp}
-          color="purple"
         />
         <StatCard
           title="Rejected"
           value={stats.totalRejected}
           subtitle="Calls you declined"
           icon={PhoneOff}
-          color="orange"
         />
-      </div>
-
-      {/* Time Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard
           title="Avg. Answer Time"
           value={formatDuration(stats.avgAnswerTime)}
           subtitle="Time to click answer"
           icon={Timer}
-          color="amber"
         />
         <StatCard
           title="Avg. Call Duration"
           value={formatDuration(stats.avgCallDuration)}
           subtitle="For completed calls"
           icon={Clock}
-          color="cyan"
         />
         <StatCard
           title="Total Talk Time"
           value={formatDuration(stats.totalTalkTime)}
           subtitle="All time on calls"
           icon={BarChart3}
-          color="indigo"
         />
       </div>
 
       {/* Disposition Breakdown */}
       {stats.dispositionBreakdown.length > 0 && (
-        <div className="glass rounded-2xl p-6 mb-6">
+        <div className="bg-muted/30 border border-border/50 rounded-2xl p-6 mb-6 hover-lift">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
+            <BarChart3 className="w-5 h-5 text-primary" />
             Disposition Breakdown
           </h2>
 
@@ -669,7 +657,7 @@ export function AgentCallsClient({
       </div>
 
       {/* Call Logs Table */}
-      <div className="glass rounded-2xl overflow-hidden">
+      <div className="bg-muted/30 border border-border/50 rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -737,39 +725,16 @@ function StatCard({
   value,
   subtitle,
   icon: Icon,
-  color,
 }: {
   title: string;
   value: number | string;
   subtitle?: string;
   icon: React.ComponentType<{ className?: string }>;
-  color:
-    | "blue"
-    | "green"
-    | "red"
-    | "purple"
-    | "amber"
-    | "cyan"
-    | "indigo"
-    | "orange"
-    | "slate";
 }) {
-  const colorClasses: Record<typeof color, string> = {
-    blue: "text-blue-500 bg-blue-500/10",
-    green: "text-green-500 bg-green-500/10",
-    red: "text-red-500 bg-red-500/10",
-    purple: "text-purple-500 bg-purple-500/10",
-    amber: "text-amber-500 bg-amber-500/10",
-    cyan: "text-cyan-500 bg-cyan-500/10",
-    indigo: "text-indigo-500 bg-indigo-500/10",
-    orange: "text-orange-500 bg-orange-500/10",
-    slate: "text-slate-500 bg-slate-500/10",
-  };
-
   return (
-    <div className="glass rounded-xl p-5">
+    <div className="bg-muted/30 border border-border/50 rounded-xl p-5 hover-lift">
       <div className="flex items-start justify-between mb-3">
-        <div className={`p-2.5 rounded-lg ${colorClasses[color]}`}>
+        <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
           <Icon className="w-5 h-5" />
         </div>
       </div>
@@ -805,15 +770,15 @@ function CallLogRow({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
+        return <CheckCircle className="w-4 h-4 text-primary" />;
       case "accepted":
-        return <Phone className="w-4 h-4 text-blue-500" />;
+        return <Phone className="w-4 h-4 text-primary" />;
       case "missed":
-        return <PhoneMissed className="w-4 h-4 text-red-500" />;
+        return <PhoneMissed className="w-4 h-4 text-primary" />;
       case "rejected":
-        return <PhoneOff className="w-4 h-4 text-orange-500" />;
+        return <PhoneOff className="w-4 h-4 text-primary" />;
       default:
-        return <Clock className="w-4 h-4 text-yellow-500" />;
+        return <Clock className="w-4 h-4 text-primary" />;
     }
   };
 
@@ -922,7 +887,7 @@ function CallLogRow({
                     e.stopPropagation();
                     onPlayRecording(call.recording_url!);
                   }}
-                  className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors flex items-center gap-1.5"
+                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex items-center gap-1.5"
                   title="Play video recording"
                 >
                   <Video className="w-4 h-4" />
@@ -965,7 +930,7 @@ function CallLogRow({
         {/* Transcription column */}
         <td className="px-6 py-4">
           {call.transcription_status === "processing" && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-500/10 text-blue-500">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary">
               <Loader2 className="w-3 h-3 animate-spin" />
               Processing
             </span>
@@ -976,7 +941,7 @@ function CallLogRow({
                 e.stopPropagation();
                 setShowTranscription(!showTranscription);
               }}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-500/10 text-green-500 hover:bg-green-500/20 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
             >
               <FileText className="w-3 h-3" />
               Transcribed
@@ -1000,7 +965,7 @@ function CallLogRow({
         {/* AI Summary column */}
         <td className="px-6 py-4">
           {call.ai_summary_status === "processing" && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-500/10 text-purple-500">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary">
               <Loader2 className="w-3 h-3 animate-spin" />
               Summarizing
             </span>
@@ -1011,7 +976,7 @@ function CallLogRow({
                 e.stopPropagation();
                 setShowSummary(!showSummary);
               }}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
             >
               <Sparkles className="w-3 h-3" />
               AI Summary
@@ -1055,10 +1020,10 @@ function CallLogRow({
       {showSummary && hasSummary && (
         <tr className="bg-muted/10">
           <td colSpan={9} className="px-6 py-4">
-            <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4">
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="w-4 h-4 text-purple-500" />
-                <h4 className="font-semibold text-purple-500">AI Summary</h4>
+                <Sparkles className="w-4 h-4 text-primary" />
+                <h4 className="font-semibold text-primary">AI Summary</h4>
               </div>
               <div className="prose prose-sm dark:prose-invert max-w-none">
                 <div className="whitespace-pre-wrap text-sm">

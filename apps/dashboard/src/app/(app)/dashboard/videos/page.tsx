@@ -3,7 +3,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Ghost,
   Video,
   Play,
   Square,
@@ -553,12 +552,9 @@ export default function VideosPage() {
 
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Ghost className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold">Pre-recorded Intro</h1>
-          </div>
-          <p className="text-muted-foreground">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold tracking-tight">Pre-recorded Intro</h1>
+          <p className="text-muted-foreground text-sm">
             {stage === "pool-select" 
               ? "Select a team to record intro videos for"
               : selectedPool 

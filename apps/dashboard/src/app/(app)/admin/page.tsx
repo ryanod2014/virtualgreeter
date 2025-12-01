@@ -7,16 +7,12 @@ import {
   Layers,
   Palette,
   CheckCircle2,
-  Circle,
   ArrowRight,
   Rocket,
   Sparkles,
   AlertCircle,
-  Eye,
-  TrendingUp,
-  AlertTriangle,
-  UserPlus,
 } from "lucide-react";
+import { DashboardTracker } from "./dashboard-tracker";
 
 interface SetupStep {
   id: string;
@@ -34,12 +30,8 @@ export default async function AdminOverviewPage() {
   const auth = await getCurrentUser();
   const supabase = await createClient();
 
-  // Date range for coverage stats (last 30 days)
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
   // Fetch all required data for setup status
-  const [sitesResult, agentsResult, poolsResult, dispositionsResult, orgResult, pageviewsResult, callsResult] = await Promise.all([
+  const [sitesResult, agentsResult, poolsResult, dispositionsResult, orgResult] = await Promise.all([
     supabase
       .from("sites")
       .select("id", { count: "exact" })
@@ -64,30 +56,7 @@ export default async function AdminOverviewPage() {
       .select("embed_verified_at, embed_verified_domain")
       .eq("id", auth!.organization.id)
       .single(),
-    // Fetch pageviews for coverage calculation
-    supabase
-      .from("widget_pageviews")
-      .select("id, agent_id")
-      .eq("organization_id", auth!.organization.id)
-      .gte("created_at", thirtyDaysAgo.toISOString()),
-    // Fetch answered calls for answer rate
-    supabase
-      .from("call_logs")
-      .select("id, status")
-      .eq("organization_id", auth!.organization.id)
-      .gte("created_at", thirtyDaysAgo.toISOString())
-      .in("status", ["accepted", "completed"]),
   ]);
-
-  // Calculate coverage stats
-  const pageviews = pageviewsResult.data ?? [];
-  const pageviewsTotal = pageviews.length;
-  const pageviewsWithAgent = pageviews.filter(p => p.agent_id !== null).length;
-  const missedOpportunities = pageviewsTotal - pageviewsWithAgent;
-  const coverageRate = pageviewsTotal > 0 ? (pageviewsWithAgent / pageviewsTotal) * 100 : 100;
-  
-  const answeredCalls = callsResult.data?.length ?? 0;
-  const answerRate = pageviewsWithAgent > 0 ? (answeredCalls / pageviewsWithAgent) * 100 : 0;
 
   // Check if pools have agents assigned
   const poolsWithAgents = poolsResult.data?.filter(
@@ -163,15 +132,16 @@ export default async function AdminOverviewPage() {
 
   return (
     <div className="min-h-screen p-8">
+      <DashboardTracker />
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/30">
-              <Rocket className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Rocket className="w-7 h-7 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">Quick Setup</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Quick Setup</h1>
               <p className="text-muted-foreground">
                 {allComplete
                   ? "You're all set! Go live and start connecting with visitors."
@@ -184,11 +154,11 @@ export default async function AdminOverviewPage() {
         {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium">
+            <span className="text-sm font-medium text-muted-foreground">
               {completedSteps} of {steps.length} steps complete
             </span>
             {allComplete ? (
-              <span className="flex items-center gap-2 text-sm font-medium text-green-500">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-sm font-medium text-primary">
                 <Sparkles className="w-4 h-4" />
                 Ready to go live!
               </span>
@@ -198,20 +168,16 @@ export default async function AdminOverviewPage() {
               </span>
             )}
           </div>
-          <div className="h-3 bg-muted rounded-full overflow-hidden">
+          <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ease-out ${
-                allComplete
-                  ? "bg-gradient-to-r from-green-500 to-emerald-400"
-                  : "bg-gradient-to-r from-primary to-purple-500"
-              }`}
+              className="h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-primary to-purple-500"
               style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
         {/* Setup Steps */}
-        <div className="space-y-4 mb-10">
+        <div className="space-y-3 mb-10">
           {steps.map((step, index) => (
             <SetupStepCard key={step.id} step={step} isFirst={index === 0} />
           ))}
@@ -219,15 +185,14 @@ export default async function AdminOverviewPage() {
 
         {/* Go Live CTA */}
         {allComplete ? (
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-transparent border-2 border-green-500/30 p-8">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            <div className="relative flex items-center justify-between">
+          <div className="bg-muted/30 border border-border/50 rounded-2xl p-8 hover-lift">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-green-500/30">
-                  <CheckCircle2 className="w-8 h-8 text-white" />
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <CheckCircle2 className="w-7 h-7 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
+                  <h2 className="text-2xl font-bold mb-1">
                     Setup Complete!
                   </h2>
                   <p className="text-muted-foreground">
@@ -237,23 +202,22 @@ export default async function AdminOverviewPage() {
               </div>
               <Link
                 href="/dashboard"
-                className="flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold text-lg shadow-lg shadow-green-500/30 hover:shadow-xl hover:shadow-green-500/40 hover:scale-105 transition-all"
+                className="group inline-flex items-center gap-3 px-8 py-4 rounded-full bg-primary text-primary-foreground font-semibold text-lg hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/30"
               >
                 Go Live
-                <Rocket className="w-5 h-5" />
+                <Rocket className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
           </div>
         ) : (
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border-2 border-amber-500/30 p-8">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            <div className="relative flex items-center justify-between">
+          <div className="bg-muted/30 border border-border/50 rounded-2xl p-8 hover-lift">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
-                  <AlertCircle className="w-8 h-8 text-white" />
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+                  <AlertCircle className="w-7 h-7 text-amber-500" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-amber-600 dark:text-amber-400 mb-1">
+                  <h2 className="text-2xl font-bold mb-1">
                     Almost There!
                   </h2>
                   <p className="text-muted-foreground">
@@ -263,182 +227,16 @@ export default async function AdminOverviewPage() {
               </div>
               <Link
                 href={nextStep.href}
-                className="flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-primary to-purple-600 text-white font-bold text-lg shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 hover:scale-105 transition-all"
+                className="group inline-flex items-center gap-3 px-8 py-4 rounded-full bg-primary text-primary-foreground font-semibold text-lg hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/30"
               >
                 {nextStep.actionLabel}
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
           </div>
         )}
 
-        {/* Coverage Health Card - Only show if there's some traffic */}
-        {pageviewsTotal > 0 && (
-          <CoverageHealthCard
-            coverageRate={coverageRate}
-            pageviewsTotal={pageviewsTotal}
-            missedOpportunities={missedOpportunities}
-            answerRate={answerRate}
-            answeredCalls={answeredCalls}
-          />
-        )}
       </div>
-    </div>
-  );
-}
-
-// Coverage Health Card Component
-function CoverageHealthCard({
-  coverageRate,
-  pageviewsTotal,
-  missedOpportunities,
-  answerRate,
-  answeredCalls,
-}: {
-  coverageRate: number;
-  pageviewsTotal: number;
-  missedOpportunities: number;
-  answerRate: number;
-  answeredCalls: number;
-}) {
-  const getCoverageStatus = (rate: number) => {
-    if (rate >= 90) return { color: "green", label: "Excellent", icon: "🟢" };
-    if (rate >= 70) return { color: "amber", label: "Needs Attention", icon: "🟡" };
-    return { color: "red", label: "Critical", icon: "🔴" };
-  };
-
-  const status = getCoverageStatus(coverageRate);
-  
-  const bgGradient = {
-    green: "from-green-500/10 via-emerald-500/5 to-transparent",
-    amber: "from-amber-500/10 via-orange-500/5 to-transparent",
-    red: "from-red-500/10 via-rose-500/5 to-transparent",
-  }[status.color];
-  
-  const borderColor = {
-    green: "border-green-500/30",
-    amber: "border-amber-500/30",
-    red: "border-red-500/30",
-  }[status.color];
-  
-  const textColor = {
-    green: "text-green-600 dark:text-green-400",
-    amber: "text-amber-600 dark:text-amber-400",
-    red: "text-red-600 dark:text-red-400",
-  }[status.color];
-  
-  const progressBg = {
-    green: "bg-green-500",
-    amber: "bg-amber-500",
-    red: "bg-red-500",
-  }[status.color];
-
-  return (
-    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${bgGradient} border-2 ${borderColor} p-6 mt-8`}>
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Eye className="w-5 h-5 text-muted-foreground" />
-            <h3 className="text-lg font-semibold">Agent Coverage</h3>
-            <span className="text-xl">{status.icon}</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Last 30 days • {pageviewsTotal} total visitors
-          </p>
-        </div>
-        <div className="text-right">
-          <p className={`text-4xl font-bold ${textColor}`}>
-            {coverageRate.toFixed(0)}%
-          </p>
-          <p className="text-sm text-muted-foreground">{status.label}</p>
-        </div>
-      </div>
-
-      {/* Coverage Progress Bar */}
-      <div className="mb-6">
-        <div className="h-3 bg-muted rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${progressBg}`}
-            style={{ width: `${Math.min(coverageRate, 100)}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-background/50 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Eye className="w-4 h-4 text-blue-500" />
-            <span className="text-sm text-muted-foreground">Covered</span>
-          </div>
-          <p className="text-2xl font-bold">{pageviewsTotal - missedOpportunities}</p>
-          <p className="text-xs text-muted-foreground">visitors had an agent</p>
-        </div>
-        
-        <div className="bg-background/50 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <AlertTriangle className={`w-4 h-4 ${missedOpportunities > 0 ? "text-red-500" : "text-muted-foreground"}`} />
-            <span className="text-sm text-muted-foreground">Missed</span>
-          </div>
-          <p className={`text-2xl font-bold ${missedOpportunities > 0 ? "text-red-500" : ""}`}>
-            {missedOpportunities}
-          </p>
-          <p className="text-xs text-muted-foreground">no agent available</p>
-        </div>
-        
-        <div className="bg-background/50 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="w-4 h-4 text-green-500" />
-            <span className="text-sm text-muted-foreground">Answer Rate</span>
-          </div>
-          <p className="text-2xl font-bold">{answerRate.toFixed(1)}%</p>
-          <p className="text-xs text-muted-foreground">{answeredCalls} calls answered</p>
-        </div>
-      </div>
-
-      {/* Recommendation */}
-      {coverageRate < 80 && (
-        <div className={`flex items-center justify-between p-4 rounded-xl bg-background/70 border ${borderColor}`}>
-          <div className="flex items-center gap-3">
-            <UserPlus className={`w-5 h-5 ${textColor}`} />
-            <div>
-              <p className={`font-medium ${textColor}`}>
-                {missedOpportunities > 10 
-                  ? "Consider hiring more agents" 
-                  : "Increase agent availability"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {missedOpportunities} visitors couldn&apos;t connect because no agents were online
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/admin/agents"
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${progressBg} text-white font-medium hover:opacity-90 transition-opacity`}
-          >
-            Add Agents
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-      )}
-      
-      {coverageRate >= 80 && coverageRate < 90 && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-background/70 border border-amber-500/30">
-          <Sparkles className="w-5 h-5 text-amber-500" />
-          <p className="text-sm text-muted-foreground">
-            Good coverage! A few more active hours would push you to excellent.
-          </p>
-        </div>
-      )}
-      
-      {coverageRate >= 90 && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-background/70 border border-green-500/30">
-          <Sparkles className="w-5 h-5 text-green-500" />
-          <p className="text-sm text-muted-foreground">
-            Excellent coverage! Your visitors almost always have an agent available.
-          </p>
-        </div>
-      )}
     </div>
   );
 }
@@ -449,30 +247,25 @@ function SetupStepCard({ step, isFirst }: { step: SetupStep; isFirst: boolean })
   return (
     <Link href={step.href} className="block group">
       <div
-        className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-200 ${
+        className={`relative overflow-hidden rounded-xl border transition-all duration-200 hover-lift ${
           step.isComplete
-            ? "border-green-500/30 bg-green-500/5 hover:border-green-500/50"
-            : "border-border bg-card hover:border-primary/50 hover:bg-primary/5"
+            ? "border-primary/30 bg-muted/30 hover:border-primary/50"
+            : "border-border/50 bg-muted/20 hover:border-primary/30 hover:bg-muted/40"
         }`}
       >
-        {/* Glowing effect for incomplete first step */}
-        {!step.isComplete && isFirst && (
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-purple-500/10 animate-pulse" />
-        )}
-
-        <div className="relative p-6 flex items-center gap-6">
+        <div className="relative p-5 flex items-center gap-5">
           {/* Step Number / Checkmark */}
           <div
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all ${
+            className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
               step.isComplete
-                ? "bg-green-500 shadow-lg shadow-green-500/30"
-                : "bg-gradient-to-br from-primary/20 to-primary/10 group-hover:from-primary/30 group-hover:to-primary/20"
+                ? "bg-primary/10"
+                : "bg-muted/50 group-hover:bg-primary/10"
             }`}
           >
             {step.isComplete ? (
-              <CheckCircle2 className="w-7 h-7 text-white" />
+              <CheckCircle2 className="w-6 h-6 text-primary" />
             ) : (
-              <span className="text-2xl font-bold text-primary">{step.number}</span>
+              <span className="text-xl font-bold text-muted-foreground group-hover:text-primary transition-colors">{step.number}</span>
             )}
           </div>
 
@@ -480,16 +273,16 @@ function SetupStepCard({ step, isFirst }: { step: SetupStep; isFirst: boolean })
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-1">
               <h3
-                className={`text-lg font-semibold transition-colors ${
+                className={`text-base font-semibold transition-colors ${
                   step.isComplete
-                    ? "text-green-600 dark:text-green-400"
-                    : "group-hover:text-primary"
+                    ? "text-foreground"
+                    : "group-hover:text-foreground"
                 }`}
               >
                 {step.title}
               </h3>
               {step.isComplete && (
-                <span className="px-2.5 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-medium border border-green-500/20">
+                <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20">
                   {step.completeLabel}
                 </span>
               )}
@@ -498,30 +291,25 @@ function SetupStepCard({ step, isFirst }: { step: SetupStep; isFirst: boolean })
           </div>
 
           {/* Icon / Action */}
-          <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="flex items-center gap-3 flex-shrink-0">
             <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
+              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
                 step.isComplete
-                  ? "bg-green-500/10 text-green-500"
-                  : "bg-muted/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted/30 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
               }`}
             >
-              <Icon className="w-6 h-6" />
+              <Icon className="w-5 h-5" />
             </div>
             <ArrowRight
               className={`w-5 h-5 transition-all ${
                 step.isComplete
-                  ? "text-green-500"
+                  ? "text-primary"
                   : "text-muted-foreground group-hover:text-primary group-hover:translate-x-1"
               }`}
             />
           </div>
         </div>
-
-        {/* Highlight bar for incomplete first step */}
-        {!step.isComplete && isFirst && (
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-purple-500" />
-        )}
       </div>
     </Link>
   );

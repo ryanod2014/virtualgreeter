@@ -36,7 +36,9 @@ export type FeedbackPriority = "low" | "medium" | "high" | "critical";
 // PMF Survey types
 export type DisappointmentLevel = "very_disappointed" | "somewhat_disappointed" | "not_disappointed";
 
-export type SubscriptionStatus = "active" | "paused" | "cancelled";
+export type SubscriptionStatus = "active" | "paused" | "cancelled" | "trialing";
+
+export type BillingFrequency = "monthly" | "annual" | "six_month";
 
 export type RuleMatchType = "is_exactly" | "contains" | "does_not_contain" | "starts_with" | "ends_with";
 export type RuleConditionType = "domain" | "path" | "query_param";
@@ -189,6 +191,8 @@ export interface Database {
           stripe_subscription_item_id: string | null;
           billing_email: string | null;
           seat_count: number;
+          billing_frequency: BillingFrequency;
+          has_six_month_offer: boolean;
           // Subscription pause fields
           subscription_status: SubscriptionStatus;
           paused_at: string | null;
@@ -208,6 +212,7 @@ export interface Database {
           organization_id: string;
           email: string;
           full_name: string;
+          phone: string | null;
           avatar_url: string | null;
           role: UserRole;
           is_platform_admin: boolean;

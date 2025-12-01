@@ -13,5 +13,15 @@ export const stripe = process.env.STRIPE_SECRET_KEY
 // Price ID for seat-based billing (create in Stripe Dashboard)
 export const SEAT_PRICE_ID = process.env.STRIPE_SEAT_PRICE_ID || "";
 
-export const PRICE_PER_SEAT = 297; // $297/seat/month
+// Centralized pricing by billing frequency
+export const PRICING = {
+  monthly: { price: 297, label: "Monthly", discount: 0 },
+  annual: { price: 193, label: "Annual", discount: 35 },
+  six_month: { price: 178, label: "6-Month", discount: 40 },
+} as const;
+
+// Other billing constants
+export const INCLUDED_SEATS = 1;
+export const FREE_STORAGE_GB = 10;
+export const STORAGE_PRICE_PER_GB = 0.50;
 

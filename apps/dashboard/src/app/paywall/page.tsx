@@ -12,6 +12,7 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
+import { trackFunnelEvent, FUNNEL_STEPS } from "@/lib/funnel-tracking";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
 
@@ -34,8 +35,10 @@ function PaywallForm() {
 
   const cardComplete = cardNumberComplete && cardExpiryComplete && cardCvcComplete && zipCode.length >= 5;
 
-  // Fetch SetupIntent on mount
+  // Track paywall page view and fetch SetupIntent on mount
   useEffect(() => {
+    trackFunnelEvent(FUNNEL_STEPS.PAYWALL);
+    
     async function createSetupIntent() {
       try {
         const response = await fetch("/api/billing/setup-intent", {
@@ -88,6 +91,8 @@ function PaywallForm() {
       }
 
       if (setupIntent?.status === "succeeded") {
+        // Track successful card entry conversion
+        await trackFunnelEvent(FUNNEL_STEPS.PAYWALL_COMPLETE, { is_conversion: true });
         router.push("/paywall/seats");
       }
     } catch {

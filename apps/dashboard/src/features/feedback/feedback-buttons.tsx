@@ -437,7 +437,7 @@ export function FeedbackButtons({ organizationId, userId }: FeedbackButtonsProps
         </button>
         <button
           onClick={openFeatureRequests}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-card/80 backdrop-blur-sm border border-border hover:border-amber-500/50 hover:bg-amber-500/5 text-muted-foreground hover:text-amber-500 transition-all shadow-lg"
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-card/80 backdrop-blur-sm border border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all shadow-lg"
           title="Request a Feature"
         >
           <Lightbulb className="w-4 h-4" />

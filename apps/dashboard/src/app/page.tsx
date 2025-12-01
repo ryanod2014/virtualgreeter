@@ -35,6 +35,7 @@ import { CostCalculator } from "@/lib/components/CostCalculator";
 import { SocraticQuestions } from "@/lib/components/SocraticQuestions";
 import { AnimateOnScroll, StaggerContainer } from "@/lib/components/AnimateOnScroll";
 import { FoldingRipList } from "@/lib/components/FoldingRipList";
+import { FunnelTracker } from "@/lib/components/FunnelTracker";
 
 // ===== COMPONENTS =====
 
@@ -115,6 +116,9 @@ function TrialCTA({ size = "default", className = "", hideCompliance = false }: 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background dark relative overflow-hidden">
+      {/* Track landing page visit */}
+      <FunnelTracker step="landing" />
+      
       {/* Background effects - simplified for performance */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="glow-orb w-[600px] h-[600px] -top-[300px] left-1/2 -translate-x-1/2 bg-primary/15" />

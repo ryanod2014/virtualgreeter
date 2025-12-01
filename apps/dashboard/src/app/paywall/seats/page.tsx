@@ -1,23 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Sparkles, Users, Minus, Plus, Gift, Info } from "lucide-react";
+import { trackFunnelEvent, FUNNEL_STEPS } from "@/lib/funnel-tracking";
+import { PRICING } from "@/lib/stripe";
 
 export default function PaywallStep2() {
   const [seatCount, setSeatCount] = useState(1);
   const router = useRouter();
 
-  const handleContinue = () => {
+  // Track seats page view
+  useEffect(() => {
+    trackFunnelEvent(FUNNEL_STEPS.SEATS);
+  }, []);
+
+  const handleContinue = async () => {
     // Store seat count in localStorage for later use
     localStorage.setItem("trial_seats", seatCount.toString());
+    
+    // Track seats selection conversion
+    await trackFunnelEvent(FUNNEL_STEPS.SEATS_COMPLETE, { 
+      is_conversion: true,
+      seats: seatCount 
+    });
+    
     router.push("/paywall/billing");
   };
 
   const incrementSeats = () => setSeatCount((prev) => Math.min(prev + 1, 50));
   const decrementSeats = () => setSeatCount((prev) => Math.max(prev - 1, 1));
 
-  const monthlyPrice = seatCount * 297;
+  const monthlyPrice = seatCount * PRICING.monthly.price;
 
   return (
     <div className="w-full max-w-2xl mx-auto">

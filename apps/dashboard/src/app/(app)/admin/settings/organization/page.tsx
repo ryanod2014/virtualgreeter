@@ -10,6 +10,7 @@ export default async function OrganizationSettingsPage() {
   return (
     <OrganizationSettingsClient
       organization={auth.organization}
+      user={auth.profile}
     />
   );
 }

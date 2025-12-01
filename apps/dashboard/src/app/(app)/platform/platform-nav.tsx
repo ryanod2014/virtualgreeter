@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Building2, MessageSquare, LogOut } from "lucide-react";
+import { BarChart3, Building2, MessageSquare, LogOut, TrendingUp } from "lucide-react";
 
 const NAV_ITEMS = [
   {
@@ -10,6 +10,11 @@ const NAV_ITEMS = [
     label: "Overview",
     icon: BarChart3,
     exact: true,
+  },
+  {
+    href: "/platform/funnel",
+    label: "Funnel",
+    icon: TrendingUp,
   },
   {
     href: "/platform/organizations",

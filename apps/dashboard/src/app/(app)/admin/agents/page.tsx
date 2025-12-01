@@ -1,13 +1,10 @@
 import { getCurrentUser } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/server";
 import { AgentsClient } from "./agents-client";
+import { PRICING } from "@/lib/stripe";
 
 // Force dynamic rendering to ensure fresh data
 export const dynamic = "force-dynamic";
-
-const PRICE_PER_SEAT = 297;
-const BASE_SUBSCRIPTION = 297; // Minimum $297/mo includes 1 seat
-const INCLUDED_SEATS = 1;
 
 export default async function AgentsPage() {
   const auth = await getCurrentUser();
@@ -86,15 +83,23 @@ export default async function AgentsPage() {
     }
   });
 
-  // Calculate billing info
-  // Count all active agents + pending agent invites
+  // Calculate billing info with PRE-PAID SEATS model
+  // Count all active agents + pending agent invites as "used seats"
   const activeAgentCount = agents?.length ?? 0;
   const pendingAgentInviteCount = pendingInvites?.filter(i => i.role === "agent").length ?? 0;
-  const totalAgents = activeAgentCount + pendingAgentInviteCount;
+  const usedSeats = activeAgentCount + pendingAgentInviteCount;
   
-  // Base subscription ($297) includes 1 seat, additional seats $297 each
-  const additionalSeats = Math.max(0, totalAgents - INCLUDED_SEATS);
-  const monthlyCost = BASE_SUBSCRIPTION + (additionalSeats * PRICE_PER_SEAT);
+  // Purchased seats = what they committed to in funnel (billing floor)
+  // Falls back to used seats if not set (legacy orgs)
+  const purchasedSeats = auth!.organization.seat_count ?? Math.max(usedSeats, 1);
+  const availableSeats = Math.max(0, purchasedSeats - usedSeats);
+  
+  // Get price based on org's billing frequency
+  const billingFrequency = auth!.organization.billing_frequency ?? 'monthly';
+  const pricePerSeat = PRICING[billingFrequency].price;
+  
+  // Monthly cost is based on PURCHASED seats, not used seats
+  const monthlyCost = purchasedSeats * pricePerSeat;
 
   // Transform agents to fix Supabase join type and include pool video URLs
   const transformedAgents = (agents ?? []).map(agent => ({
@@ -127,13 +132,12 @@ export default async function AgentsPage() {
       currentUserName={auth!.profile.full_name}
       isCurrentUserAgent={isCurrentUserAgent}
       billingInfo={{
-        totalAgents,
-        includedSeats: INCLUDED_SEATS,
-        additionalSeats,
+        usedSeats,
+        purchasedSeats,
+        availableSeats,
         activeAgents: activeAgentCount,
         pendingInvites: pendingAgentInviteCount,
-        baseSubscription: BASE_SUBSCRIPTION,
-        pricePerSeat: PRICE_PER_SEAT,
+        pricePerSeat,
         monthlyCost,
       }}
     />

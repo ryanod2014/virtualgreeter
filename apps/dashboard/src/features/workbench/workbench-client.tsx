@@ -161,40 +161,40 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
   if (!isActiveAgent) {
     return (
       <>
-        {/* Header */}
-        <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-xl">
-          <div className="flex items-center justify-between px-8 py-4">
-            <div>
-              <h1 className="text-2xl font-bold">Bullpen</h1>
-              <p className="text-muted-foreground">
-                Manage your live presence and incoming calls
-              </p>
-            </div>
-          </div>
-        </header>
-
-        <div className="p-8">
-          <div className="max-w-xl mx-auto">
-            <div className="glass rounded-2xl p-8 text-center">
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                <Phone className="w-10 h-10 text-primary" />
-              </div>
-              
-              <h2 className="text-2xl font-bold mb-3">You're not set up to take calls</h2>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Configure your agent profile to start receiving live video calls from website visitors.
-              </p>
-
-              <a
-                href="/admin/agents"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
-              >
-                Agent Settings
-                <ArrowRight className="w-5 h-5" />
-              </a>
-            </div>
+      {/* Header */}
+      <header className="sticky top-0 z-10 border-b border-border/50 bg-background/60 backdrop-blur-xl">
+        <div className="flex items-center justify-between px-8 py-5">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Bullpen</h1>
+            <p className="text-muted-foreground text-sm">
+              Manage your live presence and incoming calls
+            </p>
           </div>
         </div>
+      </header>
+
+      <div className="p-8">
+        <div className="max-w-xl mx-auto">
+          <div className="bg-muted/30 border border-border/50 rounded-2xl p-8 text-center hover-lift">
+            <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+              <Phone className="w-10 h-10 text-primary" />
+            </div>
+            
+            <h2 className="text-2xl font-bold mb-3">You're not set up to take calls</h2>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Configure your agent profile to start receiving live video calls from website visitors.
+            </p>
+
+            <a
+              href="/admin/agents"
+              className="group inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors hover:shadow-xl hover:shadow-primary/30"
+            >
+              Agent Settings
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </a>
+          </div>
+        </div>
+      </div>
       </>
     );
   }
@@ -202,11 +202,11 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
   return (
     <>
       {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="flex items-center justify-between px-8 py-4">
+      <header className="sticky top-0 z-10 border-b border-border/50 bg-background/60 backdrop-blur-xl">
+        <div className="flex items-center justify-between px-8 py-5">
           <div>
-            <h1 className="text-2xl font-bold">Bullpen</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl font-bold tracking-tight">Bullpen</h1>
+            <p className="text-muted-foreground text-sm">
               Manage your live presence and incoming calls
             </p>
           </div>
@@ -216,7 +216,7 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
       <div className="p-8">
         {/* No Videos Warning */}
         {!hasVideos && (
-          <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-4">
+          <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-4 hover-lift">
             <AlertTriangle className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
             <div>
               <h3 className="font-semibold text-amber-500">Setup Required</h3>
@@ -236,7 +236,7 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
         {activeCall ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Video Call */}
-            <div className="glass rounded-2xl p-6 min-h-[500px]">
+            <div className="bg-muted/30 border border-border/50 rounded-2xl p-6 min-h-[500px] hover-lift">
             <ActiveCallStage
               call={activeCall}
               localStream={localStream}
@@ -254,7 +254,7 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
             </div>
             
             {/* Co-browse View - Visitor's Screen */}
-            <div className="glass rounded-2xl p-6 min-h-[500px]">
+            <div className="bg-muted/30 border border-border/50 rounded-2xl p-6 min-h-[500px] hover-lift">
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
@@ -271,25 +271,25 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
             </div>
           </div>
         ) : isMarkedAway ? (
-          <div className="glass rounded-2xl p-8 min-h-[500px]">
+          <div className="bg-muted/30 border border-border/50 rounded-2xl p-8 min-h-[500px] hover-lift">
             <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
-              <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
+              <div className="w-24 h-24 rounded-2xl bg-muted/50 flex items-center justify-center mb-6">
                 <Coffee className="w-12 h-12 text-muted-foreground" />
               </div>
-              <h2 className="text-2xl font-semibold mb-2">You're Away</h2>
+              <h2 className="text-2xl font-bold mb-2">You're Away</h2>
               <p className="text-muted-foreground max-w-md">
                 You're not receiving calls right now. Set your status to Active when you're ready.
               </p>
               <button
                 onClick={setBack}
-                className="mt-6 px-6 py-2 rounded-lg bg-green-500 text-white font-medium hover:bg-green-600 transition-colors"
+                className="mt-6 px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors hover:shadow-xl hover:shadow-primary/30"
               >
                 Go Active
               </button>
             </div>
           </div>
         ) : (
-          <div className="glass rounded-2xl p-8 min-h-[500px]">
+          <div className="bg-muted/30 border border-border/50 rounded-2xl p-8 min-h-[500px] hover-lift">
             <div className="flex flex-col items-center justify-center h-full min-h-[400px]">
               {/* Camera Preview */}
               <div className="relative w-full max-w-lg mb-6">
@@ -301,13 +301,13 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
                     </div>
                   ) : previewError ? (
                     <div className="w-full h-full flex flex-col items-center justify-center text-center p-6">
-                      <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+                      <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
                         <Camera className="w-8 h-8 text-red-400" />
                       </div>
                       <p className="text-sm text-red-400 mb-4 max-w-xs">{previewError}</p>
                       <button
                         onClick={retryPreview}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm"
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
                       >
                         <RefreshCw className="w-4 h-4" />
                         Retry
@@ -350,16 +350,16 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
               
               {/* Status text */}
               <div className="text-center">
-                <h2 className="text-2xl font-semibold mb-2">Ready for Calls</h2>
+                <h2 className="text-2xl font-bold mb-2">Ready for Calls</h2>
                 <p className="text-muted-foreground max-w-md">
                   Your simulated presence is broadcasting to visitors. When someone
                   requests to connect, you'll see it here.
                 </p>
                 {isConnected && (
-                  <div className="mt-4 flex items-center justify-center gap-2 text-green-500">
-                    <span className="relative flex h-3 w-3">
+                  <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30 text-green-500">
+                    <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                     </span>
                     <span className="text-sm font-medium">Broadcasting Live</span>
                   </div>

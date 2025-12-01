@@ -73,10 +73,10 @@ export function AdminSidebar({
   };
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 border-r border-border bg-card/50 backdrop-blur-xl z-40">
+    <aside className="fixed left-0 top-0 h-screen w-64 border-r border-border/50 bg-background/80 backdrop-blur-xl z-40">
       <div className="flex h-full flex-col">
         {/* Logo & Org */}
-        <div className="p-6 border-b border-border">
+        <div className="p-6 border-b border-border/50">
           <div className="flex flex-col items-center gap-3 mb-3">
             {organization.logo_url ? (
               <img
@@ -227,14 +227,14 @@ export function AdminSidebar({
         </nav>
 
         {/* Settings & User */}
-        <div className="p-4 border-t border-border space-y-1">
+        <div className="p-4 border-t border-border/50 space-y-1">
           <NavLink href="/admin/settings" icon={Settings} pathname={pathname} exact>
             Settings
           </NavLink>
           
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-muted-foreground hover:bg-muted/30 transition-colors"
           >
             <LogOut className="w-5 h-5" />
             Sign Out
@@ -242,7 +242,7 @@ export function AdminSidebar({
         </div>
 
         {/* User Info */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
               <span className="text-sm font-bold text-primary">

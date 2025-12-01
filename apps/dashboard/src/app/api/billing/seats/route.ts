@@ -2,13 +2,14 @@ import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
 import { NextRequest, NextResponse } from "next/server";
 
-const INCLUDED_SEATS = 1; // Base subscription ($297/mo) includes 1 seat
-
 /**
- * Update seat count in Stripe subscription
- * Called when inviting or removing team members
+ * Update seat usage when inviting or removing team members
  * 
- * Billing model: $297/mo base includes 1 seat, additional seats $297/mo each
+ * PRE-PAID SEATS MODEL:
+ * - org.seat_count = purchased seats (set during funnel, this is billing floor)
+ * - We track usage but only EXPAND billing if exceeding purchased seats
+ * - Removing agents frees up seats but doesn't reduce billing
+ * - To reduce billing, user must explicitly downgrade in billing settings
  */
 export async function POST(request: NextRequest) {
   try {
@@ -42,66 +43,76 @@ export async function POST(request: NextRequest) {
       ? profile.organization[0]
       : profile.organization;
 
-    // Get current agent count (active agents)
-    const { count: currentAgentCount } = await supabase
+    // Get current active agent count
+    const { count: activeAgentCount } = await supabase
       .from("agent_profiles")
       .select("*", { count: "exact", head: true })
       .eq("organization_id", org.id)
       .eq("is_active", true);
 
-    const actualAgentCount = currentAgentCount ?? 0;
-    
-    // Calculate new agent count
-    const newAgentCount = action === "add" 
-      ? actualAgentCount + quantity 
-      : Math.max(0, actualAgentCount - quantity);
+    // Get pending invite count (agent role only - they use seats)
+    const { count: pendingInviteCount } = await supabase
+      .from("invites")
+      .select("*", { count: "exact", head: true })
+      .eq("organization_id", org.id)
+      .eq("role", "agent")
+      .is("accepted_at", null)
+      .gt("expires_at", new Date().toISOString());
 
-    // Calculate additional seats (seats beyond the included one)
-    const currentAdditionalSeats = Math.max(0, actualAgentCount - INCLUDED_SEATS);
-    const newAdditionalSeats = Math.max(0, newAgentCount - INCLUDED_SEATS);
+    const currentUsedSeats = (activeAgentCount ?? 0) + (pendingInviteCount ?? 0);
+    const purchasedSeats = org.seat_count ?? 1; // What they paid for (billing floor)
     
-    // Only update Stripe if additional seats actually changed
-    const additionalSeatsChanged = newAdditionalSeats !== currentAdditionalSeats;
+    // Calculate new used seat count
+    const newUsedSeats = action === "add" 
+      ? currentUsedSeats + quantity 
+      : Math.max(0, currentUsedSeats - quantity);
+    
+    // Check if we need to expand billing (exceeding purchased seats)
+    const needsExpansion = newUsedSeats > purchasedSeats;
+    const newPurchasedSeats = needsExpansion ? newUsedSeats : purchasedSeats;
 
     if (!stripe) {
-      // Dev mode - just update the seat count locally
+      // Dev mode - update seat_count only if expanding
+      if (needsExpansion) {
       await supabase
         .from("organizations")
-        .update({ seat_count: newAgentCount })
+          .update({ seat_count: newPurchasedSeats })
         .eq("id", org.id);
+      }
 
       return NextResponse.json({
         success: true,
-        agentCount: newAgentCount,
-        additionalSeats: newAdditionalSeats,
-        includedSeats: INCLUDED_SEATS,
-        additionalSeatsChanged,
+        usedSeats: newUsedSeats,
+        purchasedSeats: newPurchasedSeats,
+        availableSeats: newPurchasedSeats - newUsedSeats,
+        billingExpanded: needsExpansion,
         devMode: true,
       });
     }
 
-    // Production - only update Stripe if additional seats changed
-    // Note: Stripe subscription tracks additional seats only (base is separate)
-    if (additionalSeatsChanged && org.stripe_subscription_item_id) {
+    // Production - only update Stripe if we need to EXPAND (never shrink)
+    if (needsExpansion && org.stripe_subscription_item_id) {
       await stripe.subscriptionItems.update(org.stripe_subscription_item_id, {
-        quantity: newAdditionalSeats,
+        quantity: newPurchasedSeats,
         proration_behavior: "create_prorations",
       });
-    }
 
-    // Update local seat count
-    await supabase.from("organizations").update({ seat_count: newAgentCount }).eq("id", org.id);
+      // Update purchased seat count in database
+      await supabase
+        .from("organizations")
+        .update({ seat_count: newPurchasedSeats })
+        .eq("id", org.id);
+    }
 
     return NextResponse.json({
       success: true,
-      agentCount: newAgentCount,
-      additionalSeats: newAdditionalSeats,
-      includedSeats: INCLUDED_SEATS,
-      additionalSeatsChanged,
+      usedSeats: newUsedSeats,
+      purchasedSeats: newPurchasedSeats,
+      availableSeats: newPurchasedSeats - newUsedSeats,
+      billingExpanded: needsExpansion,
     });
   } catch (error) {
     console.error("Seat update error:", error);
     return NextResponse.json({ error: "Failed to update seats" }, { status: 500 });
   }
 }
-

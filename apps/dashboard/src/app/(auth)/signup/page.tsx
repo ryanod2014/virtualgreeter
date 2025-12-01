@@ -1,18 +1,25 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Mail, Lock, User, Loader2 } from "lucide-react";
+import { Mail, Lock, User, Loader2, Phone } from "lucide-react";
 import { Logo } from "@/lib/components/logo";
 import { createClient } from "@/lib/supabase/client";
+import { trackFunnelEvent, FUNNEL_STEPS } from "@/lib/funnel-tracking";
 
 export default function SignupPage() {
   const fullNameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const supabase = createClient();
+
+  // Track signup page view
+  useEffect(() => {
+    trackFunnelEvent(FUNNEL_STEPS.SIGNUP);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,9 +28,10 @@ export default function SignupPage() {
 
     const fullName = fullNameRef.current?.value || "";
     const email = emailRef.current?.value || "";
+    const phone = phoneRef.current?.value || "";
     const password = passwordRef.current?.value || "";
 
-    console.log("[Signup] Attempting signup with:", { email, fullName });
+    console.log("[Signup] Attempting signup with:", { email, fullName, phone });
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -31,6 +39,7 @@ export default function SignupPage() {
       options: {
         data: {
           full_name: fullName,
+          phone: phone,
         },
       },
     });
@@ -44,9 +53,14 @@ export default function SignupPage() {
       return;
     }
 
-    console.log("[Signup] Success! Redirecting to paywall...");
+    console.log("[Signup] Success! Redirecting to dashboard...");
+    
+    // Track successful signup conversion
+    await trackFunnelEvent(FUNNEL_STEPS.SIGNUP_COMPLETE, { is_conversion: true });
+    
     // Use hard redirect to ensure cookies are properly sent with the request
-    window.location.href = "/paywall";
+    // TODO: Re-enable paywall redirect once billing is set up
+    window.location.href = "/admin";
   };
 
   return (
@@ -113,6 +127,23 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-2">
+              <label htmlFor="phone" className="text-sm font-medium">
+                Phone Number
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  id="phone"
+                  type="tel"
+                  ref={phoneRef}
+                  placeholder="(555) 123-4567"
+                  required
+                  className="w-full pl-10 pr-4 py-3 rounded-lg bg-muted/50 border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <label htmlFor="password" className="text-sm font-medium">
                 Password
               </label>
@@ -147,6 +178,17 @@ export default function SignupPage() {
                 "Create account"
               )}
             </button>
+
+            <p className="text-xs text-muted-foreground text-center mt-4">
+              By providing my email address, phone number and clicking "Create account", I consent to receive email messages, texts & calls from GreetNow, and to the{" "}
+              <Link href="/terms" className="text-primary hover:underline">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-primary hover:underline">
+                Privacy Policy
+              </Link>.
+            </p>
           </form>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">

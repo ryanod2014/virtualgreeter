@@ -57,11 +57,11 @@ interface Comment {
 type SortOption = "votes" | "recent";
 
 const statusConfig: Record<FeedbackStatus, { label: string; icon: typeof Clock; color: string }> = {
-  open: { label: "Open", icon: Clock, color: "text-blue-500 bg-blue-500/10" },
-  in_progress: { label: "In Progress", icon: PlayCircle, color: "text-amber-500 bg-amber-500/10" },
-  completed: { label: "Completed", icon: CheckCircle2, color: "text-green-500 bg-green-500/10" },
-  closed: { label: "Closed", icon: XCircle, color: "text-muted-foreground bg-muted/50" },
-  declined: { label: "Declined", icon: AlertCircle, color: "text-red-500 bg-red-500/10" },
+  open: { label: "Open", icon: Clock, color: "text-blue-400 bg-blue-500/20 border border-blue-500/30" },
+  in_progress: { label: "In Progress", icon: PlayCircle, color: "text-amber-400 bg-amber-500/20 border border-amber-500/30" },
+  completed: { label: "Completed", icon: CheckCircle2, color: "text-emerald-400 bg-emerald-500/20 border border-emerald-500/30" },
+  closed: { label: "Closed", icon: XCircle, color: "text-slate-400 bg-slate-500/20 border border-slate-500/30" },
+  declined: { label: "Declined", icon: AlertCircle, color: "text-red-400 bg-red-500/20 border border-red-500/30" },
 };
 
 const statusFilters: { value: FeedbackStatus | "all"; label: string }[] = [
@@ -352,35 +352,46 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
   };
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-amber-500/5 via-background to-primary/5 border-b border-border">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent" />
-        <div className="relative px-8 py-10 max-w-5xl mx-auto">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
-          </Link>
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Background effects - matching homepage */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="glow-orb w-[500px] h-[500px] -top-[200px] left-1/4 bg-primary/10" />
+        <div className="glow-orb w-[400px] h-[400px] top-[40%] -right-[150px] bg-purple-600/8" />
+        <div className="glow-orb w-[300px] h-[300px] bottom-[10%] -left-[100px] bg-fuchsia-600/6" />
+      </div>
 
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/20 to-primary/20 backdrop-blur-sm">
-              <Sparkles className="w-8 h-8 text-amber-500" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">Feature Requests</h1>
-              <p className="text-muted-foreground">
-                Vote for features you want · Top voted get built first
-              </p>
+      {/* Grid pattern */}
+      <div className="fixed inset-0 grid-pattern pointer-events-none" />
+
+      <div className="relative z-10">
+        {/* Hero Section */}
+        <div className="relative overflow-hidden border-b border-border/50">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-600/5" />
+          <div className="relative px-8 py-10 max-w-5xl mx-auto">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary mb-6 transition-colors group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              Back to Dashboard
+            </Link>
+
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/20 to-purple-600/20 backdrop-blur-sm border border-primary/20">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold gradient-text">Feature Requests</h1>
+                <p className="text-muted-foreground">
+                  Vote for features you want · Top voted get built first
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="px-8 py-6 max-w-5xl mx-auto">
+        {/* Main Content */}
+        <div className="px-8 py-6 max-w-5xl mx-auto">
         {/* Controls Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           {/* Search */}
@@ -391,7 +402,7 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search feature requests..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary outline-none transition-colors"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary/50 outline-none transition-colors text-foreground placeholder:text-muted-foreground"
             />
           </div>
 
@@ -402,10 +413,10 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as FeedbackStatus | "all")}
-                className="pl-9 pr-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary outline-none transition-colors appearance-none cursor-pointer"
+                className="pl-9 pr-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary/50 outline-none transition-colors appearance-none cursor-pointer text-foreground"
               >
                 {statusFilters.map((filter) => (
-                  <option key={filter.value} value={filter.value}>
+                  <option key={filter.value} value={filter.value} className="bg-background">
                     {filter.label}
                   </option>
                 ))}
@@ -413,13 +424,13 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
             </div>
 
             {/* Sort */}
-            <div className="flex rounded-xl bg-muted/50 border border-border p-1">
+            <div className="flex rounded-full bg-muted/50 border border-border p-1">
               <button
                 onClick={() => setSortBy("votes")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   sortBy === "votes"
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-white/60 hover:text-white hover:bg-white/10"
                 }`}
               >
                 <TrendingUp className="w-4 h-4" />
@@ -427,10 +438,10 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
               </button>
               <button
                 onClick={() => setSortBy("recent")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   sortBy === "recent"
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-white/60 hover:text-white hover:bg-white/10"
                 }`}
               >
                 <Clock className="w-4 h-4" />
@@ -441,9 +452,9 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
             {/* Submit Button */}
             <button
               onClick={() => setShowSubmitForm(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 transition-colors"
+              className="group flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/20"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
               New Request
             </button>
           </div>
@@ -452,18 +463,24 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
         {/* Items List */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Loading...</p>
+            <div className="relative">
+              <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
+              <Loader2 className="w-10 h-10 animate-spin text-primary relative" />
+            </div>
+            <p className="text-muted-foreground mt-4">Loading requests...</p>
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="p-4 rounded-2xl bg-amber-500/10 mb-4">
-              <Lightbulb className="w-10 h-10 text-amber-500" />
+            <div className="relative mb-6">
+              <div className="absolute inset-0 bg-primary/20 rounded-2xl blur-2xl" />
+              <div className="p-5 rounded-2xl bg-primary/10 border border-primary/20 relative">
+                <Lightbulb className="w-12 h-12 text-primary" />
+              </div>
             </div>
-            <h3 className="text-xl font-semibold mb-2">
+            <h3 className="text-2xl font-bold mb-2">
               {searchQuery ? "No results found" : "No feature requests yet"}
             </h3>
-            <p className="text-muted-foreground mb-6 max-w-md">
+            <p className="text-muted-foreground mb-8 max-w-md">
               {searchQuery
                 ? "Try adjusting your search"
                 : "Be the first to suggest a feature! Your ideas help shape the product."}
@@ -471,10 +488,10 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
             {!searchQuery && (
               <button
                 onClick={() => setShowSubmitForm(true)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 transition-colors"
+                className="group flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/20"
               >
-                <Plus className="w-5 h-5" />
-                New Request
+                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                Submit First Request
               </button>
             )}
           </div>
@@ -491,31 +508,31 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                 <div
                   key={item.id}
                   onClick={() => setSelectedItem(item)}
-                  className="group relative bg-card/50 hover:bg-card border border-border hover:border-primary/30 rounded-xl p-3 transition-all cursor-pointer"
+                  className="group relative bg-white/[0.02] hover:bg-white/[0.05] backdrop-blur-sm border border-white/10 hover:border-primary/30 rounded-2xl p-4 transition-all cursor-pointer hover-lift"
                 >
-                  <div className="flex gap-3">
+                  <div className="flex gap-4">
                     {/* Reddit-style Vote Buttons */}
-                    <div className="flex flex-col items-center flex-shrink-0 w-10">
+                    <div className="flex flex-col items-center flex-shrink-0 w-12 bg-white/5 rounded-xl py-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleVote(item.id, 1, item.user_vote ?? null);
                         }}
                         title={item.user_vote === 1 ? "Remove upvote" : "Upvote"}
-                        className={`p-1 rounded transition-colors ${
+                        className={`p-1.5 rounded-lg transition-all ${
                           item.user_vote === 1
-                            ? "text-orange-500 hover:bg-orange-500/10"
-                            : "text-muted-foreground/50 hover:text-orange-500 hover:bg-orange-500/10"
+                            ? "text-primary bg-primary/20 hover:bg-primary/30"
+                            : "text-white/40 hover:text-primary hover:bg-primary/10"
                         }`}
                       >
-                        <ChevronUp className="w-6 h-6" strokeWidth={item.user_vote === 1 ? 3 : 2} />
+                        <ChevronUp className="w-5 h-5" strokeWidth={item.user_vote === 1 ? 3 : 2} />
                       </button>
-                      <span className={`text-xs font-bold tabular-nums py-0.5 ${
+                      <span className={`text-sm font-bold tabular-nums py-1 ${
                         item.user_vote === 1 
-                          ? "text-orange-500" 
+                          ? "text-primary" 
                           : item.user_vote === -1 
-                            ? "text-blue-500" 
-                            : "text-muted-foreground"
+                            ? "text-blue-400" 
+                            : "text-white/60"
                       }`}>
                         {item.vote_count}
                       </span>
@@ -525,37 +542,37 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                           handleVote(item.id, -1, item.user_vote ?? null);
                         }}
                         title={item.user_vote === -1 ? "Remove downvote" : "Downvote"}
-                        className={`p-1 rounded transition-colors ${
+                        className={`p-1.5 rounded-lg transition-all ${
                           item.user_vote === -1
-                            ? "text-blue-500 hover:bg-blue-500/10"
-                            : "text-muted-foreground/50 hover:text-blue-500 hover:bg-blue-500/10"
+                            ? "text-blue-400 bg-blue-500/20 hover:bg-blue-500/30"
+                            : "text-white/40 hover:text-blue-400 hover:bg-blue-500/10"
                         }`}
                       >
-                        <ChevronDown className="w-6 h-6" strokeWidth={item.user_vote === -1 ? 3 : 2} />
+                        <ChevronDown className="w-5 h-5" strokeWidth={item.user_vote === -1 ? 3 : 2} />
                       </button>
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-3 mb-1">
+                      <div className="flex items-start justify-between gap-3 mb-2">
                         <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
                           {item.title}
                         </h3>
                         <div
-                          className={`flex-shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}
+                          className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.color}`}
                         >
                           <StatusIcon className="w-3 h-3" />
                           {status.label}
                         </div>
                       </div>
 
-                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                         {item.description}
                       </p>
 
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-4 text-xs text-white/40">
                         <span>{timeAgo(item.created_at)}</span>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           <MessageCircle className="w-3.5 h-3.5" />
                           <span>{item.comment_count} comments</span>
                         </div>
@@ -567,42 +584,46 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
             })}
           </div>
         )}
+        </div>
       </div>
 
       {/* Submit Form Modal */}
       {showSubmitForm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
           onClick={() => setShowSubmitForm(false)}
         >
           <div
-            className="w-full max-w-lg bg-background rounded-2xl border border-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="w-full max-w-lg bg-background/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-5 border-b border-border">
+            <div className="flex items-center justify-between p-6 border-b border-white/10 bg-gradient-to-r from-primary/5 to-purple-600/5">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-amber-500/10">
-                  <Lightbulb className="w-5 h-5 text-amber-500" />
+                <div className="p-2.5 rounded-xl bg-primary/20 border border-primary/30">
+                  <Lightbulb className="w-5 h-5 text-primary" />
                 </div>
-                <h3 className="font-semibold">Request a Feature</h3>
+                <div>
+                  <h3 className="font-semibold text-lg">Request a Feature</h3>
+                  <p className="text-xs text-muted-foreground">Share your idea with the community</p>
+                </div>
               </div>
               <button
                 onClick={() => setShowSubmitForm(false)}
-                className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+                className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-5">
               {submitError && (
-                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
                   {submitError}
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label className="block text-sm font-medium mb-2 text-white/80">
                   What feature would you like?
                 </label>
                 <input
@@ -610,14 +631,14 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="Brief title for your idea"
-                  className="w-full px-4 py-2.5 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors"
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-primary/50 outline-none transition-colors text-foreground placeholder:text-white/30"
                   maxLength={200}
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label className="block text-sm font-medium mb-2 text-white/80">
                   Description
                 </label>
                 <textarea
@@ -625,7 +646,7 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                   onChange={(e) => setNewDescription(e.target.value)}
                   placeholder="Describe the feature and why it would be helpful..."
                   rows={4}
-                  className="w-full px-4 py-2.5 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors resize-none"
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-primary/50 outline-none transition-colors resize-none text-foreground placeholder:text-white/30"
                 />
               </div>
 
@@ -633,14 +654,14 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                 <button
                   type="button"
                   onClick={() => setShowSubmitForm(false)}
-                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
+                  className="px-5 py-2.5 rounded-full border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !newTitle.trim() || !newDescription.trim()}
-                  className="px-4 py-2 rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-primary/20 flex items-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
@@ -660,18 +681,18 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
       {/* Detail Modal */}
       {selectedItem && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
           onClick={() => setSelectedItem(null)}
         >
           <div
-            className="w-full max-w-2xl max-h-[80vh] bg-background rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+            className="w-full max-w-2xl max-h-[85vh] bg-background/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-start justify-between p-6 border-b border-border">
+            <div className="flex items-start justify-between p-6 border-b border-white/10 bg-gradient-to-r from-primary/5 to-purple-600/5">
               <div className="flex gap-4 flex-1 min-w-0">
                 {/* Reddit-style Vote in Detail */}
-                <div className="flex flex-col items-center flex-shrink-0 w-12">
+                <div className="flex flex-col items-center flex-shrink-0 w-14 bg-white/5 rounded-xl py-2">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -686,20 +707,20 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                       });
                     }}
                     title={selectedItem.user_vote === 1 ? "Remove upvote" : "Upvote"}
-                    className={`p-1.5 rounded-lg transition-colors ${
+                    className={`p-1.5 rounded-lg transition-all ${
                       selectedItem.user_vote === 1
-                        ? "text-orange-500 bg-orange-500/10 hover:bg-orange-500/20"
-                        : "text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10"
+                        ? "text-primary bg-primary/20 hover:bg-primary/30"
+                        : "text-white/40 hover:text-primary hover:bg-primary/10"
                     }`}
                   >
                     <ChevronUp className="w-7 h-7" strokeWidth={selectedItem.user_vote === 1 ? 3 : 2} />
                   </button>
-                  <span className={`text-base font-bold tabular-nums py-1 ${
+                  <span className={`text-lg font-bold tabular-nums py-1 ${
                     selectedItem.user_vote === 1 
-                      ? "text-orange-500" 
+                      ? "text-primary" 
                       : selectedItem.user_vote === -1 
-                        ? "text-blue-500" 
-                        : "text-muted-foreground"
+                        ? "text-blue-400" 
+                        : "text-white/60"
                   }`}>
                     {selectedItem.vote_count}
                   </span>
@@ -717,10 +738,10 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                       });
                     }}
                     title={selectedItem.user_vote === -1 ? "Remove downvote" : "Downvote"}
-                    className={`p-1.5 rounded-lg transition-colors ${
+                    className={`p-1.5 rounded-lg transition-all ${
                       selectedItem.user_vote === -1
-                        ? "text-blue-500 bg-blue-500/10 hover:bg-blue-500/20"
-                        : "text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10"
+                        ? "text-blue-400 bg-blue-500/20 hover:bg-blue-500/30"
+                        : "text-white/40 hover:text-blue-400 hover:bg-blue-500/10"
                     }`}
                   >
                     <ChevronDown className="w-7 h-7" strokeWidth={selectedItem.user_vote === -1 ? 3 : 2} />
@@ -740,11 +761,11 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                       );
                     })()}
                   </div>
-                  <h2 className="text-xl font-bold mb-2">{selectedItem.title}</h2>
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <h2 className="text-xl font-bold mb-2 text-foreground">{selectedItem.title}</h2>
+                  <div className="flex items-center gap-3 text-sm text-white/40">
                     <span>{timeAgo(selectedItem.created_at)}</span>
                     <span>·</span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <MessageCircle className="w-3.5 h-3.5" />
                       <span>{selectedItem.comment_count} comments</span>
                     </div>
@@ -754,7 +775,7 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
 
               <button
                 onClick={() => setSelectedItem(null)}
-                className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+                className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -762,33 +783,33 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              <div className="bg-white/[0.02] border border-white/10 rounded-xl p-4">
+                <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-3">
                   Description
                 </h3>
-                <p className="text-foreground whitespace-pre-wrap">{selectedItem.description}</p>
+                <p className="text-foreground whitespace-pre-wrap leading-relaxed">{selectedItem.description}</p>
               </div>
 
               {/* Comments Section */}
-              <div className="pt-4 border-t border-border">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
+              <div className="pt-4 border-t border-white/10">
+                <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-4">
                   Comments ({selectedItem.comment_count})
                 </h3>
 
                 {/* Comment Input */}
                 <div className="flex gap-3 mb-6">
-                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
                     <span className="text-xs font-bold text-primary">You</span>
                   </div>
                   <div className="flex-1">
                     {replyingTo && (
-                      <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-muted/50 text-sm">
-                        <CornerDownRight className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Replying to:</span>
+                      <div className="flex items-center gap-2 mb-2 p-3 rounded-xl bg-white/5 border border-white/10 text-sm">
+                        <CornerDownRight className="w-4 h-4 text-white/40" />
+                        <span className="text-white/40">Replying to:</span>
                         <span className="text-foreground truncate flex-1">{replyingTo.content.slice(0, 50)}...</span>
                         <button
                           onClick={() => setReplyingTo(null)}
-                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                          className="p-1 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -799,21 +820,21 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                       onChange={(e) => setNewComment(e.target.value)}
                       placeholder={replyingTo ? "Write a reply..." : "What are your thoughts?"}
                       rows={3}
-                      className="w-full px-4 py-3 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors resize-none text-sm"
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-primary/50 outline-none transition-colors resize-none text-sm text-foreground placeholder:text-white/30"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                           handlePostComment(replyingTo?.id);
                         }
                       }}
                     />
-                    <div className="flex justify-between items-center mt-2">
-                      <span className="text-xs text-muted-foreground">
+                    <div className="flex justify-between items-center mt-3">
+                      <span className="text-xs text-white/30">
                         {newComment.length > 0 && "⌘/Ctrl + Enter to submit"}
                       </span>
                       <button
                         onClick={() => handlePostComment(replyingTo?.id)}
                         disabled={!newComment.trim() || isPostingComment}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-primary/20"
                       >
                         {isPostingComment ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -829,12 +850,12 @@ export function PublicFeedbackClient({ userId, isAdmin }: PublicFeedbackClientPr
                 {/* Comments List */}
                 {isLoadingComments ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   </div>
                 ) : comments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No comments yet. Be the first to share your thoughts!</p>
+                  <div className="text-center py-10 bg-white/[0.02] border border-white/10 rounded-xl">
+                    <MessageCircle className="w-10 h-10 mx-auto mb-3 text-white/20" />
+                    <p className="text-sm text-white/40">No comments yet. Be the first to share your thoughts!</p>
                   </div>
                 ) : (
                   <div className="space-y-1">
@@ -884,38 +905,38 @@ function CommentThread({
   const maxDepth = 4; // Maximum nesting depth
 
   return (
-    <div className={depth > 0 ? "ml-6 pl-4 border-l-2 border-border/50" : ""}>
+    <div className={depth > 0 ? "ml-6 pl-4 border-l-2 border-primary/20" : ""}>
       <div className="group py-3">
         <div className="flex gap-3">
           {/* Avatar */}
-          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-            isOwn ? "bg-primary/20" : "bg-muted"
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border ${
+            isOwn ? "bg-primary/20 border-primary/30" : "bg-white/5 border-white/10"
           }`}>
-            <span className={`text-[10px] font-bold ${isOwn ? "text-primary" : "text-muted-foreground"}`}>
+            <span className={`text-[10px] font-bold ${isOwn ? "text-primary" : "text-white/40"}`}>
               {isOwn ? "You" : "U"}
             </span>
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1.5">
               <span className={`text-sm font-medium ${isOwn ? "text-primary" : "text-foreground"}`}>
                 {isOwn ? "You" : "Anonymous"}
               </span>
-              <span className="text-xs text-muted-foreground">•</span>
-              <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
+              <span className="text-xs text-white/20">•</span>
+              <span className="text-xs text-white/40">{timeAgo(comment.created_at)}</span>
             </div>
             
-            <p className="text-sm text-foreground whitespace-pre-wrap break-words mb-2">
+            <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words mb-2 leading-relaxed">
               {comment.content}
             </p>
 
             {/* Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
               {depth < maxDepth && (
                 <button
                   onClick={() => onReply(comment)}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                  className="flex items-center gap-1.5 text-xs text-white/40 hover:text-primary transition-colors"
                 >
                   <Reply className="w-3.5 h-3.5" />
                   Reply
@@ -925,7 +946,7 @@ function CommentThread({
                 <button
                   onClick={() => onDelete(comment.id)}
                   disabled={deletingId === comment.id}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  className="flex items-center gap-1.5 text-xs text-white/40 hover:text-red-400 transition-colors"
                 >
                   {deletingId === comment.id ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />

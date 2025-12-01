@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Users,
   Phone,
@@ -24,7 +25,6 @@ import {
   Play,
   Pencil,
 } from "lucide-react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 interface Pool {
@@ -74,12 +74,11 @@ interface PendingInvite {
 }
 
 interface BillingInfo {
-  totalAgents: number;
-  includedSeats: number;
-  additionalSeats: number;
+  usedSeats: number;        // Active agents + pending invites
+  purchasedSeats: number;   // What they're paying for (billing floor)
+  availableSeats: number;   // purchasedSeats - usedSeats
   activeAgents: number;
   pendingInvites: number;
-  baseSubscription: number;
   pricePerSeat: number;
   monthlyCost: number;
 }
@@ -139,12 +138,16 @@ export function AgentsClient({
 
   const supabase = createClient();
 
-  // Updated billing calculations
-  // Base subscription + additional seats beyond the included one
-  const wouldBeAdditionalSeats = Math.max(0, billingInfo.totalAgents + 1 - billingInfo.includedSeats);
-  const newMonthlyCost = billingInfo.baseSubscription + (wouldBeAdditionalSeats * billingInfo.pricePerSeat);
-  // Cost increase is only if they're beyond the included seats
-  const costIncrease = billingInfo.totalAgents >= billingInfo.includedSeats ? billingInfo.pricePerSeat : 0;
+  // PRE-PAID SEATS billing calculations
+  // Only charge more if exceeding purchased seats
+  const hasAvailableSeats = billingInfo.availableSeats > 0;
+  const wouldExceedPurchased = billingInfo.usedSeats >= billingInfo.purchasedSeats;
+  
+  // Cost increase only if they would exceed their purchased seats
+  const costIncrease = wouldExceedPurchased ? billingInfo.pricePerSeat : 0;
+  const newMonthlyCost = wouldExceedPurchased 
+    ? (billingInfo.purchasedSeats + 1) * billingInfo.pricePerSeat 
+    : billingInfo.monthlyCost;
 
   // Handle adding yourself as an agent
   const handleAddMyself = async () => {
@@ -254,15 +257,17 @@ export function AgentsClient({
 
       setAgents([...agents, newAgent]);
 
-      // Update billing
-      const newTotalAgents = billingInfo.totalAgents + 1;
-      const newAdditionalSeats = Math.max(0, newTotalAgents - billingInfo.includedSeats);
+      // Update billing - only expand if exceeding purchased seats
+      const newUsedSeats = billingInfo.usedSeats + 1;
+      const needsExpansion = newUsedSeats > billingInfo.purchasedSeats;
+      const newPurchasedSeats = needsExpansion ? newUsedSeats : billingInfo.purchasedSeats;
       setBillingInfo({
         ...billingInfo,
-        totalAgents: newTotalAgents,
-        additionalSeats: newAdditionalSeats,
+        usedSeats: newUsedSeats,
+        purchasedSeats: newPurchasedSeats,
+        availableSeats: newPurchasedSeats - newUsedSeats,
         activeAgents: billingInfo.activeAgents + 1,
-        monthlyCost: billingInfo.baseSubscription + (newAdditionalSeats * billingInfo.pricePerSeat),
+        monthlyCost: newPurchasedSeats * billingInfo.pricePerSeat,
       });
 
       setIsCurrentUserAgent(true);
@@ -320,15 +325,17 @@ export function AgentsClient({
         },
       ]);
 
-      // Update billing info
-      const newTotalAgents = billingInfo.totalAgents + 1;
-      const newAdditionalSeats = Math.max(0, newTotalAgents - billingInfo.includedSeats);
+      // Update billing info - only expand if exceeding purchased seats
+      const newUsedSeats = billingInfo.usedSeats + 1;
+      const needsExpansion = newUsedSeats > billingInfo.purchasedSeats;
+      const newPurchasedSeats = needsExpansion ? newUsedSeats : billingInfo.purchasedSeats;
       setBillingInfo({
         ...billingInfo,
-        totalAgents: newTotalAgents,
-        additionalSeats: newAdditionalSeats,
+        usedSeats: newUsedSeats,
+        purchasedSeats: newPurchasedSeats,
+        availableSeats: newPurchasedSeats - newUsedSeats,
         pendingInvites: billingInfo.pendingInvites + 1,
-        monthlyCost: billingInfo.baseSubscription + (newAdditionalSeats * billingInfo.pricePerSeat),
+        monthlyCost: newPurchasedSeats * billingInfo.pricePerSeat,
       });
 
       setInviteSuccess(true);
@@ -361,14 +368,14 @@ export function AgentsClient({
 
       if (response.ok) {
         setPendingInvites(pendingInvites.filter(i => i.id !== inviteId));
-        const newTotalAgents = billingInfo.totalAgents - 1;
-        const newAdditionalSeats = Math.max(0, newTotalAgents - billingInfo.includedSeats);
+        // Pre-paid model: revoking frees up a seat but doesn't reduce billing
+        const newUsedSeats = billingInfo.usedSeats - 1;
         setBillingInfo({
           ...billingInfo,
-          totalAgents: newTotalAgents,
-          additionalSeats: newAdditionalSeats,
+          usedSeats: newUsedSeats,
+          availableSeats: billingInfo.purchasedSeats - newUsedSeats,
           pendingInvites: billingInfo.pendingInvites - 1,
-          monthlyCost: billingInfo.baseSubscription + (newAdditionalSeats * billingInfo.pricePerSeat),
+          // monthlyCost stays the same - they still pay for purchased seats
         });
       }
     } catch (error) {
@@ -400,14 +407,14 @@ export function AgentsClient({
 
       // Update local state
       setAgents(agents.filter(a => a.id !== agentToRemove.id));
-      const newTotalAgents = billingInfo.totalAgents - 1;
-      const newAdditionalSeats = Math.max(0, newTotalAgents - billingInfo.includedSeats);
+      // Pre-paid model: removing agent frees up a seat but doesn't reduce billing
+      const newUsedSeats = billingInfo.usedSeats - 1;
       setBillingInfo({
         ...billingInfo,
-        totalAgents: newTotalAgents,
-        additionalSeats: newAdditionalSeats,
+        usedSeats: newUsedSeats,
+        availableSeats: billingInfo.purchasedSeats - newUsedSeats,
         activeAgents: billingInfo.activeAgents - 1,
-        monthlyCost: billingInfo.baseSubscription + (newAdditionalSeats * billingInfo.pricePerSeat),
+        // monthlyCost stays the same - they still pay for purchased seats
       });
 
       // If removing yourself, update the flag
@@ -562,21 +569,37 @@ export function AgentsClient({
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      {/* Header with Billing Info */}
-      <div className="flex items-start justify-between mb-8">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-2">Team</h1>
           <p className="text-muted-foreground">
-            Manage your agents and billing
+            Manage your agents and team seats
           </p>
         </div>
-        <button
-          onClick={() => setIsAddingAgent(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
+      </div>
+
+      {/* Seat Info Banner */}
+      <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border mb-8">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            <span className="font-semibold">{billingInfo.purchasedSeats} seats</span>
+          </div>
+          <div className="h-4 w-px bg-border" />
+          <span className="text-muted-foreground">
+            {billingInfo.usedSeats} in use
+            {billingInfo.availableSeats > 0 && (
+              <span className="text-green-600 ml-1">• {billingInfo.availableSeats} available</span>
+            )}
+          </span>
+        </div>
+        <Link
+          href="/admin/settings/billing"
+          className="text-sm text-primary hover:underline"
         >
-          <UserPlus className="w-5 h-5" />
-          Add Agent
-        </button>
+          Manage seats →
+        </Link>
       </div>
 
       {/* Add Agent Modal */}
@@ -607,24 +630,26 @@ export function AgentsClient({
 
                 <div className="p-4 rounded-xl bg-muted/30 mb-6 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Current</span>
-                    <span><strong>${billingInfo.monthlyCost}/mo</strong> ({billingInfo.totalAgents} agent{billingInfo.totalAgents !== 1 ? 's' : ''})</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">After</span>
-                    <span><strong>${newMonthlyCost}/mo</strong> ({billingInfo.totalAgents + 1} agents)</span>
+                    <span className="text-muted-foreground">Your seats</span>
+                    <span><strong>{billingInfo.usedSeats}</strong> of <strong>{billingInfo.purchasedSeats}</strong> used</span>
                   </div>
                   <hr className="border-border" />
-                  {costIncrease > 0 ? (
-                    <div className="flex justify-between text-sm text-amber-500">
-                      <span>Change</span>
-                      <span>+${costIncrease}/mo (prorated)</span>
+                  {hasAvailableSeats ? (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>This invite</span>
+                      <span>Uses 1 prepaid seat ({billingInfo.availableSeats - 1} remaining)</span>
                     </div>
                   ) : (
-                    <div className="flex justify-between text-sm text-green-600">
-                      <span>Change</span>
-                      <span>No change (using included seat)</span>
-                    </div>
+                    <>
+                      <div className="flex justify-between text-sm text-amber-500">
+                        <span>Additional seat</span>
+                        <span>+${costIncrease}/mo</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">New monthly cost</span>
+                        <span><strong>${newMonthlyCost}/mo</strong></span>
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -767,17 +792,22 @@ export function AgentsClient({
                           Send an invite to a team member
                         </p>
                       </div>
-                      {costIncrease > 0 || isCurrentUserAgent ? (
-                        <span className="text-xs text-amber-600 font-medium">+${billingInfo.pricePerSeat}/mo</span>
+                      {hasAvailableSeats ? (
+                        <span className="text-xs text-green-600 font-medium">
+                          {billingInfo.availableSeats} prepaid seat{billingInfo.availableSeats !== 1 ? 's' : ''} remaining
+                        </span>
                       ) : (
-                        <span className="text-xs text-green-600 font-medium">Included</span>
+                        <span className="text-xs text-amber-600 font-medium">+${billingInfo.pricePerSeat}/mo per seat</span>
                       )}
                     </div>
                   </button>
                 </div>
 
                 <div className="mt-4 p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
-                  <strong>${billingInfo.baseSubscription}/mo</strong> base includes 1 seat. Additional seats are <strong>${billingInfo.pricePerSeat}/mo</strong> each.
+                  <strong>{billingInfo.usedSeats}</strong> of <strong>{billingInfo.purchasedSeats}</strong> prepaid seats used • <strong>${billingInfo.monthlyCost}/mo</strong>
+                  {billingInfo.availableSeats > 0 && (
+                    <span className="text-green-600 ml-2">({billingInfo.availableSeats} remaining)</span>
+                  )}
                 </div>
               </>
             ) : (
@@ -885,14 +915,14 @@ export function AgentsClient({
 
                   {/* Cost preview - different message based on role and seat availability */}
                   {newAgentRole === "agent" ? (
-                    billingInfo.totalAgents < billingInfo.includedSeats ? (
+                    hasAvailableSeats ? (
                       <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-sm">
                         <div className="flex items-center gap-2 text-green-600 mb-1">
                           <Check className="w-4 h-4" />
-                          <span className="font-medium">Using Included Seat</span>
+                          <span className="font-medium">Using Prepaid Seat</span>
                         </div>
                         <p className="text-green-600/80">
-                          This agent will use your included seat. No additional cost.
+                          Uses 1 of your {billingInfo.availableSeats} prepaid seats — no additional cost.
                         </p>
                       </div>
                     ) : (
@@ -902,7 +932,7 @@ export function AgentsClient({
                           <span className="font-medium">Additional Seat</span>
                         </div>
                         <p className="text-amber-600/80">
-                          Adding an agent will add +${billingInfo.pricePerSeat}/mo to your subscription.
+                          All {billingInfo.purchasedSeats} prepaid seats in use. This adds +${billingInfo.pricePerSeat}/mo.
                         </p>
                       </div>
                     )
@@ -981,15 +1011,13 @@ export function AgentsClient({
                   <p className="text-muted-foreground">All call logs and recordings will be kept.</p>
                 </div>
               </div>
-              {billingInfo.additionalSeats > 0 && (
-                <div className="flex items-start gap-3">
-                  <CreditCard className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <div className="text-sm">
-                    <strong>Billing reduced</strong>
-                    <p className="text-muted-foreground">Your next invoice will be ${billingInfo.pricePerSeat} less (prorated credit applied).</p>
-                  </div>
+              <div className="flex items-start gap-3">
+                <CreditCard className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <strong>Seat freed up</strong>
+                  <p className="text-muted-foreground">This seat becomes available for future team members.</p>
                 </div>
-              )}
+              </div>
               {agentToRemove.user_id === currentUserId && (
                 <div className="flex items-start gap-3">
                   <Shield className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
@@ -1145,19 +1173,12 @@ export function AgentsClient({
               })}
 
               {agents.length === 0 && pendingInvites.length === 0 && (
-                <div className="p-12 text-center">
+                <div className="p-8 text-center">
                   <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                   <h3 className="text-lg font-semibold mb-2">No agents yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Add yourself or invite someone to get started
+                  <p className="text-muted-foreground">
+                    Click below to add yourself or invite someone to get started
                   </p>
-                  <button
-                    onClick={() => setIsAddingAgent(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium"
-                  >
-                    <UserPlus className="w-5 h-5" />
-                    Add Agent
-                  </button>
                 </div>
               )}
 
@@ -1223,6 +1244,30 @@ export function AgentsClient({
                   ))}
                 </>
               )}
+
+              {/* Add Agent Row */}
+              <div
+                onClick={() => setIsAddingAgent(true)}
+                onKeyDown={(e) => e.key === 'Enter' && setIsAddingAgent(true)}
+                role="button"
+                tabIndex={0}
+                className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-muted/20 cursor-pointer transition-colors border-t border-dashed border-border group"
+              >
+                <div className="col-span-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center group-hover:border-primary group-hover:bg-primary/5 transition-colors">
+                    <UserPlus className="w-5 h-5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                  </div>
+                  <span className="text-muted-foreground group-hover:text-foreground transition-colors font-medium">
+                    Add Agent
+                  </span>
+                </div>
+                <div className="col-span-8 text-left text-sm text-muted-foreground/50 group-hover:text-muted-foreground transition-colors">
+                  {hasAvailableSeats 
+                    ? `${billingInfo.availableSeats} prepaid seat${billingInfo.availableSeats !== 1 ? 's' : ''} available`
+                    : `+$${billingInfo.pricePerSeat}/mo per additional seat`
+                  }
+                </div>
+              </div>
             </div>
           </div>
         </div>

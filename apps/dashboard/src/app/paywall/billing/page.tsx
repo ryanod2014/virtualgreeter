@@ -2,12 +2,16 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Sparkles, Check, X, Percent, Calendar, CreditCard, Zap } from "lucide-react";
+import { ArrowRight, Sparkles, Check, X, Percent, Calendar, CreditCard, Zap, Loader2 } from "lucide-react";
+import { trackFunnelEvent, FUNNEL_STEPS } from "@/lib/funnel-tracking";
+import { PRICING } from "@/lib/stripe";
 
 export default function PaywallStep3() {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">("monthly");
   const [seatCount, setSeatCount] = useState(1);
   const [showExitPopup, setShowExitPopup] = useState(false);
+  const [isCreatingSubscription, setIsCreatingSubscription] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const exitPopupShown = useRef(false);
   const router = useRouter();
 
@@ -31,9 +35,10 @@ export default function PaywallStep3() {
     };
   }, [showExitPopup]);
 
-  const monthlyPrice = 297;
-  const annualPrice = 193; // ~35% off
-  const sixMonthPrice = 178; // 40% off
+  // Use centralized pricing
+  const monthlyPrice = PRICING.monthly.price;
+  const annualPrice = PRICING.annual.price;
+  const sixMonthPrice = PRICING.six_month.price;
   const monthlySavings = monthlyPrice - annualPrice;
   const sixMonthSavings = monthlyPrice - sixMonthPrice;
   const yearlyTotal = annualPrice * 12 * seatCount;
@@ -42,22 +47,83 @@ export default function PaywallStep3() {
   const monthlyCostAnnual = annualPrice * seatCount;
   const monthlyCostSixMonth = sixMonthPrice * seatCount;
 
-  const handleContinue = () => {
+  // Create subscription and navigate to admin
+  const createSubscriptionAndContinue = async (billingPreference: string) => {
+    setIsCreatingSubscription(true);
+    setSubscriptionError(null);
+    
+    const seats = parseInt(localStorage.getItem("trial_seats") || "1", 10);
+    
+    try {
+      const response = await fetch("/api/billing/create-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          seatCount: seats,
+          billingPreference,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // If subscription already exists, just continue
+        if (data.subscriptionId) {
+          localStorage.setItem("billing_preference", billingPreference);
+          router.push("/admin");
+          return;
+        }
+        throw new Error(data.error || "Failed to create subscription");
+      }
+
+      // Store billing preference
+      localStorage.setItem("billing_preference", billingPreference);
+      
+      // Track billing selection conversion
+      if (billingPreference === "annual") {
+      await trackFunnelEvent(FUNNEL_STEPS.BILLING_ANNUAL, { 
+        is_conversion: true,
+        seats, 
+        billing_type: "annual",
+          value: seats * 193 * 12
+        });
+      } else if (billingPreference === "six_month") {
+        await trackFunnelEvent(FUNNEL_STEPS.BILLING_6MONTH, { 
+          is_conversion: true,
+          seats, 
+          billing_type: "6month",
+          value: seats * 178 * 6
+      });
+    } else {
+      await trackFunnelEvent(FUNNEL_STEPS.BILLING_MONTHLY, { 
+        is_conversion: true,
+        seats, 
+        billing_type: "monthly",
+          value: seats * 297
+      });
+    }
+    
+    // Continue to admin dashboard
+    router.push("/admin");
+    } catch (error) {
+      console.error("Subscription error:", error);
+      setSubscriptionError(error instanceof Error ? error.message : "Failed to start trial");
+      setIsCreatingSubscription(false);
+    }
+  };
+
+  const handleContinue = async () => {
     // Show exit popup for monthly users (one time only)
     if (selectedPlan === "monthly" && !exitPopupShown.current) {
       exitPopupShown.current = true;
       setShowExitPopup(true);
       return;
     }
-    // Store billing preference
-    localStorage.setItem("billing_preference", selectedPlan);
-    // Continue to admin dashboard
-    router.push("/admin");
+    await createSubscriptionAndContinue(selectedPlan);
   };
 
-  const handleSixMonthOffer = () => {
-    localStorage.setItem("billing_preference", "six_month");
-    router.push("/admin");
+  const handleSixMonthOffer = async () => {
+    await createSubscriptionAndContinue("six_month");
   };
 
   return (
@@ -233,13 +299,30 @@ export default function PaywallStep3() {
             <span>You won't be charged until your free trial ends</span>
           </div>
 
+          {/* Error message */}
+          {subscriptionError && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4 text-center">
+              <div className="text-sm text-red-400">{subscriptionError}</div>
+            </div>
+          )}
+
           {/* CTA */}
           <button
             onClick={handleContinue}
-            className="w-full group inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/30"
+            disabled={isCreatingSubscription}
+            className="w-full group inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/30 disabled:opacity-70 disabled:cursor-not-allowed"
           >
+            {isCreatingSubscription ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Starting your trial...
+              </>
+            ) : (
+              <>
             {selectedPlan === "annual" ? "Start Trial with Annual Billing" : "Start Trial with Monthly Billing"}
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
           </button>
 
         </div>
@@ -330,23 +413,39 @@ export default function PaywallStep3() {
                 </p>
               </div>
 
+              {/* Error message in popup */}
+              {subscriptionError && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-4 text-center">
+                  <div className="text-sm text-red-400">{subscriptionError}</div>
+                </div>
+              )}
+
               {/* CTA buttons */}
               <button
                 onClick={handleSixMonthOffer}
-                className="w-full group inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/30 mb-3"
+                disabled={isCreatingSubscription}
+                className="w-full group inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/30 mb-3 disabled:opacity-70 disabled:cursor-not-allowed"
               >
+                {isCreatingSubscription ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Starting your trial...
+                  </>
+                ) : (
+                  <>
                 Start Trial with 6-Month Plan
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
               </button>
 
               <button
                 onClick={() => {
                   setShowExitPopup(false);
-                  // Proceed with monthly
-                  localStorage.setItem("billing_preference", "monthly");
-                  router.push("/admin");
+                  createSubscriptionAndContinue("monthly");
                 }}
-                className="w-full text-sm text-muted-foreground hover:text-white transition-colors py-2"
+                disabled={isCreatingSubscription}
+                className="w-full text-sm text-muted-foreground hover:text-white transition-colors py-2 disabled:opacity-50"
               >
                 No thanks, continue with monthly at $297/mo
               </button>

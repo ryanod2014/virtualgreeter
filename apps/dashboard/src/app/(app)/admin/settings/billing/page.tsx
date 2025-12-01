@@ -10,24 +10,27 @@ export default async function BillingSettingsPage() {
 
   const supabase = await createClient();
 
-  // Get ACTIVE user count from agent_profiles (includes both admins and agents)
-  // All users get an agent_profile upon creation (via trigger or invite acceptance)
-  const { count: activeUserCount } = await supabase
+  // Get ACTIVE agent count from agent_profiles
+  const { count: activeAgentCount } = await supabase
     .from("agent_profiles")
     .select("*", { count: "exact", head: true })
     .eq("organization_id", auth.organization.id)
     .eq("is_active", true);
 
-  // Get pending invite count
-  const { count: pendingInviteCount } = await supabase
+  // Get pending agent invite count (agents use seats)
+  const { count: pendingAgentInviteCount } = await supabase
     .from("invites")
     .select("*", { count: "exact", head: true })
     .eq("organization_id", auth.organization.id)
+    .eq("role", "agent")
     .is("accepted_at", null)
     .gt("expires_at", new Date().toISOString());
 
-  // Total billable seats = active users (from agent_profiles) + pending invites
-  const totalSeats = (activeUserCount ?? 0) + (pendingInviteCount ?? 0);
+  // PRE-PAID SEATS MODEL:
+  // usedSeats = active agents + pending agent invites
+  // purchasedSeats = org.seat_count (what they're paying for, set in funnel)
+  const usedSeats = (activeAgentCount ?? 0) + (pendingAgentInviteCount ?? 0);
+  const purchasedSeats = auth.organization.seat_count ?? Math.max(usedSeats, 1);
 
   // Get recording storage usage using storage API
   // Recordings are stored with path: {org_id}/{callLogId}_{timestamp}.webm
@@ -81,7 +84,8 @@ export default async function BillingSettingsPage() {
   return (
     <BillingSettingsClient
       organization={auth.organization}
-      agentCount={totalSeats}
+      usedSeats={usedSeats}
+      purchasedSeats={purchasedSeats}
       storageUsedGB={storageUsedGB}
       userId={auth.user.id}
       subscriptionStartDate={subscriptionStartDate}

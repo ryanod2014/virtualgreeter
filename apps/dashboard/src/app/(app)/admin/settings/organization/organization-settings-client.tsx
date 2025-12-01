@@ -2,26 +2,35 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, Building2, Upload, Trash2, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Building2, Upload, Trash2, Check, Loader2, Phone, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Organization } from "@ghost-greeter/domain/database.types";
+import type { Organization, User } from "@ghost-greeter/domain/database.types";
 
 interface Props {
   organization: Organization;
+  user: User;
 }
 
-export function OrganizationSettingsClient({ organization: initialOrg }: Props) {
+export function OrganizationSettingsClient({ organization: initialOrg, user: initialUser }: Props) {
   const [organization, setOrganization] = useState(initialOrg);
+  const [user, setUser] = useState(initialUser);
   const [name, setName] = useState(organization.name);
+  const [email, setEmail] = useState(user.email);
+  const [phone, setPhone] = useState(user.phone || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("Changes saved successfully");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const supabase = createClient();
 
-  const hasChanges = name !== organization.name;
+  const hasOrgChanges = name !== organization.name;
+  const hasEmailChanges = email !== user.email;
+  const hasPhoneChanges = phone !== (user.phone || "");
+  const hasUserChanges = hasEmailChanges || hasPhoneChanges;
+  const hasChanges = hasOrgChanges || hasUserChanges;
 
   const handleSave = async () => {
     if (!hasChanges) return;
@@ -29,18 +38,53 @@ export function OrganizationSettingsClient({ organization: initialOrg }: Props) 
     setIsSaving(true);
     setError(null);
     setSaveSuccess(false);
+    setSuccessMessage("Changes saved successfully");
 
     try {
-      const { error: updateError } = await supabase
-        .from("organizations")
-        .update({ name: name.trim() })
-        .eq("id", organization.id);
+      // Update organization if name changed
+      if (hasOrgChanges) {
+        const { error: updateError } = await supabase
+          .from("organizations")
+          .update({ name: name.trim() })
+          .eq("id", organization.id);
 
-      if (updateError) throw updateError;
+        if (updateError) throw updateError;
+        setOrganization({ ...organization, name: name.trim() });
+      }
 
-      setOrganization({ ...organization, name: name.trim() });
+      // Update email if changed (requires auth update + confirmation)
+      if (hasEmailChanges) {
+        const { error: authError } = await supabase.auth.updateUser({
+          email: email.trim(),
+        });
+
+        if (authError) throw authError;
+
+        // Also update in users table
+        const { error: userEmailError } = await supabase
+          .from("users")
+          .update({ email: email.trim() })
+          .eq("id", user.id);
+
+        if (userEmailError) throw userEmailError;
+        
+        setUser({ ...user, email: email.trim() });
+        setSuccessMessage("A confirmation email has been sent to your new email address");
+      }
+
+      // Update phone if changed
+      if (hasPhoneChanges) {
+        const { error: userUpdateError } = await supabase
+          .from("users")
+          .update({ phone: phone.trim() || null })
+          .eq("id", user.id);
+
+        if (userUpdateError) throw userUpdateError;
+        setUser({ ...user, phone: phone.trim() || null });
+      }
+
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setTimeout(() => setSaveSuccess(false), 5000);
     } catch (err) {
       console.error("Save error:", err);
       setError("Failed to save changes. Please try again.");
@@ -177,7 +221,7 @@ export function OrganizationSettingsClient({ organization: initialOrg }: Props) 
       {saveSuccess && (
         <div className="mb-6 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-500 flex items-center gap-2">
           <Check className="w-5 h-5" />
-          Changes saved successfully
+          {successMessage}
         </div>
       )}
 
@@ -263,6 +307,54 @@ export function OrganizationSettingsClient({ organization: initialOrg }: Props) 
                 placeholder="Enter organization name"
                 className="w-full px-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Account Owner Section */}
+        <div className="glass rounded-2xl p-6">
+          <h2 className="text-lg font-semibold mb-4">Account Owner</h2>
+          <div className="space-y-4">
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full pl-10 pr-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors"
+                />
+              </div>
+              {hasEmailChanges && (
+                <p className="text-xs text-amber-500 mt-1">
+                  Changing your email will require confirmation via a link sent to your new address
+                </p>
+              )}
+            </div>
+
+            {/* Phone Number */}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Phone Number
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  className="w-full pl-10 pr-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Your phone number for account-related communications
+              </p>
             </div>
           </div>
         </div>

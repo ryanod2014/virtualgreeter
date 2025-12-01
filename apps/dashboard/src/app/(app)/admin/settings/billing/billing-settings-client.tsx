@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CreditCard,
   Users,
   Check,
-  Zap,
   TrendingUp,
   Calendar,
   Receipt,
@@ -19,11 +19,16 @@ import {
   PlayCircle,
   FileText,
   Sparkles,
+  Minus,
+  Plus,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-import type { Organization } from "@ghost-greeter/domain/database.types";
+import type { Organization, BillingFrequency } from "@ghost-greeter/domain/database.types";
 import { CancelSubscriptionModal, type CancellationData } from "./cancel-subscription-modal";
 import { PauseAccountModal } from "./pause-account-modal";
 import { submitCancellationFeedback, pauseAccount, resumeAccount } from "./actions";
+import { PRICING, STORAGE_PRICE_PER_GB, FREE_STORAGE_GB } from "@/lib/stripe";
 
 interface AIUsage {
   transcriptionCost: number;
@@ -34,31 +39,45 @@ interface AIUsage {
 
 interface Props {
   organization: Organization;
-  agentCount: number;
+  usedSeats: number;       // Active agents + pending agent invites
+  purchasedSeats: number;  // What they're paying for (billing floor)
   storageUsedGB: number;
   userId: string;
   subscriptionStartDate: Date;
   aiUsage?: AIUsage;
 }
 
-// Flat rate pricing
-const BASE_SUBSCRIPTION = 297; // Minimum $297/mo includes 1 seat
-const PRICE_PER_SEAT = 297;
-const STORAGE_PRICE_PER_GB = 0.50;
-const FREE_STORAGE_GB = 10;
-const INCLUDED_SEATS = 1;
-
-export function BillingSettingsClient({ organization, agentCount, storageUsedGB, userId, subscriptionStartDate, aiUsage }: Props) {
+export function BillingSettingsClient({ organization, usedSeats, purchasedSeats: initialPurchasedSeats, storageUsedGB, userId, subscriptionStartDate, aiUsage }: Props) {
+  const router = useRouter();
   const [isManaging, setIsManaging] = useState(false);
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
   
-  const isPaused = organization.subscription_status === "paused";
+  // Seat management state
+  const [seatCount, setSeatCount] = useState(initialPurchasedSeats);
+  const [isUpdatingSeats, setIsUpdatingSeats] = useState(false);
+  const [seatError, setSeatError] = useState<string | null>(null);
   
-  // Calculate costs - base subscription + additional seats
-  const additionalSeats = Math.max(0, agentCount - INCLUDED_SEATS);
-  const agentCost = BASE_SUBSCRIPTION + (additionalSeats * PRICE_PER_SEAT);
+  // Billing frequency state
+  const [billingFrequency, setBillingFrequency] = useState<BillingFrequency>(
+    organization.billing_frequency ?? 'monthly'
+  );
+  const [isUpdatingFrequency, setIsUpdatingFrequency] = useState(false);
+  const [frequencyError, setFrequencyError] = useState<string | null>(null);
+  const [showFrequencyConfirm, setShowFrequencyConfirm] = useState(false);
+  const [pendingFrequency, setPendingFrequency] = useState<BillingFrequency | null>(null);
+  
+  const isPaused = organization.subscription_status === "paused";
+  const hasSixMonthOffer = organization.has_six_month_offer ?? false;
+  
+  // Calculate pricing based on current frequency
+  const currentPricing = PRICING[billingFrequency];
+  const pricePerSeat = currentPricing.price;
+  
+  // PRE-PAID SEATS: Cost is based on purchased seats, not used
+  const availableSeats = Math.max(0, seatCount - usedSeats);
+  const seatCost = seatCount * pricePerSeat;
   
   // Storage usage comes from the database
   const billableStorageGB = Math.max(0, storageUsedGB - FREE_STORAGE_GB);
@@ -67,7 +86,7 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
   // AI usage costs
   const aiCost = (aiUsage?.transcriptionCost ?? 0) + (aiUsage?.summaryCost ?? 0);
   
-  const monthlyTotal = agentCost + storageCost + aiCost;
+  const monthlyTotal = seatCost + storageCost + aiCost;
   
   // Mock billing data - in production this would come from Stripe
   const billingCycle = {
@@ -99,7 +118,7 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
       competitorName: data.competitorName || null,
       wouldReturn: data.wouldReturn,
       returnConditions: data.returnConditions || null,
-      agentCount,
+      agentCount: seatCount,
       monthlyCost: monthlyTotal,
       subscriptionDurationDays,
     });
@@ -141,6 +160,172 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
     });
   };
 
+  // Handle seat count changes
+  const handleSeatChange = async (newCount: number) => {
+    if (newCount < usedSeats) {
+      setSeatError(`Cannot reduce below ${usedSeats} (current usage)`);
+      return;
+    }
+    if (newCount < 1) {
+      setSeatError("Must have at least 1 seat");
+      return;
+    }
+
+    setSeatError(null);
+    setIsUpdatingSeats(true);
+
+    try {
+      const response = await fetch("/api/billing/update-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seatCount: newCount }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setSeatError(data.error || "Failed to update seats");
+        return;
+      }
+
+      setSeatCount(newCount);
+      router.refresh();
+    } catch {
+      setSeatError("Failed to update seats");
+    } finally {
+      setIsUpdatingSeats(false);
+    }
+  };
+
+  // Handle billing frequency change - show confirmation first
+  const handleFrequencyChange = (newFrequency: BillingFrequency) => {
+    if (newFrequency === billingFrequency) return;
+    setPendingFrequency(newFrequency);
+    setShowFrequencyConfirm(true);
+  };
+
+  const confirmFrequencyChange = async () => {
+    if (!pendingFrequency) return;
+    
+    setFrequencyError(null);
+    setIsUpdatingFrequency(true);
+
+    try {
+      const response = await fetch("/api/billing/update-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ billingFrequency: pendingFrequency }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setFrequencyError(data.error || "Failed to update billing frequency");
+        return;
+      }
+
+      setBillingFrequency(pendingFrequency);
+      router.refresh();
+    } catch {
+      setFrequencyError("Failed to update billing frequency");
+    } finally {
+      setIsUpdatingFrequency(false);
+      setShowFrequencyConfirm(false);
+      setPendingFrequency(null);
+    }
+  };
+
+  const cancelFrequencyChange = () => {
+    setShowFrequencyConfirm(false);
+    setPendingFrequency(null);
+  };
+
+  // Get explanation text for frequency change
+  // UNIFIED BILLING MODEL: All seats are on the same billing frequency
+  // Changes take effect at renewal - until then, current rate applies to everything
+  const getFrequencyChangeExplanation = () => {
+    if (!pendingFrequency) return null;
+    
+    const fromFreq = billingFrequency;
+    const toFreq = pendingFrequency;
+    const isLosingSixMonth = fromFreq === 'six_month' && toFreq !== 'six_month';
+    
+    // Calculate costs
+    const currentCost = seatCount * PRICING[fromFreq].price;
+    const newCost = seatCount * PRICING[toFreq].price;
+    const termMonths = toFreq === 'annual' ? 12 : toFreq === 'six_month' ? 6 : 1;
+    
+    // Common disclosure for all changes
+    const commonDisclosure = `Until your current billing term ends, all seats (including any you add) remain at your current ${PRICING[fromFreq].label.toLowerCase()} rate of $${PRICING[fromFreq].price}/seat/mo. At renewal, ALL seats will switch to ${PRICING[toFreq].label.toLowerCase()} billing together.`;
+    
+    if (fromFreq === 'monthly' && (toFreq === 'annual' || toFreq === 'six_month')) {
+      // Upgrading from monthly to annual/6-month
+      const upfrontCost = newCost * termMonths;
+      return {
+        title: `Switch to ${PRICING[toFreq].label} Billing`,
+        warning: false,
+        losingSixMonth: false,
+        disclosure: commonDisclosure,
+        bullets: [
+          `This change takes effect at your next billing date`,
+          `At renewal: You will be charged $${upfrontCost.toLocaleString()} upfront for ${termMonths} months`,
+          `New rate: $${PRICING[toFreq].price}/seat/mo (${PRICING[toFreq].discount}% savings vs monthly)`,
+          `Until renewal: Any seats you add are charged at $${PRICING[fromFreq].price}/seat (current rate)`,
+        ],
+        summary: `After renewal: ${seatCount} seats × $${PRICING[toFreq].price} × ${termMonths} months = $${upfrontCost.toLocaleString()}`,
+      };
+    } else if ((fromFreq === 'annual' || fromFreq === 'six_month') && toFreq === 'monthly') {
+      // Downgrading to monthly
+      return {
+        title: 'Switch to Monthly Billing',
+        warning: true,
+        losingSixMonth: isLosingSixMonth,
+        disclosure: commonDisclosure,
+        bullets: [
+          `Your current ${PRICING[fromFreq].label.toLowerCase()} term continues until expiration — no refunds`,
+          `At renewal: Billing switches to $${PRICING.monthly.price}/seat/mo (monthly)`,
+          `Price increase: From $${currentCost.toLocaleString()}/mo to $${newCost.toLocaleString()}/mo`,
+          `Until renewal: Any seats you add are charged at $${PRICING[fromFreq].price}/seat (current rate)`,
+        ],
+        summary: `After renewal: ${seatCount} seats × $${PRICING.monthly.price}/mo = $${newCost.toLocaleString()}/mo`,
+      };
+    } else if (fromFreq === 'annual' && toFreq === 'six_month') {
+      // Annual to 6-month
+      const upfrontCost = newCost * 6;
+      return {
+        title: 'Switch to 6-Month Billing',
+        warning: false,
+        losingSixMonth: false,
+        disclosure: commonDisclosure,
+        bullets: [
+          `Your current annual term continues until expiration`,
+          `At renewal: You will be charged $${upfrontCost.toLocaleString()} for 6 months`,
+          `New rate: $${PRICING.six_month.price}/seat/mo (40% savings, best rate)`,
+          `Until renewal: Any seats you add are charged at $${PRICING.annual.price}/seat (current rate)`,
+        ],
+        summary: `After renewal: ${seatCount} seats × $${PRICING.six_month.price} × 6 months = $${upfrontCost.toLocaleString()}`,
+      };
+    } else if (fromFreq === 'six_month' && toFreq === 'annual') {
+      // 6-month to annual (lose 6-month offer)
+      const upfrontCost = newCost * 12;
+      return {
+        title: 'Switch to Annual Billing',
+        warning: true,
+        losingSixMonth: true,
+        disclosure: commonDisclosure,
+        bullets: [
+          `Your current 6-month term continues until expiration`,
+          `At renewal: You will be charged $${upfrontCost.toLocaleString()} for 12 months`,
+          `New rate: $${PRICING.annual.price}/seat/mo (35% savings)`,
+          `Until renewal: Any seats you add are charged at $${PRICING.six_month.price}/seat (current rate)`,
+        ],
+        summary: `After renewal: ${seatCount} seats × $${PRICING.annual.price} × 12 months = $${upfrontCost.toLocaleString()}`,
+      };
+    }
+    
+    return null;
+  };
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
       {/* Header */}
@@ -172,7 +357,10 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
           <div>
             <h2 className="text-xl font-semibold mb-1">Your Subscription</h2>
             <p className="text-muted-foreground">
-              Simple flat-rate pricing • Billed monthly
+              {seatCount} seat{seatCount !== 1 ? 's' : ''} • {currentPricing.label} billing
+              {currentPricing.discount > 0 && (
+                <span className="text-green-600 ml-2">({currentPricing.discount}% off)</span>
+              )}
             </p>
           </div>
           <button
@@ -185,38 +373,216 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
           </button>
         </div>
 
-        {/* Pricing Breakdown */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Agent Pricing */}
-          <div className="p-5 rounded-xl bg-muted/30 border border-border">
-            <div className="flex items-center gap-2 text-muted-foreground mb-3">
-              <Users className="w-4 h-4" />
-              <span className="text-sm font-medium">Team Seats</span>
+        {/* Seat Management */}
+        <div className="p-5 rounded-xl bg-muted/30 border border-border mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              <span className="font-semibold">Seats</span>
             </div>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-3xl font-bold">{agentCount}</span>
-              <span className="text-muted-foreground">agent{agentCount !== 1 ? 's' : ''}</span>
-            </div>
-            <div className="text-sm space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Base (1 seat included)</span>
-                <span className="font-medium">${BASE_SUBSCRIPTION}/mo</span>
-              </div>
-              {additionalSeats > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">
-                    {additionalSeats} additional × ${PRICE_PER_SEAT}/mo
-                  </span>
-                  <span className="font-medium">${(additionalSeats * PRICE_PER_SEAT).toLocaleString()}/mo</span>
-                </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{usedSeats} in use</span>
+              {availableSeats > 0 && (
+                <span className="text-green-600">• {availableSeats} available</span>
               )}
-              <hr className="border-border my-1" />
-              <div className="flex items-center justify-between font-semibold">
-                <span>Total</span>
-                <span>${agentCost.toLocaleString()}/mo</span>
-              </div>
             </div>
           </div>
+
+          {/* Seat counter */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => handleSeatChange(seatCount - 1)}
+                disabled={seatCount <= usedSeats || isUpdatingSeats}
+                className="w-10 h-10 rounded-full bg-muted hover:bg-muted/80 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+              >
+                <Minus className="w-5 h-5" />
+              </button>
+              <div className="w-20 text-center">
+                {isUpdatingSeats ? (
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                ) : (
+                  <span className="text-4xl font-bold">{seatCount}</span>
+                )}
+              </div>
+              <button
+                onClick={() => handleSeatChange(seatCount + 1)}
+                disabled={isUpdatingSeats}
+                className="w-10 h-10 rounded-full bg-muted hover:bg-muted/80 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold">${seatCost.toLocaleString()}<span className="text-base font-normal text-muted-foreground">/mo</span></div>
+              <div className="text-sm text-muted-foreground">{seatCount} × ${pricePerSeat}/seat</div>
+            </div>
+          </div>
+
+          {seatError && (
+            <div className="flex items-center gap-2 text-red-500 text-sm mb-4">
+              <AlertCircle className="w-4 h-4" />
+              {seatError}
+            </div>
+          )}
+
+          {/* Quick seat buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {[1, 2, 5, 10, 20].filter(n => n >= usedSeats).map((num) => (
+              <button
+                key={num}
+                onClick={() => handleSeatChange(num)}
+                disabled={isUpdatingSeats}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  seatCount === num
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
+
+          {/* Proration note */}
+          <p className="text-xs text-muted-foreground">
+            <strong>Adding seats:</strong> You&apos;ll be charged a prorated amount for the remainder of this billing period.{" "}
+            <strong>Reducing seats:</strong> Takes effect immediately; credit applied to your next invoice.
+          </p>
+        </div>
+
+        {/* Billing Frequency Toggle */}
+        <div className="p-5 rounded-xl bg-muted/30 border border-border mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-5 h-5 text-primary" />
+            <span className="font-semibold">Billing Frequency</span>
+          </div>
+
+          <div className="space-y-2">
+            {/* Monthly option */}
+            <label className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+              billingFrequency === 'monthly' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+            }`}>
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="billing"
+                  checked={billingFrequency === 'monthly'}
+                  onChange={() => handleFrequencyChange('monthly')}
+                  disabled={isUpdatingFrequency}
+                  className="sr-only"
+                />
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  billingFrequency === 'monthly' ? 'border-primary bg-primary' : 'border-muted-foreground'
+                }`}>
+                  {billingFrequency === 'monthly' && <Check className="w-3 h-3 text-primary-foreground" />}
+                </div>
+                <div>
+                  <div className="font-medium">Monthly</div>
+                  <div className="text-sm text-muted-foreground">Pay month-to-month, cancel anytime</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold">${PRICING.monthly.price}/seat</div>
+              </div>
+            </label>
+
+            {/* Annual option */}
+            <label className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+              billingFrequency === 'annual' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+            }`}>
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="billing"
+                  checked={billingFrequency === 'annual'}
+                  onChange={() => handleFrequencyChange('annual')}
+                  disabled={isUpdatingFrequency}
+                  className="sr-only"
+                />
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  billingFrequency === 'annual' ? 'border-primary bg-primary' : 'border-muted-foreground'
+                }`}>
+                  {billingFrequency === 'annual' && <Check className="w-3 h-3 text-primary-foreground" />}
+                </div>
+                <div>
+                  <div className="font-medium flex items-center gap-2">
+                    Annual
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-600">Save 35%</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">Billed yearly, best value</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold">${PRICING.annual.price}/seat</div>
+                <div className="text-xs text-muted-foreground line-through">${PRICING.monthly.price}</div>
+              </div>
+            </label>
+
+            {/* 6-Month option - only if they have the offer */}
+            {(hasSixMonthOffer || billingFrequency === 'six_month') && (
+              <label className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                billingFrequency === 'six_month' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    name="billing"
+                    checked={billingFrequency === 'six_month'}
+                    onChange={() => handleFrequencyChange('six_month')}
+                    disabled={isUpdatingFrequency}
+                    className="sr-only"
+                  />
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    billingFrequency === 'six_month' ? 'border-primary bg-primary' : 'border-muted-foreground'
+                  }`}>
+                    {billingFrequency === 'six_month' && <Check className="w-3 h-3 text-primary-foreground" />}
+                  </div>
+                  <div>
+                    <div className="font-medium flex items-center gap-2">
+                      6-Month
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600">Save 40%</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-600">Special Offer</span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">Billed every 6 months</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold">${PRICING.six_month.price}/seat</div>
+                  <div className="text-xs text-muted-foreground line-through">${PRICING.monthly.price}</div>
+                </div>
+              </label>
+            )}
+          </div>
+
+          {frequencyError && (
+            <div className="flex items-center gap-2 text-red-500 text-sm mt-4">
+              <AlertCircle className="w-4 h-4" />
+              {frequencyError}
+            </div>
+          )}
+
+          {isUpdatingFrequency && (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm mt-4">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Updating billing frequency...
+            </div>
+          )}
+
+          {/* Explanation note */}
+          <div className="mt-4 p-4 rounded-lg bg-muted/50 border border-border">
+            <p className="text-sm font-medium mb-2">How billing frequency changes work:</p>
+            <ul className="text-xs text-muted-foreground space-y-1">
+              <li>• <strong>Changes take effect at renewal</strong> — your current term continues as-is</li>
+              <li>• <strong>All seats switch together</strong> — no mixing of billing frequencies</li>
+              <li>• <strong>Seats added before renewal</strong> are charged at your current rate</li>
+              <li>• <strong>No refunds</strong> for unused time on annual or 6-month plans</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Storage + Other sections */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           
           {/* Recording Storage */}
           <div className="p-5 rounded-xl bg-muted/30 border border-border">
@@ -305,18 +671,18 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
         </h2>
         
         <div className="space-y-4">
-          {/* Agent pricing */}
+          {/* Seat pricing */}
           <div className="flex items-start gap-4 p-4 rounded-xl bg-muted/20">
             <div className="p-2 rounded-lg bg-primary/10">
               <Users className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
-                <h3 className="font-medium">Agent Seats</h3>
-                <span className="text-lg font-bold">${PRICE_PER_SEAT}<span className="text-sm font-normal text-muted-foreground">/agent/mo</span></span>
+                <h3 className="font-medium">Team Seats</h3>
+                <span className="text-lg font-bold">${pricePerSeat}<span className="text-sm font-normal text-muted-foreground">/seat/mo</span></span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Flat rate per agent. Add or remove agents anytime — billing adjusts automatically.
+                You have {seatCount} seats. Add team members using available seats at no extra cost.
               </p>
             </div>
           </div>
@@ -387,49 +753,6 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
         </div>
       </div>
 
-      {/* What's Included */}
-      <div className="glass rounded-2xl p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Check className="w-5 h-5 text-green-500" />
-          What&apos;s Included
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {[
-            "Unlimited video calls",
-            "Custom branding",
-            "Advanced analytics",
-            "Agent pools & routing",
-            "Call recording",
-            "Priority support",
-            "API access",
-            "Custom dispositions",
-            "Real-time notifications",
-          ].map((feature) => (
-            <div key={feature} className="flex items-center gap-2 text-sm">
-              <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-              <span>{feature}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* How Billing Works */}
-      <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 mb-6">
-        <div className="flex items-start gap-3">
-          <Zap className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-medium mb-2">How Billing Works</h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• <strong>${PRICE_PER_SEAT}/month per agent</strong> — simple, predictable pricing</li>
-              <li>• Add or remove agents anytime — billing adjusts automatically</li>
-              <li>• Agents added mid-cycle are prorated to your next invoice</li>
-              <li>• {FREE_STORAGE_GB} GB recording storage included free, then ${STORAGE_PRICE_PER_GB.toFixed(2)}/GB</li>
-              <li>• All features included — no tiers or hidden fees</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
       {/* Paused Account Banner */}
       {isPaused && organization.pause_ends_at && (
         <div className="p-6 rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-500/5 to-cyan-500/5 mb-6">
@@ -491,6 +814,95 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
         </div>
       )}
 
+      {/* Billing Frequency Change Confirmation Modal */}
+      {showFrequencyConfirm && pendingFrequency && (() => {
+        const explanation = getFrequencyChangeExplanation();
+        if (!explanation) return null;
+        
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="fixed inset-0 bg-black/50" onClick={cancelFrequencyChange} />
+            <div className="relative bg-card rounded-2xl p-6 max-w-lg w-full border border-border shadow-xl my-8">
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`p-2 rounded-full ${explanation.warning ? 'bg-amber-500/20' : 'bg-green-500/20'}`}>
+                  {explanation.warning ? (
+                    <AlertTriangle className="w-6 h-6 text-amber-500" />
+                  ) : (
+                    <Check className="w-6 h-6 text-green-500" />
+                  )}
+                </div>
+                <h3 className="text-lg font-semibold">{explanation.title}</h3>
+              </div>
+              
+              {/* What will happen */}
+              <div className="space-y-3 mb-4">
+                <p className="text-sm font-medium">What will happen:</p>
+                <ul className="space-y-2">
+                  {explanation.bullets.map((bullet, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <span className="text-primary mt-0.5">•</span>
+                      <span>{bullet}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Summary box */}
+              {'summary' in explanation && explanation.summary && (
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 mb-4">
+                  <p className="text-sm font-medium text-primary">{explanation.summary}</p>
+                </div>
+              )}
+
+              {/* 6-month warning */}
+              {explanation.losingSixMonth && (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-4">
+                  <p className="text-sm text-amber-600">
+                    <strong>⚠️ Permanent Change:</strong> The 6-month rate (40% off) was a one-time signup offer. 
+                    If you switch away, you cannot get this discount back.
+                  </p>
+                </div>
+              )}
+
+              {/* Unified billing disclosure */}
+              {'disclosure' in explanation && explanation.disclosure && (
+                <div className="p-3 rounded-lg bg-muted/50 border border-border mb-6">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    <strong>Billing Terms:</strong> {explanation.disclosure}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelFrequencyChange}
+                  disabled={isUpdatingFrequency}
+                  className="flex-1 px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmFrequencyChange}
+                  disabled={isUpdatingFrequency}
+                  className={`flex-1 px-4 py-2 rounded-lg text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
+                    explanation.warning ? 'bg-amber-600 hover:bg-amber-700' : 'bg-primary hover:bg-primary/90'
+                  }`}
+                >
+                  {isUpdatingFrequency ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    `Confirm Change`
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Pause Account Modal (shown first as downsell) */}
       <PauseAccountModal
         isOpen={showPauseModal}
@@ -498,7 +910,7 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
         onPause={handlePauseAccount}
         onContinueToCancel={handleContinueToCancel}
         organizationName={organization.name}
-        agentCount={agentCount}
+        agentCount={seatCount}
         monthlyTotal={monthlyTotal}
       />
 
@@ -508,7 +920,7 @@ export function BillingSettingsClient({ organization, agentCount, storageUsedGB,
         onClose={() => setShowCancelModal(false)}
         onSubmit={handleCancelSubscription}
         organizationName={organization.name}
-        agentCount={agentCount}
+        agentCount={seatCount}
         monthlyTotal={monthlyTotal}
       />
     </div>
