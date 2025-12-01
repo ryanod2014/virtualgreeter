@@ -87,6 +87,7 @@ type ViewFilter = "all" | "at-risk" | "healthy" | "churned";
 
 const STATUS_COLORS: Record<SubscriptionStatus, string> = {
   active: "bg-green-500/10 text-green-500 border-green-500/20",
+  trialing: "bg-blue-500/10 text-blue-500 border-blue-500/20",
   paused: "bg-amber-500/10 text-amber-500 border-amber-500/20",
   cancelled: "bg-red-500/10 text-red-500 border-red-500/20",
 };

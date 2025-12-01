@@ -95,7 +95,7 @@ export default async function AgentsPage() {
   const availableSeats = Math.max(0, purchasedSeats - usedSeats);
   
   // Get price based on org's billing frequency
-  const billingFrequency = auth!.organization.billing_frequency ?? 'monthly';
+  const billingFrequency = (auth!.organization.billing_frequency ?? 'monthly') as keyof typeof PRICING;
   const pricePerSeat = PRICING[billingFrequency].price;
   
   // Monthly cost is based on PURCHASED seats, not used seats
