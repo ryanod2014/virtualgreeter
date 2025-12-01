@@ -34,6 +34,10 @@ const faqs = [
     answer: "It's easier than installing a Facebook Pixel. Copy one line of code. Paste it. You're live. Works with WordPress, ClickFunnels, GoHighLevel, Webflow, and everything else. Setup time: 60 seconds. No developers needed.",
   },
   {
+    question: "Does this work on mobile phones?",
+    answer: "Yes! GreetNow works seamlessly on both mobile and desktop browsers. Your visitors can connect with your team from any device—whether they're browsing on their phone during lunch or on their laptop at home. The widget automatically adapts to screen size and works with modern mobile browsers on iOS and Android.",
+  },
+  {
     question: "What if it doesn't work for my business?",
     answer: "Start your free 7-day trial. If it's not booking more appointments than relying on the old way, cancel anytime under your billing dashboard—no phone calls, no guilt trips, no hostage situations. If it doesn't pay for itself, we don't want your money.",
   },

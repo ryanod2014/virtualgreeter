@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/actions";
 import { AppShell } from "@/features/signaling/app-shell";
+import { MobileRedirect } from "@/lib/components/MobileRedirect";
 
 export default async function AppLayout({
   children,
@@ -15,14 +16,17 @@ export default async function AppLayout({
   }
 
   return (
-    <AppShell
-      user={auth.profile}
-      organization={auth.organization}
-      agentProfile={auth.agentProfile}
-      isAdmin={auth.isAdmin}
-    >
-      {children}
-    </AppShell>
+    <>
+      <MobileRedirect />
+      <AppShell
+        user={auth.profile}
+        organization={auth.organization}
+        agentProfile={auth.agentProfile}
+        isAdmin={auth.isAdmin}
+      >
+        {children}
+      </AppShell>
+    </>
   );
 }
 
