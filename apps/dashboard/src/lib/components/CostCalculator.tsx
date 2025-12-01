@@ -1,17 +1,85 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 const COMPLIANCE_TEXT = "Try it free for a full 7 days! If you love it, do nothing—you will automatically be charged $297 per seat on that date and every month thereafter until you cancel. Cancel auto-renewing charges by logging into your account under \"billing settings\" before your billing date. Cancel for any reason without having to talk to a human.";
 
+// Target values for the sliders
+const TARGET_VALUES = {
+  costPerClick: 15,
+  monthlyVisitors: 2000,
+  optinRate: 3,
+  contactRate: 35,
+};
+
 export function CostCalculator() {
-  // Old Way Calculator state - realistic defaults
-  const [costPerClick, setCostPerClick] = useState(15);
-  const [monthlyVisitors, setMonthlyVisitors] = useState(2000);
-  const [optinRate, setOptinRate] = useState(3);
-  const [contactRate, setContactRate] = useState(35);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hasAnimated, setHasAnimated] = useState(false);
+  
+  // Old Way Calculator state - start at 0 for animation
+  const [costPerClick, setCostPerClick] = useState(0);
+  const [monthlyVisitors, setMonthlyVisitors] = useState(0);
+  const [optinRate, setOptinRate] = useState(0);
+  const [contactRate, setContactRate] = useState(0);
+
+  // Animate sliders when component comes into view
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element || hasAnimated) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasAnimated) {
+          setHasAnimated(true);
+          
+          // Check for reduced motion preference
+          const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          if (prefersReducedMotion) {
+            setCostPerClick(TARGET_VALUES.costPerClick);
+            setMonthlyVisitors(TARGET_VALUES.monthlyVisitors);
+            setOptinRate(TARGET_VALUES.optinRate);
+            setContactRate(TARGET_VALUES.contactRate);
+            return;
+          }
+
+          // Animate each slider with easing
+          const duration = 1200;
+          const startTime = performance.now();
+
+          const animate = (currentTime: number) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease out cubic for smooth deceleration
+            const eased = 1 - Math.pow(1 - progress, 3);
+
+            setCostPerClick(Math.round(eased * TARGET_VALUES.costPerClick));
+            setMonthlyVisitors(Math.round(eased * TARGET_VALUES.monthlyVisitors));
+            setOptinRate(Math.round(eased * TARGET_VALUES.optinRate));
+            setContactRate(Math.round(eased * TARGET_VALUES.contactRate));
+
+            if (progress < 1) {
+              requestAnimationFrame(animate);
+            } else {
+              // Ensure we hit exact target values
+              setCostPerClick(TARGET_VALUES.costPerClick);
+              setMonthlyVisitors(TARGET_VALUES.monthlyVisitors);
+              setOptinRate(TARGET_VALUES.optinRate);
+              setContactRate(TARGET_VALUES.contactRate);
+            }
+          };
+
+          requestAnimationFrame(animate);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasAnimated]);
 
   // Calculate the math
   const monthlySpend = costPerClick * monthlyVisitors;
@@ -21,7 +89,7 @@ export function CostCalculator() {
   const missedVisitors = monthlyVisitors - formFills;
 
   return (
-    <div className="bg-muted/30 border border-border/50 rounded-3xl p-8 md:p-12">
+    <div ref={containerRef} className="bg-muted/30 border border-border/50 rounded-3xl p-8 md:p-12">
       <h3 className="text-2xl md:text-3xl font-bold text-center mb-2">
         How Much Is The Old Way Costing You?
       </h3>

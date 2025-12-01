@@ -44,9 +44,9 @@ export default function SignupPage() {
       return;
     }
 
-    console.log("[Signup] Success! Redirecting to onboarding...");
+    console.log("[Signup] Success! Redirecting to paywall...");
     // Use hard redirect to ensure cookies are properly sent with the request
-    window.location.href = "/onboarding";
+    window.location.href = "/paywall";
   };
 
   return (

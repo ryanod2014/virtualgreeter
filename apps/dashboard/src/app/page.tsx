@@ -33,6 +33,8 @@ import { FAQAccordion } from "@/lib/components/FAQAccordion";
 import { FeatureCarousel } from "@/lib/components/FeatureCarousel";
 import { CostCalculator } from "@/lib/components/CostCalculator";
 import { SocraticQuestions } from "@/lib/components/SocraticQuestions";
+import { AnimateOnScroll, StaggerContainer } from "@/lib/components/AnimateOnScroll";
+import { FoldingRipList } from "@/lib/components/FoldingRipList";
 
 // ===== COMPONENTS =====
 
@@ -171,7 +173,7 @@ export default function HomePage() {
         <section className="container mx-auto px-6 pt-16 pb-12">
           <div className="max-w-5xl mx-auto text-center">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 mb-8 animate-fade-in">
+            <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 mb-8 animate-initial animate-entrance-fade-down delay-100 shine-effect">
               <Sparkles className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium text-primary">
                 A new way to convert website traffic
@@ -179,20 +181,20 @@ export default function HomePage() {
             </div>
 
             {/* Main headline */}
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4 animate-fade-in-up leading-[1.1]">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4 animate-initial animate-entrance-fade-up delay-200 leading-[1.1]">
               Turn Pageviews Into Live Sales Calls...
             </h1>
             
-            <p className="text-2xl md:text-3xl lg:text-4xl font-bold gradient-text mb-8">
+            <p className="text-2xl md:text-3xl lg:text-4xl font-bold gradient-text animate-gradient-text mb-8 animate-initial animate-entrance-scale delay-300">
               Without Them Ever Opting In Or Booking An Appointment
             </p>
 
             {/* Subheadline */}
-            <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-4 leading-relaxed">
+            <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-4 leading-relaxed animate-initial animate-entrance-blur delay-400">
               Leads are never &quot;hotter&quot; than the moment they land on your page. <span className="text-foreground font-semibold">GreetNow</span> lets your setters treat website traffic like walk-in customers.
             </p>
             {/* CTA */}
-            <div className="mb-6">
+            <div className="mb-6 animate-initial animate-entrance-fade-up delay-500">
               <TrialCTA />
             </div>
           </div>
@@ -202,6 +204,7 @@ export default function HomePage() {
         <section id="how-it-works" className="py-20 relative scroll-mt-20">
           <div className="container mx-auto px-6">
             <div className="max-w-6xl mx-auto">
+              {/* No animation wrapper - WidgetDemo has its own animations */}
               <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
                 Here&apos;s What It Looks Like On Your Site
               </h2>
@@ -209,38 +212,39 @@ export default function HomePage() {
                 A live video greeter that appears to every visitor—right on your website—to help you:
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 border border-primary/30 text-primary font-medium text-sm">
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 border border-primary/30 text-primary font-medium text-sm hover-lift">
                   <Zap className="w-4 h-4" />
                   Get more leads from existing traffic
                 </span>
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 border border-primary/30 text-primary font-medium text-sm">
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 border border-primary/30 text-primary font-medium text-sm hover-lift">
                   <Clock className="w-4 h-4" />
                   Instant speed to lead
                 </span>
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 border border-primary/30 text-primary font-medium text-sm">
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 border border-primary/30 text-primary font-medium text-sm hover-lift">
                   <Flame className="w-4 h-4" />
                   Talk to leads at their hottest
                 </span>
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 border border-primary/30 text-primary font-medium text-sm">
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 border border-primary/30 text-primary font-medium text-sm hover-lift">
                   <Shield className="w-4 h-4" />
                   Build trust with cold traffic
                 </span>
               </div>
 
               <div className="grid lg:grid-cols-5 gap-8 items-start">
-                {/* Demo - Left Side (3 columns) */}
+                {/* Demo - Left Side (3 columns) - no wrapper, WidgetDemo animates itself */}
                 <div className="lg:col-span-3">
                   <WidgetDemo />
                 </div>
 
-                {/* Features - Right Side (2 columns) - Animated Carousel */}
-                <div className="lg:col-span-2">
+                {/* Features - Right Side (2 columns) - slide in from right */}
+                <AnimateOnScroll animation="slide-in-right" delay={100} className="lg:col-span-2">
                   <FeatureCarousel />
-                </div>
+                </AnimateOnScroll>
               </div>
 
               {/* Easy Setup Section */}
-              <div id="features" className="mt-16 bg-muted/20 border border-border/50 rounded-3xl p-8 md:p-10 scroll-mt-24">
+              <AnimateOnScroll animation="slide-in-up" delay={100}>
+              <div id="features" className="mt-16 bg-muted/20 border border-border/50 rounded-3xl p-8 md:p-10 scroll-mt-24 hover-lift">
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold mb-2">Setup in 60 Seconds</h3>
                   <p className="text-muted-foreground">
@@ -371,6 +375,7 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
+              </AnimateOnScroll>
 
             </div>
           </div>
@@ -380,15 +385,19 @@ export default function HomePage() {
         <section id="industries" className="py-20 relative scroll-mt-20">
           <div className="container mx-auto px-6">
             <div className="max-w-5xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
-                Here&apos;s Who It&apos;s For
-              </h2>
-              <p className="text-xl text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
-                If leads are worth a lot to your business, can you afford to <span className="text-foreground font-semibold">NOT</span> greet them at the door?
-              </p>
+              <AnimateOnScroll animation="slide-in-down">
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
+                  Here&apos;s Who It&apos;s For
+                </h2>
+              </AnimateOnScroll>
+              <AnimateOnScroll animation="zoom-in" delay={100}>
+                <p className="text-xl text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
+                  If leads are worth a lot to your business, can you afford to <span className="text-foreground font-semibold">NOT</span> greet them at the door?
+                </p>
+              </AnimateOnScroll>
 
               {/* Business Types - 2 Column Grid */}
-              <div className="grid md:grid-cols-2 gap-4">
+              <StaggerContainer animation="slide-in-up" staggerDelay={80} className="grid md:grid-cols-2 gap-4">
                 {[
                   { 
                     icon: Users, 
@@ -425,7 +434,7 @@ export default function HomePage() {
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className="flex flex-col gap-2 px-6 py-5 rounded-xl border transition-colors bg-muted/40 border-border/50 hover:border-primary/30 hover:bg-muted/60"
+                    className="flex flex-col gap-2 px-6 py-5 rounded-xl border transition-colors bg-muted/40 border-border/50 hover:border-primary/30 hover:bg-muted/60 hover-lift hover-bounce h-full"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-primary/10">
@@ -439,7 +448,7 @@ export default function HomePage() {
                     </p>
                   </div>
                 ))}
-              </div>
+              </StaggerContainer>
             </div>
           </div>
         </section>
@@ -448,72 +457,86 @@ export default function HomePage() {
         <section id="benefits" className="py-20 relative scroll-mt-20">
           <div className="container mx-auto px-6">
             <div className="max-w-5xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
-                Here&apos;s What It Will Do For You
-              </h2>
-              <p className="text-xl text-muted-foreground text-center mb-16 max-w-2xl mx-auto">
-                All in-person businesses have greeters. Why doesn&apos;t your website? <span className="text-primary font-semibold">One click. Face-to-face. While they&apos;re still on your site.</span>
-              </p>
+              <AnimateOnScroll animation="slide-in-down">
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
+                  Here&apos;s What It Will Do For You
+                </h2>
+              </AnimateOnScroll>
+              <AnimateOnScroll animation="zoom-in" delay={100}>
+                <p className="text-xl text-muted-foreground text-center mb-16 max-w-2xl mx-auto">
+                  All in-person businesses have greeters. Why doesn&apos;t your website? <span className="text-primary font-semibold">One click. Face-to-face. While they&apos;re still on your site.</span>
+                </p>
+              </AnimateOnScroll>
 
               <div className="grid md:grid-cols-2 gap-8">
-                <div className="bg-muted/30 border border-border/50 rounded-2xl p-8">
-                  <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
-                    <TrendingUp className="w-7 h-7 text-primary" />
+                <AnimateOnScroll animation="slide-in-left" delay={0} className="h-full">
+                  <div className="bg-muted/30 border border-border/50 rounded-2xl p-8 hover-lift h-full">
+                    <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
+                      <TrendingUp className="w-7 h-7 text-primary" />
+                    </div>
+                    <h3 className="text-2xl font-bold mb-4">Get More Leads From Your Existing Traffic</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Rather than a small percentage of your leads opting in...
+                    </p>
+                    <p className="text-lg font-medium text-foreground">
+                      Talk to visitors who would <span className="text-primary">never</span> fill out a form.
+                    </p>
                   </div>
-                  <h3 className="text-2xl font-bold mb-4">Get More Leads From Your Existing Traffic</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Rather than a small percentage of your leads opting in...
-                  </p>
-                  <p className="text-lg font-medium text-foreground">
-                    Talk to visitors who would <span className="text-primary">never</span> fill out a form.
-                  </p>
-                </div>
+                </AnimateOnScroll>
 
-                <div className="bg-muted/30 border border-border/50 rounded-2xl p-8">
-                  <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
-                    <Zap className="w-7 h-7 text-primary" />
+                <AnimateOnScroll animation="slide-in-right" delay={100} className="h-full">
+                  <div className="bg-muted/30 border border-border/50 rounded-2xl p-8 hover-lift h-full">
+                    <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
+                      <Zap className="w-7 h-7 text-primary" />
+                    </div>
+                    <h3 className="text-2xl font-bold mb-4">Speed To Lead That Actually Works</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Rather than chasing them after they already left...
+                    </p>
+                    <p className="text-lg font-medium text-foreground">
+                      Talk to them <span className="text-primary">while they&apos;re still on your site</span>.
+                    </p>
                   </div>
-                  <h3 className="text-2xl font-bold mb-4">Speed To Lead That Actually Works</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Rather than chasing them after they already left...
-                  </p>
-                  <p className="text-lg font-medium text-foreground">
-                    Talk to them <span className="text-primary">while they&apos;re still on your site</span>.
-                  </p>
-                </div>
+                </AnimateOnScroll>
 
-                <div className="bg-muted/30 border border-border/50 rounded-2xl p-8">
-                  <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
-                    <Flame className="w-7 h-7 text-primary" />
+                <AnimateOnScroll animation="slide-in-left" delay={200} className="h-full">
+                  <div className="bg-muted/30 border border-border/50 rounded-2xl p-8 hover-lift h-full">
+                    <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
+                      <Flame className="w-7 h-7 text-primary" />
+                    </div>
+                    <h3 className="text-2xl font-bold mb-4">Leads At Their Warmest</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Leads are never warmer than when they&apos;re on your site.
+                    </p>
+                    <p className="text-lg font-medium text-foreground">
+                      The moment they leave, Facebook starts showing them <span className="text-primary">your competitors&apos; ads</span>.
+                    </p>
                   </div>
-                  <h3 className="text-2xl font-bold mb-4">Leads At Their Warmest</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Leads are never warmer than when they&apos;re on your site.
-                  </p>
-                  <p className="text-lg font-medium text-foreground">
-                    The moment they leave, Facebook starts showing them <span className="text-primary">your competitors&apos; ads</span>.
-                  </p>
-                </div>
+                </AnimateOnScroll>
 
-                <div className="bg-muted/30 border border-border/50 rounded-2xl p-8">
-                  <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
-                    <Heart className="w-7 h-7 text-primary" />
+                <AnimateOnScroll animation="slide-in-right" delay={300} className="h-full">
+                  <div className="bg-muted/30 border border-border/50 rounded-2xl p-8 hover-lift h-full">
+                    <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
+                      <Heart className="w-7 h-7 text-primary" />
+                    </div>
+                    <h3 className="text-2xl font-bold mb-4">Build Trust Instantly</h3>
+                    <p className="text-muted-foreground mb-4">
+                      We&apos;re in a trust recession. People are skeptical of faceless websites.
+                    </p>
+                    <p className="text-lg font-medium text-foreground">
+                      A <span className="text-primary">real human face</span> builds trust faster than any landing page.
+                    </p>
                   </div>
-                  <h3 className="text-2xl font-bold mb-4">Build Trust Instantly</h3>
-                  <p className="text-muted-foreground mb-4">
-                    We&apos;re in a trust recession. People are skeptical of faceless websites.
-                  </p>
-                  <p className="text-lg font-medium text-foreground">
-                    A <span className="text-primary">real human face</span> builds trust faster than any landing page.
-                  </p>
-                </div>
+                </AnimateOnScroll>
               </div>
 
 
               {/* Trial CTA below stats */}
-              <div className="mt-10 text-center">
-                <TrialCTA />
-              </div>
+              <AnimateOnScroll animation="zoom-in" delay={400}>
+                <div className="mt-10 text-center">
+                  <TrialCTA />
+                </div>
+              </AnimateOnScroll>
             </div>
           </div>
         </section>
@@ -522,20 +545,23 @@ export default function HomePage() {
         <section className="py-20 relative">
           <div className="container mx-auto px-6">
             <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-12">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 text-primary text-sm font-medium mb-6">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Addressing the #1 concern
-                </div>
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                  &ldquo;Will This Scare Away Visitors?&rdquo;
-                </h2>
+              <AnimateOnScroll animation="fade-up">
+                <div className="text-center mb-12">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 text-primary text-sm font-medium mb-6 shine-effect">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Addressing the #1 concern
+                  </div>
+                  <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                    &ldquo;Will This Scare Away Visitors?&rdquo;
+                  </h2>
                 <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                   No—and here&apos;s <span className="text-primary font-semibold">why greeters work</span>.
                 </p>
-              </div>
+                </div>
+              </AnimateOnScroll>
 
-              <div className="bg-muted/30 border border-border/50 rounded-3xl p-8 md:p-12">
+              <AnimateOnScroll animation="slide-in-up" delay={100}>
+              <div className="bg-muted/30 border border-border/50 rounded-3xl p-8 md:p-12 hover-lift">
                 {/* Why greeters work */}
                 <div className="mb-10 text-center max-w-2xl mx-auto">
                   <p className="text-lg text-muted-foreground mb-4">
@@ -615,10 +641,13 @@ export default function HomePage() {
                   </p>
                 </div>
               </div>
+              </AnimateOnScroll>
 
-              <div className="mt-8 text-center">
-                <TrialCTA />
-              </div>
+              <AnimateOnScroll animation="zoom-in" delay={200}>
+                <div className="mt-8 text-center">
+                  <TrialCTA />
+                </div>
+              </AnimateOnScroll>
             </div>
           </div>
         </section>
@@ -627,21 +656,26 @@ export default function HomePage() {
         <section className="py-20 relative">
           <div className="container mx-auto px-6">
             <div className="max-w-5xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
-                The Old Way Is Broken
-              </h2>
-              <p className="text-xl text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
-                This is what your website is doing right now.
-              </p>
+              <AnimateOnScroll animation="slide-in-down">
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
+                  The Old Way Is Broken
+                </h2>
+              </AnimateOnScroll>
+              <AnimateOnScroll animation="zoom-in" delay={100}>
+                <p className="text-xl text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
+                  This is what your website is doing right now.
+                </p>
+              </AnimateOnScroll>
 
               {/* Hiding Behind Counter Story */}
+              <AnimateOnScroll animation="slide-in-up" delay={200}>
               <div className="bg-muted/20 border border-border/50 rounded-3xl p-8 md:p-12 mb-12">
                 <p className="text-xl text-muted-foreground text-left mb-8">
                   Imagine you ran a physical store like this...
                 </p>
 
                 {/* The Story */}
-                <div className="max-w-3xl mx-auto space-y-6 text-lg text-muted-foreground">
+                <div className="space-y-6 text-lg text-muted-foreground">
                   <p>
                     A customer walks into your showroom. They&apos;re looking at your products. They have their <span className="text-white font-semibold">wallet in their hand</span>.
                   </p>
@@ -651,7 +685,7 @@ export default function HomePage() {
                   <p>
                     Instead, they slide a clipboard across the floor that says: 
                   </p>
-                  <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6 my-8">
+                  <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6">
                     <p className="text-xl text-white font-medium italic text-center">
                       &ldquo;Write down your phone number, leave the store, and I&apos;ll call you in 3 hours.&rdquo;
                     </p>
@@ -726,6 +760,7 @@ export default function HomePage() {
                   </p>
                 </div>
               </div>
+              </AnimateOnScroll>
 
               {/* Visual Funnel Calculator */}
               <CostCalculator />
@@ -861,29 +896,8 @@ export default function HomePage() {
                     </div>
                     <p className="text-sm font-medium text-slate-500 mb-4">RIP: Leads who never called back</p>
                     
-                    {/* The killers */}
-                    <div className="space-y-2 text-left">
-                      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                        <PhoneOff className="w-4 h-4 text-red-400 flex-shrink-0" />
-                        <span className="text-xs text-red-400">Unknown number ignored</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                        <X className="w-4 h-4 text-red-400 flex-shrink-0" />
-                        <span className="text-xs text-red-400">&ldquo;Scam Likely&rdquo;</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                        <MessageSquareX className="w-4 h-4 text-red-400 flex-shrink-0" />
-                        <span className="text-xs text-red-400">Voicemail deleted</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                        <Clock className="w-4 h-4 text-red-400 flex-shrink-0" />
-                        <span className="text-xs text-red-400">Interest cooled off</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                        <Ghost className="w-4 h-4 text-red-400 flex-shrink-0" />
-                        <span className="text-xs text-red-400">Do Not Disturb mode</span>
-                      </div>
-                    </div>
+                    {/* The killers - folding accordion animation on scroll */}
+                    <FoldingRipList />
                   </div>
                 </div>
               </div>
@@ -1075,7 +1089,7 @@ export default function HomePage() {
                   <div>
                     <h3 className="text-xl font-bold mb-1">Cancel without talking to a human</h3>
                     <p className="text-muted-foreground">
-                      One-click cancel in your dashboard under billing settings. No phone calls, no guilt trips.
+                      Cancel anytime in your dashboard under billing settings. No phone calls, no guilt trips.
                     </p>
                   </div>
                 </div>
@@ -1167,21 +1181,29 @@ export default function HomePage() {
         <section id="faq" className="py-20 relative">
           <div className="container mx-auto px-6">
             <div className="max-w-3xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
-                Questions? We&apos;ve Got Answers.
-              </h2>
-              <p className="text-muted-foreground text-center mb-12">
-                Everything you need to know before getting started.
-              </p>
-
-              <FAQAccordion />
-
-              <div className="mt-12 text-center">
-                <p className="text-lg text-muted-foreground mb-6">
-                  Ready to stop losing leads?
+              <AnimateOnScroll animation="slide-in-down">
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
+                  Questions? We&apos;ve Got Answers.
+                </h2>
+              </AnimateOnScroll>
+              <AnimateOnScroll animation="zoom-in" delay={100}>
+                <p className="text-muted-foreground text-center mb-12">
+                  Everything you need to know before getting started.
                 </p>
-                <TrialCTA />
-              </div>
+              </AnimateOnScroll>
+
+              <AnimateOnScroll animation="slide-in-up" delay={200}>
+                <FAQAccordion />
+              </AnimateOnScroll>
+
+              <AnimateOnScroll animation="zoom-in" delay={300}>
+                <div className="mt-12 text-center">
+                  <p className="text-lg text-muted-foreground mb-6">
+                    Ready to stop losing leads?
+                  </p>
+                  <TrialCTA />
+                </div>
+              </AnimateOnScroll>
             </div>
           </div>
         </section>

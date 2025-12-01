@@ -11,7 +11,15 @@ type AnimationType =
   | "scale-down"
   | "blur-in"
   | "slide-up"
-  | "bounce-in";
+  | "bounce-in"
+  // Movement-focused animations (minimal/no fade)
+  | "slide-in-left"
+  | "slide-in-right"
+  | "slide-in-up"
+  | "slide-in-down"
+  | "zoom-in"
+  | "rotate-in"
+  | "flip-up";
 
 interface AnimateOnScrollProps {
   children: ReactNode;
@@ -60,6 +68,35 @@ const animationClasses: Record<AnimationType, { initial: string; animated: strin
   "bounce-in": {
     initial: "opacity-0 scale-90",
     animated: "opacity-100 scale-100",
+  },
+  // Movement-focused animations (minimal opacity change for more movement feel)
+  "slide-in-left": {
+    initial: "translate-x-[-50px] opacity-90",
+    animated: "translate-x-0 opacity-100",
+  },
+  "slide-in-right": {
+    initial: "translate-x-[50px] opacity-90",
+    animated: "translate-x-0 opacity-100",
+  },
+  "slide-in-up": {
+    initial: "translate-y-[40px] opacity-90",
+    animated: "translate-y-0 opacity-100",
+  },
+  "slide-in-down": {
+    initial: "-translate-y-[40px] opacity-90",
+    animated: "translate-y-0 opacity-100",
+  },
+  "zoom-in": {
+    initial: "scale-[0.8] opacity-90",
+    animated: "scale-100 opacity-100",
+  },
+  "rotate-in": {
+    initial: "rotate-[-5deg] scale-95 opacity-90",
+    animated: "rotate-0 scale-100 opacity-100",
+  },
+  "flip-up": {
+    initial: "rotateX-[-10deg] translate-y-4 opacity-90",
+    animated: "rotateX-0 translate-y-0 opacity-100",
   },
 };
 
@@ -173,7 +210,7 @@ export function StaggerContainer({
         ? children.map((child, index) => (
             <div
               key={index}
-              className={`transition-all ease-out ${isVisible ? animated : initial}`}
+              className={`transition-all ease-out h-full ${isVisible ? animated : initial}`}
               style={{
                 transitionDuration: `${duration}ms`,
                 transitionDelay: `${baseDelay + index * staggerDelay}ms`,

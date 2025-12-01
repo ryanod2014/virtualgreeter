@@ -10,7 +10,6 @@ import { Mic, MicOff, VideoOff, Phone, Maximize2 } from "lucide-react";
  * demonstrating how a visitor connects with a live agent.
  * 
  * Performance optimizations:
- * - Lazy video loading with preload="none"
  * - Intersection Observer to pause animation when off-screen
  * - Reduced blur effects
  */
@@ -65,13 +64,12 @@ export function WidgetDemo() {
   const [cursorPosition, setCursorPosition] = useState({ x: 60, y: 40 });
   const [isClicking, setIsClicking] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  const [hasVideoLoaded, setHasVideoLoaded] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Intersection Observer to detect visibility
+  // Intersection Observer to detect visibility (for pausing animation when off-screen)
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
@@ -80,12 +78,6 @@ export function WidgetDemo() {
       (entries) => {
         entries.forEach((entry) => {
           setIsVisible(entry.isIntersecting);
-          
-          // Lazy load video when first visible
-          if (entry.isIntersecting && !hasVideoLoaded && videoRef.current) {
-            videoRef.current.load();
-            setHasVideoLoaded(true);
-          }
         });
       },
       { threshold: 0.1 }
@@ -93,7 +85,7 @@ export function WidgetDemo() {
 
     observer.observe(element);
     return () => observer.disconnect();
-  }, [hasVideoLoaded]);
+  }, []);
 
   // Animation sequence controller - only runs when visible
   const runPhase = useCallback((currentPhase: AnimationPhase) => {
@@ -239,10 +231,11 @@ export function WidgetDemo() {
                     ref={videoRef}
                     className="absolute inset-0 w-full h-full object-cover"
                     src={DEMO_LOOP_VIDEO_URL}
+                    autoPlay
                     loop
                     muted
                     playsInline
-                    preload="none"
+                    preload="auto"
                   />
 
                   {/* Live badge */}

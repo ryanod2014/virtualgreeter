@@ -180,6 +180,71 @@
 .stagger-4 { animation-delay: 0.4s; }
 .stagger-5 { animation-delay: 0.5s; }
 
+/* Saloon door swinging animation for RIP items */
+.fold-container {
+  perspective: 800px;
+  transform-style: preserve-3d;
+}
+
+@keyframes saloon-swing {
+  0% {
+    transform: rotateX(-90deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  35% {
+    transform: rotateX(25deg);
+  }
+  55% {
+    transform: rotateX(-12deg);
+  }
+  70% {
+    transform: rotateX(6deg);
+  }
+  82% {
+    transform: rotateX(-3deg);
+  }
+  92% {
+    transform: rotateX(1deg);
+  }
+  100% {
+    transform: rotateX(0deg);
+    opacity: 1;
+  }
+}
+
+.fold-item {
+  transform-origin: top center;
+  transform: rotateX(-90deg);
+  opacity: 0;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+
+.fold-item.visible {
+  animation: saloon-swing 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Stagger delays - must be on .visible to work with animation */
+.fold-item.visible.fold-delay-1 { animation-delay: 0ms; }
+.fold-item.visible.fold-delay-2 { animation-delay: 100ms; }
+.fold-item.visible.fold-delay-3 { animation-delay: 200ms; }
+.fold-item.visible.fold-delay-4 { animation-delay: 300ms; }
+.fold-item.visible.fold-delay-5 { animation-delay: 400ms; }
+
+/* Reduced motion - skip animation, show immediately */
+@media (prefers-reduced-motion: reduce) {
+  .fold-item {
+    transform: none;
+    opacity: 1;
+  }
+  .fold-item.visible {
+    animation: none;
+  }
+}
+
 /* FAQ accordion */
 .faq-item {
   transition: all 0.3s ease;
@@ -259,6 +324,248 @@
 
 .animate-marquee {
   animation: marquee 25s linear infinite;
+}
+
+/* ===== WEBFLOW-STYLE ANIMATIONS ===== */
+
+/* Floating elements */
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(1deg); }
+}
+
+.animate-float-gentle {
+  animation: float-gentle 5s ease-in-out infinite;
+}
+
+/* Subtle glow pulse */
+@keyframes glow-soft {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.02); }
+}
+
+.animate-glow-soft {
+  animation: glow-soft 4s ease-in-out infinite;
+}
+
+/* Shine effect for buttons/cards */
+@keyframes shine {
+  0% { left: -100%; }
+  50%, 100% { left: 100%; }
+}
+
+.shine-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine-effect::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  animation: shine 3s ease-in-out infinite;
+}
+
+/* Gradient text shimmer */
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient-text {
+  background-size: 200% auto;
+  animation: gradient-shift 4s ease infinite;
+}
+
+/* Entrance animations for page load */
+@keyframes entrance-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes entrance-fade-down {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes entrance-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes entrance-blur {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.animate-entrance-fade-up {
+  animation: entrance-fade-up 0.8s ease-out forwards;
+}
+
+.animate-entrance-fade-down {
+  animation: entrance-fade-down 0.8s ease-out forwards;
+}
+
+.animate-entrance-scale {
+  animation: entrance-scale 0.6s ease-out forwards;
+}
+
+.animate-entrance-blur {
+  animation: entrance-blur 0.8s ease-out forwards;
+}
+
+/* Stagger delays for page load */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+.delay-700 { animation-delay: 700ms; }
+.delay-800 { animation-delay: 800ms; }
+
+/* Initial state before animation */
+.animate-initial {
+  opacity: 0;
+}
+
+/* Hover lift effect */
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Card tilt on hover */
+.hover-tilt {
+  transition: transform 0.3s ease;
+  transform-style: preserve-3d;
+}
+
+.hover-tilt:hover {
+  transform: perspective(1000px) rotateX(2deg) rotateY(-2deg);
+}
+
+/* Icon bounce on hover */
+@keyframes icon-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.hover-bounce:hover svg {
+  animation: icon-bounce 0.5s ease;
+}
+
+/* Underline reveal on hover */
+.underline-reveal {
+  position: relative;
+}
+
+.underline-reveal::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: hsl(var(--primary));
+  transition: width 0.3s ease;
+}
+
+.underline-reveal:hover::after {
+  width: 100%;
+}
+
+/* Magnetic button effect (subtle) */
+.magnetic-btn {
+  transition: transform 0.2s ease;
+}
+
+/* Border gradient animation */
+@keyframes border-rotate {
+  from { --border-angle: 0deg; }
+  to { --border-angle: 360deg; }
+}
+
+.animated-border {
+  --border-angle: 0deg;
+  animation: border-rotate 4s linear infinite;
+  border: 2px solid transparent;
+  background: 
+    linear-gradient(hsl(var(--background)), hsl(var(--background))) padding-box,
+    conic-gradient(from var(--border-angle), hsl(var(--primary)), hsl(var(--primary) / 0.3), hsl(var(--primary))) border-box;
+}
+
+/* Smooth scroll reveal */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.scroll-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Parallax scroll effect (CSS only) */
+.parallax-slow {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Text highlight animation */
+@keyframes highlight-sweep {
+  0% { background-size: 0% 100%; }
+  100% { background-size: 100% 100%; }
+}
+
+.text-highlight-animate {
+  background: linear-gradient(120deg, hsl(var(--primary) / 0.2) 0%, hsl(var(--primary) / 0.2) 100%);
+  background-repeat: no-repeat;
+  background-position: 0 88%;
+  background-size: 0% 100%;
+}
+
+.text-highlight-animate.visible {
+  animation: highlight-sweep 0.8s ease-out forwards;
 }
 
 /* Reduced motion support for accessibility */

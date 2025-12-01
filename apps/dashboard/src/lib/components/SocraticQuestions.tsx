@@ -58,7 +58,7 @@ export function SocraticQuestions() {
             >
               {/* Pulse ring for active question */}
               {isActiveQuestion && !isAnswered && (
-                <div className="absolute -inset-[2px] rounded-xl border-2 border-primary/50 animate-ping opacity-30" />
+                <div className="absolute -inset-[2px] rounded-xl border-2 border-primary/50 animate-ping opacity-30 pointer-events-none" />
               )}
               
               <p className={`text-lg leading-relaxed mb-4 transition-colors duration-300 ${
