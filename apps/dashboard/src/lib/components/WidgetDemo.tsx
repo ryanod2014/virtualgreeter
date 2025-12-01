@@ -11,7 +11,7 @@ import { Video, Mic, MicOff, VideoOff, Phone, Maximize2 } from "lucide-react";
  */
 
 // Default sample video URLs (same as used in production seeding)
-const DEMO_LOOP_VIDEO_URL = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4";
+const DEMO_LOOP_VIDEO_URL = "https://qrumylwziqidtoflwtdy.supabase.co/storage/v1/object/public/videos/8b89aa6f-2fd2-40a1-b003-ef48717c67c4/3e6151e4-1bab-49fa-adf8-8bb49f6799c8/wave-intro.webm";
 
 // Animation phases
 type AnimationPhase = 
