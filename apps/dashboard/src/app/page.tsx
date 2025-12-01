@@ -39,6 +39,7 @@ import {
   Frown,
   UserX,
   Headphones,
+  Info,
 } from "lucide-react";
 import { Logo } from "@/lib/components/logo";
 import { WidgetDemo } from "@/lib/components/WidgetDemo";
@@ -120,16 +121,45 @@ function FAQItem({
   );
 }
 
-function TrialCTA({ size = "default", className = "" }: { size?: "default" | "large" | "small"; className?: string }) {
+function SourceTooltip({ sourceUrl }: { sourceUrl: string; sourceName?: string }) {
+  // Extract domain for cleaner display
+  const displayUrl = sourceUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  
+  return (
+    <span className="relative inline-flex items-center group ml-1">
+      <span
+        className="w-4 h-4 rounded-full bg-muted-foreground/20 flex items-center justify-center cursor-default"
+        aria-label="Source information"
+      >
+        <Info className="w-2.5 h-2.5 text-muted-foreground/60" />
+      </span>
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-[11px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-150 z-50 whitespace-nowrap pointer-events-none">
+        <span className="block text-slate-500 text-[10px] uppercase tracking-wide mb-0.5">Source</span>
+        <span className="block text-slate-400">{displayUrl}</span>
+      </span>
+    </span>
+  );
+}
+
+const COMPLIANCE_TEXT = "Try it free for a full 7 days! If you love it, do nothing—you will automatically be charged $297 per seat on that date and every month thereafter until you cancel. Cancel auto-renewing charges by logging into your account under \"billing settings\" before your billing date. Cancel for any reason without having to talk to a human.";
+
+function TrialCTA({ size = "default", className = "", hideCompliance = false }: { size?: "default" | "large" | "small"; className?: string; hideCompliance?: boolean }) {
   if (size === "large") {
     return (
-      <Link
-        href="/signup"
-        className={`group inline-flex items-center gap-2 bg-primary text-primary-foreground px-10 py-5 rounded-full font-semibold text-xl hover:bg-primary/90 transition-all hover:shadow-2xl hover:shadow-primary/30 ${className}`}
-      >
-        Start Free 7-Day Trial
-        <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-      </Link>
+      <div className="flex flex-col items-center">
+        <Link
+          href="/signup"
+          className={`group inline-flex items-center gap-2 bg-primary text-primary-foreground px-10 py-5 rounded-full font-semibold text-xl hover:bg-primary/90 transition-all hover:shadow-2xl hover:shadow-primary/30 ${className}`}
+        >
+          Start Free 7-Day Trial
+          <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+        </Link>
+        {!hideCompliance && (
+          <p className="text-xs text-muted-foreground mt-3 max-w-md text-center leading-relaxed">
+            {COMPLIANCE_TEXT}
+          </p>
+        )}
+      </div>
     );
   }
 
@@ -146,13 +176,20 @@ function TrialCTA({ size = "default", className = "" }: { size?: "default" | "la
   }
   
   return (
-    <Link
-      href="/signup"
-      className={`group inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/30 ${className}`}
-    >
-      Start Free 7-Day Trial
-      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-    </Link>
+    <div className="flex flex-col items-center">
+      <Link
+        href="/signup"
+        className={`group inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/30 ${className}`}
+      >
+        Start Free 7-Day Trial
+        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+      </Link>
+      {!hideCompliance && (
+        <p className="text-xs text-muted-foreground mt-3 max-w-md text-center leading-relaxed">
+          {COMPLIANCE_TEXT}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -246,7 +283,7 @@ function FeatureCarousel() {
   return (
     <div className="space-y-3">
       {/* Features list */}
-      <div className={`space-y-2 transition-all duration-300 ${
+      <div className={`space-y-3 transition-all duration-300 ${
         isAnimating && direction === 'down' ? 'translate-y-[-8px] opacity-80' : 
         isAnimating && direction === 'up' ? 'translate-y-[8px] opacity-80' : 
         'translate-y-0 opacity-100'
@@ -261,18 +298,18 @@ function FeatureCarousel() {
           return (
             <div 
               key={`${feature.title}-${startIndex}`}
-              className="bg-muted/30 border border-border/50 rounded-xl p-4 hover:border-primary/30 hover:bg-muted/50 transition-all group"
+              className="bg-muted/30 border border-border/50 rounded-xl p-5 hover:border-primary/30 hover:bg-muted/50 transition-all group"
               style={{
                 animationDelay: `${idx * 50}ms`
               }}
             >
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                  <Icon className="w-4 h-4 text-primary" />
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                  <Icon className="w-5 h-5 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-sm text-foreground">{feature.title}</h3>
-                  <p className="text-muted-foreground text-xs leading-relaxed mt-0.5">
+                  <h3 className="font-semibold text-base text-foreground">{feature.title}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed mt-1">
                     {feature.description}
                   </p>
                 </div>
@@ -431,18 +468,10 @@ export default function HomePage() {
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-4 leading-relaxed">
               Leads are never &quot;hotter&quot; than the moment they land on your page. <span className="text-foreground font-semibold">GreetNow</span> lets your setters treat website traffic like walk-in customers.
             </p>
-            <p className="text-lg text-primary font-semibold mb-10">
-              One click. Face-to-face. While they&apos;re still on your site.
-            </p>
-
             {/* CTA */}
             <div className="mb-6">
               <TrialCTA />
             </div>
-            
-            <p className="text-sm text-muted-foreground">
-              7-day free trial • Cancel anytime • No credit card required
-            </p>
           </div>
         </section>
 
@@ -484,9 +513,6 @@ export default function HomePage() {
                 {/* Features - Right Side (2 columns) - Animated Carousel */}
                 <div className="lg:col-span-2">
                   <FeatureCarousel />
-                  <div className="mt-6">
-                    <TrialCTA size="small" />
-                  </div>
                 </div>
               </div>
 
@@ -520,14 +546,77 @@ export default function HomePage() {
                 {/* Platform logos */}
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground mb-4">Works with everything</p>
-                  <div className="flex items-center justify-center gap-8 md:gap-12 flex-wrap opacity-60">
-                    <img src="/logos/wordpress.png" alt="WordPress" className="h-8 w-auto brightness-0 invert hover:opacity-80 transition-opacity" />
-                    <img src="/logos/clickfunnels.png" alt="ClickFunnels" className="h-7 w-auto brightness-0 invert hover:opacity-80 transition-opacity" />
-                    <div className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                      <img src="/logos/highlevel.png" alt="HighLevel" className="h-6 w-auto" />
-                      <span className="text-white font-bold text-base tracking-tight">HighLevel</span>
+                  <div 
+                    className="relative overflow-hidden"
+                    style={{
+                      maskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)',
+                      WebkitMaskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)',
+                    }}
+                  >
+                    <div className="flex items-center gap-10 md:gap-14 animate-marquee w-max">
+                      {/* First set */}
+                      {/* WordPress */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <svg className="w-6 h-6" viewBox="0 0 122.52 122.523" fill="#21759b">
+                          <path d="m8.708 61.26c0 20.802 12.089 38.779 29.619 47.298l-25.069-68.686c-2.916 6.536-4.55 13.769-4.55 21.388zm88.344-2.652c0-6.495-2.333-10.993-4.334-14.494-2.664-4.329-5.161-7.995-5.161-12.324 0-4.831 3.664-9.328 8.825-9.328.233 0 .454.029.681.042-9.35-8.566-21.807-13.796-35.489-13.796-18.36 0-34.513 9.42-43.91 23.688 1.233.037 2.395.063 3.382.063 5.497 0 14.006-.667 14.006-.667 2.833-.167 3.167 3.994.337 4.329 0 0-2.847.335-6.015.501l19.138 56.925 11.501-34.493-8.188-22.432c-2.83-.166-5.511-.501-5.511-.501-2.832-.166-2.5-4.496.332-4.329 0 0 8.679.667 13.843.667 5.496 0 14.006-.667 14.006-.667 2.835-.167 3.168 3.994.337 4.329 0 0-2.853.335-6.015.501l18.992 56.494 5.242-17.517c2.272-7.269 4.001-12.49 4.001-16.989z"/>
+                          <path d="m62.184 65.857-15.768 45.819c4.708 1.384 9.687 2.141 14.846 2.141 6.12 0 11.989-1.058 17.452-2.979-.14-.225-.269-.464-.374-.724z"/>
+                          <path d="m107.376 36.046c.226 1.674.354 3.471.354 5.404 0 5.333-.996 11.328-3.996 18.824l-16.053 46.449c15.624-9.111 26.133-26.038 26.133-45.462.001-9.137-2.333-17.729-6.438-25.215z"/>
+                          <path d="m61.262 0c-33.779 0-61.262 27.481-61.262 61.26 0 33.783 27.483 61.263 61.262 61.263 33.778 0 61.265-27.48 61.265-61.263-.001-33.779-27.487-61.26-61.265-61.26zm0 119.715c-32.23 0-58.453-26.223-58.453-58.455 0-32.23 26.222-58.451 58.453-58.451 32.229 0 58.45 26.221 58.45 58.451 0 32.232-26.221 58.455-58.45 58.455z"/>
+                        </svg>
+                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>WordPress</span>
+                      </div>
+                      {/* ClickFunnels */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <svg className="w-7 h-6" viewBox="0 0 150 100" fill="none">
+                          <path d="M0 5 C0 5, 45 5, 50 20 C55 35, 35 45, 35 50 C35 55, 55 65, 50 80 C45 95, 0 95, 0 95 C0 95, 30 80, 30 50 C30 20, 0 5, 0 5Z" fill="#3B8AC4"/>
+                          <path d="M150 5 C150 5, 105 5, 100 20 C95 35, 115 45, 115 50 C115 55, 95 65, 100 80 C105 95, 150 95, 150 95 C150 95, 120 80, 120 50 C120 20, 150 5, 150 5Z" fill="#E74C3C"/>
+                        </svg>
+                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>ClickFunnels</span>
+                      </div>
+                      {/* HighLevel */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <img src="/logos/highlevel.png" alt="HighLevel" className="h-6 w-auto" />
+                        <span className="text-white/60 font-bold text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>HighLevel</span>
+                      </div>
+                      {/* Webflow */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <svg className="w-6 h-6" viewBox="0 0 290 180" fill="#4353ff">
+                          <path fillRule="evenodd" clipRule="evenodd" d="M288.606 0.684082L196.515 180.711H110.016L148.556 106.1H146.827C115.032 147.374 67.5931 174.545 0 180.711V107.133C0 107.133 43.2409 104.579 68.661 77.8531H0V0.685504H77.1676V64.1547L78.8996 64.1476L110.433 0.685504H168.793V63.7523L170.525 63.7495L203.241 0.684082H288.606Z"/>
+                        </svg>
+                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>Webflow</span>
+                      </div>
+                      {/* Duplicate set for seamless loop */}
+                      {/* WordPress */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <svg className="w-6 h-6" viewBox="0 0 122.52 122.523" fill="#21759b">
+                          <path d="m8.708 61.26c0 20.802 12.089 38.779 29.619 47.298l-25.069-68.686c-2.916 6.536-4.55 13.769-4.55 21.388zm88.344-2.652c0-6.495-2.333-10.993-4.334-14.494-2.664-4.329-5.161-7.995-5.161-12.324 0-4.831 3.664-9.328 8.825-9.328.233 0 .454.029.681.042-9.35-8.566-21.807-13.796-35.489-13.796-18.36 0-34.513 9.42-43.91 23.688 1.233.037 2.395.063 3.382.063 5.497 0 14.006-.667 14.006-.667 2.833-.167 3.167 3.994.337 4.329 0 0-2.847.335-6.015.501l19.138 56.925 11.501-34.493-8.188-22.432c-2.83-.166-5.511-.501-5.511-.501-2.832-.166-2.5-4.496.332-4.329 0 0 8.679.667 13.843.667 5.496 0 14.006-.667 14.006-.667 2.835-.167 3.168 3.994.337 4.329 0 0-2.853.335-6.015.501l18.992 56.494 5.242-17.517c2.272-7.269 4.001-12.49 4.001-16.989z"/>
+                          <path d="m62.184 65.857-15.768 45.819c4.708 1.384 9.687 2.141 14.846 2.141 6.12 0 11.989-1.058 17.452-2.979-.14-.225-.269-.464-.374-.724z"/>
+                          <path d="m107.376 36.046c.226 1.674.354 3.471.354 5.404 0 5.333-.996 11.328-3.996 18.824l-16.053 46.449c15.624-9.111 26.133-26.038 26.133-45.462.001-9.137-2.333-17.729-6.438-25.215z"/>
+                          <path d="m61.262 0c-33.779 0-61.262 27.481-61.262 61.26 0 33.783 27.483 61.263 61.262 61.263 33.778 0 61.265-27.48 61.265-61.263-.001-33.779-27.487-61.26-61.265-61.26zm0 119.715c-32.23 0-58.453-26.223-58.453-58.455 0-32.23 26.222-58.451 58.453-58.451 32.229 0 58.45 26.221 58.45 58.451 0 32.232-26.221 58.455-58.45 58.455z"/>
+                        </svg>
+                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>WordPress</span>
+                      </div>
+                      {/* ClickFunnels */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <svg className="w-7 h-6" viewBox="0 0 150 100" fill="none">
+                          <path d="M0 5 C0 5, 45 5, 50 20 C55 35, 35 45, 35 50 C35 55, 55 65, 50 80 C45 95, 0 95, 0 95 C0 95, 30 80, 30 50 C30 20, 0 5, 0 5Z" fill="#3B8AC4"/>
+                          <path d="M150 5 C150 5, 105 5, 100 20 C95 35, 115 45, 115 50 C115 55, 95 65, 100 80 C105 95, 150 95, 150 95 C150 95, 120 80, 120 50 C120 20, 150 5, 150 5Z" fill="#E74C3C"/>
+                        </svg>
+                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>ClickFunnels</span>
+                      </div>
+                      {/* HighLevel */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <img src="/logos/highlevel.png" alt="HighLevel" className="h-6 w-auto" />
+                        <span className="text-white/60 font-bold text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>HighLevel</span>
+                      </div>
+                      {/* Webflow */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <svg className="w-6 h-6" viewBox="0 0 290 180" fill="#4353ff">
+                          <path fillRule="evenodd" clipRule="evenodd" d="M288.606 0.684082L196.515 180.711H110.016L148.556 106.1H146.827C115.032 147.374 67.5931 174.545 0 180.711V107.133C0 107.133 43.2409 104.579 68.661 77.8531H0V0.685504H77.1676V64.1547L78.8996 64.1476L110.433 0.685504H168.793V63.7523L170.525 63.7495L203.241 0.684082H288.606Z"/>
+                        </svg>
+                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>Webflow</span>
+                      </div>
                     </div>
-                    <img src="/logos/webflow.svg" alt="Webflow" className="h-4 w-auto brightness-0 invert hover:opacity-80 transition-opacity" />
                   </div>
                 </div>
               </div>
@@ -550,21 +639,59 @@ export default function HomePage() {
               {/* Business Types - 2 Column Grid */}
               <div className="grid md:grid-cols-2 gap-4">
                 {[
-                  { icon: DollarSign, label: "High-Ticket Services ($1K+)" },
-                  { icon: Users, label: "Coaches & Consultants" },
-                  { icon: Shield, label: "Professional Services" },
-                  { icon: Globe, label: "Home Services" },
-                  { icon: Target, label: "B2B Sales Teams" },
-                  { icon: TrendingUp, label: "Agencies" },
+                  { 
+                    icon: Users, 
+                    label: "Coaches & Consultants", 
+                    description: "Lead costs are up. Trust is down. A real face changes both." 
+                  },
+                  { 
+                    icon: Shield, 
+                    label: "Professional Services", 
+                    description: "Lawyers, accountants, advisors—trust is everything. Build it instantly." 
+                  },
+                  { 
+                    icon: Globe, 
+                    label: "Home Services", 
+                    description: "78% of homeowners choose the first contractor to respond—so speed to lead is VITAL.",
+                    sourceUrl: "https://pushleads.com/the-60-second-home-services-contractors/",
+                    sourceName: "PushLeads Study"
+                  },
+                  { 
+                    icon: Target, 
+                    label: "B2B Sales Teams", 
+                    description: "Enterprise deals start with conversations. Start more of them." 
+                  },
+                  { 
+                    icon: TrendingUp, 
+                    label: "Agencies", 
+                    description: "Prospects never shop just one agency. Be the one they actually talk to." 
+                  },
+                  { 
+                    icon: DollarSign, 
+                    label: "Any High-Ticket Business", 
+                    description: "If a single lead is worth a lot to you, you need GreetNow." 
+                  },
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className="flex items-center gap-4 px-6 py-4 rounded-xl bg-muted/40 border border-border/50 hover:border-primary/30 hover:bg-muted/60 transition-all"
+                    className={`flex flex-col gap-2 px-6 py-5 rounded-xl border transition-all ${
+                      item.highlight 
+                        ? 'bg-primary/10 border-primary/30 hover:bg-primary/15' 
+                        : 'bg-muted/40 border-border/50 hover:border-primary/30 hover:bg-muted/60'
+                    }`}
                   >
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <item.icon className="w-5 h-5 text-primary" />
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        item.highlight ? 'bg-primary/20' : 'bg-primary/10'
+                      }`}>
+                        <item.icon className="w-5 h-5 text-primary" />
+                      </div>
+                      <span className="text-lg font-medium">{item.label}</span>
                     </div>
-                    <span className="text-lg font-medium">{item.label}</span>
+                    <p className={`text-sm ml-14 ${item.highlight ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                      {item.description}
+                      {item.sourceUrl && <SourceTooltip sourceUrl={item.sourceUrl} sourceName={item.sourceName || 'Source'} />}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -580,7 +707,7 @@ export default function HomePage() {
                 Here&apos;s What It Will Do For You
               </h2>
               <p className="text-xl text-muted-foreground text-center mb-16 max-w-2xl mx-auto">
-                All in-person businesses have greeters. Why doesn&apos;t your website?
+                All in-person businesses have greeters. Why doesn&apos;t your website? <span className="text-primary font-semibold">One click. Face-to-face. While they&apos;re still on your site.</span>
               </p>
 
               <div className="grid md:grid-cols-2 gap-8">
@@ -605,13 +732,9 @@ export default function HomePage() {
                   <p className="text-muted-foreground mb-4">
                     Rather than chasing them after they already left...
                   </p>
-                  <p className="text-lg font-medium text-foreground mb-4">
+                  <p className="text-lg font-medium text-foreground">
                     Talk to them <span className="text-primary">while they&apos;re still on your site</span>.
                   </p>
-                  <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-3">
-                    <span className="text-2xl font-black text-primary">78%</span>
-                    <span className="text-sm text-muted-foreground ml-2">of buyers choose the first person they talk to</span>
-                  </div>
                 </div>
 
                 <div className="bg-muted/30 border border-border/50 rounded-2xl p-8">
@@ -641,34 +764,10 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Trial CTA */}
-              <div className="mt-12 text-center">
-                <TrialCTA />
-              </div>
 
-              {/* Stats */}
-              <div className="mt-16 grid md:grid-cols-3 gap-6">
-                <div className="bg-muted/30 border border-border/50 rounded-2xl p-6 text-center">
-                  <div className="text-4xl md:text-5xl font-black text-primary mb-2">34x</div>
-                  <p className="text-sm text-muted-foreground">
-                    Face-to-face requests are <span className="text-white font-medium">34x more successful</span> than email
-                  </p>
-                  <p className="text-xs text-muted-foreground/60 mt-2">Harvard Business Review</p>
-                </div>
-                <div className="bg-muted/30 border border-border/50 rounded-2xl p-6 text-center">
-                  <div className="text-4xl md:text-5xl font-black text-primary mb-2">86%</div>
-                  <p className="text-sm text-muted-foreground">
-                    of consumers <span className="text-white font-medium">prefer humans</span> to chatbots
-                  </p>
-                  <p className="text-xs text-muted-foreground/60 mt-2">Forbes</p>
-                </div>
-                <div className="bg-muted/30 border border-border/50 rounded-2xl p-6 text-center">
-                  <div className="text-4xl md:text-5xl font-black text-primary mb-2">72%</div>
-                  <p className="text-sm text-muted-foreground">
-                    trust a brand <span className="text-white font-medium">more</span> when they can see the rep on video
-                  </p>
-                  <p className="text-xs text-muted-foreground/60 mt-2">Consumer Trust Survey</p>
-                </div>
+              {/* Trial CTA below stats */}
+              <div className="mt-10 text-center">
+                <TrialCTA />
               </div>
             </div>
           </div>
@@ -792,7 +891,7 @@ export default function HomePage() {
 
               {/* Hiding Behind Counter Story */}
               <div className="bg-muted/20 border border-border/50 rounded-3xl p-8 md:p-12 mb-12">
-                <p className="text-xl text-muted-foreground text-center mb-8">
+                <p className="text-xl text-muted-foreground text-left mb-8">
                   Imagine you ran a physical store like this...
                 </p>
 
@@ -899,7 +998,7 @@ export default function HomePage() {
                     <div className="flex items-center gap-2">
                       <input
                         type="range"
-                        min="5"
+                        min="1"
                         max="100"
                         value={costPerClick}
                         onChange={(e) => setCostPerClick(Number(e.target.value))}
@@ -929,7 +1028,7 @@ export default function HomePage() {
                       <input
                         type="range"
                         min="1"
-                        max="15"
+                        max="80"
                         value={optinRate}
                         onChange={(e) => setOptinRate(Number(e.target.value))}
                         className="flex-1 accent-primary h-2"
@@ -1298,7 +1397,7 @@ export default function HomePage() {
                   </div>
                   <ul className="space-y-3">
                     {[
-                      "Dialing 100 numbers to get 3 answers",
+                      "Dialing endlessly just to get someone on the phone",
                       "Leaving voicemails all day",
                       "Fighting \"Scam Likely\" labels",
                       "Getting rejected and burnt out",
@@ -1383,7 +1482,7 @@ export default function HomePage() {
                   <div>
                     <h3 className="text-xl font-bold mb-1">Start your free 7-day trial</h3>
                     <p className="text-muted-foreground">
-                      Takes 60 seconds. No credit card required to start.
+                      Takes 60 seconds to set up.
                     </p>
                   </div>
                 </div>
@@ -1473,10 +1572,6 @@ export default function HomePage() {
                   </div>
 
                   <TrialCTA size="large" />
-                  
-                  <p className="text-white/30 text-sm mt-6">
-                    Takes 60 seconds to set up. No credit card required.
-                  </p>
                 </div>
               </div>
             </div>
@@ -1615,7 +1710,7 @@ export default function HomePage() {
 
               <div className="mt-8 text-center">
                 <p className="text-xl font-semibold text-white mb-6">
-                  If this widget catches just <span className="text-primary">one client</span> this month who would have otherwise clicked the &ldquo;Back&rdquo; button, has the software paid for itself <span className="text-primary">10 times over</span>?
+                  If this widget catches just <span className="text-primary">one client</span> this month who would have otherwise clicked the &ldquo;Back&rdquo; button, has the software paid for itself?
                 </p>
                 <TrialCTA />
               </div>

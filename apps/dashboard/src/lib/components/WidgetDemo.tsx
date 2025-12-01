@@ -327,25 +327,27 @@ export function WidgetDemo() {
 
           {/* Instructions overlay - subtle hint */}
           {phase === "website_idle" && (
-            <div className="absolute bottom-8 left-8 text-white/50 text-sm animate-pulse">
-              Watch how it works...
+            <div className="absolute bottom-8 left-8">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted/30 border border-border/50 text-muted-foreground text-sm animate-pulse">
+                Watch how it works...
+              </div>
             </div>
           )}
         </div>
       </div>
 
       {/* Caption below the demo */}
-      <div className="mt-6 text-center">
-        <p className="text-sm text-muted-foreground">
-          {phase === "website_idle" && "Visitor lands on your website..."}
-          {(phase === "widget_appears" || phase === "widget_shown") && "Your live greeter appears automatically"}
-          {(phase === "cursor_moves" || phase === "cursor_hovers") && "Visitor sees someone ready to help"}
-          {phase === "cursor_clicks" && "One click to connect"}
-          {phase === "connecting" && "Instant connection - no forms, no waiting"}
-          {(phase === "call_connected" || phase === "call_active") && "Face-to-face in seconds"}
-          {phase === "call_ends" && "Every visitor becomes a conversation"}
+      <div className="mt-6 flex justify-center">
+        <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-muted/30 border border-border/50 text-base text-muted-foreground">
+          {phase === "website_idle" && "🌐 Visitor lands on your website..."}
+          {(phase === "widget_appears" || phase === "widget_shown") && "👋 Your live greeter appears automatically"}
+          {(phase === "cursor_moves" || phase === "cursor_hovers") && "👀 Visitor sees someone ready to help"}
+          {phase === "cursor_clicks" && "👆 One click to connect"}
+          {phase === "connecting" && "⚡ Instant connection - no forms, no waiting"}
+          {(phase === "call_connected" || phase === "call_active") && "🤝 Face-to-face in seconds"}
+          {phase === "call_ends" && "✨ Every visitor becomes a conversation"}
           {phase === "reset" && ""}
-        </p>
+        </div>
       </div>
     </div>
   );
