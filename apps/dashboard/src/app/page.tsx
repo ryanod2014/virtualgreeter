@@ -1,11 +1,7 @@
-"use client";
-
 import Link from "next/link";
-import { useState, useEffect } from "react";
 import {
   Zap,
   Users,
-  Video,
   VideoOff,
   Volume2,
   ArrowRight,
@@ -14,112 +10,31 @@ import {
   Target,
   Shield,
   Globe,
-  ChevronDown,
-  ChevronUp,
   Sparkles,
   Flame,
   DollarSign,
-  Settings,
-  Layers,
-  AlertTriangle,
   Heart,
-  FileText,
-  BarChart3,
   CheckCircle2,
   Eye,
   PhoneOff,
-  Phone,
   X,
   Check,
-  Store,
   Ghost,
   Skull,
   MessageSquareX,
   Smile,
   Frown,
   UserX,
-  Headphones,
   Info,
 } from "lucide-react";
 import { Logo } from "@/lib/components/logo";
 import { WidgetDemo } from "@/lib/components/WidgetDemo";
-
-// ===== FAQ DATA =====
-const faqs = [
-  {
-    question: "Who is this for?",
-    answer: "GreetNow is built for businesses selling high-ticket services—where one conversation can be worth $5K, $10K, or $50K+. Coaches, consultants, professional services, home services, agencies. If your business model depends on getting people on calls, this changes everything.",
-  },
-  {
-    question: "We're not awake 24/7. How do I staff this?",
-    answer: "The widget only appears when your agents are marked as available. When no one's online, visitors see your regular site—no one is ever disappointed by an empty widget. You set the hours, assign the team, and it handles the rest.",
-  },
-  {
-    question: "I don't want my closers wasting time on tire-kickers.",
-    answer: "Put the widget only on high-intent pages (pricing, services, contact). Block countries you don't serve. Think about it: when a bad lead fills out a form, you still waste time qualifying them. This way, you find out faster—and often the BEST leads are the ones who never wanted to give out their phone number anyway.",
-  },
-  {
-    question: "Won't this scare away introverts? They have to be on camera?",
-    answer: "No! Your visitors DON'T have to turn on their camera. They see and hear YOU first (building trust), then simply click 'Unmute' to talk back. Their camera stays off unless THEY choose to turn it on. It's an invitation, not an ambush.",
-  },
-  {
-    question: "We already use a chatbot. Isn't that enough?",
-    answer: "Chatbots are for support: 'Where's my order?' Video is for sales: 'Here's my credit card.' Text chat is low-trust, low-conversion. When prospects see an actual human face, you become real, trustworthy, memorable. High-ticket sales require high trust. Video builds it instantly.",
-  },
-  {
-    question: "What if I install this and nobody clicks it?",
-    answer: "Even if visitors don't click, seeing a live human on screen proves you're real, open, and not a scam. It acts as a trust signal—visitors know there's a real person behind the website. But here's the thing: when you put a greeter at the door, people engage. That's just human nature.",
-  },
-  {
-    question: "This sounds technically complicated.",
-    answer: "It's easier than installing a Facebook Pixel. Copy one line of code. Paste it. You're live. Works with WordPress, ClickFunnels, GoHighLevel, Webflow, and everything else. Setup time: 60 seconds. No developers needed.",
-  },
-  {
-    question: "What if it doesn't work for my business?",
-    answer: "Start your free 7-day trial. If it's not booking more appointments than relying on the old way, cancel with one click in your dashboard—no phone calls, no guilt trips, no hostage situations. If it doesn't pay for itself, we don't want your money.",
-  },
-];
+import { FAQAccordion } from "@/lib/components/FAQAccordion";
+import { FeatureCarousel } from "@/lib/components/FeatureCarousel";
+import { CostCalculator } from "@/lib/components/CostCalculator";
+import { SocraticQuestions } from "@/lib/components/SocraticQuestions";
 
 // ===== COMPONENTS =====
-
-function FAQItem({
-  question,
-  answer,
-  isOpen,
-  onClick,
-}: {
-  question: string;
-  answer: string;
-  isOpen: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <div
-      className={`border border-border/50 rounded-xl overflow-hidden transition-all duration-300 ${
-        isOpen ? "bg-primary/5" : "bg-muted/30 hover:bg-muted/50"
-      }`}
-    >
-      <button
-        onClick={onClick}
-        className="w-full px-6 py-5 flex items-center justify-between text-left"
-      >
-        <span className="font-medium text-lg">{question}</span>
-        {isOpen ? (
-          <ChevronUp className="w-5 h-5 text-primary flex-shrink-0" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-        )}
-      </button>
-      <div
-        className={`overflow-hidden transition-all duration-300 ${
-          isOpen ? "max-h-96 pb-5 px-6" : "max-h-0"
-        }`}
-      >
-        <p className="text-muted-foreground leading-relaxed">{answer}</p>
-      </div>
-    </div>
-  );
-}
 
 function SourceTooltip({ sourceUrl }: { sourceUrl: string; sourceName?: string }) {
   // Extract domain for cleaner display
@@ -149,7 +64,7 @@ function TrialCTA({ size = "default", className = "", hideCompliance = false }: 
       <div className="flex flex-col items-center">
         <Link
           href="/signup"
-          className={`group inline-flex items-center gap-2 bg-primary text-primary-foreground px-10 py-5 rounded-full font-semibold text-xl hover:bg-primary/90 transition-all hover:shadow-2xl hover:shadow-primary/30 ${className}`}
+          className={`group inline-flex items-center gap-2 bg-primary text-primary-foreground px-10 py-5 rounded-full font-semibold text-xl hover:bg-primary/90 transition-colors hover:shadow-2xl hover:shadow-primary/30 ${className}`}
         >
           Start Free 7-Day Trial
           <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
@@ -179,7 +94,7 @@ function TrialCTA({ size = "default", className = "", hideCompliance = false }: 
     <div className="flex flex-col items-center">
       <Link
         href="/signup"
-        className={`group inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/30 ${className}`}
+        className={`group inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-primary/90 transition-colors hover:shadow-xl hover:shadow-primary/30 ${className}`}
       >
         Start Free 7-Day Trial
         <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -193,208 +108,16 @@ function TrialCTA({ size = "default", className = "", hideCompliance = false }: 
   );
 }
 
-// Feature carousel data
-const FEATURES = [
-  {
-    icon: Settings,
-    title: "Customize Everything",
-    description: "Control the look, pages it shows on, and which leads it blocks. Your brand, your rules.",
-  },
-  {
-    icon: Layers,
-    title: "Only Shows When Available",
-    description: "Widget only shows when agents are active. No disappointed visitors, no missed opportunities.",
-  },
-  {
-    icon: Users,
-    title: "Assign Reps to Pages",
-    description: "Your closer on pricing, your SDR on the blog. Right rep, right page, right conversation.",
-  },
-  {
-    icon: Video,
-    title: "Record Every Call",
-    description: "Never miss a word. Review calls for training, quality control, or settling disputes.",
-  },
-  {
-    icon: FileText,
-    title: "Auto-Transcribe Conversations",
-    description: "Every call transcribed automatically. Searchable, shareable, ready for your CRM.",
-  },
-  {
-    icon: Sparkles,
-    title: "AI Call Summaries",
-    description: "AI reads the transcript and writes the summary. Know what happened in 10 seconds flat.",
-  },
-  {
-    icon: BarChart3,
-    title: "Real-Time Analytics",
-    description: "See who's calling, when they're calling, and what's converting. Data that drives decisions.",
-  },
-  {
-    icon: Target,
-    title: "Custom Dispositions",
-    description: "Tag calls your way—qualified, booked, nurture, junk. Your pipeline, organized instantly.",
-  },
-  {
-    icon: Zap,
-    title: "Facebook Pixel Integration",
-    description: "Fire your pixel on call outcomes. Feed the algorithm the signals it craves.",
-  },
-  {
-    icon: Globe,
-    title: "Block Countries",
-    description: "Only serve the markets you want. No more wasting time on leads you can't help.",
-  },
-  {
-    icon: Shield,
-    title: "Spam Protection",
-    description: "Built-in filters keep the trolls out. Your team talks to real prospects, not bots.",
-  },
-];
-
-function FeatureCarousel() {
-  const [startIndex, setStartIndex] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [direction, setDirection] = useState<'up' | 'down' | null>(null);
-  const visibleCount = 4;
-  const canScrollUp = startIndex > 0;
-  const canScrollDown = startIndex < FEATURES.length - visibleCount;
-
-  const visibleFeatures = FEATURES.slice(startIndex, startIndex + visibleCount);
-
-  const handleScroll = (dir: 'up' | 'down') => {
-    if (isAnimating) return;
-    setDirection(dir);
-    setIsAnimating(true);
-    
-    setTimeout(() => {
-      if (dir === 'up') {
-        setStartIndex((prev) => Math.max(0, prev - visibleCount));
-      } else {
-        setStartIndex((prev) => Math.min(FEATURES.length - visibleCount, prev + visibleCount));
-      }
-      setTimeout(() => {
-        setIsAnimating(false);
-        setDirection(null);
-      }, 50);
-    }, 150);
-  };
-
-  return (
-    <div className="space-y-3">
-      {/* Features list */}
-      <div className={`space-y-3 transition-all duration-300 ${
-        isAnimating && direction === 'down' ? 'translate-y-[-8px] opacity-80' : 
-        isAnimating && direction === 'up' ? 'translate-y-[8px] opacity-80' : 
-        'translate-y-0 opacity-100'
-      }`}
-      style={{ 
-        transition: isAnimating 
-          ? 'transform 0.15s ease-out, opacity 0.15s ease-out' 
-          : 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out'
-      }}>
-        {visibleFeatures.map((feature, idx) => {
-          const Icon = feature.icon;
-          return (
-            <div 
-              key={`${feature.title}-${startIndex}`}
-              className="bg-muted/30 border border-border/50 rounded-xl p-5 hover:border-primary/30 hover:bg-muted/50 transition-all group"
-              style={{
-                animationDelay: `${idx * 50}ms`
-              }}
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                  <Icon className="w-5 h-5 text-primary" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-base text-foreground">{feature.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed mt-1">
-                    {feature.description}
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Navigation */}
-      <div className="flex items-center justify-between pt-2">
-        <span className="text-xs text-muted-foreground">
-          {startIndex + 1}-{Math.min(startIndex + visibleCount, FEATURES.length)} of {FEATURES.length}
-        </span>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">See more features.</span>
-          <button
-            onClick={() => canScrollUp && handleScroll('up')}
-            disabled={!canScrollUp}
-            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-              canScrollUp 
-                ? 'bg-muted/50 hover:bg-primary/20 hover:scale-110 text-foreground cursor-pointer active:scale-95' 
-                : 'text-muted-foreground/30 cursor-not-allowed'
-            }`}
-          >
-            <ChevronUp className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => canScrollDown && handleScroll('down')}
-            disabled={!canScrollDown}
-            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-              canScrollDown 
-                ? 'bg-muted/50 hover:bg-primary/20 hover:scale-110 text-foreground cursor-pointer active:scale-95' 
-                : 'text-muted-foreground/30 cursor-not-allowed'
-            }`}
-          >
-            <ChevronDown className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ===== MAIN PAGE =====
 
 export default function HomePage() {
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  
-  // Socratic questions state - tracks "yes" | "no" | null for each question
-  const [questionAnswers, setQuestionAnswers] = useState<Record<number, "yes" | "no" | null>>({});
-  
-  const answerQuestion = (idx: number, answer: "yes" | "no") => {
-    setQuestionAnswers(prev => ({
-      ...prev,
-      [idx]: prev[idx] === answer ? null : answer
-    }));
-  };
-  
-  const answeredCount = Object.values(questionAnswers).filter(v => v !== null).length;
-  const yesCount = Object.values(questionAnswers).filter(v => v === "yes").length;
-  
-  // Old Way Calculator state - realistic defaults
-  const [costPerClick, setCostPerClick] = useState(15);
-  const [monthlyVisitors, setMonthlyVisitors] = useState(2000);
-  const [optinRate, setOptinRate] = useState(3);
-  const [contactRate, setContactRate] = useState(35);
-
-  // Calculate the math
-  const monthlySpend = costPerClick * monthlyVisitors;
-  const formFills = Math.round(monthlyVisitors * (optinRate / 100));
-  const actualCalls = Math.round(formFills * (contactRate / 100));
-  const costPerConversation = actualCalls > 0 ? Math.round(monthlySpend / actualCalls) : 0;
-  const missedVisitors = monthlyVisitors - formFills;
-
   return (
     <div className="min-h-screen bg-background dark relative overflow-hidden">
-      {/* Noise overlay for texture */}
-      <div className="noise-overlay" />
-
-      {/* Background effects */}
+      {/* Background effects - simplified for performance */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="glow-orb w-[800px] h-[800px] -top-[400px] left-1/2 -translate-x-1/2 bg-primary/20 animate-glow-pulse" />
-        <div className="glow-orb w-[600px] h-[600px] top-[60%] -left-[200px] bg-purple-600/15" />
-        <div className="glow-orb w-[500px] h-[500px] top-[40%] -right-[150px] bg-fuchsia-600/10" />
+        <div className="glow-orb w-[600px] h-[600px] -top-[300px] left-1/2 -translate-x-1/2 bg-primary/15" />
+        <div className="glow-orb w-[400px] h-[400px] top-[60%] -left-[150px] bg-purple-600/10" />
+        <div className="glow-orb w-[350px] h-[350px] top-[40%] -right-[100px] bg-fuchsia-600/8" />
       </div>
 
       {/* Grid pattern */}
@@ -409,25 +132,25 @@ export default function HomePage() {
             {/* Right-aligned nav - glass pill */}
             <div className="hidden md:flex items-center">
               <div className="flex items-center bg-white/5 backdrop-blur-sm border border-white/10 rounded-full px-1.5 py-1.5">
-                <Link href="#how-it-works" className="px-4 py-1.5 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-all">
+                <Link href="#how-it-works" className="px-4 py-1.5 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors">
                   How It Works
                 </Link>
-                <Link href="#industries" className="px-4 py-1.5 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-all">
+                <Link href="#industries" className="px-4 py-1.5 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors">
                   Industries
                 </Link>
-                <Link href="#benefits" className="px-4 py-1.5 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-all">
+                <Link href="#benefits" className="px-4 py-1.5 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors">
                   Benefits
                 </Link>
-                <Link href="#faq" className="px-4 py-1.5 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-all">
+                <Link href="#faq" className="px-4 py-1.5 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors">
                   FAQ
                 </Link>
                 <div className="w-px h-5 bg-white/10 mx-2" />
-                <Link href="/login" className="px-4 py-1.5 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-all">
+                <Link href="/login" className="px-4 py-1.5 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors">
                   Sign in
                 </Link>
                 <Link
                   href="/signup"
-                  className="bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all ml-1"
+                  className="bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-colors ml-1"
                 >
                   Start Free Trial
                 </Link>
@@ -545,7 +268,7 @@ export default function HomePage() {
 
                 {/* Platform logos */}
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground mb-4">Works with everything</p>
+                  <p className="text-xs text-muted-foreground mb-4">Works with all your favorite website builders</p>
                   <div 
                     className="relative overflow-hidden"
                     style={{
@@ -563,15 +286,12 @@ export default function HomePage() {
                           <path d="m107.376 36.046c.226 1.674.354 3.471.354 5.404 0 5.333-.996 11.328-3.996 18.824l-16.053 46.449c15.624-9.111 26.133-26.038 26.133-45.462.001-9.137-2.333-17.729-6.438-25.215z"/>
                           <path d="m61.262 0c-33.779 0-61.262 27.481-61.262 61.26 0 33.783 27.483 61.263 61.262 61.263 33.778 0 61.265-27.48 61.265-61.263-.001-33.779-27.487-61.26-61.265-61.26zm0 119.715c-32.23 0-58.453-26.223-58.453-58.455 0-32.23 26.222-58.451 58.453-58.451 32.229 0 58.45 26.221 58.45 58.451 0 32.232-26.221 58.455-58.45 58.455z"/>
                         </svg>
-                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>WordPress</span>
+                        <span className="text-white/60 text-sm" style={{ fontFamily: "var(--font-source-serif), Georgia, serif" }}>WordPress</span>
                       </div>
                       {/* ClickFunnels */}
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <svg className="w-7 h-6" viewBox="0 0 150 100" fill="none">
-                          <path d="M0 5 C0 5, 45 5, 50 20 C55 35, 35 45, 35 50 C35 55, 55 65, 50 80 C45 95, 0 95, 0 95 C0 95, 30 80, 30 50 C30 20, 0 5, 0 5Z" fill="#3B8AC4"/>
-                          <path d="M150 5 C150 5, 105 5, 100 20 C95 35, 115 45, 115 50 C115 55, 95 65, 100 80 C105 95, 150 95, 150 95 C150 95, 120 80, 120 50 C120 20, 150 5, 150 5Z" fill="#E74C3C"/>
-                        </svg>
-                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>ClickFunnels</span>
+                        <img src="/logos/clickfunnels.png" alt="ClickFunnels" className="h-6 w-auto" />
+                        <span className="text-white/60 text-sm font-semibold" style={{ fontFamily: "var(--font-montserrat), sans-serif" }}>ClickFunnels</span>
                       </div>
                       {/* HighLevel */}
                       <div className="flex items-center gap-2 flex-shrink-0">
@@ -583,7 +303,24 @@ export default function HomePage() {
                         <svg className="w-6 h-6" viewBox="0 0 290 180" fill="#4353ff">
                           <path fillRule="evenodd" clipRule="evenodd" d="M288.606 0.684082L196.515 180.711H110.016L148.556 106.1H146.827C115.032 147.374 67.5931 174.545 0 180.711V107.133C0 107.133 43.2409 104.579 68.661 77.8531H0V0.685504H77.1676V64.1547L78.8996 64.1476L110.433 0.685504H168.793V63.7523L170.525 63.7495L203.241 0.684082H288.606Z"/>
                         </svg>
-                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>Webflow</span>
+                        <span className="text-white/60 text-sm font-medium" style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>Webflow</span>
+                      </div>
+                      {/* Shopify */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <svg className="w-6 h-6" viewBox="0 0 109.5 124.5" fill="#95BF47">
+                          <path d="M74.7,14.8c0,0-1.4,0.4-3.7,1.1c-0.4-1.3-1-2.8-1.8-4.4c-2.6-5-6.5-7.7-11.1-7.7c0,0,0,0,0,0 c-0.3,0-0.6,0-1,0.1c-0.1-0.2-0.3-0.3-0.4-0.5c-2-2.2-4.6-3.2-7.7-3.2c-6,0.2-12,4.5-16.8,12.2c-3.4,5.4-6,12.2-6.7,17.5 c-6.9,2.1-11.7,3.6-11.8,3.7c-3.5,1.1-3.6,1.2-4,4.5C9.4,40.7,0,111.6,0,111.6l75.6,13V14.6C75.2,14.7,74.9,14.7,74.7,14.8z M57.2,20.2c-4,1.2-8.4,2.6-12.7,3.9c1.2-4.7,3.6-9.4,6.4-12.5c1.1-1.1,2.6-2.4,4.3-3.2C56.9,12,57.3,16.9,57.2,20.2z M49.1,4.3 c1.4,0,2.6,0.3,3.6,0.9c-1.6,0.8-3.2,2.1-4.7,3.6c-3.8,4.1-6.7,10.5-7.9,16.6c-3.6,1.1-7.2,2.2-10.5,3.2 C31.7,18.8,39.8,4.6,49.1,4.3z M39.5,60c0.4,6.4,17.3,7.8,18.3,22.9c0.7,11.9-6.3,20-16.4,20.6c-12.2,0.8-18.9-6.4-18.9-6.4 l2.6-11c0,0,6.7,5.1,12.1,4.7c3.5-0.2,4.8-3.1,4.7-5.1c-0.5-8.4-14.3-7.9-15.2-21.7C25.8,52.2,34.5,40.1,54,38.9 c7.5-0.5,11.4,1.4,11.4,1.4l-4.3,16c0,0-5-2.3-10.9-1.9C42.5,55,39.5,57.5,39.5,60z M61.3,19c0-2.9-0.4-7-1.8-10.5 c4.5,0.9,6.7,5.9,7.7,9C64.9,18.2,62.9,18.7,61.3,19z"/>
+                          <path d="M78.1,123.4l31.4-7.8c0,0-13.5-91.3-13.6-91.9c-0.1-0.6-0.6-1-1.1-1c-0.5,0-9.3-0.2-9.3-0.2s-5.4-5.2-7.4-7.2 V123.4z"/>
+                        </svg>
+                        <span className="text-white/60 text-sm font-semibold" style={{ fontFamily: "var(--font-plus-jakarta), sans-serif" }}>Shopify</span>
+                      </div>
+                      {/* SamCart */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <img src="/logos/samcart.webp" alt="SamCart" className="h-6 w-auto" />
+                        <span className="text-white/60 text-sm font-semibold" style={{ fontFamily: "var(--font-poppins), sans-serif" }}>SamCart</span>
+                      </div>
+                      {/* Wix */}
+                      <div className="flex items-center flex-shrink-0">
+                        <img src="/logos/wix.png" alt="Wix" className="h-5 w-auto" />
                       </div>
                       {/* Duplicate set for seamless loop */}
                       {/* WordPress */}
@@ -594,15 +331,12 @@ export default function HomePage() {
                           <path d="m107.376 36.046c.226 1.674.354 3.471.354 5.404 0 5.333-.996 11.328-3.996 18.824l-16.053 46.449c15.624-9.111 26.133-26.038 26.133-45.462.001-9.137-2.333-17.729-6.438-25.215z"/>
                           <path d="m61.262 0c-33.779 0-61.262 27.481-61.262 61.26 0 33.783 27.483 61.263 61.262 61.263 33.778 0 61.265-27.48 61.265-61.263-.001-33.779-27.487-61.26-61.265-61.26zm0 119.715c-32.23 0-58.453-26.223-58.453-58.455 0-32.23 26.222-58.451 58.453-58.451 32.229 0 58.45 26.221 58.45 58.451 0 32.232-26.221 58.455-58.45 58.455z"/>
                         </svg>
-                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>WordPress</span>
+                        <span className="text-white/60 text-sm" style={{ fontFamily: "var(--font-source-serif), Georgia, serif" }}>WordPress</span>
                       </div>
                       {/* ClickFunnels */}
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <svg className="w-7 h-6" viewBox="0 0 150 100" fill="none">
-                          <path d="M0 5 C0 5, 45 5, 50 20 C55 35, 35 45, 35 50 C35 55, 55 65, 50 80 C45 95, 0 95, 0 95 C0 95, 30 80, 30 50 C30 20, 0 5, 0 5Z" fill="#3B8AC4"/>
-                          <path d="M150 5 C150 5, 105 5, 100 20 C95 35, 115 45, 115 50 C115 55, 95 65, 100 80 C105 95, 150 95, 150 95 C150 95, 120 80, 120 50 C120 20, 150 5, 150 5Z" fill="#E74C3C"/>
-                        </svg>
-                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>ClickFunnels</span>
+                        <img src="/logos/clickfunnels.png" alt="ClickFunnels" className="h-6 w-auto" />
+                        <span className="text-white/60 text-sm font-semibold" style={{ fontFamily: "var(--font-montserrat), sans-serif" }}>ClickFunnels</span>
                       </div>
                       {/* HighLevel */}
                       <div className="flex items-center gap-2 flex-shrink-0">
@@ -614,7 +348,24 @@ export default function HomePage() {
                         <svg className="w-6 h-6" viewBox="0 0 290 180" fill="#4353ff">
                           <path fillRule="evenodd" clipRule="evenodd" d="M288.606 0.684082L196.515 180.711H110.016L148.556 106.1H146.827C115.032 147.374 67.5931 174.545 0 180.711V107.133C0 107.133 43.2409 104.579 68.661 77.8531H0V0.685504H77.1676V64.1547L78.8996 64.1476L110.433 0.685504H168.793V63.7523L170.525 63.7495L203.241 0.684082H288.606Z"/>
                         </svg>
-                        <span className="text-white/60 text-sm" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>Webflow</span>
+                        <span className="text-white/60 text-sm font-medium" style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>Webflow</span>
+                      </div>
+                      {/* Shopify */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <svg className="w-6 h-6" viewBox="0 0 109.5 124.5" fill="#95BF47">
+                          <path d="M74.7,14.8c0,0-1.4,0.4-3.7,1.1c-0.4-1.3-1-2.8-1.8-4.4c-2.6-5-6.5-7.7-11.1-7.7c0,0,0,0,0,0 c-0.3,0-0.6,0-1,0.1c-0.1-0.2-0.3-0.3-0.4-0.5c-2-2.2-4.6-3.2-7.7-3.2c-6,0.2-12,4.5-16.8,12.2c-3.4,5.4-6,12.2-6.7,17.5 c-6.9,2.1-11.7,3.6-11.8,3.7c-3.5,1.1-3.6,1.2-4,4.5C9.4,40.7,0,111.6,0,111.6l75.6,13V14.6C75.2,14.7,74.9,14.7,74.7,14.8z M57.2,20.2c-4,1.2-8.4,2.6-12.7,3.9c1.2-4.7,3.6-9.4,6.4-12.5c1.1-1.1,2.6-2.4,4.3-3.2C56.9,12,57.3,16.9,57.2,20.2z M49.1,4.3 c1.4,0,2.6,0.3,3.6,0.9c-1.6,0.8-3.2,2.1-4.7,3.6c-3.8,4.1-6.7,10.5-7.9,16.6c-3.6,1.1-7.2,2.2-10.5,3.2 C31.7,18.8,39.8,4.6,49.1,4.3z M39.5,60c0.4,6.4,17.3,7.8,18.3,22.9c0.7,11.9-6.3,20-16.4,20.6c-12.2,0.8-18.9-6.4-18.9-6.4 l2.6-11c0,0,6.7,5.1,12.1,4.7c3.5-0.2,4.8-3.1,4.7-5.1c-0.5-8.4-14.3-7.9-15.2-21.7C25.8,52.2,34.5,40.1,54,38.9 c7.5-0.5,11.4,1.4,11.4,1.4l-4.3,16c0,0-5-2.3-10.9-1.9C42.5,55,39.5,57.5,39.5,60z M61.3,19c0-2.9-0.4-7-1.8-10.5 c4.5,0.9,6.7,5.9,7.7,9C64.9,18.2,62.9,18.7,61.3,19z"/>
+                          <path d="M78.1,123.4l31.4-7.8c0,0-13.5-91.3-13.6-91.9c-0.1-0.6-0.6-1-1.1-1c-0.5,0-9.3-0.2-9.3-0.2s-5.4-5.2-7.4-7.2 V123.4z"/>
+                        </svg>
+                        <span className="text-white/60 text-sm font-semibold" style={{ fontFamily: "var(--font-plus-jakarta), sans-serif" }}>Shopify</span>
+                      </div>
+                      {/* SamCart */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <img src="/logos/samcart.webp" alt="SamCart" className="h-6 w-auto" />
+                        <span className="text-white/60 text-sm font-semibold" style={{ fontFamily: "var(--font-poppins), sans-serif" }}>SamCart</span>
+                      </div>
+                      {/* Wix */}
+                      <div className="flex items-center flex-shrink-0">
+                        <img src="/logos/wix.png" alt="Wix" className="h-5 w-auto" />
                       </div>
                     </div>
                   </div>
@@ -674,21 +425,15 @@ export default function HomePage() {
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className={`flex flex-col gap-2 px-6 py-5 rounded-xl border transition-all ${
-                      item.highlight 
-                        ? 'bg-primary/10 border-primary/30 hover:bg-primary/15' 
-                        : 'bg-muted/40 border-border/50 hover:border-primary/30 hover:bg-muted/60'
-                    }`}
+                    className="flex flex-col gap-2 px-6 py-5 rounded-xl border transition-colors bg-muted/40 border-border/50 hover:border-primary/30 hover:bg-muted/60"
                   >
                     <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        item.highlight ? 'bg-primary/20' : 'bg-primary/10'
-                      }`}>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-primary/10">
                         <item.icon className="w-5 h-5 text-primary" />
                       </div>
                       <span className="text-lg font-medium">{item.label}</span>
                     </div>
-                    <p className={`text-sm ml-14 ${item.highlight ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                    <p className="text-sm ml-14 text-muted-foreground">
                       {item.description}
                       {item.sourceUrl && <SourceTooltip sourceUrl={item.sourceUrl} sourceName={item.sourceName || 'Source'} />}
                     </p>
@@ -983,170 +728,7 @@ export default function HomePage() {
               </div>
 
               {/* Visual Funnel Calculator */}
-              <div className="bg-muted/30 border border-border/50 rounded-3xl p-8 md:p-12">
-                <h3 className="text-2xl md:text-3xl font-bold text-center mb-2">
-                  How Much Is The Old Way Costing You?
-                </h3>
-                <p className="text-muted-foreground text-center mb-8">
-                  Adjust the sliders to see your funnel.
-                </p>
-
-                {/* Sliders */}
-                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12 max-w-4xl mx-auto">
-                  <div className="bg-slate-800/50 rounded-xl p-4">
-                    <label className="block text-xs text-muted-foreground mb-2">Cost per click</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        min="1"
-                        max="100"
-                        value={costPerClick}
-                        onChange={(e) => setCostPerClick(Number(e.target.value))}
-                        className="flex-1 accent-primary h-2"
-                      />
-                      <span className="text-lg font-bold text-primary w-14">${costPerClick}</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-800/50 rounded-xl p-4">
-                    <label className="block text-xs text-muted-foreground mb-2">Monthly visitors</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        min="500"
-                        max="20000"
-                        step="100"
-                        value={monthlyVisitors}
-                        onChange={(e) => setMonthlyVisitors(Number(e.target.value))}
-                        className="flex-1 accent-primary h-2"
-                      />
-                      <span className="text-lg font-bold text-primary w-16">{monthlyVisitors.toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-800/50 rounded-xl p-4">
-                    <label className="block text-xs text-muted-foreground mb-2">Optin rate</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        min="1"
-                        max="80"
-                        value={optinRate}
-                        onChange={(e) => setOptinRate(Number(e.target.value))}
-                        className="flex-1 accent-primary h-2"
-                      />
-                      <span className="text-lg font-bold text-primary w-12">{optinRate}%</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-800/50 rounded-xl p-4">
-                    <label className="block text-xs text-muted-foreground mb-2">Answer rate</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        min="10"
-                        max="80"
-                        value={contactRate}
-                        onChange={(e) => setContactRate(Number(e.target.value))}
-                        className="flex-1 accent-primary h-2"
-                      />
-                      <span className="text-lg font-bold text-primary w-12">{contactRate}%</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Visual Funnel - True Tapered Shape */}
-                <div className="max-w-lg mx-auto relative">
-                  <svg viewBox="0 0 400 320" className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
-                    <defs>
-                      <linearGradient id="topGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="rgb(100, 116, 139)" stopOpacity="0.5" />
-                        <stop offset="100%" stopColor="rgb(71, 85, 105)" stopOpacity="0.4" />
-                      </linearGradient>
-                      <linearGradient id="midGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="rgb(71, 85, 105)" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="rgb(51, 65, 85)" stopOpacity="0.35" />
-                      </linearGradient>
-                      <linearGradient id="botGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="rgb(51, 65, 85)" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="rgb(30, 41, 59)" stopOpacity="0.5" />
-                      </linearGradient>
-                    </defs>
-                    
-                    {/* Top section - full width */}
-                    <path d="M 10 0 L 390 0 L 330 90 L 70 90 Z" fill="url(#topGrad)" stroke="rgb(100, 116, 139)" strokeOpacity="0.5" strokeWidth="1.5" />
-                    
-                    {/* Middle section - narrower */}
-                    <path d="M 70 95 L 330 95 L 260 185 L 140 185 Z" fill="url(#midGrad)" stroke="rgb(71, 85, 105)" strokeOpacity="0.4" strokeWidth="1.5" />
-                    
-                    {/* Bottom section - narrowest */}
-                    <path d="M 140 190 L 260 190 L 220 280 L 180 280 Z" fill="url(#botGrad)" stroke="rgb(51, 65, 85)" strokeOpacity="0.5" strokeWidth="1.5" />
-                  </svg>
-
-                  {/* Content overlays */}
-                  <div className="absolute inset-0 flex flex-col pointer-events-none">
-                    {/* Top content - visitors */}
-                    <div className="flex items-center justify-center" style={{ height: '28%', paddingTop: '8px' }}>
-                      <div className="text-center">
-                        <p className="text-[10px] md:text-xs text-slate-400 mb-0.5">You spend <span className="text-white font-semibold">${monthlySpend.toLocaleString()}/mo</span> to get</p>
-                        <p className="text-2xl md:text-3xl font-black text-white leading-none">{monthlyVisitors.toLocaleString()}</p>
-                        <p className="text-[10px] md:text-xs text-slate-400">visitors</p>
-                      </div>
-                    </div>
-
-                    {/* Middle content - optins */}
-                    <div className="flex items-center justify-center" style={{ height: '28%', paddingTop: '8px' }}>
-                      <div className="text-center">
-                        <p className="text-[10px] md:text-xs text-slate-400 mb-0.5">Only <span className="text-white font-semibold">{optinRate}%</span> optin</p>
-                        <p className="text-2xl md:text-3xl font-black text-white leading-none">{formFills}</p>
-                        <p className="text-[10px] md:text-xs text-slate-400">leads</p>
-                      </div>
-                    </div>
-
-                    {/* Bottom content - conversations */}
-                    <div className="flex items-center justify-center" style={{ height: '28%', paddingTop: '8px' }}>
-                      <div className="text-center">
-                        <p className="text-[10px] md:text-xs text-slate-400 mb-0.5">You talk to</p>
-                        <p className="text-2xl md:text-3xl font-black text-white leading-none">{actualCalls}</p>
-                        <p className="text-[10px] md:text-xs text-slate-400">people</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Dropoff badges - positioned to the right */}
-                  <div className="absolute right-0 md:-right-4 flex flex-col items-start" style={{ top: '22%' }}>
-                    <div className="bg-red-500/20 border border-red-500/30 rounded-lg px-2 py-1 text-[10px] md:text-xs">
-                      <span className="text-red-400 font-semibold">↓ {100 - optinRate}% leave</span>
-                    </div>
-                  </div>
-                  <div className="absolute right-0 md:-right-4 flex flex-col items-start" style={{ top: '52%' }}>
-                    <div className="bg-red-500/20 border border-red-500/30 rounded-lg px-2 py-1 text-[10px] md:text-xs">
-                      <span className="text-red-400 font-semibold">↓ {100 - contactRate}% never answer</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* The Bottom Line */}
-                <div className="mt-10 max-w-xl mx-auto">
-                  <div className="bg-gradient-to-br from-red-500/20 to-red-900/20 border-2 border-red-500/30 rounded-2xl p-6 text-center">
-                    <p className="text-muted-foreground mb-1">You spend <span className="text-white font-bold">${monthlySpend.toLocaleString()}</span> to talk to <span className="text-white font-bold">{actualCalls}</span> people</p>
-                    <p className="text-4xl md:text-5xl font-black text-red-400 my-3">
-                      ${costPerConversation.toLocaleString()}<span className="text-lg font-normal text-red-400/70"> per conversation</span>
-                    </p>
-                  </div>
-
-                  {/* The Big Question - Made Prominent */}
-                  <div className="text-center mt-10 mb-8">
-                    <p className="text-2xl md:text-3xl font-bold text-white mb-3">
-                      What if you could talk to the <span className="text-primary">{missedVisitors.toLocaleString()}</span> who left?
-                    </p>
-                    <p className="text-lg md:text-xl text-muted-foreground">
-                      That&apos;s <span className="text-white font-semibold">{Math.round((missedVisitors / monthlyVisitors) * 100)}%</span> of your traffic you&apos;re paying for but never speaking to.
-                    </p>
-                  </div>
-                  
-                  <div className="text-center">
-                    <TrialCTA size="large" />
-                  </div>
-                </div>
-              </div>
+              <CostCalculator />
             </div>
           </div>
         </section>
@@ -1185,40 +767,27 @@ export default function HomePage() {
         {/* ===== SECTION: LEADS ARE ICE CREAM ===== */}
         <section className="py-20 relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px]" />
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[80px]" />
           </div>
           
           <div className="container mx-auto px-6 relative">
             <div className="max-w-4xl mx-auto">
               <div className="grid md:grid-cols-2 gap-12 items-center">
                 {/* Ice cream visual */}
-                <div className="text-center md:text-left order-2 md:order-1">
-                  <div className="inline-block bg-muted/30 border border-border/50 rounded-3xl p-8 md:p-10">
-                    <div className="w-24 h-24 rounded-2xl bg-primary/20 flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-14 h-14 text-primary" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        {/* Waffle cone */}
-                        <path d="M14 24L24 46L34 24" />
-                        {/* Cone waffle pattern - diagonal lines */}
-                        <path d="M16 28L32 28" />
-                        <path d="M18 32L30 32" />
-                        <path d="M20 36L28 36" />
-                        <path d="M22 40L26 40" />
-                        {/* Cone waffle pattern - cross lines */}
-                        <path d="M17 26L21 34" />
-                        <path d="M20 26L24 34" />
-                        <path d="M24 26L28 34" />
-                        <path d="M27 26L31 34" />
-                        {/* Front scoop (larger, bottom) */}
-                        <circle cx="24" cy="16" r="9" />
-                        {/* Back scoop (smaller, top) */}
-                        <path d="M18 10a7 7 0 1 1 12 0" />
-                        {/* Drip on right */}
-                        <path d="M32 18c1 2 1 4 0 5" />
-                      </svg>
-                    </div>
-                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <Clock className="w-5 h-5" />
-                      <span className="text-sm font-medium">Melting by the second...</span>
+                <div className="flex items-center justify-center order-2 md:order-1">
+                  <div className="relative">
+                    <svg className="w-48 h-48 md:w-72 md:h-72 lg:w-80 lg:h-80" viewBox="0 0 512 512" fill="#8B5CF6" xmlns="http://www.w3.org/2000/svg">
+                      <g transform="translate(0,512) scale(0.1,-0.1)">
+                        <path d="M2815 4403 c-45 -23 -113 -92 -142 -144 l-26 -46 -121 1 c-95 1 -132 -3 -171 -18 -114 -42 -206 -130 -240 -227 -36 -104 -55 -128 -132 -166 -160 -78 -255 -244 -241 -419 l5 -56 -50 -46 c-27 -26 -61 -69 -75 -97 -23 -43 -27 -64 -30 -155 -1 -58 -5 -137 -8 -176 -8 -86 7 -156 45 -216 25 -39 26 -46 15 -73 -51 -119 34 -289 155 -311 66 -12 69 -16 63 -92 -5 -81 9 -116 66 -162 37 -30 39 -35 51 -118 20 -144 21 -149 42 -176 15 -19 28 -67 45 -169 77 -445 126 -702 139 -728 31 -59 54 -64 325 -64 261 0 278 3 323 53 19 21 44 128 101 437 94 509 96 517 126 545 18 17 31 42 35 66 3 21 12 70 20 109 7 38 11 73 9 77 -7 11 4 10 27 -3 30 -16 131 -13 175 6 74 31 114 85 114 155 0 56 -21 101 -74 158 l-45 48 41 38 c44 42 72 97 83 165 4 25 20 62 35 83 44 60 64 150 58 260 -9 151 -62 275 -168 392 -48 52 -49 54 -44 102 12 100 -49 260 -134 355 -53 59 -146 123 -203 141 -32 9 -45 22 -78 77 -42 71 -117 148 -170 175 -26 14 -30 20 -21 35 13 25 75 73 128 100 31 16 42 27 42 45 0 43 -49 63 -95 39z m-246 -264 c26 -9 31 -15 25 -33 -10 -35 -58 -90 -100 -113 -34 -19 -48 -21 -120 -16 -50 4 -101 1 -129 -6 -26 -7 -49 -10 -52 -8 -9 10 65 92 111 124 82 56 191 78 265 52z m89 -97 c-4 -50 -13 -83 -34 -122 -16 -30 -33 -55 -39 -57 -5 -1 -18 9 -27 25 -10 15 -23 34 -29 43 -10 14 -4 25 38 67 27 27 55 64 62 81 22 52 34 37 29 -37z m78 31 c23 -56 44 -175 44 -251 0 -128 -44 -244 -113 -296 -36 -28 -110 -49 -153 -44 -29 3 -29 4 -28 66 1 56 5 68 40 118 66 93 146 227 160 266 7 20 16 69 20 107 3 39 8 71 10 71 2 0 11 -17 20 -37z m170 -178 c61 -125 78 -197 72 -317 -4 -84 -9 -106 -37 -163 -39 -79 -87 -116 -161 -123 l-49 -4 9 33 c14 47 12 113 -2 127 -16 16 -31 15 -25 0 6 -21 -19 -105 -46 -151 -33 -56 -112 -129 -173 -160 -27 -13 -85 -37 -129 -52 -94 -32 -161 -65 -201 -98 -49 -41 -68 -46 -165 -45 -105 2 -138 -10 -183 -62 -32 -38 -34 -82 -6 -127 17 -29 25 -33 62 -33 l43 1 -27 22 c-16 13 -28 32 -28 43 0 28 48 70 95 83 22 6 67 11 100 11 53 0 68 5 115 36 78 51 114 68 212 102 133 47 206 89 265 149 29 31 53 59 53 63 0 4 20 5 44 3 61 -7 153 21 195 60 18 18 46 58 61 90 l28 59 8 -47 c30 -204 -76 -368 -319 -491 -61 -30 -122 -64 -136 -75 -39 -31 -77 -90 -96 -149 -28 -86 -42 -107 -90 -136 -117 -68 -294 -87 -425 -45 -78 25 -128 27 -158 6 -17 -13 -26 -13 -43 -5 -21 12 -21 21 -3 82 3 10 -9 31 -31 55 -59 62 -70 89 -67 173 3 130 3 153 1 220 -2 76 14 120 62 175 39 44 119 85 169 85 33 1 34 1 16 15 -11 8 -35 15 -52 15 -30 0 -34 3 -40 36 -12 63 2 157 30 215 47 93 117 153 217 185 30 10 62 23 72 30 17 11 17 13 2 22 -25 14 -2 45 59 78 88 48 244 43 311 -10 43 -34 40 -81 -8 -140 -50 -60 -77 -121 -77 -174 0 -89 -34 -124 -170 -175 -122 -46 -193 -88 -256 -152 -34 -35 -74 -65 -90 -69 -31 -8 -94 -46 -94 -58 0 -4 19 4 43 17 52 30 77 32 70 6 -5 -21 12 -61 27 -61 6 0 10 6 10 13 0 8 14 34 30 60 40 60 139 126 263 176 106 43 153 69 180 99 15 16 28 18 92 14 56 -3 87 0 119 12 51 20 110 80 137 140 39 89 52 302 24 406 -8 30 -15 57 -14 60 1 19 68 -81 105 -155z m170 -93 c155 -113 232 -312 166 -425 -15 -25 -101 -77 -128 -77 -6 0 -15 21 -19 47 -4 27 -16 70 -26 98 -14 38 -19 76 -19 160 0 65 -6 132 -15 165 -8 30 -15 56 -15 58 0 9 23 -2 56 -26z m267 -540 c122 -143 168 -360 106 -502 -23 -52 -41 -67 -51 -42 -4 9 -7 -14 -7 -51 -1 -114 -40 -175 -143 -228 -32 -16 -89 -34 -130 -40 -40 -6 -79 -13 -86 -15 -18 -5 -38 -53 -26 -64 11 -11 148 5 202 24 46 17 52 11 52 -50 0 -119 -135 -190 -256 -135 -44 20 -77 57 -67 75 4 6 -10 -4 -30 -22 -83 -72 -171 -97 -256 -72 -33 9 -33 9 -16 -10 17 -19 17 -20 -1 -26 -58 -20 -104 -44 -135 -71 -73 -64 -120 -69 -207 -22 l-57 31 57 -56 c50 -50 61 -56 98 -56 49 0 69 9 135 65 74 63 89 68 195 69 83 1 101 4 142 27 46 26 46 26 75 8 15 -11 53 -27 83 -37 52 -16 53 -17 25 -23 -17 -4 -50 -7 -75 -8 -71 -2 -115 -18 -128 -46 -6 -14 -9 -32 -6 -40 11 -29 -118 -224 -170 -256 -75 -46 -134 -17 -213 103 -39 60 -54 73 -101 94 -35 15 -75 45 -107 78 -49 52 -52 54 -120 60 -83 8 -147 35 -171 71 -14 22 -15 33 -6 73 6 28 7 53 1 63 -7 14 -2 19 29 26 33 8 41 6 79 -23 50 -38 135 -59 208 -51 34 4 95 28 190 76 77 38 165 75 195 81 226 50 412 164 490 303 24 43 37 57 55 57 44 0 118 61 149 123 26 52 29 69 29 145 0 99 -27 191 -81 277 -22 36 -28 53 -20 62 15 19 19 17 71 -45z m-113 -21 c72 -102 97 -281 52 -373 -22 -45 -72 -98 -93 -98 -5 0 -9 10 -9 23 0 13 -6 32 -14 42 -12 17 -15 14 -31 -36 -29 -89 -64 -150 -116 -200 -88 -86 -222 -152 -380 -188 -73 -17 -119 -35 -185 -73 -106 -61 -158 -78 -233 -78 -69 0 -129 26 -163 70 -22 28 -28 31 -46 21 -41 -22 -120 -31 -172 -20 -78 17 -118 57 -135 139 l-8 35 27 -32 c36 -42 72 -50 108 -23 l29 22 67 -29 c61 -25 78 -28 192 -28 144 0 230 21 314 77 39 25 55 45 77 94 28 61 29 62 81 74 83 20 166 57 256 117 159 105 262 236 277 351 13 105 15 112 43 127 37 19 38 19 62 -14z m-124 -65 c-22 -145 -186 -335 -368 -427 -56 -28 -185 -65 -195 -55 -8 8 27 60 53 79 14 10 68 37 122 61 54 23 123 59 155 80 107 71 194 189 212 289 11 56 29 31 21 -27z m-1119 -272 c-3 -3 -12 -4 -19 -1 -8 3 -5 6 6 6 11 1 17 -2 13 -5z m-89 -24 c-20 -11 -42 -28 -48 -37 -8 -12 -10 -13 -7 -3 4 17 64 60 81 60 6 -1 -6 -10 -26 -20z m1479 -674 c5 -42 3 -48 -27 -76 -26 -24 -41 -30 -78 -30 l-47 0 38 31 c41 34 77 95 77 131 0 42 32 -5 37 -56z m-337 -273 c0 -21 -5 -55 -10 -75 -12 -41 -29 -49 -135 -63 -27 -3 -58 -8 -67 -11 -12 -4 -5 17 28 77 24 45 46 85 49 88 3 3 27 8 53 12 85 12 82 13 82 -28z m-909 18 c14 -3 49 -26 76 -51 49 -44 50 -47 61 -125 6 -44 9 -81 7 -84 -6 -6 -169 50 -182 62 -9 10 -43 165 -43 200 0 8 43 8 81 -2z m206 -107 c15 -4 34 -29 59 -79 19 -41 56 -95 80 -120 l44 -47 0 -147 c0 -80 3 -244 7 -363 5 -179 9 -218 21 -223 8 -3 16 -4 18 -3 1 2 6 96 9 209 6 150 5 208 -4 213 -12 8 -14 67 -4 209 6 95 7 98 32 103 76 15 100 27 144 71 46 45 50 47 132 58 67 9 85 9 85 -1 0 -14 -39 -206 -43 -210 -3 -3 -161 -33 -163 -31 -1 1 1 29 4 61 l7 59 78 16 c79 16 101 37 37 35 -68 -1 -148 -9 -145 -14 2 -3 -8 -120 -21 -260 -26 -278 -40 -518 -31 -509 4 3 14 68 23 145 l17 141 68 20 c38 11 69 19 69 17 0 -16 -53 -287 -61 -312 -17 -52 -36 -56 -240 -60 -200 -4 -261 5 -280 39 -9 17 -89 432 -89 463 0 4 8 5 18 1 9 -5 40 -16 67 -26 49 -17 50 -19 57 -66 3 -26 7 -65 7 -86 l1 -37 -40 6 c-55 9 -52 -10 5 -35 29 -13 45 -26 45 -38 2 -100 40 -229 40 -135 0 54 -38 452 -53 562 l-12 85 -78 16 c-72 15 -96 12 -83 -10 3 -5 18 -12 33 -15 16 -4 44 -11 64 -17 l36 -9 13 -91 c6 -50 9 -93 6 -96 -6 -7 -136 27 -136 36 0 3 -11 71 -25 151 -14 80 -25 145 -25 146 0 0 25 -4 55 -9 31 -6 52 -14 48 -20 -4 -6 2 -8 15 -5 12 4 20 2 16 -3 -3 -5 -2 -9 3 -9 4 0 17 -3 28 -6 18 -5 20 -1 20 38 -1 24 -5 78 -9 121 -5 43 -5 77 0 77 5 0 19 -3 31 -6z m573 -377 c0 -21 -42 -223 -48 -228 -7 -8 -109 -39 -125 -39 -9 0 -2 170 9 216 4 17 19 24 72 36 72 17 92 20 92 15z"/>
+                        <path d="M2621 3758 c-7 -24 -24 -63 -38 -86 -23 -41 -24 -43 -4 -33 35 19 71 82 71 123 0 50 -14 48 -29 -4z"/>
+                        <path d="M2995 3323 c-18 -77 -102 -166 -234 -250 -70 -45 -70 -55 1 -24 51 22 136 84 170 126 32 38 63 100 73 143 8 39 0 43 -10 5z"/>
+                        <path d="M2418 3309 c-14 -11 -52 -35 -84 -54 -32 -19 -51 -35 -43 -35 28 0 138 59 149 80 16 30 10 32 -22 9z"/>
+                        <path d="M2952 2669 c-34 -16 -124 -48 -200 -70 -75 -23 -139 -44 -142 -46 -10 -10 96 8 190 33 92 24 150 51 200 93 32 26 28 25 -48 -10z"/>
+                      </g>
+                    </svg>
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 text-muted-foreground bg-background/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border/50">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-xs font-medium whitespace-nowrap">Melting by the second...</span>
                     </div>
                   </div>
                 </div>
@@ -1326,7 +895,7 @@ export default function HomePage() {
         <section className="py-20 relative overflow-hidden">
           {/* Background glow */}
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-rose-500/10 rounded-full blur-[100px]" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-rose-500/10 rounded-full blur-[60px]" />
           </div>
           
           <div className="container mx-auto px-6 relative">
@@ -1465,7 +1034,7 @@ export default function HomePage() {
         {/* ===== SECTION 5: HERE'S WHAT TO DO NOW ===== */}
         <section className="py-24 relative">
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-primary/20 rounded-full blur-[120px]" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-primary/15 rounded-full blur-[80px]" />
           </div>
 
           <div className="container mx-auto px-6 relative">
@@ -1521,7 +1090,7 @@ export default function HomePage() {
         <section className="py-20 relative overflow-hidden">
           {/* Animated background pulse */}
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-primary/20 rounded-full blur-[80px] animate-pulse" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[250px] bg-primary/15 rounded-full blur-[60px]" />
           </div>
           
           <div className="container mx-auto px-6 relative">
@@ -1589,131 +1158,7 @@ export default function HomePage() {
                 If you can answer &ldquo;yes&rdquo; to these, you already know what to do.
               </p>
 
-              <div className="space-y-4">
-                {[
-                  "Do you agree that a lead is never \"hotter\" than the moment they're on your website?",
-                  "Are people more likely to buy from a human they can see than a faceless webpage?",
-                  "Would you rather talk to a hot lead right now than chase a phone number later?",
-                  "Don't you agree that nobody likes filling out forms and waiting for callbacks?",
-                  "Isn't it crazy to pay for traffic and then hide your salespeople behind a form—when instead they could video chat with prospects even if they don't opt in?",
-                ].map((question, idx) => {
-                  const answer = questionAnswers[idx];
-                  const isAnswered = answer !== null && answer !== undefined;
-                  
-                  // Find the first unanswered question
-                  const firstUnansweredIdx = [0, 1, 2, 3, 4].find(i => 
-                    questionAnswers[i] === null || questionAnswers[i] === undefined
-                  );
-                  const isActiveQuestion = idx === firstUnansweredIdx;
-                  const isPastQuestion = firstUnansweredIdx !== undefined && idx > firstUnansweredIdx;
-                  
-                  return (
-                    <div
-                      key={idx}
-                      className={`relative bg-muted/20 border rounded-xl p-5 transition-all duration-500 ${
-                        isAnswered
-                          ? 'border-primary/50 bg-primary/5' 
-                          : isActiveQuestion
-                            ? 'border-primary/70 bg-primary/10 shadow-lg shadow-primary/20'
-                            : 'border-border/30 opacity-50'
-                      }`}
-                      style={{
-                        transform: isPastQuestion && !isAnswered ? 'scale(0.98)' : 'scale(1)',
-                      }}
-                    >
-                      {/* Pulse ring for active question */}
-                      {isActiveQuestion && !isAnswered && (
-                        <div className="absolute -inset-[2px] rounded-xl border-2 border-primary/50 animate-ping opacity-30" />
-                      )}
-                      
-                      <p className={`text-lg leading-relaxed mb-4 transition-colors duration-300 ${
-                        isAnswered ? 'text-white' : isActiveQuestion ? 'text-white' : 'text-muted-foreground'
-                      }`}>
-                        {question}
-                      </p>
-                      
-                      {/* Yes / No checkboxes */}
-                      <div className={`flex items-center gap-6 transition-opacity duration-300 ${
-                        !isActiveQuestion && !isAnswered ? 'opacity-50' : 'opacity-100'
-                      }`}>
-                        {/* Yes */}
-                        <button
-                          onClick={() => answerQuestion(idx, "yes")}
-                          className={`flex items-center gap-2 group ${isActiveQuestion && !isAnswered ? 'animate-pulse' : ''}`}
-                        >
-                          <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all duration-300 ${
-                            answer === "yes"
-                              ? 'bg-primary border-primary scale-110' 
-                              : isActiveQuestion
-                                ? 'border-primary/70 group-hover:border-primary group-hover:bg-primary/20'
-                                : 'border-slate-500 group-hover:border-primary/70'
-                          }`}>
-                            <Check className={`w-4 h-4 text-white transition-all duration-300 ${
-                              answer === "yes"
-                                ? 'opacity-100 scale-100' 
-                                : 'opacity-0 scale-0'
-                            }`} />
-                          </div>
-                          <span className={`font-medium transition-colors duration-300 ${
-                            answer === "yes" 
-                              ? 'text-primary' 
-                              : isActiveQuestion 
-                                ? 'text-primary/80 group-hover:text-primary'
-                                : 'text-muted-foreground group-hover:text-white'
-                          }`}>Yes</span>
-                        </button>
-                        
-                        {/* No */}
-                        <button
-                          onClick={() => answerQuestion(idx, "no")}
-                          className="flex items-center gap-2 group"
-                        >
-                          <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all duration-300 ${
-                            answer === "no"
-                              ? 'bg-slate-500 border-slate-500 scale-110' 
-                              : 'border-slate-500 group-hover:border-slate-400'
-                          }`}>
-                            <Check className={`w-4 h-4 text-white transition-all duration-300 ${
-                              answer === "no"
-                                ? 'opacity-100 scale-100' 
-                                : 'opacity-0 scale-0'
-                            }`} />
-                          </div>
-                          <span className={`font-medium transition-colors duration-300 ${
-                            answer === "no" ? 'text-slate-400' : 'text-muted-foreground group-hover:text-white'
-                          }`}>No</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Progress indicator */}
-              <div className="mt-8 text-center">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted/30 border border-border/50">
-                  <span className="text-sm text-muted-foreground">
-                    {answeredCount === 0 ? (
-                      "Check yes or no ✓"
-                    ) : answeredCount === 5 ? (
-                      yesCount >= 4 ? (
-                        <span className="text-primary font-semibold">You know what to do 👇</span>
-                      ) : (
-                        <span className="text-muted-foreground">Interesting... 🤔</span>
-                      )
-                    ) : (
-                      <><span className="text-primary font-semibold">{answeredCount}/5</span> answered</>
-                    )}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-8 text-center">
-                <p className="text-xl font-semibold text-white mb-6">
-                  If this widget catches just <span className="text-primary">one client</span> this month who would have otherwise clicked the &ldquo;Back&rdquo; button, has the software paid for itself?
-                </p>
-                <TrialCTA />
-              </div>
+              <SocraticQuestions />
             </div>
           </div>
         </section>
@@ -1729,17 +1174,7 @@ export default function HomePage() {
                 Everything you need to know before getting started.
               </p>
 
-              <div className="space-y-4">
-                {faqs.map((faq, index) => (
-                  <FAQItem
-                    key={index}
-                    question={faq.question}
-                    answer={faq.answer}
-                    isOpen={openFaq === index}
-                    onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                  />
-                ))}
-              </div>
+              <FAQAccordion />
 
               <div className="mt-12 text-center">
                 <p className="text-lg text-muted-foreground mb-6">

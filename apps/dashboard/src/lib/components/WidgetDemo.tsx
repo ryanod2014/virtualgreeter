@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Video, Mic, MicOff, VideoOff, Phone, Maximize2 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Mic, MicOff, VideoOff, Phone, Maximize2 } from "lucide-react";
 
 /**
  * Animated Widget Demo Component
  * 
  * Shows the exact GreetNow widget UI with an animated cursor
  * demonstrating how a visitor connects with a live agent.
+ * 
+ * Performance optimizations:
+ * - Lazy video loading with preload="none"
+ * - Intersection Observer to pause animation when off-screen
+ * - Reduced blur effects
  */
 
 // Default sample video URLs (same as used in production seeding)
@@ -41,44 +46,80 @@ const PHASE_DURATIONS: Record<AnimationPhase, number> = {
   reset: 800,
 };
 
+const NEXT_PHASE_MAP: Record<AnimationPhase, AnimationPhase> = {
+  website_idle: "widget_appears",
+  widget_appears: "widget_shown",
+  widget_shown: "cursor_moves",
+  cursor_moves: "cursor_hovers",
+  cursor_hovers: "cursor_clicks",
+  cursor_clicks: "connecting",
+  connecting: "call_connected",
+  call_connected: "call_active",
+  call_active: "call_ends",
+  call_ends: "reset",
+  reset: "website_idle",
+};
+
 export function WidgetDemo() {
   const [phase, setPhase] = useState<AnimationPhase>("website_idle");
   const [cursorPosition, setCursorPosition] = useState({ x: 60, y: 40 });
   const [isClicking, setIsClicking] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const [hasVideoLoaded, setHasVideoLoaded] = useState(false);
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Animation sequence controller
+  // Intersection Observer to detect visibility
   useEffect(() => {
-    const runPhase = (currentPhase: AnimationPhase) => {
-      const nextPhaseMap: Record<AnimationPhase, AnimationPhase> = {
-        website_idle: "widget_appears",
-        widget_appears: "widget_shown",
-        widget_shown: "cursor_moves",
-        cursor_moves: "cursor_hovers",
-        cursor_hovers: "cursor_clicks",
-        cursor_clicks: "connecting",
-        connecting: "call_connected",
-        call_connected: "call_active",
-        call_active: "call_ends",
-        call_ends: "reset",
-        reset: "website_idle",
-      };
+    const element = containerRef.current;
+    if (!element) return;
 
-      timeoutRef.current = setTimeout(() => {
-        setPhase(nextPhaseMap[currentPhase]);
-      }, PHASE_DURATIONS[currentPhase]);
-    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setIsVisible(entry.isIntersecting);
+          
+          // Lazy load video when first visible
+          if (entry.isIntersecting && !hasVideoLoaded && videoRef.current) {
+            videoRef.current.load();
+            setHasVideoLoaded(true);
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
 
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasVideoLoaded]);
+
+  // Animation sequence controller - only runs when visible
+  const runPhase = useCallback((currentPhase: AnimationPhase) => {
+    if (!isVisible) return;
+    
+    timeoutRef.current = setTimeout(() => {
+      setPhase(NEXT_PHASE_MAP[currentPhase]);
+    }, PHASE_DURATIONS[currentPhase]);
+  }, [isVisible]);
+
+  useEffect(() => {
+    // Clear any existing timeout when visibility changes or phase changes
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    // Only run animation when visible
+    if (!isVisible) return;
+    
     runPhase(phase);
 
     // Handle cursor position updates
-    // Container: max-w-4xl (~896px) × content height 480px
-    // Widget: w-72 (288px), positioned at bottom-5 right-5
-    // Mic button is FIRST (left) button in 2-button row
     if (phase === "cursor_moves") {
       setCursorPosition({ x: 75.5, y: 83 }); 
     } else if (phase === "website_idle" || phase === "reset") {
-      setCursorPosition({ x: 50, y: 40 }); // Reset cursor to center of page
+      setCursorPosition({ x: 50, y: 40 });
     }
 
     // Handle click animation
@@ -92,18 +133,30 @@ export function WidgetDemo() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [phase]);
+  }, [phase, isVisible, runPhase]);
+
+  // Pause/play video based on visibility
+  useEffect(() => {
+    if (!videoRef.current) return;
+    
+    if (isVisible) {
+      videoRef.current.play().catch(() => {
+        // Autoplay may be blocked, that's okay
+      });
+    } else {
+      videoRef.current.pause();
+    }
+  }, [isVisible]);
 
   const isWidgetVisible = !["website_idle", "reset"].includes(phase);
   const isConnecting = phase === "connecting";
   const isCallActive = ["call_connected", "call_active"].includes(phase);
-  // Mic turns on when clicked (cursor_clicks) and stays on through call
   const isMicOn = isCallActive || phase === "cursor_clicks" || phase === "connecting";
 
   return (
-    <div className="relative w-full max-w-4xl mx-auto">
-      {/* Glow effects */}
-      <div className="absolute -inset-10 bg-gradient-to-r from-primary/30 via-purple-500/20 to-fuchsia-500/30 rounded-3xl blur-3xl opacity-50 animate-pulse" />
+    <div ref={containerRef} className="relative w-full max-w-4xl mx-auto">
+      {/* Glow effects - reduced blur for performance */}
+      <div className="absolute -inset-10 bg-gradient-to-r from-primary/20 via-purple-500/15 to-fuchsia-500/20 rounded-3xl blur-2xl opacity-40" />
       
       {/* Main container - Mock browser window */}
       <div className="relative rounded-2xl overflow-hidden border border-primary/20 shadow-2xl shadow-primary/20 bg-slate-950">
@@ -170,7 +223,7 @@ export function WidgetDemo() {
           <div 
             className={`
               absolute bottom-5 right-5 z-10 
-              transition-all duration-500 ease-out
+              transition-[opacity,transform] duration-500 ease-out
               ${isWidgetVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95"}
             `}
           >
@@ -181,14 +234,15 @@ export function WidgetDemo() {
               >
                 {/* Video container */}
                 <div className="relative aspect-[4/3] bg-[#1a1a24] overflow-hidden">
-                  {/* Agent video - actual looped video */}
+                  {/* Agent video - lazy loaded */}
                   <video
+                    ref={videoRef}
                     className="absolute inset-0 w-full h-full object-cover"
                     src={DEMO_LOOP_VIDEO_URL}
-                    autoPlay
                     loop
                     muted
                     playsInline
+                    preload="none"
                   />
 
                   {/* Live badge */}
@@ -247,7 +301,7 @@ export function WidgetDemo() {
                   <button 
                     className={`
                       w-11 h-11 rounded-full flex items-center justify-center
-                      transition-all duration-200
+                      transition-[background-color,transform,box-shadow] duration-200
                       ${isMicOn 
                         ? "bg-green-500/20 text-green-400" 
                         : "bg-red-500/20 text-red-400"}
@@ -293,7 +347,7 @@ export function WidgetDemo() {
           <div 
             className={`
               absolute z-20 pointer-events-none
-              transition-all duration-700 ease-out
+              transition-[opacity,left,top,transform] duration-700 ease-out
               ${phase === "website_idle" || phase === "reset" ? "opacity-0" : "opacity-100"}
             `}
             style={{
@@ -352,4 +406,3 @@ export function WidgetDemo() {
     </div>
   );
 }
-

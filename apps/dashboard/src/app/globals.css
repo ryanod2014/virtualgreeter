@@ -2,8 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Import a distinctive font */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+/* Fonts are loaded via next/font in layout.tsx for optimal performance */
 
 @layer base {
   :root {
@@ -67,7 +66,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Outfit', system-ui, sans-serif;
+    font-family: var(--font-outfit), system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
@@ -109,12 +108,13 @@
   text-shadow: 0 0 40px hsl(var(--primary) / 0.5);
 }
 
-/* Hero glow orb */
+/* Hero glow orb - reduced blur for better performance */
 .glow-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
+  filter: blur(60px);
   pointer-events: none;
+  will-change: opacity;
 }
 
 /* Animated border gradient */
@@ -259,4 +259,36 @@
 
 .animate-marquee {
   animation: marquee 25s linear infinite;
+}
+
+/* Reduced motion support for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  /* Keep scroll behavior normal */
+  html {
+    scroll-behavior: auto;
+  }
+  
+  /* Disable glow animations */
+  .glow-orb {
+    animation: none !important;
+  }
+  
+  /* Disable marquee */
+  .animate-marquee {
+    animation: none !important;
+  }
+  
+  /* Disable float animation */
+  .float-animation {
+    animation: none !important;
+  }
 }
