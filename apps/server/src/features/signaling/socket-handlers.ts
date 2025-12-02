@@ -25,6 +25,7 @@ import type {
   AgentProfile,
 } from "@ghost-greeter/domain";
 import { SOCKET_EVENTS, ERROR_CODES, TIMING } from "@ghost-greeter/domain";
+import { getCallSettings, secondsToMs, minutesToMs } from "../../lib/call-settings.js";
 import type { PoolManager } from "../routing/pool-manager.js";
 import {
   createCallLog,
@@ -54,10 +55,26 @@ import { trackWidgetView, trackCallStarted } from "../../lib/greetnow-retargetin
 // Track RNA (Ring-No-Answer) timeouts
 const rnaTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
+// Track max call duration timeouts (auto-end calls after configured duration)
+const maxCallDurationTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
 // Track pending agent disconnects (grace period for page refreshes)
 // Key: agentId, Value: { timeout, previousStatus }
 const pendingDisconnects: Map<string, { timeout: ReturnType<typeof setTimeout>; previousStatus: string }> = new Map();
 const AGENT_DISCONNECT_GRACE_PERIOD = 10000; // 10 seconds to allow for page refresh
+
+// Track pending call reconnections (server restart recovery)
+// Key: callLogId, Value: { timeout, agentSocketId, visitorId, newCallId }
+interface PendingReconnect {
+  timeout: ReturnType<typeof setTimeout>;
+  agentSocketId: string | null;
+  visitorSocketId: string | null;
+  agentId: string;
+  visitorId: string;
+  newCallId: string;
+  callLogId: string;
+}
+const pendingReconnects: Map<string, PendingReconnect> = new Map();
 
 type AppSocket = Socket<
   WidgetToServerEvents & DashboardToServerEvents,
@@ -263,7 +280,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       console.log(`[Socket] ⚠️ MISSED_OPPORTUNITY recorded for visitor ${visitor.visitorId} (trigger_delay: ${data.triggerDelaySeconds}s)`);
     });
 
-    socket.on(SOCKET_EVENTS.CALL_REQUEST, (data: CallRequestPayload) => {
+    socket.on(SOCKET_EVENTS.CALL_REQUEST, async (data: CallRequestPayload) => {
       const visitor = poolManager.getVisitorBySocketId(socket.id);
       if (!visitor) {
         socket.emit(SOCKET_EVENTS.ERROR, {
@@ -272,6 +289,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         });
         return;
       }
+
+      // Fetch org call settings for configurable RNA timeout
+      const callSettings = await getCallSettings(visitor.orgId);
 
       // Check if this visitor has an active call that needs to be cleaned up first
       // This handles the race condition where user ends call and quickly calls again
@@ -350,8 +370,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
             },
           });
 
-          // Start RNA (Ring-No-Answer) timeout
-          startRNATimeout(io, poolManager, request.requestId, targetAgentId, visitor.visitorId);
+          // Start RNA (Ring-No-Answer) timeout with org-configured timeout
+          const rnaTimeoutMs = secondsToMs(callSettings.rna_timeout_seconds);
+          startRNATimeout(io, poolManager, request.requestId, targetAgentId, visitor.visitorId, rnaTimeoutMs);
         } else {
           console.log(`[Socket] WARNING: Agent ${targetAgentId} socket not found! socketId: ${targetAgent.socketId}`);
           // Agent socket might be stale - they may have disconnected
@@ -681,6 +702,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         return;
       }
 
+      // Fetch org call settings for max call duration
+      const callSettings = await getCallSettings(request.orgId);
+
       const activeCall = poolManager.acceptCall(data.requestId);
       if (!activeCall) {
         socket.emit(SOCKET_EVENTS.ERROR, {
@@ -742,6 +766,10 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           pageUrl: request.pageUrl,
         },
       });
+
+      // Start max call duration timeout
+      const maxDurationMs = minutesToMs(callSettings.max_call_duration_minutes);
+      startMaxCallDurationTimeout(io, poolManager, activeCall.callId, request.agentId, request.visitorId, maxDurationMs);
     });
 
     socket.on(SOCKET_EVENTS.CALL_REJECT, async (data: CallRejectPayload) => {
@@ -838,6 +866,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     });
 
     socket.on(SOCKET_EVENTS.CALL_END, async (data: CallEndPayload) => {
+      // Clear max call duration timeout since call is ending normally
+      clearMaxCallDurationTimeout(data.callId);
+      
       const call = poolManager.endCall(data.callId);
       if (call) {
         console.log("[Socket] Call ended:", data.callId, "by socket:", socket.id);
@@ -916,18 +947,100 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       }
 
       if (data.role === "visitor") {
-        // Visitor is reconnecting after page navigation
+        // Visitor is reconnecting after page navigation or server restart
+        
+        // Check if there's a pending reconnect (agent reconnected first in server restart scenario)
+        const existingReconnect = pendingReconnects.get(callInfo.id);
+        if (existingReconnect && existingReconnect.agentSocketId) {
+          // Agent is already waiting - complete the reconnection!
+          console.log(`[Socket] ✅ Both parties ready - completing reconnection for call ${callInfo.id}`);
+          
+          // Clear the timeout
+          clearReconnectTimeout(callInfo.id);
+          
+          // Register visitor
+          const visitorSession = poolManager.registerVisitor(
+            socket.id,
+            callInfo.visitor_id,
+            callInfo.organization_id,
+            callInfo.page_url,
+            null
+          );
+
+          const newCallId = existingReconnect.newCallId;
+          const newToken = await markCallReconnected(callInfo.id, newCallId) ?? data.reconnectToken;
+
+          // Re-establish call state
+          poolManager.reconnectVisitorToCall(visitorSession.visitorId, existingReconnect.agentId, newCallId);
+
+          const agent = poolManager.getAgent(existingReconnect.agentId);
+          
+          // Notify visitor
+          socket.emit(SOCKET_EVENTS.CALL_RECONNECTED, {
+            callId: newCallId,
+            reconnectToken: newToken,
+            peerId: existingReconnect.agentId,
+            agent: agent ? {
+              id: agent.profile.id,
+              displayName: agent.profile.displayName,
+              avatarUrl: agent.profile.avatarUrl,
+              waveVideoUrl: agent.profile.waveVideoUrl,
+              introVideoUrl: agent.profile.introVideoUrl,
+              connectVideoUrl: agent.profile.connectVideoUrl,
+              loopVideoUrl: agent.profile.loopVideoUrl,
+            } : undefined,
+          });
+
+          // Notify agent
+          const agentSocket = io.sockets.sockets.get(existingReconnect.agentSocketId);
+          agentSocket?.emit(SOCKET_EVENTS.CALL_RECONNECTED, {
+            callId: newCallId,
+            reconnectToken: newToken,
+            peerId: visitorSession.visitorId,
+          });
+
+          console.log(`[Socket] ✅ Visitor ${visitorSession.visitorId} reconnected to call with agent ${existingReconnect.agentId}`);
+          return;
+        }
+
+        // Standard visitor reconnection (page navigation, agent still connected)
         const agent = poolManager.getAgent(callInfo.agent_id);
         
         if (!agent) {
-          console.log("[Socket] ❌ Agent no longer online for reconnection");
-          socket.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
+          // Agent not found - this could be:
+          // 1. Server restart and agent hasn't reconnected yet (wait for them)
+          // 2. Agent genuinely disconnected/logged out (fail after timeout)
+          
+          console.log(`[Socket] ⏳ Visitor ${callInfo.visitor_id} reconnecting but agent not online yet - waiting for agent`);
+          
+          // Register visitor so they're ready when agent reconnects
+          const visitorSession = poolManager.registerVisitor(
+            socket.id,
+            callInfo.visitor_id,
+            callInfo.organization_id,
+            callInfo.page_url,
+            null
+          );
+          
+          // Mark visitor as in_call state (waiting for agent)
+          poolManager.updateVisitorState(visitorSession.visitorId, "in_call");
+
+          // Notify visitor they're waiting for agent to reconnect
+          socket.emit(SOCKET_EVENTS.CALL_RECONNECTING, {
             callId: callInfo.id,
-            reason: "other_party_disconnected",
-            message: "Agent is no longer available",
+            message: "Reconnecting to your call...",
+            timeoutSeconds: TIMING.CALL_RECONNECT_TIMEOUT / 1000,
           });
-          // Mark call as ended in database
-          await markCallReconnectFailed(callInfo.id);
+
+          // Start timeout - wait for agent to reconnect
+          const newCallId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+          startReconnectTimeout(io, poolManager, callInfo.id, {
+            agentSocketId: null, // Agent hasn't reconnected yet
+            visitorSocketId: socket.id,
+            agentId: callInfo.agent_id,
+            visitorId: callInfo.visitor_id,
+            newCallId,
+          });
           return;
         }
 
@@ -990,8 +1103,135 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           reconnectToken: newToken,
           peerId: visitorSession.visitorId,
         });
+      } else if (data.role === "agent") {
+        // Agent reconnecting after server restart
+        const agent = poolManager.getAgentBySocketId(socket.id);
+        
+        if (!agent) {
+          console.log("[Socket] ❌ Agent not logged in for reconnection");
+          socket.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
+            callId: callInfo.id,
+            reason: "error",
+            message: "Agent not logged in",
+          });
+          return;
+        }
+
+        // Verify this agent owns this call
+        if (agent.agentId !== callInfo.agent_id) {
+          console.log("[Socket] ❌ Agent mismatch for reconnection");
+          socket.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
+            callId: callInfo.id,
+            reason: "error",
+            message: "Call belongs to a different agent",
+          });
+          return;
+        }
+
+        // Check if there's already a pending reconnect for this call
+        const existingReconnect = pendingReconnects.get(callInfo.id);
+        if (existingReconnect && existingReconnect.visitorSocketId) {
+          // Visitor is already waiting - complete the reconnection!
+          console.log(`[Socket] ✅ Both parties ready - completing reconnection for call ${callInfo.id}`);
+          
+          // Clear the timeout
+          clearReconnectTimeout(callInfo.id);
+          
+          const newCallId = existingReconnect.newCallId;
+          const newToken = await markCallReconnected(callInfo.id, newCallId) ?? data.reconnectToken;
+
+          // Re-establish call state
+          poolManager.reconnectVisitorToCall(callInfo.visitor_id, agent.agentId, newCallId);
+
+          // Notify agent
+          socket.emit(SOCKET_EVENTS.CALL_RECONNECTED, {
+            callId: newCallId,
+            reconnectToken: newToken,
+            peerId: callInfo.visitor_id,
+          });
+
+          // Notify visitor
+          const visitorSocket = io.sockets.sockets.get(existingReconnect.visitorSocketId);
+          visitorSocket?.emit(SOCKET_EVENTS.CALL_RECONNECTED, {
+            callId: newCallId,
+            reconnectToken: newToken,
+            peerId: agent.agentId,
+            agent: {
+              id: agent.profile.id,
+              displayName: agent.profile.displayName,
+              avatarUrl: agent.profile.avatarUrl,
+              waveVideoUrl: agent.profile.waveVideoUrl,
+              introVideoUrl: agent.profile.introVideoUrl,
+              connectVideoUrl: agent.profile.connectVideoUrl,
+              loopVideoUrl: agent.profile.loopVideoUrl,
+            },
+          });
+
+          console.log(`[Socket] ✅ Agent ${agent.agentId} reconnected to call with visitor ${callInfo.visitor_id}`);
+          return;
+        }
+
+        // Check if visitor is already reconnected (they may have reconnected first)
+        const visitor = poolManager.getVisitor(callInfo.visitor_id);
+        
+        if (visitor) {
+          // Visitor already reconnected - complete the reconnection immediately
+          const newCallId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+          const newToken = await markCallReconnected(callInfo.id, newCallId) ?? data.reconnectToken;
+
+          // Re-establish call state
+          poolManager.reconnectVisitorToCall(visitor.visitorId, agent.agentId, newCallId);
+
+          console.log(`[Socket] ✅ Agent ${agent.agentId} reconnected to call with visitor ${visitor.visitorId}`);
+
+          // Notify agent
+          socket.emit(SOCKET_EVENTS.CALL_RECONNECTED, {
+            callId: newCallId,
+            reconnectToken: newToken,
+            peerId: visitor.visitorId,
+          });
+
+          // Notify visitor
+          const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+          visitorSocket?.emit(SOCKET_EVENTS.CALL_RECONNECTED, {
+            callId: newCallId,
+            reconnectToken: newToken,
+            peerId: agent.agentId,
+            agent: {
+              id: agent.profile.id,
+              displayName: agent.profile.displayName,
+              avatarUrl: agent.profile.avatarUrl,
+              waveVideoUrl: agent.profile.waveVideoUrl,
+              introVideoUrl: agent.profile.introVideoUrl,
+              connectVideoUrl: agent.profile.connectVideoUrl,
+              loopVideoUrl: agent.profile.loopVideoUrl,
+            },
+          });
+        } else {
+          // Visitor hasn't reconnected yet - mark agent as waiting
+          console.log(`[Socket] ⏳ Agent ${agent.agentId} waiting for visitor ${callInfo.visitor_id} to reconnect`);
+          
+          // Mark agent as in_call while waiting
+          poolManager.setAgentInCall(agent.agentId, callInfo.visitor_id);
+
+          // Notify agent they're waiting
+          socket.emit(SOCKET_EVENTS.CALL_RECONNECTING, {
+            callId: callInfo.id,
+            message: "Waiting for visitor to reconnect...",
+            timeoutSeconds: TIMING.CALL_RECONNECT_TIMEOUT / 1000,
+          });
+
+          // Start reconnect timeout
+          const newCallId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+          startReconnectTimeout(io, poolManager, callInfo.id, {
+            agentSocketId: socket.id,
+            visitorSocketId: null,
+            agentId: agent.agentId,
+            visitorId: callInfo.visitor_id,
+            newCallId,
+          });
+        }
       }
-      // TODO: Handle agent reconnection after server restart (data.role === "agent")
     });
 
     // -------------------------------------------------------------------------
@@ -1121,6 +1361,11 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     socket.on("disconnect", async () => {
       console.log(`[Socket] Disconnected: ${socket.id}`);
 
+      // Check if this socket was waiting in a pending reconnect
+      // This handles the case where one party disconnects while waiting for the other
+      handleReconnectPartyDisconnect(io, poolManager, socket.id, "agent");
+      handleReconnectPartyDisconnect(io, poolManager, socket.id, "visitor");
+
       // Check if this was an agent
       const agent = poolManager.getAgentBySocketId(socket.id);
       if (agent) {
@@ -1130,6 +1375,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         // End any active call immediately (can't wait for grace period)
         const activeCall = poolManager.getActiveCallByAgentId(agentId);
         if (activeCall) {
+          // Clear max call duration timeout
+          clearMaxCallDurationTimeout(activeCall.callId);
+          
           markCallEnded(activeCall.callId);
           poolManager.endCall(activeCall.callId);
           const visitor = poolManager.getVisitor(activeCall.visitorId);
@@ -1208,6 +1456,9 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         // End any active call
         const activeCall = poolManager.getActiveCallByVisitorId(visitor.visitorId);
         if (activeCall) {
+          // Clear max call duration timeout
+          clearMaxCallDurationTimeout(activeCall.callId);
+          
           // Mark call as completed in database
           markCallEnded(activeCall.callId);
           
@@ -1285,18 +1536,20 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
 /**
  * Start RNA (Ring-No-Answer) timeout for a call request
  * If agent doesn't answer within the timeout, mark them as away and route to next agent
+ * @param rnaTimeoutMs - Configurable timeout in milliseconds (defaults to TIMING.RNA_TIMEOUT)
  */
 function startRNATimeout(
   io: AppServer,
   poolManager: PoolManager,
   requestId: string,
   agentId: string,
-  visitorId: string
+  visitorId: string,
+  rnaTimeoutMs: number = TIMING.RNA_TIMEOUT
 ): void {
   // Clear any existing timeout for this request
   clearRNATimeout(requestId);
 
-  console.log(`[RNA] Starting ${TIMING.RNA_TIMEOUT}ms timeout for request ${requestId}`);
+  console.log(`[RNA] Starting ${rnaTimeoutMs}ms timeout for request ${requestId}`);
 
   const timeout = setTimeout(async () => {
     console.log(`[RNA] ⏰ Timeout reached for request ${requestId}`);
@@ -1397,8 +1650,8 @@ function startRNATimeout(
             },
           });
           
-          // Start RNA timeout for new agent too
-          startRNATimeout(io, poolManager, newRequest.requestId, newAgent.agentId, visitorId);
+          // Start RNA timeout for new agent too (use same timeout as original)
+          startRNATimeout(io, poolManager, newRequest.requestId, newAgent.agentId, visitorId, rnaTimeoutMs);
         }
       } else {
         // No other agents available - hide widget with "got pulled away" message
@@ -1425,7 +1678,7 @@ function startRNATimeout(
     }
 
     rnaTimeouts.delete(requestId);
-  }, TIMING.RNA_TIMEOUT);
+  }, rnaTimeoutMs);
 
   rnaTimeouts.set(requestId, timeout);
 }
@@ -1439,6 +1692,212 @@ function clearRNATimeout(requestId: string): void {
     console.log(`[RNA] Clearing timeout for request ${requestId}`);
     clearTimeout(timeout);
     rnaTimeouts.delete(requestId);
+  }
+}
+
+/**
+ * Start max call duration timeout for an active call
+ * Automatically ends the call after the configured maximum duration
+ */
+function startMaxCallDurationTimeout(
+  io: AppServer,
+  poolManager: PoolManager,
+  callId: string,
+  agentId: string,
+  visitorId: string,
+  maxDurationMs: number
+): void {
+  // Clear any existing timeout for this call
+  clearMaxCallDurationTimeout(callId);
+
+  const durationMinutes = Math.round(maxDurationMs / 60000);
+  console.log(`[MaxDuration] Starting ${durationMinutes} minute timeout for call ${callId}`);
+
+  const timeout = setTimeout(async () => {
+    console.log(`[MaxDuration] ⏰ Max duration reached for call ${callId}`);
+
+    // Get the active call
+    const activeCall = poolManager.getActiveCallByVisitorId(visitorId);
+    if (!activeCall || activeCall.callId !== callId) {
+      console.log(`[MaxDuration] Call ${callId} no longer active, skipping`);
+      maxCallDurationTimeouts.delete(callId);
+      return;
+    }
+
+    // End the call
+    console.log(`[MaxDuration] Ending call ${callId} due to max duration limit`);
+    poolManager.endCall(callId);
+    markCallEnded(callId);
+
+    // Notify the agent
+    const agent = poolManager.getAgent(agentId);
+    if (agent) {
+      const agentSocket = io.sockets.sockets.get(agent.socketId);
+      agentSocket?.emit(SOCKET_EVENTS.CALL_ENDED, {
+        callId,
+        reason: "max_duration",
+        message: `Call automatically ended after ${durationMinutes} minutes`,
+      });
+      
+      // Record status change
+      recordStatusChange(agentId, "idle", "call_ended");
+    }
+
+    // Notify the visitor
+    const visitor = poolManager.getVisitor(visitorId);
+    if (visitor) {
+      const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+      visitorSocket?.emit(SOCKET_EVENTS.CALL_ENDED, {
+        callId,
+        reason: "max_duration",
+        message: `Call automatically ended after ${durationMinutes} minutes`,
+      });
+    }
+
+    maxCallDurationTimeouts.delete(callId);
+  }, maxDurationMs);
+
+  maxCallDurationTimeouts.set(callId, timeout);
+}
+
+/**
+ * Clear max call duration timeout for a call (call ended normally)
+ */
+function clearMaxCallDurationTimeout(callId: string): void {
+  const timeout = maxCallDurationTimeouts.get(callId);
+  if (timeout) {
+    console.log(`[MaxDuration] Clearing timeout for call ${callId}`);
+    clearTimeout(timeout);
+    maxCallDurationTimeouts.delete(callId);
+  }
+}
+
+/**
+ * Start a reconnect timeout for call recovery after server restart
+ * Allows both parties time to reconnect before the call is considered failed
+ */
+function startReconnectTimeout(
+  io: AppServer,
+  poolManager: PoolManager,
+  callLogId: string,
+  info: Omit<PendingReconnect, "timeout" | "callLogId">
+): void {
+  // Clear any existing reconnect timeout for this call
+  clearReconnectTimeout(callLogId);
+
+  console.log(`[Reconnect] Starting ${TIMING.CALL_RECONNECT_TIMEOUT}ms timeout for call ${callLogId}`);
+
+  const timeout = setTimeout(async () => {
+    console.log(`[Reconnect] ⏰ Timeout reached for call ${callLogId}`);
+
+    const pending = pendingReconnects.get(callLogId);
+    if (!pending) {
+      console.log(`[Reconnect] No pending reconnect found for ${callLogId}, skipping`);
+      return;
+    }
+
+    // Timeout - one party didn't reconnect in time
+    console.log(`[Reconnect] ❌ Call ${callLogId} reconnect failed - timeout`);
+
+    // Mark call as failed in database
+    await markCallReconnectFailed(callLogId);
+
+    // Notify whichever party was waiting
+    if (pending.agentSocketId) {
+      const agentSocket = io.sockets.sockets.get(pending.agentSocketId);
+      agentSocket?.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
+        callId: callLogId,
+        reason: "timeout",
+        message: "Visitor did not reconnect in time",
+      });
+
+      // Reset agent status since they're no longer in a call
+      poolManager.setAgentInCall(pending.agentId, null);
+    }
+
+    if (pending.visitorSocketId) {
+      const visitorSocket = io.sockets.sockets.get(pending.visitorSocketId);
+      visitorSocket?.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
+        callId: callLogId,
+        reason: "timeout",
+        message: "Agent did not reconnect in time",
+      });
+
+      // Reset visitor state
+      poolManager.updateVisitorState(pending.visitorId, "browsing");
+    }
+
+    pendingReconnects.delete(callLogId);
+  }, TIMING.CALL_RECONNECT_TIMEOUT);
+
+  pendingReconnects.set(callLogId, {
+    timeout,
+    callLogId,
+    ...info,
+  });
+}
+
+/**
+ * Clear a pending reconnect timeout (reconnection completed successfully)
+ */
+function clearReconnectTimeout(callLogId: string): void {
+  const pending = pendingReconnects.get(callLogId);
+  if (pending) {
+    console.log(`[Reconnect] Clearing timeout for call ${callLogId}`);
+    clearTimeout(pending.timeout);
+    pendingReconnects.delete(callLogId);
+  }
+}
+
+/**
+ * Handle disconnect of a party that was waiting for reconnection
+ * Cleans up the pending reconnect and notifies the other party if they reconnect
+ */
+function handleReconnectPartyDisconnect(
+  io: AppServer,
+  poolManager: PoolManager,
+  socketId: string,
+  role: "agent" | "visitor"
+): void {
+  // Find any pending reconnects where this socket was waiting
+  for (const [callLogId, pending] of pendingReconnects.entries()) {
+    const isAgent = role === "agent" && pending.agentSocketId === socketId;
+    const isVisitor = role === "visitor" && pending.visitorSocketId === socketId;
+    
+    if (isAgent || isVisitor) {
+      console.log(`[Reconnect] ${role} disconnected while waiting for reconnection, call ${callLogId}`);
+      
+      // Clear the timeout
+      clearTimeout(pending.timeout);
+      
+      // Mark call as failed in database
+      markCallReconnectFailed(callLogId);
+      
+      // Notify the other party if they were also waiting
+      // (This handles the case where both were waiting and one drops)
+      if (isAgent && pending.visitorSocketId) {
+        const visitorSocket = io.sockets.sockets.get(pending.visitorSocketId);
+        visitorSocket?.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
+          callId: callLogId,
+          reason: "other_party_disconnected",
+          message: "Agent disconnected",
+        });
+        // Reset visitor state
+        poolManager.updateVisitorState(pending.visitorId, "browsing");
+      } else if (isVisitor && pending.agentSocketId) {
+        const agentSocket = io.sockets.sockets.get(pending.agentSocketId);
+        agentSocket?.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
+          callId: callLogId,
+          reason: "other_party_disconnected",
+          message: "Visitor disconnected",
+        });
+        // Reset agent state
+        poolManager.setAgentInCall(pending.agentId, null);
+      }
+      
+      pendingReconnects.delete(callLogId);
+      break; // Each socket should only be in one pending reconnect
+    }
   }
 }
 

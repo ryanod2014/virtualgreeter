@@ -10,6 +10,8 @@ import type {
   ActiveCall,
   CallStartedPayload,
   CallReconnectedPayload,
+  CallReconnectingPayload,
+  CallReconnectFailedPayload,
   CobrowseSnapshotPayload,
   CobrowseMousePayload,
   CobrowseScrollPayload,
@@ -27,6 +29,71 @@ const MAX_RETRIES = 3;
 const BASE_RETRY_DELAY = 500; // ms
 const ACK_TIMEOUT = 5000; // 5 seconds to wait for server acknowledgment
 
+// ============================================================================
+// CALL PERSISTENCE - localStorage utilities for server restart recovery
+// ============================================================================
+
+const AGENT_CALL_STORAGE_KEY = "gg_agent_active_call";
+const CALL_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes max call recovery window
+
+interface StoredAgentCallData {
+  reconnectToken: string;
+  callId: string;
+  visitorId: string;
+  agentId: string;
+  timestamp: number;
+}
+
+function storeAgentActiveCall(data: Omit<StoredAgentCallData, "timestamp">): void {
+  if (typeof window === "undefined") return;
+  try {
+    const stored: StoredAgentCallData = { ...data, timestamp: Date.now() };
+    localStorage.setItem(AGENT_CALL_STORAGE_KEY, JSON.stringify(stored));
+    console.log("[Signaling] 💾 Stored active call for reconnection:", data.callId);
+  } catch (e) {
+    console.warn("[Signaling] Failed to store call data:", e);
+  }
+}
+
+function getStoredAgentCall(agentId: string): StoredAgentCallData | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(AGENT_CALL_STORAGE_KEY);
+    if (!stored) return null;
+
+    const data: StoredAgentCallData = JSON.parse(stored);
+
+    // Check if expired
+    if (Date.now() - data.timestamp > CALL_EXPIRY_MS) {
+      console.log("[Signaling] Stored call expired, clearing");
+      clearStoredAgentCall();
+      return null;
+    }
+
+    // Check if this call belongs to the current agent
+    if (data.agentId !== agentId) {
+      console.log("[Signaling] Stored call belongs to different agent, clearing");
+      clearStoredAgentCall();
+      return null;
+    }
+
+    return data;
+  } catch (e) {
+    console.warn("[Signaling] Failed to read stored call data:", e);
+    return null;
+  }
+}
+
+function clearStoredAgentCall(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(AGENT_CALL_STORAGE_KEY);
+    console.log("[Signaling] 🗑️ Cleared stored call data");
+  } catch (e) {
+    console.warn("[Signaling] Failed to clear call data:", e);
+  }
+}
+
 interface CobrowseState {
   snapshot: CobrowseSnapshotPayload | null;
   mousePosition: { x: number; y: number } | null;
@@ -42,6 +109,7 @@ interface UseSignalingReturn {
   cobrowse: CobrowseState;
   isMarkedAway: boolean;
   awayReason: string | null;
+  isReconnectingCall: boolean;
   acceptCall: (requestId: string) => void;
   rejectCall: (requestId: string, reason?: string) => void;
   endCall: (callId: string) => void;
@@ -72,6 +140,7 @@ export function useSignaling(agentId: string, options?: UseSignalingOptions): Us
   const [stats, setStats] = useState<StatsUpdatePayload | null>(null);
   const [isMarkedAway, setIsMarkedAway] = useState(false);
   const [awayReason, setAwayReason] = useState<string | null>(null);
+  const [isReconnectingCall, setIsReconnectingCall] = useState(false);
   const [cobrowse, setCobrowse] = useState<CobrowseState>({
     snapshot: null,
     mousePosition: null,
@@ -167,6 +236,17 @@ export function useSignaling(agentId: string, options?: UseSignalingOptions): Us
         // (the modal only shows for automatic away, not manual)
         setAwayReason("You set yourself as away");
       }
+      
+      // Check if we have an active call to reconnect to (server restart recovery)
+      const storedCall = getStoredAgentCall(agentId);
+      if (storedCall) {
+        console.log("[Signaling] 🔄 Found stored call, attempting reconnection:", storedCall.callId);
+        setIsReconnectingCall(true);
+        socket.emit(SOCKET_EVENTS.CALL_RECONNECT, {
+          reconnectToken: storedCall.reconnectToken,
+          role: "agent",
+        });
+      }
     });
 
     socket.on(SOCKET_EVENTS.CALL_INCOMING, (data: CallIncomingPayload) => {
@@ -209,6 +289,16 @@ export function useSignaling(agentId: string, options?: UseSignalingOptions): Us
       console.log("[Signaling] Call started", data);
       setIncomingCall(null);
       setActiveCall(data.call);
+      
+      // Store call info for server restart recovery
+      if (data.call.reconnectToken) {
+        storeAgentActiveCall({
+          reconnectToken: data.call.reconnectToken,
+          callId: data.call.callId,
+          visitorId: data.call.visitorId,
+          agentId: data.call.agentId,
+        });
+      }
     });
 
     socket.on(SOCKET_EVENTS.CALL_ENDED, (data) => {
@@ -216,21 +306,64 @@ export function useSignaling(agentId: string, options?: UseSignalingOptions): Us
       setActiveCall(null);
       // Reset cobrowse state when call ends
       setCobrowse({ snapshot: null, mousePosition: null, scrollPosition: null, selection: null });
+      // Clear stored call info since call has ended
+      clearStoredAgentCall();
     });
 
-    // Visitor reconnected after page navigation - update call ID and re-init WebRTC
+    // Call reconnected - either visitor reconnected after page navigation, 
+    // or both parties reconnected after server restart
     socket.on(SOCKET_EVENTS.CALL_RECONNECTED, (data: CallReconnectedPayload) => {
-      console.log("[Signaling] 🔄 Visitor reconnected to call:", data);
+      console.log("[Signaling] 🔄 Call reconnected:", data);
       // Update the active call with the new call ID
       // The WebRTC connection will need to be re-established
       // The peerId is the visitor's ID
-      setActiveCall(prev => prev ? {
-        ...prev,
-        callId: data.callId,
-        visitorId: data.peerId, // Update in case it changed
-        reconnectToken: data.reconnectToken,
-      } : null);
+      setActiveCall(prev => {
+        const newCall = prev ? {
+          ...prev,
+          callId: data.callId,
+          visitorId: data.peerId, // Update in case it changed
+          reconnectToken: data.reconnectToken,
+        } : {
+          // Create new call state if we didn't have one (server restart scenario)
+          callId: data.callId,
+          visitorId: data.peerId,
+          agentId: agentId,
+          startedAt: Date.now(),
+          endedAt: null,
+          reconnectToken: data.reconnectToken,
+        };
+        
+        // Update stored call info with new token
+        storeAgentActiveCall({
+          reconnectToken: data.reconnectToken,
+          callId: data.callId,
+          visitorId: data.peerId,
+          agentId: agentId,
+        });
+        
+        return newCall;
+      });
       // Reset cobrowse state - visitor's page may have changed
+      setCobrowse({ snapshot: null, mousePosition: null, scrollPosition: null, selection: null });
+      // Clear any reconnecting state
+      setIsReconnectingCall(false);
+    });
+
+    // Server notifying us that we're waiting for the other party to reconnect
+    socket.on(SOCKET_EVENTS.CALL_RECONNECTING, (data: CallReconnectingPayload) => {
+      console.log("[Signaling] ⏳ Waiting for visitor to reconnect:", data);
+      setIsReconnectingCall(true);
+      // We'll stay in this state until either CALL_RECONNECTED or CALL_RECONNECT_FAILED
+    });
+
+    // Reconnection failed - either timeout or the other party didn't reconnect
+    socket.on(SOCKET_EVENTS.CALL_RECONNECT_FAILED, (data: CallReconnectFailedPayload) => {
+      console.log("[Signaling] ❌ Call reconnection failed:", data);
+      setIsReconnectingCall(false);
+      setActiveCall(null);
+      // Clear stored call info since reconnection failed
+      clearStoredAgentCall();
+      // Reset cobrowse state
       setCobrowse({ snapshot: null, mousePosition: null, scrollPosition: null, selection: null });
     });
 
@@ -419,6 +552,7 @@ export function useSignaling(agentId: string, options?: UseSignalingOptions): Us
     cobrowse,
     isMarkedAway,
     awayReason,
+    isReconnectingCall,
     acceptCall,
     rejectCall,
     endCall,

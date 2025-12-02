@@ -1045,5 +1045,34 @@ export class PoolManager {
       activeCalls: activeCallsCount,
     };
   }
+
+  /**
+   * Get extended stats for metrics endpoint
+   * Provides detailed breakdown by pool and pending calls
+   */
+  getExtendedStats() {
+    // Count agents by pool
+    const agentsByPool: Record<string, number> = {};
+    for (const [poolId, agentIds] of this.poolMemberships.entries()) {
+      // Only count online agents in each pool
+      let onlineCount = 0;
+      for (const agentId of agentIds) {
+        const agent = this.agents.get(agentId);
+        if (agent && agent.profile.status !== "offline") {
+          onlineCount++;
+        }
+      }
+      if (onlineCount > 0) {
+        agentsByPool[poolId] = onlineCount;
+      }
+    }
+
+    return {
+      pendingCalls: this.pendingCalls.size,
+      poolCount: this.poolMemberships.size,
+      agentsByPool,
+      orgConfigCount: this.orgConfigs.size,
+    };
+  }
 }
 

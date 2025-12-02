@@ -220,6 +220,11 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
   const reconnectAttemptRef = useRef(0);
   const isUnmountingRef = useRef(false);
   
+  // Track pending call request for reconnection recovery (Option E)
+  // If socket disconnects while visitor is waiting for agent to answer,
+  // we'll re-emit call:request on reconnect
+  const pendingCallAgentIdRef = useRef<string | null>(null);
+  
   // Store options in ref to avoid stale closures
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -269,10 +274,13 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
       setIsConnected(true);
       setIsReconnecting(false);
       setConnectionError(null);
+      
+      // Track if this is a reconnection (not initial connect)
+      const wasReconnecting = reconnectAttemptRef.current > 0;
       reconnectAttemptRef.current = 0;
 
       // Notify parent if we reconnected
-      if (reconnectAttemptRef.current > 0) {
+      if (wasReconnecting) {
         optionsRef.current.onReconnected?.();
       }
 
@@ -294,6 +302,20 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
         pageUrl: window.location.href,
         visitorId: visitorId ?? undefined, // Use existing ID if reconnecting
       });
+      
+      // OPTION E: Retry pending call request after server restart/reconnect
+      // If we had a pending call request (visitor was waiting for agent to answer)
+      // and socket reconnected, re-emit the call:request
+      // The server handles duplicate calls gracefully via existing call cleanup
+      if (wasReconnecting && pendingCallAgentIdRef.current && !callAccepted) {
+        console.log("[Widget] 🔄 Retrying pending call request after reconnect for agent:", pendingCallAgentIdRef.current);
+        // Small delay to ensure visitor:join is processed first
+        setTimeout(() => {
+          if (pendingCallAgentIdRef.current && !callAccepted) {
+            socket.emit(SOCKET_EVENTS.CALL_REQUEST, { agentId: pendingCallAgentIdRef.current });
+          }
+        }, 100);
+      }
     });
 
     // Connection lost
@@ -373,6 +395,11 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
         poolId: data.poolId,
       });
       setVisitorId(data.visitorId);
+      
+      // Clear pending call tracking - no agents available to fulfill the request
+      pendingCallAgentIdRef.current = null;
+      currentRequestIdRef.current = null;
+      
       optionsRef.current.onAgentUnavailable(data);
     });
 
@@ -382,6 +409,9 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
       setCallAccepted(true);
       setCallRejected(false);
       setCurrentCallId(data.callId);
+      
+      // Clear pending call tracking - call is now active
+      pendingCallAgentIdRef.current = null;
       
       // Store call data for reconnection after page navigation
       storeActiveCall({
@@ -400,6 +430,8 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
       setCallRejected(true);
       setCallAccepted(false);
       currentRequestIdRef.current = null;
+      // Note: Don't clear pendingCallAgentIdRef here - server may reroute to another agent
+      // The visitor stays in "call_requested" state waiting for the next agent
       optionsRef.current.onCallRejected(data);
     });
 
@@ -410,6 +442,9 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
       setCallRejected(false);
       setCurrentCallId(null);
       currentRequestIdRef.current = null;
+      
+      // Clear pending call tracking - call is over
+      pendingCallAgentIdRef.current = null;
       
       // Clear stored call data - call is over
       clearStoredCall();
@@ -447,6 +482,9 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
       console.log("[Widget] ❌ Call reconnect failed:", data);
       setCallAccepted(false);
       setCurrentCallId(null);
+      
+      // Clear pending call tracking - reconnection failed
+      pendingCallAgentIdRef.current = null;
       
       // Clear stored call - reconnection failed
       clearStoredCall();
@@ -495,6 +533,9 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
 
     // Track request for cancellation
     currentRequestIdRef.current = `pending_${Date.now()}`;
+    
+    // Track pending call agent for reconnection recovery (Option E)
+    pendingCallAgentIdRef.current = agentId;
   }, []);
 
   /**
@@ -507,6 +548,10 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
       requestId: currentRequestIdRef.current,
     });
     currentRequestIdRef.current = null;
+    
+    // Clear pending call tracking - visitor cancelled
+    pendingCallAgentIdRef.current = null;
+    
     setCallRejected(false);
     setCallAccepted(false);
   }, []);

@@ -35,6 +35,7 @@ interface CobrowseState {
 interface SignalingContextType {
   isConnected: boolean;
   isReconnecting: boolean;
+  isReconnectingCall: boolean; // Waiting for other party to reconnect after server restart
   incomingCall: CallIncomingPayload | null;
   activeCall: ActiveCall | null;
   stats: StatsUpdatePayload | null;
@@ -107,6 +108,7 @@ export function SignalingProvider({
     cobrowse,
     isMarkedAway,
     awayReason,
+    isReconnectingCall,
     acceptCall,
     rejectCall,
     endCall,
@@ -238,6 +240,7 @@ export function SignalingProvider({
   const contextValue = useMemo<SignalingContextType>(() => ({
     isConnected,
     isReconnecting,
+    isReconnectingCall,
     incomingCall,
     activeCall,
     stats,
@@ -255,6 +258,7 @@ export function SignalingProvider({
   }), [
     isConnected,
     isReconnecting,
+    isReconnectingCall,
     incomingCall,
     activeCall,
     stats,
