@@ -571,28 +571,28 @@ export default function VideosPage() {
 
         {/* Progress Steps - only show when recording */}
         {!["loading", "pool-select", "has-videos"].includes(stage) && (
-          <div className="flex items-center justify-center gap-4 mb-8">
+          <div className="flex items-center justify-center gap-3 mb-8">
             <ProgressStep 
               step={1} 
               label="Wave" 
               active={stage.includes("mimic")} 
               completed={recordedVideos.mimic !== null && !stage.includes("mimic")} 
             />
-            <div className="w-12 h-0.5 bg-border" />
+            <div className="w-8 h-px bg-border/50" />
             <ProgressStep 
               step={2} 
               label="Speak" 
               active={stage.includes("script")} 
               completed={recordedVideos.script !== null && !stage.includes("script")} 
             />
-            <div className="w-12 h-0.5 bg-border" />
+            <div className="w-8 h-px bg-border/50" />
             <ProgressStep 
               step={3} 
               label="Smile" 
               active={stage.includes("smile")} 
               completed={recordedVideos.smile !== null && !stage.includes("smile")} 
             />
-            <div className="w-12 h-0.5 bg-border" />
+            <div className="w-8 h-px bg-border/50" />
             <ProgressStep 
               step={4} 
               label="Done" 
@@ -1366,16 +1366,23 @@ export default function VideosPage() {
           {/* Uploading */}
           {stage === "uploading" && (
             <div className="text-center py-12">
-              <Loader2 className="w-16 h-16 text-primary animate-spin mx-auto mb-6" />
-              <h2 className="text-2xl font-bold mb-4">Uploading Your Videos</h2>
+              <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6 relative">
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                <div className="absolute inset-0 rounded-full border-4 border-primary/20 animate-pulse" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Uploading Your Videos</h2>
+              <p className="text-muted-foreground mb-6">This will only take a moment...</p>
               <div className="max-w-md mx-auto">
-                <div className="h-3 bg-muted rounded-full overflow-hidden mb-2">
+                <div className="h-3 bg-muted/50 rounded-full overflow-hidden mb-3 shadow-inner">
                   <div 
-                    className="h-full bg-primary transition-all duration-300 ease-out"
+                    className="h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-primary via-purple-500 to-primary bg-[length:200%_100%] animate-gradient-x"
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>
-                <p className="text-muted-foreground">{uploadProgress}% complete</p>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-2xl font-bold text-foreground">{uploadProgress}%</span>
+                  <span className="text-muted-foreground">complete</span>
+                </div>
               </div>
             </div>
           )}
