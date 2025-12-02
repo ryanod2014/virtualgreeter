@@ -207,6 +207,13 @@ const WIDGET_STYLES = `
     z-index: ${Z_INDEX.WIDGET};
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     transition: var(--gg-transition);
+    /* GPU acceleration */
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    /* Rendering isolation */
+    contain: layout style;
   }
 
   .gg-widget.bottom-right {
@@ -241,14 +248,13 @@ const WIDGET_STYLES = `
   }
 
   .gg-widget.gg-dragging {
-    transition: none;
+    transition: none !important;
     cursor: grabbing;
+    will-change: transform;
   }
 
   .gg-widget.gg-snapping {
-    transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
-                top 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-                transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); /* Fast, bouncy snap */
   }
 
   .gg-widget.gg-fullscreen {
@@ -257,8 +263,19 @@ const WIDGET_STYLES = `
     right: 0 !important;
     bottom: 0 !important;
     width: 100vw !important;
+    /* Use dvh (dynamic viewport height) for mobile browsers, fallback to vh */
     height: 100vh !important;
+    height: 100dvh !important;
     padding: 0;
+    /* Ensure the widget respects safe areas on modern devices */
+    padding-top: env(safe-area-inset-top, 0);
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
+    /* Reset transform for fullscreen */
+    transform: none !important;
+    /* iOS Safari optimization */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
   }
 
   .gg-widget.gg-fullscreen .gg-container {
@@ -273,19 +290,21 @@ const WIDGET_STYLES = `
   .gg-widget.gg-fullscreen .gg-video-container {
     flex: 1;
     aspect-ratio: auto;
+    min-height: 0; /* Allow flex item to shrink */
   }
 
   .gg-widget.gg-fullscreen .gg-self-view {
     width: var(--gg-self-view-size-fs);
     height: var(--gg-self-view-size-fs);
-    bottom: 100px;
-    right: 40px;
+    /* Position above the call controls with safe area consideration */
+    bottom: calc(100px + env(safe-area-inset-bottom, 0));
+    right: max(40px, env(safe-area-inset-right, 0));
     border-radius: 16px;
   }
 
   .gg-widget.gg-fullscreen .gg-video-controls {
-    top: 20px;
-    right: 20px;
+    top: max(20px, env(safe-area-inset-top, 0));
+    right: max(20px, env(safe-area-inset-right, 0));
   }
 
   .gg-widget.gg-fullscreen .gg-video-control-btn {
@@ -294,10 +313,20 @@ const WIDGET_STYLES = `
   }
 
   .gg-widget.gg-fullscreen .gg-live-badge {
-    top: 20px;
-    left: 20px;
+    top: max(20px, env(safe-area-inset-top, 0));
+    left: max(20px, env(safe-area-inset-left, 0));
     padding: 8px 14px;
     font-size: 14px;
+  }
+
+  /* Fullscreen call controls - add bottom safe area padding */
+  .gg-widget.gg-fullscreen .gg-call-controls {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0));
+  }
+
+  /* Fullscreen powered by footer - add bottom safe area padding */
+  .gg-widget.gg-fullscreen .gg-powered-by {
+    padding-bottom: calc(5px + env(safe-area-inset-bottom, 0));
   }
 `;
 
@@ -314,6 +343,10 @@ const CONTAINER_STYLES = `
     animation: gg-slideUp ${ANIMATION_TIMING.WIDGET_ENTRANCE}ms cubic-bezier(0.16, 1, 0.3, 1);
     cursor: grab;
     user-select: none;
+    /* Mobile touch optimizations */
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .gg-container:active {
@@ -341,18 +374,26 @@ const VIDEO_STYLES = `
     aspect-ratio: 4/3;
     background: var(--gg-surface);
     overflow: hidden;
+    /* GPU acceleration for video */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    isolation: isolate;
   }
 
   .gg-video {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    /* Hardware acceleration for video playback */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
   }
 
   .gg-video-hidden {
     opacity: 0;
     position: absolute;
     pointer-events: none;
+    content-visibility: hidden; /* Skips rendering work entirely */
   }
 
   /* Video Controls - top right overlay */
@@ -378,6 +419,9 @@ const VIDEO_STYLES = `
     justify-content: center;
     border-radius: 8px;
     transition: var(--gg-transition-fast);
+    /* Touch optimizations */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   .gg-video-control-btn:hover {
@@ -597,10 +641,17 @@ const MINIMIZED_STYLES = `
     animation: gg-slideUp ${ANIMATION_TIMING.WIDGET_ENTRANCE}ms cubic-bezier(0.16, 1, 0.3, 1);
     border: none;
     overflow: hidden;
+    /* GPU acceleration */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    will-change: transform;
+    /* Touch optimizations */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   .gg-minimized:hover {
-    transform: scale(1.05);
+    transform: scale(1.05) translateZ(0);
   }
 
   /* When minimized, always position at bottom-right */
@@ -1257,6 +1308,9 @@ const CALL_CONTROLS_STYLES = `
     align-items: center;
     justify-content: center;
     transition: all var(--gg-transition-fast);
+    /* Touch optimizations */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   .gg-control-btn:disabled {

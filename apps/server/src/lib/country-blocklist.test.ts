@@ -136,7 +136,7 @@ describe("Country Blocklist", () => {
       const result = await getBlockedCountries("org1");
       expect(result).toEqual(["CN", "RU", "KP"]);
       expect(mockFrom).toHaveBeenCalledWith("organizations");
-      expect(mockSelect).toHaveBeenCalledWith("blocked_countries");
+      expect(mockSelect).toHaveBeenCalledWith("blocked_countries, country_list_mode");
       expect(mockEq).toHaveBeenCalledWith("id", "org1");
     });
 

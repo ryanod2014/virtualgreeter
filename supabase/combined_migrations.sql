@@ -2228,6 +2228,7 @@ CREATE TABLE public.widget_pageviews (
     visitor_id TEXT NOT NULL,
     page_url TEXT NOT NULL,
     agent_id UUID REFERENCES public.agent_profiles(id) ON DELETE SET NULL,
+    visitor_country_code TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -2237,6 +2238,7 @@ CREATE INDEX idx_widget_pageviews_created_at ON public.widget_pageviews(created_
 CREATE INDEX idx_widget_pageviews_agent_id ON public.widget_pageviews(agent_id);
 CREATE INDEX idx_widget_pageviews_pool_id ON public.widget_pageviews(pool_id);
 CREATE INDEX idx_widget_pageviews_org_date ON public.widget_pageviews(organization_id, created_at DESC);
+CREATE INDEX idx_widget_pageviews_country ON public.widget_pageviews(visitor_country_code);
 
 -- Enable RLS
 ALTER TABLE public.widget_pageviews ENABLE ROW LEVEL SECURITY;
@@ -2329,3 +2331,22 @@ COMMENT ON COLUMN public.organizations.blocked_countries IS
 -- Create index for efficient lookup (GIN index for array containment queries)
 CREATE INDEX idx_organizations_blocked_countries ON public.organizations USING GIN (blocked_countries);
 
+-- Add country_list_mode column to organizations table
+-- This determines whether the country_list is used as a blocklist or allowlist
+-- Mode 'blocklist': countries in the list are BLOCKED (default, current behavior)
+-- Mode 'allowlist': ONLY countries in the list are ALLOWED
+
+-- Create enum type for the mode
+DO $$ BEGIN
+  CREATE TYPE country_list_mode_enum AS ENUM ('blocklist', 'allowlist');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+-- Add the mode column with default 'blocklist' to preserve existing behavior
+ALTER TABLE public.organizations
+ADD COLUMN country_list_mode country_list_mode_enum DEFAULT 'blocklist' NOT NULL;
+
+-- Add comment for documentation
+COMMENT ON COLUMN public.organizations.country_list_mode IS 
+'Determines how the blocked_countries list is interpreted. "blocklist" = countries are blocked, "allowlist" = only listed countries are allowed';

@@ -1,101 +1,147 @@
 /**
- * Country Blocklist Management
+ * Country List Management
  * 
- * Fetches and caches blocked country lists for organizations.
- * Checks if a visitor should be blocked based on their resolved country.
+ * Fetches and caches country lists for organizations.
+ * Supports two modes:
+ * - blocklist: Block visitors from listed countries (default)
+ * - allowlist: Only allow visitors from listed countries
  */
 
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 
-// Cache for blocked countries (expires after 60 seconds in dev, 5 minutes in prod)
-const blockedCountriesCache = new Map<string, { countries: string[]; expiresAt: number }>();
+type CountryListMode = "blocklist" | "allowlist";
+
+interface CountryListSettings {
+  countries: string[];
+  mode: CountryListMode;
+}
+
+// Cache for country list settings (expires after 60 seconds in dev, 5 minutes in prod)
+const countryListCache = new Map<string, { settings: CountryListSettings; expiresAt: number }>();
 const CACHE_TTL = process.env.NODE_ENV === 'production' ? 5 * 60 * 1000 : 60 * 1000;
 
 /**
- * Get the blocked countries list for an organization
+ * Get the country list settings for an organization
  * 
  * @param orgId - Organization ID
- * @returns Array of ISO 3166-1 alpha-2 country codes that are blocked
+ * @returns Country list settings including mode and countries
  */
-export async function getBlockedCountries(orgId: string): Promise<string[]> {
+export async function getCountryListSettings(orgId: string): Promise<CountryListSettings> {
   // Check cache first
-  const cached = blockedCountriesCache.get(orgId);
+  const cached = countryListCache.get(orgId);
   if (cached && cached.expiresAt > Date.now()) {
-    return cached.countries;
+    return cached.settings;
   }
 
   if (!isSupabaseConfigured || !supabase) {
-    console.log("[CountryBlocklist] Supabase not configured, no countries blocked");
-    return [];
+    console.log("[CountryList] Supabase not configured, allowing all countries");
+    return { countries: [], mode: "blocklist" };
   }
 
   try {
     const { data, error } = await supabase
       .from("organizations")
-      .select("blocked_countries")
+      .select("blocked_countries, country_list_mode")
       .eq("id", orgId)
       .single();
 
     if (error) {
-      console.warn(`[CountryBlocklist] Failed to fetch blocked countries for ${orgId}:`, error.message);
-      return [];
+      console.warn(`[CountryList] Failed to fetch country list for ${orgId}:`, error.message);
+      return { countries: [], mode: "blocklist" };
     }
 
-    const countries = (data?.blocked_countries as string[]) || [];
+    const settings: CountryListSettings = {
+      countries: (data?.blocked_countries as string[]) || [],
+      mode: (data?.country_list_mode as CountryListMode) || "blocklist",
+    };
     
     // Cache the result
-    blockedCountriesCache.set(orgId, {
-      countries,
+    countryListCache.set(orgId, {
+      settings,
       expiresAt: Date.now() + CACHE_TTL,
     });
 
-    console.log(`[CountryBlocklist] Org ${orgId} blocked countries:`, countries.length > 0 ? countries.join(', ') : 'none');
-    return countries;
+    const modeStr = settings.mode === "allowlist" ? "ONLY allowing" : "blocking";
+    console.log(`[CountryList] Org ${orgId} ${modeStr} countries:`, settings.countries.length > 0 ? settings.countries.join(', ') : 'none');
+    return settings;
   } catch (error) {
-    console.error("[CountryBlocklist] Error fetching blocked countries:", error);
-    return [];
+    console.error("[CountryList] Error fetching country list settings:", error);
+    return { countries: [], mode: "blocklist" };
   }
 }
 
 /**
- * Check if a visitor's country is blocked by the organization
+ * Get the blocked countries list for an organization (legacy function for backwards compatibility)
+ * 
+ * @param orgId - Organization ID
+ * @returns Array of ISO 3166-1 alpha-2 country codes that are blocked
+ */
+export async function getBlockedCountries(orgId: string): Promise<string[]> {
+  const settings = await getCountryListSettings(orgId);
+  return settings.countries;
+}
+
+/**
+ * Check if a visitor's country should be blocked by the organization
  * 
  * @param orgId - Organization ID
  * @param countryCode - ISO 3166-1 alpha-2 country code (e.g., 'US', 'CN')
- * @returns true if the country is blocked, false otherwise
+ * @returns true if the country should be blocked, false otherwise
  */
 export async function isCountryBlocked(orgId: string, countryCode: string | null): Promise<boolean> {
-  // If we don't know the country, allow them through (geolocation may have failed)
-  if (!countryCode) {
+  const settings = await getCountryListSettings(orgId);
+  
+  // If no countries in list
+  if (settings.countries.length === 0) {
+    // Blocklist mode with empty list = allow everyone
+    // Allowlist mode with empty list = block everyone (but we'll be lenient and allow)
     return false;
   }
 
-  const blockedCountries = await getBlockedCountries(orgId);
-  
-  // Case-insensitive comparison
-  const normalizedCountryCode = countryCode.toUpperCase();
-  const isBlocked = blockedCountries.some(
-    (blocked) => blocked.toUpperCase() === normalizedCountryCode
-  );
-
-  if (isBlocked) {
-    console.log(`[CountryBlocklist] Blocking visitor from ${countryCode} for org ${orgId}`);
+  // If we don't know the country (geolocation failed)
+  if (!countryCode) {
+    // Blocklist mode: allow unknown countries through
+    // Allowlist mode: block unknown countries (they're not in the allow list)
+    if (settings.mode === "allowlist") {
+      console.log(`[CountryList] Blocking unknown country for org ${orgId} (allowlist mode)`);
+      return true;
+    }
+    return false;
   }
 
-  return isBlocked;
+  // Case-insensitive comparison
+  const normalizedCountryCode = countryCode.toUpperCase();
+  const isInList = settings.countries.some(
+    (c) => c.toUpperCase() === normalizedCountryCode
+  );
+
+  if (settings.mode === "allowlist") {
+    // Allowlist mode: block if NOT in the list
+    const shouldBlock = !isInList;
+    if (shouldBlock) {
+      console.log(`[CountryList] Blocking visitor from ${countryCode} for org ${orgId} (not in allowlist)`);
+    }
+    return shouldBlock;
+  } else {
+    // Blocklist mode: block if IN the list
+    if (isInList) {
+      console.log(`[CountryList] Blocking visitor from ${countryCode} for org ${orgId} (in blocklist)`);
+    }
+    return isInList;
+  }
 }
 
 /**
- * Clear the blocklist cache for an organization (call when settings are updated)
+ * Clear the country list cache for an organization (call when settings are updated)
  */
 export function clearBlocklistCache(orgId: string): void {
-  blockedCountriesCache.delete(orgId);
+  countryListCache.delete(orgId);
 }
 
 /**
- * Clear all blocklist caches
+ * Clear all country list caches
  */
 export function clearAllBlocklistCaches(): void {
-  blockedCountriesCache.clear();
+  countryListCache.clear();
 }
 

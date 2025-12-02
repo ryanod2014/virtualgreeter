@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 import type { VisitorLocation } from "@ghost-greeter/domain";
+import { randomBytes } from "crypto";
 
 export interface CallLogEntry {
   id?: string;
@@ -22,6 +23,26 @@ export interface CallLogEntry {
   visitor_region?: string;
   visitor_country?: string;
   visitor_country_code?: string;
+  // Call recovery fields
+  reconnect_token?: string;
+  last_heartbeat_at?: string;
+  reconnect_eligible?: boolean;
+}
+
+export interface OrphanedCall {
+  id: string;
+  agent_id: string;
+  visitor_id: string;
+  organization_id: string;
+  page_url: string;
+  reconnect_token: string;
+  started_at: string;
+  last_heartbeat_at: string;
+}
+
+// Generate a secure random reconnect token
+function generateReconnectToken(): string {
+  return randomBytes(32).toString("hex");
 }
 
 // In-memory map to track call log IDs for active calls
@@ -103,17 +124,18 @@ export async function createCallLog(
 
 /**
  * Update call log when agent accepts the call
+ * Returns the reconnect token for the call
  */
 export async function markCallAccepted(
   requestId: string,
   callId: string
-): Promise<void> {
-  if (!isSupabaseConfigured || !supabase) return;
+): Promise<string | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
 
   const callLogId = callLogIds.get(requestId);
   if (!callLogId) {
     console.warn(`[CallLogger] No call log found for request ${requestId}`);
-    return;
+    return null;
   }
 
   try {
@@ -132,6 +154,9 @@ export async function markCallAccepted(
       answerTimeSeconds = Math.round((now.getTime() - ringStarted.getTime()) / 1000);
     }
 
+    // Generate reconnect token for call recovery
+    const reconnectToken = generateReconnectToken();
+
     const { error } = await supabase
       .from("call_logs")
       .update({
@@ -139,20 +164,26 @@ export async function markCallAccepted(
         answered_at: now.toISOString(),
         answer_time_seconds: answerTimeSeconds,
         started_at: now.toISOString(),
+        // Call recovery fields
+        reconnect_token: reconnectToken,
+        reconnect_eligible: true,
+        last_heartbeat_at: now.toISOString(),
       })
       .eq("id", callLogId);
 
     if (error) {
       console.error("[CallLogger] Failed to mark call accepted:", error);
-      return;
+      return null;
     }
 
     // Transfer the mapping from requestId to callId
     callLogIds.delete(requestId);
     callLogIds.set(callId, callLogId);
     console.log(`[CallLogger] Call ${callLogId} accepted (answer time: ${answerTimeSeconds}s)`);
+    return reconnectToken;
   } catch (err) {
     console.error("[CallLogger] Error marking call accepted:", err);
+    return null;
   }
 }
 
@@ -304,5 +335,179 @@ export async function markCallCancelled(requestId: string): Promise<void> {
  */
 export function getCallLogId(requestOrCallId: string): string | undefined {
   return callLogIds.get(requestOrCallId);
+}
+
+/**
+ * Update heartbeat for an active call
+ * Called periodically during a call to indicate both parties are still connected
+ */
+export async function updateCallHeartbeat(callId: string): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) return;
+
+  const callLogId = callLogIds.get(callId);
+  if (!callLogId) return;
+
+  try {
+    const { error } = await supabase
+      .from("call_logs")
+      .update({
+        last_heartbeat_at: new Date().toISOString(),
+      })
+      .eq("id", callLogId);
+
+    if (error) {
+      console.error("[CallLogger] Failed to update heartbeat:", error);
+    }
+  } catch (err) {
+    console.error("[CallLogger] Error updating heartbeat:", err);
+  }
+}
+
+/**
+ * Find orphaned calls that need recovery after server restart
+ * An orphaned call is one that was active (accepted) but the server died
+ * We look for calls with recent heartbeats that haven't been ended
+ */
+export async function findOrphanedCalls(
+  maxAgeSeconds: number = 60
+): Promise<OrphanedCall[]> {
+  if (!isSupabaseConfigured || !supabase) return [];
+
+  try {
+    // Find calls that:
+    // 1. Were accepted (in progress)
+    // 2. Are reconnect eligible
+    // 3. Have a heartbeat within the last maxAgeSeconds
+    // 4. Haven't been ended yet
+    const cutoffTime = new Date(Date.now() - maxAgeSeconds * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from("call_logs")
+      .select("id, agent_id, visitor_id, organization_id, page_url, reconnect_token, started_at, last_heartbeat_at")
+      .eq("status", "accepted")
+      .eq("reconnect_eligible", true)
+      .is("ended_at", null)
+      .gte("last_heartbeat_at", cutoffTime);
+
+    if (error) {
+      console.error("[CallLogger] Failed to find orphaned calls:", error);
+      return [];
+    }
+
+    console.log(`[CallLogger] Found ${data?.length ?? 0} orphaned calls eligible for recovery`);
+    return (data ?? []) as OrphanedCall[];
+  } catch (err) {
+    console.error("[CallLogger] Error finding orphaned calls:", err);
+    return [];
+  }
+}
+
+/**
+ * Get call info by reconnect token
+ * Used when a client reconnects with their token
+ */
+export async function getCallByReconnectToken(token: string): Promise<OrphanedCall | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("call_logs")
+      .select("id, agent_id, visitor_id, organization_id, page_url, reconnect_token, started_at, last_heartbeat_at")
+      .eq("reconnect_token", token)
+      .eq("status", "accepted")
+      .eq("reconnect_eligible", true)
+      .is("ended_at", null)
+      .single();
+
+    if (error) {
+      if (error.code !== "PGRST116") { // Not found is okay
+        console.error("[CallLogger] Failed to get call by reconnect token:", error);
+      }
+      return null;
+    }
+
+    return data as OrphanedCall;
+  } catch (err) {
+    console.error("[CallLogger] Error getting call by reconnect token:", err);
+    return null;
+  }
+}
+
+/**
+ * Mark a call as successfully reconnected
+ * Resets the reconnect state and updates heartbeat
+ * Returns the new reconnect token for future reconnections
+ */
+export async function markCallReconnected(callLogId: string, newCallId: string): Promise<string | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+
+  try {
+    // Generate a new reconnect token in case we need to recover again
+    const newReconnectToken = generateReconnectToken();
+
+    const { error } = await supabase
+      .from("call_logs")
+      .update({
+        reconnect_token: newReconnectToken,
+        last_heartbeat_at: new Date().toISOString(),
+      })
+      .eq("id", callLogId);
+
+    if (error) {
+      console.error("[CallLogger] Failed to mark call reconnected:", error);
+      return null;
+    }
+
+    // Add mapping for the new call ID
+    callLogIds.set(newCallId, callLogId);
+    console.log(`[CallLogger] Call ${callLogId} reconnected with new callId ${newCallId}`);
+    return newReconnectToken;
+  } catch (err) {
+    console.error("[CallLogger] Error marking call reconnected:", err);
+    return null;
+  }
+}
+
+/**
+ * Mark a call as no longer reconnectable (timeout or permanent failure)
+ * This ends the call with a specific reason
+ */
+export async function markCallReconnectFailed(callLogId: string): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) return;
+
+  try {
+    const { data: existing } = await supabase
+      .from("call_logs")
+      .select("started_at")
+      .eq("id", callLogId)
+      .single();
+
+    const now = new Date();
+    let durationSeconds: number | null = null;
+
+    if (existing?.started_at) {
+      const startedAt = new Date(existing.started_at);
+      durationSeconds = Math.round((now.getTime() - startedAt.getTime()) / 1000);
+    }
+
+    const { error } = await supabase
+      .from("call_logs")
+      .update({
+        status: "completed",
+        ended_at: now.toISOString(),
+        duration_seconds: durationSeconds,
+        reconnect_eligible: false,
+      })
+      .eq("id", callLogId);
+
+    if (error) {
+      console.error("[CallLogger] Failed to mark call reconnect failed:", error);
+      return;
+    }
+
+    console.log(`[CallLogger] Call ${callLogId} marked as ended (reconnect failed)`);
+  } catch (err) {
+    console.error("[CallLogger] Error marking call reconnect failed:", err);
+  }
 }
 

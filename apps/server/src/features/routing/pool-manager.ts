@@ -583,12 +583,18 @@ export class PoolManager {
    * This allows senior reps to get leads first while junior reps provide overflow coverage.
    * 
    * @param poolId - Optional pool ID to restrict search to a specific pool
+   * @param excludeAgentId - Optional agent ID to exclude from consideration (used when re-routing after rejection)
    */
-  findBestAgent(poolId?: string | null): AgentState | undefined {
+  findBestAgent(poolId?: string | null, excludeAgentId?: string): AgentState | undefined {
     // Get candidate agents - either from a specific pool or all agents
-    const candidates = poolId 
+    let candidates = poolId 
       ? this.getAgentsInPool(poolId)
       : Array.from(this.agents.values());
+
+    // Filter out excluded agent if specified
+    if (excludeAgentId) {
+      candidates = candidates.filter(a => a.agentId !== excludeAgentId);
+    }
 
     // If no pool specified (fallback case), use original algorithm without tiering
     if (!poolId) {
@@ -675,13 +681,17 @@ export class PoolManager {
    * Find the best agent for a visitor based on their org and page URL
    * Uses path-based routing to determine the appropriate pool
    * Returns the agent and the matched pool ID (for widget settings lookup)
+   * 
+   * @param orgId - Organization ID
+   * @param pageUrl - Page URL for routing
+   * @param excludeAgentId - Optional agent ID to exclude (used when re-routing after rejection)
    */
-  findBestAgentForVisitor(orgId: string, pageUrl: string): { agent: AgentState; poolId: string | null } | undefined {
+  findBestAgentForVisitor(orgId: string, pageUrl: string, excludeAgentId?: string): { agent: AgentState; poolId: string | null } | undefined {
     // First, try to find an agent in the matched pool
     const poolId = this.matchPathToPool(orgId, pageUrl);
     
     if (poolId) {
-      const agent = this.findBestAgent(poolId);
+      const agent = this.findBestAgent(poolId, excludeAgentId);
       if (agent) {
         console.log(`[PoolManager] Found agent ${agent.profile.displayName} in pool ${poolId} for ${pageUrl}`);
         return { agent, poolId };
@@ -690,7 +700,7 @@ export class PoolManager {
     }
 
     // Fallback: find any available agent (no specific pool)
-    const fallbackAgent = this.findBestAgent();
+    const fallbackAgent = this.findBestAgent(null, excludeAgentId);
     if (fallbackAgent) {
       return { agent: fallbackAgent, poolId: null };
     }
@@ -894,6 +904,47 @@ export class PoolManager {
       if (call.agentId === agentId) return call;
     }
     return undefined;
+  }
+
+  /**
+   * Reconnect a visitor to an existing call (after page navigation)
+   * This re-establishes the call state without going through the request flow
+   */
+  reconnectVisitorToCall(visitorId: string, agentId: string, callId: string): ActiveCall | undefined {
+    const visitor = this.visitors.get(visitorId);
+    const agent = this.agents.get(agentId);
+    
+    if (!visitor || !agent) {
+      console.warn(`[PoolManager] Cannot reconnect - visitor or agent not found`);
+      return undefined;
+    }
+
+    // Remove any existing active call for this agent (the old one before page nav)
+    const existingCall = this.getActiveCallByAgentId(agentId);
+    if (existingCall) {
+      this.activeCalls.delete(existingCall.callId);
+    }
+
+    // Create new active call
+    const activeCall: ActiveCall = {
+      callId,
+      visitorId,
+      agentId,
+      startedAt: existingCall?.startedAt ?? Date.now(),
+      endedAt: null,
+    };
+
+    this.activeCalls.set(callId, activeCall);
+    
+    // Update visitor state
+    visitor.assignedAgentId = agentId;
+    this.updateVisitorState(visitorId, "in_call");
+    
+    // Ensure agent is marked as in_call
+    this.setAgentInCall(agentId, visitorId);
+    
+    console.log(`[PoolManager] Visitor ${visitorId} reconnected to call ${callId} with agent ${agentId}`);
+    return activeCall;
   }
 
   /**

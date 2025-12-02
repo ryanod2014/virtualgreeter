@@ -5,21 +5,184 @@ import type {
   ServerToWidgetEvents,
   AgentAssignedPayload,
   AgentReassignedPayload,
+  AgentUnavailablePayload,
   CallAcceptedPayload,
   CallRejectedPayload,
+  CallReconnectedPayload,
+  CallReconnectFailedPayload,
 } from "@ghost-greeter/domain";
 import { SOCKET_EVENTS } from "@ghost-greeter/domain";
 import { CONNECTION_TIMING, ERROR_MESSAGES } from "../../constants";
+
+// ============================================================================
+// CALL PERSISTENCE - localStorage utilities
+// ============================================================================
+// These allow calls to survive page navigation by storing reconnect info
+
+const CALL_STORAGE_KEY = "gg_active_call";
+const CALL_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes max call recovery window
+
+interface StoredCallData {
+  reconnectToken: string;
+  callId: string;
+  agentId: string;
+  orgId: string;
+  timestamp: number;
+}
+
+// ============================================================================
+// WIDGET STATE PERSISTENCE - localStorage utilities  
+// ============================================================================
+// These allow widget to maintain video sequence state across page navigation
+// Key insight: Same agent on different pool may have different video sequence
+
+const WIDGET_STATE_KEY = "gg_widget_state";
+const WIDGET_STATE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes - session-like expiry
+
+interface StoredWidgetState {
+  agentId: string;
+  // Store video URLs to detect if sequence changed (different pool = different videos)
+  waveVideoUrl: string | null;
+  introVideoUrl: string | null;
+  loopVideoUrl: string | null;
+  introCompleted: boolean;
+  timestamp: number;
+}
+
+export function storeWidgetState(data: Omit<StoredWidgetState, "timestamp">): void {
+  try {
+    const stored: StoredWidgetState = { ...data, timestamp: Date.now() };
+    localStorage.setItem(WIDGET_STATE_KEY, JSON.stringify(stored));
+    console.log("[Widget] 💾 Stored widget state for page navigation");
+  } catch (e) {
+    console.warn("[Widget] Failed to store widget state:", e);
+  }
+}
+
+export function getStoredWidgetState(): StoredWidgetState | null {
+  try {
+    const stored = localStorage.getItem(WIDGET_STATE_KEY);
+    if (!stored) return null;
+    
+    const data: StoredWidgetState = JSON.parse(stored);
+    
+    // Check if expired
+    if (Date.now() - data.timestamp > WIDGET_STATE_EXPIRY_MS) {
+      console.log("[Widget] Stored widget state expired, clearing");
+      clearStoredWidgetState();
+      return null;
+    }
+    
+    return data;
+  } catch (e) {
+    console.warn("[Widget] Failed to read stored widget state:", e);
+    return null;
+  }
+}
+
+export function clearStoredWidgetState(): void {
+  try {
+    localStorage.removeItem(WIDGET_STATE_KEY);
+  } catch (e) {
+    console.warn("[Widget] Failed to clear widget state:", e);
+  }
+}
+
+/**
+ * Check if agent's video sequence matches stored state
+ * Returns true if same agent AND same video URLs (should skip intro)
+ */
+export function shouldSkipIntroForAgent(agent: {
+  id: string;
+  waveVideoUrl?: string | null;
+  introVideoUrl?: string | null;
+  loopVideoUrl?: string | null;
+}): boolean {
+  const stored = getStoredWidgetState();
+  
+  if (!stored || !stored.introCompleted) {
+    return false;
+  }
+  
+  // Must be same agent
+  if (stored.agentId !== agent.id) {
+    console.log("[Widget] Different agent - will play intro");
+    return false;
+  }
+  
+  // Must have same video sequence (same pool or same videos)
+  const sameSequence = 
+    stored.waveVideoUrl === (agent.waveVideoUrl ?? null) &&
+    stored.introVideoUrl === (agent.introVideoUrl ?? null) &&
+    stored.loopVideoUrl === (agent.loopVideoUrl ?? null);
+  
+  if (sameSequence) {
+    console.log("[Widget] Same agent + same video sequence - skipping intro");
+    return true;
+  } else {
+    console.log("[Widget] Same agent but different video sequence (different pool) - will play intro");
+    return false;
+  }
+}
+
+function storeActiveCall(data: Omit<StoredCallData, "timestamp">): void {
+  try {
+    const stored: StoredCallData = { ...data, timestamp: Date.now() };
+    localStorage.setItem(CALL_STORAGE_KEY, JSON.stringify(stored));
+    console.log("[Widget] 💾 Stored active call for reconnection:", data.callId);
+  } catch (e) {
+    console.warn("[Widget] Failed to store call data:", e);
+  }
+}
+
+function getStoredCall(orgId: string): StoredCallData | null {
+  try {
+    const stored = localStorage.getItem(CALL_STORAGE_KEY);
+    if (!stored) return null;
+    
+    const data: StoredCallData = JSON.parse(stored);
+    
+    // Check if expired
+    if (Date.now() - data.timestamp > CALL_EXPIRY_MS) {
+      console.log("[Widget] Stored call expired, clearing");
+      clearStoredCall();
+      return null;
+    }
+    
+    // Check if same org (don't reconnect to calls from different sites)
+    if (data.orgId !== orgId) {
+      console.log("[Widget] Stored call is for different org, ignoring");
+      return null;
+    }
+    
+    return data;
+  } catch (e) {
+    console.warn("[Widget] Failed to read stored call:", e);
+    return null;
+  }
+}
+
+function clearStoredCall(): void {
+  try {
+    localStorage.removeItem(CALL_STORAGE_KEY);
+    console.log("[Widget] 🗑️ Cleared stored call data");
+  } catch (e) {
+    console.warn("[Widget] Failed to clear call data:", e);
+  }
+}
 
 interface UseSignalingOptions {
   serverUrl: string;
   orgId: string;
   onAgentAssigned: (data: AgentAssignedPayload) => void;
   onAgentReassigned: (data: AgentReassignedPayload) => void;
-  onAgentUnavailable: () => void;
+  onAgentUnavailable: (data: AgentUnavailablePayload) => void;
   onCallAccepted: (data: CallAcceptedPayload) => void;
   onCallRejected: (data: CallRejectedPayload) => void;
   onCallEnded: () => void;
+  onCallReconnecting?: () => void;
+  onCallReconnected?: (data: CallReconnectedPayload) => void;
+  onCallReconnectFailed?: (data: CallReconnectFailedPayload) => void;
   onConnectionError?: (error: string) => void;
   onReconnecting?: (attempt: number) => void;
   onReconnected?: () => void;
@@ -32,6 +195,7 @@ interface UseSignalingReturn {
   cancelCall: () => void;
   endCall: (callId: string) => void;
   trackPageview: (agentId: string) => void;
+  trackMissedOpportunity: (triggerDelaySeconds: number, poolId: string | null) => void;
   isConnected: boolean;
   isReconnecting: boolean;
   visitorId: string | null;
@@ -112,7 +276,19 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
         optionsRef.current.onReconnected?.();
       }
 
-      // Join as visitor
+      // Check if we have a stored call that we need to reconnect to
+      const storedCall = getStoredCall(optionsRef.current.orgId);
+      
+      if (storedCall) {
+        // We have an active call from a previous page - attempt to reconnect
+        console.log("[Widget] 🔄 Found stored call, attempting reconnection:", storedCall.callId);
+        socket.emit(SOCKET_EVENTS.CALL_RECONNECT, {
+          reconnectToken: storedCall.reconnectToken,
+          role: "visitor",
+        });
+      }
+
+      // Join as visitor (always do this, even when reconnecting)
       socket.emit(SOCKET_EVENTS.VISITOR_JOIN, {
         orgId: optionsRef.current.orgId,
         pageUrl: window.location.href,
@@ -189,12 +365,32 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
       optionsRef.current.onAgentReassigned(data);
     });
 
+    // Agent unavailable (no agents online) - includes widget settings for trigger tracking
+    socket.on(SOCKET_EVENTS.AGENT_UNAVAILABLE, (data: AgentUnavailablePayload) => {
+      console.log("[Widget] 🚫 Agent unavailable - received settings for trigger tracking:", {
+        visitorId: data.visitorId,
+        triggerDelay: data.widgetSettings.trigger_delay,
+        poolId: data.poolId,
+      });
+      setVisitorId(data.visitorId);
+      optionsRef.current.onAgentUnavailable(data);
+    });
+
     // Call accepted
     socket.on(SOCKET_EVENTS.CALL_ACCEPTED, (data: CallAcceptedPayload) => {
       console.log("[Widget] Call accepted:", data);
       setCallAccepted(true);
       setCallRejected(false);
       setCurrentCallId(data.callId);
+      
+      // Store call data for reconnection after page navigation
+      storeActiveCall({
+        reconnectToken: data.reconnectToken,
+        callId: data.callId,
+        agentId: data.agentId,
+        orgId: optionsRef.current.orgId,
+      });
+      
       optionsRef.current.onCallAccepted(data);
     });
 
@@ -214,20 +410,55 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
       setCallRejected(false);
       setCurrentCallId(null);
       currentRequestIdRef.current = null;
+      
+      // Clear stored call data - call is over
+      clearStoredCall();
+      
       optionsRef.current.onCallEnded();
+    });
+
+    // Call reconnection events
+    socket.on(SOCKET_EVENTS.CALL_RECONNECTING, () => {
+      console.log("[Widget] 🔄 Call reconnecting...");
+      optionsRef.current.onCallReconnecting?.();
+    });
+
+    socket.on(SOCKET_EVENTS.CALL_RECONNECTED, (data: CallReconnectedPayload) => {
+      console.log("[Widget] ✅ Call reconnected:", data);
+      setCallAccepted(true);
+      setCallRejected(false);
+      setCurrentCallId(data.callId);
+      
+      // Update stored call with new reconnect token
+      const storedCall = getStoredCall(optionsRef.current.orgId);
+      if (storedCall) {
+        storeActiveCall({
+          reconnectToken: data.reconnectToken,
+          callId: data.callId,
+          agentId: storedCall.agentId,
+          orgId: optionsRef.current.orgId,
+        });
+      }
+      
+      optionsRef.current.onCallReconnected?.(data);
+    });
+
+    socket.on(SOCKET_EVENTS.CALL_RECONNECT_FAILED, (data: CallReconnectFailedPayload) => {
+      console.log("[Widget] ❌ Call reconnect failed:", data);
+      setCallAccepted(false);
+      setCurrentCallId(null);
+      
+      // Clear stored call - reconnection failed
+      clearStoredCall();
+      
+      optionsRef.current.onCallReconnectFailed?.(data);
     });
 
     // Server error
     socket.on(SOCKET_EVENTS.ERROR, (error) => {
       console.log("[Widget] 📥 Received ERROR event:", error);
-      
-      if (error.code === "AGENT_UNAVAILABLE") {
-        console.log("[Widget] 🚫 Agent unavailable - hiding widget");
-        optionsRef.current.onAgentUnavailable();
-      } else {
-        setConnectionError(error.message);
-        optionsRef.current.onConnectionError?.(error.message);
-      }
+      setConnectionError(error.message);
+      optionsRef.current.onConnectionError?.(error.message);
     });
   }, [cleanup, visitorId]);
 
@@ -313,6 +544,27 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
     socketRef.current.emit(SOCKET_EVENTS.WIDGET_PAGEVIEW, { agentId });
   }, []);
 
+  /**
+   * Track a missed opportunity when trigger delay passes but no agent available
+   * This ensures we only count visitors who would have actually seen the widget
+   */
+  const trackMissedOpportunity = useCallback((triggerDelaySeconds: number, poolId: string | null) => {
+    if (!socketRef.current) {
+      console.log("[Widget] Cannot track missed opportunity - socket not initialized");
+      return;
+    }
+    if (!socketRef.current.connected) {
+      console.log("[Widget] Cannot track missed opportunity - socket disconnected");
+      return;
+    }
+
+    console.log("[Widget] ⚠️ Tracking missed opportunity (trigger_delay:", triggerDelaySeconds, "s, pool:", poolId, ")");
+    socketRef.current.emit(SOCKET_EVENTS.WIDGET_MISSED_OPPORTUNITY, { 
+      triggerDelaySeconds,
+      poolId,
+    });
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -351,6 +603,7 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
     cancelCall,
     endCall,
     trackPageview,
+    trackMissedOpportunity,
     isConnected,
     isReconnecting,
     visitorId,

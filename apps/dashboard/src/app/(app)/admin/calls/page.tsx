@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/server";
 import { CallsClient } from "./calls-client";
+import { calculateHourlyCoverage } from "@/lib/stats/coverage-stats";
 
 interface Props {
   searchParams: Promise<{
@@ -162,18 +163,75 @@ export default async function CallsPage({ searchParams }: Props) {
     teamSessions?.reduce((acc, s) => acc + s.in_call_seconds, 0) ?? 0;
   const teamActiveSeconds = teamIdleSeconds + teamInCallSeconds;
 
-  // Fetch pageview data for coverage calculation
-  const { data: pageviews } = await supabase
+  // Fetch organization's blocklist settings for filtering
+  const { data: orgSettings } = await supabase
+    .from("organizations")
+    .select("blocked_countries, country_list_mode")
+    .eq("id", auth.organization.id)
+    .single();
+
+  const blockedCountries = (orgSettings?.blocked_countries as string[]) || [];
+  const countryListMode = (orgSettings?.country_list_mode as "blocklist" | "allowlist") || "blocklist";
+
+  // Fetch pageview data for coverage calculation (with country code for filtering)
+  // Note: visitor_country_code may not exist yet if migration hasn't run - query gracefully handles this
+  const { data: rawPageviews, error: pageviewError } = await supabase
     .from("widget_pageviews")
-    .select("id, agent_id")
+    .select("id, agent_id, created_at, visitor_country_code")
     .eq("organization_id", auth.organization.id)
     .gte("created_at", fromDate.toISOString())
     .lte("created_at", toDate.toISOString());
 
-  const pageviewCount = pageviews?.length ?? 0;
-  const pageviewsWithAgent = pageviews?.filter(p => p.agent_id !== null).length ?? 0;
+  // If query failed (likely missing column), retry without the new column
+  let pageviewsData = rawPageviews;
+  if (pageviewError) {
+    console.warn("[CallsPage] Pageview query failed, retrying without visitor_country_code:", pageviewError.message);
+    const { data: fallbackPageviews } = await supabase
+      .from("widget_pageviews")
+      .select("id, agent_id, created_at")
+      .eq("organization_id", auth.organization.id)
+      .gte("created_at", fromDate.toISOString())
+      .lte("created_at", toDate.toISOString());
+    pageviewsData = fallbackPageviews?.map(p => ({ ...p, visitor_country_code: null })) ?? [];
+  }
+
+  // Filter pageviews based on blocklist/allowlist settings
+  // This excludes traffic that the org doesn't want to cover
+  const pageviews = (pageviewsData ?? []).filter((pv) => {
+    if (blockedCountries.length === 0) return true;
+    
+    const countryCode = pv.visitor_country_code?.toUpperCase() ?? null;
+    const isInList = countryCode ? blockedCountries.some(c => c.toUpperCase() === countryCode) : false;
+    
+    if (countryListMode === "allowlist") {
+      // Allowlist mode: only include if IN the list (or unknown country)
+      return isInList || !countryCode;
+    } else {
+      // Blocklist mode: exclude if IN the list
+      return !isInList;
+    }
+  });
+
+  const pageviewCount = pageviews.length;
+  const pageviewsWithAgent = pageviews.filter(p => p.agent_id !== null).length;
   const missedOpportunities = pageviewCount - pageviewsWithAgent;
   const coverageRate = pageviewCount > 0 ? (pageviewsWithAgent / pageviewCount) * 100 : 100;
+
+  // Fetch agent sessions for hourly coverage calculation
+  // Get sessions that overlap with the date range
+  const { data: sessionsForCoverage } = await supabase
+    .from("agent_sessions")
+    .select("started_at, ended_at")
+    .eq("organization_id", auth.organization.id)
+    .or(`and(started_at.lte.${toDate.toISOString()},or(ended_at.gte.${fromDate.toISOString()},ended_at.is.null))`);
+
+  // Calculate hourly coverage statistics
+  const hourlyCoverage = calculateHourlyCoverage(
+    pageviews.map(p => ({ created_at: p.created_at, agent_id: p.agent_id })),
+    sessionsForCoverage ?? [],
+    fromDate,
+    toDate
+  );
 
   return (
     <CallsClient
@@ -193,6 +251,7 @@ export default async function CallsPage({ searchParams }: Props) {
         missedOpportunities,
         coverageRate,
       }}
+      hourlyCoverage={hourlyCoverage}
     />
   );
 }

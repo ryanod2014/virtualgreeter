@@ -36,6 +36,7 @@ import {
 import type { WidgetSettings, WidgetSize, WidgetPosition, WidgetDevices, WidgetTheme } from "@ghost-greeter/domain/database.types";
 import { useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { VALIDATION, validateNumber } from "@/lib/utils/validation";
 
 // Signaling server URL for syncing config
 const SIGNALING_SERVER = process.env.NEXT_PUBLIC_SIGNALING_SERVER ?? "http://localhost:3001";
@@ -837,8 +838,10 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
   const [saving, setSaving] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customDelay, setCustomDelay] = useState<string>("");
+  const [triggerDelayError, setTriggerDelayError] = useState<string | null>(null);
   const [showCustomHideInput, setShowCustomHideInput] = useState(false);
   const [customHideDelay, setCustomHideDelay] = useState<string>("");
+  const [autoHideError, setAutoHideError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(pool.widget_settings === null); // Collapsed if already has custom settings
   const supabase = createClient();
 
@@ -882,6 +885,18 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
   };
 
   const handleSaveCustomSettings = async () => {
+    // Validate before saving
+    const triggerError = validateNumber(settings.trigger_delay, "trigger_delay");
+    const hideError = settings.auto_hide_delay !== null 
+      ? validateNumber(settings.auto_hide_delay, "auto_hide_delay")
+      : null;
+    
+    if (triggerError || hideError) {
+      setTriggerDelayError(triggerError);
+      setAutoHideError(hideError);
+      return;
+    }
+    
     setSaving(true);
     const { error } = await supabase
       .from("agent_pools")
@@ -894,6 +909,9 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
     }
     setSaving(false);
   };
+  
+  // Check if there are any validation errors
+  const hasValidationErrors = triggerDelayError !== null || autoHideError !== null;
 
   const sizeLabels: Record<WidgetSize, string> = {
     small: "Small",
@@ -940,9 +958,9 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
         {useCustom && (
           <button
             onClick={handleSaveCustomSettings}
-            disabled={!hasChanges || saving}
+            disabled={!hasChanges || saving || hasValidationErrors}
             className={`px-5 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-              hasChanges
+              hasChanges && !hasValidationErrors
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             }`}
@@ -1145,6 +1163,7 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
                     setSettings({ ...settings, trigger_delay: preset.value });
                     setShowCustomInput(false);
                     setCustomDelay("");
+                    setTriggerDelayError(null); // Clear error when selecting preset
                   }}
                   className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
                     settings.trigger_delay === preset.value && !showCustomInput
@@ -1170,23 +1189,45 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
               </button>
             </div>
             {(showCustomInput || (!isPresetDelay && settings.trigger_delay > 0)) && (
-              <div className="mt-3 flex items-center gap-2">
-                <input
-                  type="number"
-                  min="0"
-                  max="300"
-                  value={customDelay}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setCustomDelay(val);
-                    if (val && !isNaN(parseInt(val))) {
-                      setSettings({ ...settings, trigger_delay: parseInt(val) });
-                    }
-                  }}
-                  placeholder="0"
-                  className="w-32 px-3 py-2 rounded-lg bg-muted border border-border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
-                />
-                <span className="text-sm text-muted-foreground">seconds</span>
+              <div className="mt-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={VALIDATION.trigger_delay.min}
+                    max={VALIDATION.trigger_delay.max}
+                    value={customDelay}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomDelay(val);
+                      
+                      if (val === "") {
+                        setTriggerDelayError(null);
+                        return;
+                      }
+                      
+                      const parsed = parseInt(val, 10);
+                      if (isNaN(parsed)) {
+                        setTriggerDelayError("Must be a valid number");
+                        return;
+                      }
+                      
+                      const error = validateNumber(parsed, "trigger_delay");
+                      setTriggerDelayError(error);
+                      
+                      if (!error) {
+                        setSettings({ ...settings, trigger_delay: parsed });
+                      }
+                    }}
+                    placeholder="0"
+                    className={`w-32 px-3 py-2 rounded-lg bg-muted border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground ${
+                      triggerDelayError ? "border-red-500" : "border-border"
+                    }`}
+                  />
+                  <span className="text-sm text-muted-foreground">seconds</span>
+                </div>
+                {triggerDelayError && (
+                  <p className="text-xs text-red-500 mt-1">{triggerDelayError}</p>
+                )}
               </div>
             )}
             <p className="text-xs text-muted-foreground mt-2">
@@ -1210,6 +1251,7 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
                     setSettings({ ...settings, auto_hide_delay: preset.value });
                     setShowCustomHideInput(false);
                     setCustomHideDelay("");
+                    setAutoHideError(null); // Clear error when selecting preset
                   }}
                   className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
                     settings.auto_hide_delay === preset.value && !showCustomHideInput
@@ -1235,23 +1277,45 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
               </button>
             </div>
             {(showCustomHideInput || (!isPresetHideDelay && settings.auto_hide_delay !== null)) && (
-              <div className="mt-3 flex items-center gap-2">
-                <input
-                  type="number"
-                  min="1"
-                  max="60"
-                  value={customHideDelay}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setCustomHideDelay(val);
-                    if (val && !isNaN(parseInt(val))) {
-                      setSettings({ ...settings, auto_hide_delay: parseInt(val) * 60 });
-                    }
-                  }}
-                  placeholder="0"
-                  className="w-32 px-3 py-2 rounded-lg bg-muted border border-border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
-                />
-                <span className="text-sm text-muted-foreground">minutes</span>
+              <div className="mt-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={VALIDATION.auto_hide_delay_minutes.min}
+                    max={VALIDATION.auto_hide_delay_minutes.max}
+                    value={customHideDelay}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomHideDelay(val);
+                      
+                      if (val === "") {
+                        setAutoHideError(null);
+                        return;
+                      }
+                      
+                      const parsed = parseInt(val, 10);
+                      if (isNaN(parsed)) {
+                        setAutoHideError("Must be a valid number");
+                        return;
+                      }
+                      
+                      const error = validateNumber(parsed, "auto_hide_delay_minutes");
+                      setAutoHideError(error);
+                      
+                      if (!error) {
+                        setSettings({ ...settings, auto_hide_delay: parsed * 60 }); // Convert minutes to seconds
+                      }
+                    }}
+                    placeholder="1"
+                    className={`w-32 px-3 py-2 rounded-lg bg-muted border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground ${
+                      autoHideError ? "border-red-500" : "border-border"
+                    }`}
+                  />
+                  <span className="text-sm text-muted-foreground">minutes</span>
+                </div>
+                {autoHideError && (
+                  <p className="text-xs text-red-500 mt-1">{autoHideError}</p>
+                )}
               </div>
             )}
             <p className="text-xs text-muted-foreground mt-2">
@@ -1617,6 +1681,13 @@ export function PoolsClient({
     const agent = agents.find(a => a.id === agentId);
     if (!agent) return;
 
+    // Validate priority rank
+    const priorityError = validateNumber(priorityRank, "priority_rank");
+    if (priorityError) {
+      console.error("[Pools] Invalid priority rank:", priorityError);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("agent_pool_members")
       .insert({
@@ -1649,6 +1720,13 @@ export function PoolsClient({
   
   // Update agent priority rank in a pool
   const handleUpdateAgentPriority = async (poolId: string, memberId: string, newPriority: number) => {
+    // Validate priority rank
+    const priorityError = validateNumber(newPriority, "priority_rank");
+    if (priorityError) {
+      console.error("[Pools] Invalid priority rank:", priorityError);
+      return;
+    }
+    
     const { error } = await supabase
       .from("agent_pool_members")
       .update({ priority_rank: newPriority })
@@ -1706,6 +1784,12 @@ export function PoolsClient({
     const pool = pools.find(p => p.id === poolId);
     if (!pool) return;
 
+    // Catch-all pools cannot have routing rules
+    if (pool.is_catch_all) {
+      console.warn("Cannot add routing rules to catch-all pool");
+      return;
+    }
+
     const maxPriority = Math.max(0, ...pool.pool_routing_rules.map(r => r.priority));
 
     // Extract legacy patterns for backwards compatibility
@@ -1757,6 +1841,14 @@ export function PoolsClient({
   };
 
   const handleUpdateRoutingRule = async (poolId: string, ruleId: string, conditions: RuleCondition[], ruleName: string) => {
+    const pool = pools.find(p => p.id === poolId);
+    
+    // Catch-all pools cannot have routing rules
+    if (pool?.is_catch_all) {
+      console.warn("Cannot update routing rules on catch-all pool");
+      return;
+    }
+
     // Extract legacy patterns for backwards compatibility
     const domainCondition = conditions.find(c => c.type === "domain");
     const pathCondition = conditions.find(c => c.type === "path");
@@ -2029,8 +2121,8 @@ export function PoolsClient({
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-lg">{pool.name}</span>
                       {pool.is_catch_all && (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs bg-emerald-500/10 text-emerald-500 font-medium border border-emerald-500/20">
-                          Catch All
+                        <span className="px-2.5 py-0.5 rounded-full text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium border border-amber-500/20" title="Receives all visitors not matching other pools">
+                          Catch-All
                         </span>
                       )}
                     </div>
@@ -2080,17 +2172,34 @@ export function PoolsClient({
                     </div>
 
                     {pool.is_catch_all ? (
-                      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5">
+                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5">
                         <div className="flex items-start gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                            <Globe className="w-5 h-5 text-emerald-500" />
+                          <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                            <Globe className="w-5 h-5 text-amber-500" />
                           </div>
-                          <div>
-                            <h5 className="font-semibold text-emerald-600 dark:text-emerald-400">Default Catch-All Pool</h5>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              This pool automatically catches all visitors that don't match any other pool's rules. 
-                              No routing rules are needed.
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h5 className="font-semibold text-amber-600 dark:text-amber-400">Catch-All Pool</h5>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium uppercase tracking-wide">
+                                No Rules Allowed
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              This pool automatically receives all visitors that don't match any other pool's routing rules.
                             </p>
+                            <div className="mt-3 p-3 bg-background/50 rounded-lg border border-border">
+                              <p className="text-sm text-muted-foreground">
+                                <strong className="text-foreground">Want to route specific pages?</strong>{" "}
+                                Create a new pool with routing rules, and those visitors will go there instead of here.
+                              </p>
+                              <button
+                                onClick={() => setIsAddingPool(true)}
+                                className="mt-2 text-sm text-primary hover:text-primary/80 font-medium flex items-center gap-1"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                Create a New Pool
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2508,11 +2617,11 @@ export function PoolsClient({
                     
                     {/* Priority Explanation - Always visible when agents exist */}
                     {memberCount > 0 && (
-                      <div className="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                        <p className="text-xs text-blue-700 dark:text-blue-300">
-                          <strong>Lead Priority:</strong> Leads go to <span className="font-semibold text-green-600 dark:text-green-400">Primary</span> agents first. 
-                          If all are busy, leads go to <span className="font-semibold text-blue-600 dark:text-blue-400">Standard</span>, 
-                          then <span className="font-semibold text-orange-600 dark:text-orange-400">Backup</span>.
+                      <div className="mb-4 p-3 rounded-lg bg-muted/30 border border-border">
+                        <p className="text-xs text-muted-foreground">
+                          <strong className="text-foreground">Lead Priority:</strong> Leads go to <span className="font-medium text-foreground">Primary</span> agents first. 
+                          If all are busy, leads go to <span className="font-medium text-foreground">Standard</span>, 
+                          then <span className="font-medium text-foreground">Backup</span>.
                           Click the priority badge to change an agent&apos;s tier.
                         </p>
                       </div>

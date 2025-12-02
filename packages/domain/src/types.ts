@@ -66,6 +66,7 @@ export interface VisitorSession {
   interactedAt: number | null;
   ipAddress: string | null;
   location: VisitorLocation | null;
+  matchedPoolId?: string | null; // Pool ID matched via path routing (for missed opportunity tracking)
 }
 
 // ----------------------------------------------------------------------------
@@ -90,6 +91,8 @@ export interface ActiveCall {
   agentId: string;
   startedAt: number;
   endedAt: number | null;
+  /** Token for reconnecting to this call after server restart */
+  reconnectToken?: string;
 }
 
 // ----------------------------------------------------------------------------
@@ -101,9 +104,12 @@ export interface WidgetToServerEvents {
   "visitor:join": (data: VisitorJoinPayload) => void;
   "visitor:interaction": (data: VisitorInteractionPayload) => void;
   "widget:pageview": (data: WidgetPageviewPayload) => void;
+  "widget:missed_opportunity": (data: WidgetMissedOpportunityPayload) => void;
   "call:request": (data: CallRequestPayload) => void;
   "call:cancel": (data: CallCancelPayload) => void;
   "call:end": (data: CallEndPayload) => void;
+  "call:heartbeat": (data: CallHeartbeatPayload) => void;
+  "call:reconnect": (data: CallReconnectPayload) => void;
   "webrtc:signal": (data: WebRTCSignalPayload) => void;
   "cobrowse:snapshot": (data: CobrowseSnapshotPayload) => void;
   "cobrowse:mouse": (data: CobrowseMousePayload) => void;
@@ -121,6 +127,8 @@ export interface DashboardToServerEvents {
   "call:accept": (data: CallAcceptPayload) => void;
   "call:reject": (data: CallRejectPayload) => void;
   "call:end": (data: CallEndPayload) => void;
+  "call:heartbeat": (data: CallHeartbeatPayload) => void;
+  "call:reconnect": (data: CallReconnectPayload) => void;
   "webrtc:signal": (data: WebRTCSignalPayload) => void;
   "agent:logout": () => void;
   "heartbeat": (data: { timestamp: number }) => void;
@@ -130,9 +138,13 @@ export interface DashboardToServerEvents {
 export interface ServerToWidgetEvents {
   "agent:assigned": (data: AgentAssignedPayload) => void;
   "agent:reassigned": (data: AgentReassignedPayload) => void;
+  "agent:unavailable": (data: AgentUnavailablePayload) => void;
   "call:accepted": (data: CallAcceptedPayload) => void;
   "call:rejected": (data: CallRejectedPayload) => void;
   "call:ended": (data: CallEndedPayload) => void;
+  "call:reconnecting": (data: CallReconnectingPayload) => void;
+  "call:reconnected": (data: CallReconnectedPayload) => void;
+  "call:reconnect_failed": (data: CallReconnectFailedPayload) => void;
   "webrtc:signal": (data: WebRTCSignalPayload) => void;
   "error": (data: ErrorPayload) => void;
 }
@@ -144,6 +156,9 @@ export interface ServerToDashboardEvents {
   "call:cancelled": (data: CallCancelledPayload) => void;
   "call:started": (data: CallStartedPayload) => void;
   "call:ended": (data: CallEndedPayload) => void;
+  "call:reconnecting": (data: CallReconnectingPayload) => void;
+  "call:reconnected": (data: CallReconnectedPayload) => void;
+  "call:reconnect_failed": (data: CallReconnectFailedPayload) => void;
   "call:rna_timeout": (data: CallRNATimeoutPayload) => void;
   "agent:marked_away": (data: AgentMarkedAwayPayload) => void;
   "webrtc:signal": (data: WebRTCSignalPayload) => void;
@@ -173,6 +188,11 @@ export interface VisitorInteractionPayload {
 
 export interface WidgetPageviewPayload {
   agentId: string;
+}
+
+export interface WidgetMissedOpportunityPayload {
+  triggerDelaySeconds: number; // The delay that was configured when this was triggered
+  poolId: string | null; // Pool ID if matched to one
 }
 
 export interface CallRequestPayload {
@@ -214,6 +234,18 @@ export interface CallEndPayload {
   callId: string;
 }
 
+/** Heartbeat during active call - sent periodically by both parties */
+export interface CallHeartbeatPayload {
+  callId: string;
+  reconnectToken: string;
+}
+
+/** Request to reconnect to an interrupted call */
+export interface CallReconnectPayload {
+  reconnectToken: string;
+  role: "agent" | "visitor";
+}
+
 export interface AgentAwayPayload {
   reason: "idle" | "manual";
 }
@@ -252,6 +284,8 @@ export interface AgentAssignedPayload {
   agent: Pick<AgentProfile, "id" | "displayName" | "avatarUrl" | "waveVideoUrl" | "introVideoUrl" | "connectVideoUrl" | "loopVideoUrl">;
   visitorId: string;
   widgetSettings: WidgetSettings;
+  /** When visitor first connected - used to calculate remaining trigger delay when widget reappears */
+  visitorConnectedAt?: number;
 }
 
 export interface AgentReassignedPayload {
@@ -261,9 +295,19 @@ export interface AgentReassignedPayload {
   widgetSettings?: WidgetSettings; // Optional - only included if settings changed
 }
 
+export interface AgentUnavailablePayload {
+  visitorId: string;
+  widgetSettings: WidgetSettings; // Always send settings so widget can track trigger_delay
+  poolId: string | null; // Pool ID if matched to one
+  previousAgentName?: string; // Name of agent who became unavailable (for "got pulled away" message)
+  reason?: "agent_away" | "agent_offline" | "rna_timeout" | "no_agents"; // Why the agent became unavailable
+}
+
 export interface CallAcceptedPayload {
   callId: string;
   agentId: string;
+  /** Token for reconnecting to this call after page navigation or disconnect */
+  reconnectToken: string;
 }
 
 export interface CallRejectedPayload {
@@ -273,7 +317,33 @@ export interface CallRejectedPayload {
 
 export interface CallEndedPayload {
   callId: string;
-  reason: "agent_ended" | "visitor_ended" | "timeout" | "error";
+  reason: "agent_ended" | "visitor_ended" | "timeout" | "error" | "reconnect_failed";
+}
+
+/** Server notifying that a call is being reconnected */
+export interface CallReconnectingPayload {
+  callId: string;
+  message: string;
+  /** How many seconds until reconnect times out */
+  timeoutSeconds: number;
+}
+
+/** Server notifying that both parties have successfully reconnected */
+export interface CallReconnectedPayload {
+  callId: string;
+  /** New reconnect token for future reconnections */
+  reconnectToken: string;
+  /** The ID of the other party (agent or visitor) */
+  peerId: string;
+  /** Agent profile (only sent to visitor) - needed for WebRTC re-establishment */
+  agent?: Pick<AgentProfile, "id" | "displayName" | "avatarUrl" | "waveVideoUrl" | "introVideoUrl" | "connectVideoUrl" | "loopVideoUrl">;
+}
+
+/** Server notifying that reconnection failed (timed out or one party didn't reconnect) */
+export interface CallReconnectFailedPayload {
+  callId: string;
+  reason: "timeout" | "other_party_disconnected" | "error";
+  message: string;
 }
 
 // Server -> Dashboard Payloads

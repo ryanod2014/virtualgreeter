@@ -9,6 +9,7 @@ import type {
   StatsUpdatePayload,
   ActiveCall,
   CallStartedPayload,
+  CallReconnectedPayload,
   CobrowseSnapshotPayload,
   CobrowseMousePayload,
   CobrowseScrollPayload,
@@ -214,6 +215,22 @@ export function useSignaling(agentId: string, options?: UseSignalingOptions): Us
       console.log("[Signaling] Call ended", data);
       setActiveCall(null);
       // Reset cobrowse state when call ends
+      setCobrowse({ snapshot: null, mousePosition: null, scrollPosition: null, selection: null });
+    });
+
+    // Visitor reconnected after page navigation - update call ID and re-init WebRTC
+    socket.on(SOCKET_EVENTS.CALL_RECONNECTED, (data: CallReconnectedPayload) => {
+      console.log("[Signaling] 🔄 Visitor reconnected to call:", data);
+      // Update the active call with the new call ID
+      // The WebRTC connection will need to be re-established
+      // The peerId is the visitor's ID
+      setActiveCall(prev => prev ? {
+        ...prev,
+        callId: data.callId,
+        visitorId: data.peerId, // Update in case it changed
+        reconnectToken: data.reconnectToken,
+      } : null);
+      // Reset cobrowse state - visitor's page may have changed
       setCobrowse({ snapshot: null, mousePosition: null, scrollPosition: null, selection: null });
     });
 

@@ -392,9 +392,18 @@ export function BillingSettingsClient({ organization, usedSeats, purchasedSeats:
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => handleSeatChange(seatCount - 1)}
-                disabled={seatCount <= usedSeats || isUpdatingSeats}
-                className="w-10 h-10 rounded-full bg-muted hover:bg-muted/80 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+                onClick={() => {
+                  const minSeats = Math.max(1, usedSeats);
+                  if (seatCount <= minSeats) {
+                    setSeatError(`You have ${usedSeats} seats in use. To reduce below ${usedSeats}, remove agents or revoke invites first.`);
+                  } else {
+                    handleSeatChange(seatCount - 1);
+                  }
+                }}
+                disabled={isUpdatingSeats}
+                className={`w-10 h-10 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center transition-colors ${
+                  seatCount <= Math.max(1, usedSeats) ? "opacity-30" : ""
+                }`}
               >
                 <Minus className="w-5 h-5" />
               </button>
@@ -428,20 +437,33 @@ export function BillingSettingsClient({ organization, usedSeats, purchasedSeats:
 
           {/* Quick seat buttons */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {[1, 2, 5, 10, 20].filter(n => n >= usedSeats).map((num) => (
-              <button
-                key={num}
-                onClick={() => handleSeatChange(num)}
-                disabled={isUpdatingSeats}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  seatCount === num
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-              >
-                {num}
-              </button>
-            ))}
+            {[1, 2, 3, 5, 10, 20].map((num) => {
+              const minSeats = Math.max(1, usedSeats);
+              const isBelowMin = num < minSeats;
+              const isDisabled = isBelowMin || isUpdatingSeats;
+              return (
+                <button
+                  key={num}
+                  onClick={() => {
+                    if (isBelowMin) {
+                      setSeatError(`You have ${usedSeats} seats in use. To reduce below ${usedSeats}, remove agents or revoke invites first.`);
+                    } else {
+                      handleSeatChange(num);
+                    }
+                  }}
+                  disabled={isUpdatingSeats}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    seatCount === num
+                      ? "bg-primary text-primary-foreground"
+                      : isBelowMin
+                        ? "bg-muted/50 text-muted-foreground/50"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {num}
+                </button>
+              );
+            })}
           </div>
 
           {/* Proration note */}
@@ -821,8 +843,8 @@ export function BillingSettingsClient({ organization, usedSeats, purchasedSeats:
         
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div className="fixed inset-0 bg-black/50" onClick={cancelFrequencyChange} />
-            <div className="relative bg-card rounded-2xl p-6 max-w-lg w-full border border-border shadow-xl my-8">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={cancelFrequencyChange} />
+            <div className="relative bg-background rounded-2xl p-6 max-w-lg w-full border border-border shadow-2xl my-8">
               <div className="flex items-center gap-3 mb-4">
                 <div className={`p-2 rounded-full ${explanation.warning ? 'bg-amber-500/20' : 'bg-green-500/20'}`}>
                   {explanation.warning ? (

@@ -40,6 +40,8 @@ export type SubscriptionStatus = "active" | "paused" | "cancelled" | "trialing";
 
 export type BillingFrequency = "monthly" | "annual" | "six_month";
 
+export type CountryListMode = "blocklist" | "allowlist";
+
 export type RuleMatchType = "is_exactly" | "contains" | "does_not_contain" | "starts_with" | "ends_with";
 export type RuleConditionType = "domain" | "path" | "query_param";
 
@@ -194,6 +196,7 @@ export interface Database {
           facebook_settings: FacebookSettings;
           default_widget_settings: WidgetSettings;
           blocked_countries: string[]; // ISO 3166-1 alpha-2 country codes (e.g., ['CN', 'RU'])
+          country_list_mode: CountryListMode; // 'blocklist' = block listed countries, 'allowlist' = only allow listed countries
           // Stripe billing fields
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
@@ -475,6 +478,7 @@ export interface Database {
           visitor_id: string;
           page_url: string;
           agent_id: string | null;
+          visitor_country_code: string | null;
           created_at: string;
         };
         Insert: Omit<Database["public"]["Tables"]["widget_pageviews"]["Row"], "id" | "created_at">;

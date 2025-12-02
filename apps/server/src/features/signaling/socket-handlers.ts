@@ -16,6 +16,7 @@ import type {
   CallRejectPayload,
   CallCancelPayload,
   CallEndPayload,
+  CallReconnectPayload,
   WebRTCSignalPayload,
   CobrowseSnapshotPayload,
   CobrowseMousePayload,
@@ -33,6 +34,9 @@ import {
   markCallRejected,
   markCallCancelled,
   getCallLogId,
+  getCallByReconnectToken,
+  markCallReconnected,
+  markCallReconnectFailed,
 } from "../../lib/call-logger.js";
 import { verifyAgentToken, fetchAgentPoolMemberships } from "../../lib/auth.js";
 import {
@@ -75,6 +79,16 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
 
     socket.on(SOCKET_EVENTS.VISITOR_JOIN, async (data: VisitorJoinPayload) => {
       console.log("[Socket] 👤 VISITOR_JOIN received:", { orgId: data.orgId, pageUrl: data.pageUrl });
+      
+      // Check if this visitor already exists and is in a call (reconnection scenario)
+      // If so, skip the normal registration - CALL_RECONNECT already handled it
+      const existingVisitor = poolManager.getVisitorBySocketId(socket.id);
+      if (existingVisitor && existingVisitor.state === "in_call") {
+        console.log(`[Socket] 👤 Visitor ${existingVisitor.visitorId} already in call, skipping VISITOR_JOIN registration`);
+        // Just update the page URL in case it changed
+        existingVisitor.pageUrl = data.pageUrl;
+        return;
+      }
       
       // Record embed verification (fire-and-forget, non-blocking)
       recordEmbedVerification(data.orgId, data.pageUrl).catch(() => {
@@ -156,23 +170,24 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           widgetSettings,
         });
       } else {
-        // No agents available - record as missed opportunity pageview
-        recordPageview({
-          visitorId,
-          agentId: null, // No agent was available - this is a missed opportunity
-          orgId: data.orgId,
-          pageUrl: data.pageUrl,
-          poolId: null,
-        }).catch(() => {
-          // Silently ignore - pageview tracking is best-effort
-        });
+        // No agents available - DON'T record pageview immediately
+        // Instead, send widget settings so widget can track trigger_delay
+        // and send WIDGET_MISSED_OPPORTUNITY only if visitor stays long enough
         
-        console.log(`[Socket] ⚠️ No agents available for visitor ${visitorId} - recorded as missed opportunity`);
+        // Still determine the pool for widget settings
+        const poolId = poolManager.matchPathToPool(data.orgId, data.pageUrl);
+        const widgetSettings = await getWidgetSettings(data.orgId, poolId);
         
-        // Emit error to visitor
-        socket.emit(SOCKET_EVENTS.ERROR, {
-          code: ERROR_CODES.AGENT_UNAVAILABLE,
-          message: "No agents are currently available. Please try again later.",
+        console.log(`[Socket] ⚠️ No agents available for visitor ${visitorId}, sending widget settings (trigger_delay: ${widgetSettings.trigger_delay}s)`);
+        
+        // Store pool ID in visitor session for later use
+        session.matchedPoolId = poolId;
+        
+        // Emit agent unavailable with settings (widget will track trigger_delay)
+        socket.emit(SOCKET_EVENTS.AGENT_UNAVAILABLE, {
+          visitorId: session.visitorId,
+          widgetSettings,
+          poolId,
         });
       }
     });
@@ -203,6 +218,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         orgId: visitor.orgId,
         pageUrl: visitor.pageUrl,
         poolId,
+        visitorCountryCode: visitor.location?.countryCode ?? null,
       }).catch(() => {
         // Silently ignore - pageview tracking is best-effort
       });
@@ -220,6 +236,31 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       });
 
       console.log(`[Socket] 👁️ WIDGET_PAGEVIEW recorded for visitor ${visitor.visitorId}`);
+    });
+
+    // Track missed opportunities ONLY when trigger delay has passed
+    // This ensures we only count visitors who would have actually seen the widget
+    socket.on(SOCKET_EVENTS.WIDGET_MISSED_OPPORTUNITY, (data: { triggerDelaySeconds: number; poolId: string | null }) => {
+      const visitor = poolManager.getVisitorBySocketId(socket.id);
+      if (!visitor) {
+        console.log("[Socket] Missed opportunity received but no visitor found for socket:", socket.id);
+        return;
+      }
+
+      // Record the pageview as a missed opportunity (fire-and-forget, non-blocking)
+      recordPageview({
+        visitorId: visitor.visitorId,
+        agentId: null, // No agent was available - this is a missed opportunity
+        orgId: visitor.orgId,
+        pageUrl: visitor.pageUrl,
+        poolId: data.poolId,
+        visitorCountryCode: visitor.location?.countryCode ?? null,
+        triggerDelaySeconds: data.triggerDelaySeconds,
+      }).catch(() => {
+        // Silently ignore - pageview tracking is best-effort
+      });
+
+      console.log(`[Socket] ⚠️ MISSED_OPPORTUNITY recorded for visitor ${visitor.visitorId} (trigger_delay: ${data.triggerDelaySeconds}s)`);
     });
 
     socket.on(SOCKET_EVENTS.CALL_REQUEST, (data: CallRequestPayload) => {
@@ -411,30 +452,38 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         socket.emit(SOCKET_EVENTS.STATS_UPDATE, stats);
       }
 
-      // Check for unassigned visitors and assign them to this agent
+      // Check for unassigned visitors and assign them to this agent IF they match this agent's pools
+      // Only assign visitors whose page URL matches a pool this agent belongs to (respects pool routing)
       const unassignedVisitors = poolManager.getUnassignedVisitors();
       for (const visitor of unassignedVisitors) {
-        poolManager.assignVisitorToAgent(visitor.visitorId, agentState.agentId);
+        // Use findBestAgentForVisitor to respect pool-based routing
+        // This ensures visitors are only assigned to agents in matching pools
+        const matchResult = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
         
-        // Get widget settings for this visitor's org and matched pool
-        const poolId = poolManager.matchPathToPool(visitor.orgId, visitor.pageUrl);
-        const widgetSettings = await getWidgetSettings(visitor.orgId, poolId);
-        
-        const visitorSocket = io.sockets.sockets.get(visitor.socketId);
-        visitorSocket?.emit(SOCKET_EVENTS.AGENT_ASSIGNED, {
-          agent: {
-            id: profile.id,
-            displayName: profile.displayName,
-            avatarUrl: profile.avatarUrl,
-            waveVideoUrl: profile.waveVideoUrl,
-            introVideoUrl: profile.introVideoUrl,
-            connectVideoUrl: profile.connectVideoUrl,
-            loopVideoUrl: profile.loopVideoUrl,
-          },
-          visitorId: visitor.visitorId,
-          widgetSettings,
-        });
-        console.log(`[Socket] Assigned unassigned visitor ${visitor.visitorId} to newly logged in agent ${agentState.agentId}`);
+        // Only assign if this agent is the best match
+        if (matchResult && matchResult.agent.agentId === agentState.agentId) {
+          poolManager.assignVisitorToAgent(visitor.visitorId, agentState.agentId);
+          
+          const widgetSettings = await getWidgetSettings(visitor.orgId, matchResult.poolId);
+          
+          const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+          visitorSocket?.emit(SOCKET_EVENTS.AGENT_ASSIGNED, {
+            agent: {
+              id: profile.id,
+              displayName: profile.displayName,
+              avatarUrl: profile.avatarUrl,
+              waveVideoUrl: profile.waveVideoUrl,
+              introVideoUrl: profile.introVideoUrl,
+              connectVideoUrl: profile.connectVideoUrl,
+              loopVideoUrl: profile.loopVideoUrl,
+            },
+            visitorId: visitor.visitorId,
+            widgetSettings,
+            // Include when visitor connected so widget can calculate remaining trigger delay
+            visitorConnectedAt: visitor.connectedAt,
+          });
+          console.log(`[Socket] Assigned unassigned visitor ${visitor.visitorId} to newly logged in agent ${agentState.agentId} (pool: ${matchResult.poolId})`);
+        }
       }
     });
 
@@ -449,7 +498,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         // If agent goes offline, reassign their visitors
         if (data.status === "offline") {
           const reassignments = poolManager.reassignVisitors(agent.agentId);
-          notifyReassignments(io, poolManager, reassignments, "agent_offline");
+          await notifyReassignments(io, poolManager, reassignments, "agent_offline", agent.profile.displayName);
         }
       }
     });
@@ -479,7 +528,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         // (or notify them if no agent available - widget will hide)
         const reassignments = poolManager.reassignVisitors(agent.agentId);
         console.log(`[Socket] Reassignment results: ${reassignments.reassigned.size} reassigned, ${reassignments.unassigned.length} unassigned`);
-        notifyReassignments(io, poolManager, reassignments, "agent_away");
+        await notifyReassignments(io, poolManager, reassignments, "agent_away", agent.profile.displayName);
         
         // Cancel any pending call requests for this agent
         const pendingRequests = poolManager.getWaitingRequestsForAgent(agent.agentId);
@@ -555,29 +604,36 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         ack?.({ success: true, status: "idle" });
         
         // Re-assign unassigned visitors (whose widgets were hidden when agent went away)
+        // Only assign visitors whose page URL matches a pool this agent belongs to (respects pool routing)
         const unassignedVisitors = poolManager.getUnassignedVisitors();
         for (const visitor of unassignedVisitors) {
-          poolManager.assignVisitorToAgent(visitor.visitorId, agent.agentId);
+          // Use findBestAgentForVisitor to respect pool-based routing
+          const matchResult = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
           
-          // Get widget settings for this visitor's org and matched pool
-          const poolId = poolManager.matchPathToPool(visitor.orgId, visitor.pageUrl);
-          const widgetSettings = await getWidgetSettings(visitor.orgId, poolId);
-          
-          const visitorSocket = io.sockets.sockets.get(visitor.socketId);
-          visitorSocket?.emit(SOCKET_EVENTS.AGENT_ASSIGNED, {
-            agent: {
-              id: agent.profile.id,
-              displayName: agent.profile.displayName,
-              avatarUrl: agent.profile.avatarUrl,
-              waveVideoUrl: agent.profile.waveVideoUrl,
-              introVideoUrl: agent.profile.introVideoUrl,
-              connectVideoUrl: agent.profile.connectVideoUrl,
-              loopVideoUrl: agent.profile.loopVideoUrl,
-            },
-            visitorId: visitor.visitorId,
-            widgetSettings,
-          });
-          console.log(`[Socket] Re-assigned visitor ${visitor.visitorId} to agent ${agent.agentId} returning from away`);
+          // Only assign if this agent is the best match
+          if (matchResult && matchResult.agent.agentId === agent.agentId) {
+            poolManager.assignVisitorToAgent(visitor.visitorId, agent.agentId);
+            
+            const widgetSettings = await getWidgetSettings(visitor.orgId, matchResult.poolId);
+            
+            const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+            visitorSocket?.emit(SOCKET_EVENTS.AGENT_ASSIGNED, {
+              agent: {
+                id: agent.profile.id,
+                displayName: agent.profile.displayName,
+                avatarUrl: agent.profile.avatarUrl,
+                waveVideoUrl: agent.profile.waveVideoUrl,
+                introVideoUrl: agent.profile.introVideoUrl,
+                connectVideoUrl: agent.profile.connectVideoUrl,
+                loopVideoUrl: agent.profile.loopVideoUrl,
+              },
+              visitorId: visitor.visitorId,
+              widgetSettings,
+              // Include when visitor connected so widget can calculate remaining trigger delay
+              visitorConnectedAt: visitor.connectedAt,
+            });
+            console.log(`[Socket] Re-assigned visitor ${visitor.visitorId} to agent ${agent.agentId} returning from away (pool: ${matchResult.poolId})`);
+          }
         }
         
         // Check for waiting call requests
@@ -637,8 +693,8 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       // Get the database call log ID before we transfer the mapping
       const callLogId = getCallLogId(data.requestId);
 
-      // Mark call as accepted in database
-      markCallAccepted(data.requestId, activeCall.callId);
+      // Mark call as accepted in database and get reconnect token
+      const reconnectToken = await markCallAccepted(data.requestId, activeCall.callId);
       
       // Track in_call status for activity reporting
       await recordStatusChange(request.agentId, "in_call", "call_started");
@@ -663,15 +719,17 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         visitorSocket?.emit(SOCKET_EVENTS.CALL_ACCEPTED, {
           callId: activeCall.callId,
           agentId: request.agentId,
+          reconnectToken: reconnectToken ?? "", // Token for reconnecting after page navigation
         });
       }
 
       // Reassign other visitors watching this agent
+      const acceptingAgent = poolManager.getAgent(request.agentId);
       const reassignments = poolManager.reassignVisitors(
         request.agentId,
         request.visitorId // Exclude the visitor in the call
       );
-      notifyReassignments(io, poolManager, reassignments, "agent_busy");
+      await notifyReassignments(io, poolManager, reassignments, "agent_busy", acceptingAgent?.profile.displayName);
 
       // Notify agent that call started (include callLogId for disposition updates)
       socket.emit(SOCKET_EVENTS.CALL_STARTED, {
@@ -686,7 +744,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       });
     });
 
-    socket.on(SOCKET_EVENTS.CALL_REJECT, (data: CallRejectPayload) => {
+    socket.on(SOCKET_EVENTS.CALL_REJECT, async (data: CallRejectPayload) => {
       // Clear RNA timeout since agent responded (even if rejected)
       clearRNATimeout(data.requestId);
       
@@ -695,36 +753,87 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         // Mark original call as rejected in database
         markCallRejected(data.requestId);
         
-        // Don't reject the visitor - they keep waiting
-        // Just remove this specific request so we can create a new one later
+        // Remove the rejected request
         poolManager.rejectCall(data.requestId);
         
-        console.log(`[Socket] Agent rejected call. Visitor ${request.visitorId} will keep waiting.`);
+        console.log(`[Socket] Agent ${request.agentId} rejected call from visitor ${request.visitorId}`);
         
-        // Create a new request so the agent will be notified again when available
-        // The visitor stays in "call_requested" state
+        // Try to find a DIFFERENT agent for this visitor
         const visitor = poolManager.getVisitor(request.visitorId);
         if (visitor) {
-          const newRequest = poolManager.createCallRequest(
-            request.visitorId,
-            request.agentId,
-            request.orgId,
-            request.pageUrl
+          // Find another agent, EXCLUDING the one who just rejected
+          const newResult = poolManager.findBestAgentForVisitor(
+            visitor.orgId, 
+            visitor.pageUrl,
+            request.agentId // Exclude the rejecting agent
           );
-          console.log(`[Socket] Created new request ${newRequest.requestId} for waiting visitor`);
           
-          // Create a new call log for the retry
-          createCallLog(newRequest.requestId, {
-            visitorId: visitor.visitorId,
-            agentId: request.agentId,
-            orgId: request.orgId,
-            pageUrl: request.pageUrl,
-            ipAddress: visitor.ipAddress,
-            location: visitor.location,
-          });
+          if (newResult && newResult.agent.agentId !== request.agentId) {
+            // Route to the new agent
+            const newAgent = newResult.agent;
+            
+            const newRequest = poolManager.createCallRequest(
+              request.visitorId,
+              newAgent.agentId,
+              request.orgId,
+              request.pageUrl
+            );
+            
+            console.log(`[Socket] Agent ${request.agentId} rejected, routing visitor ${request.visitorId} to agent ${newAgent.agentId}`);
+            
+            // Create a new call log for the new agent
+            createCallLog(newRequest.requestId, {
+              visitorId: visitor.visitorId,
+              agentId: newAgent.agentId,
+              orgId: request.orgId,
+              pageUrl: request.pageUrl,
+              ipAddress: visitor.ipAddress,
+              location: visitor.location,
+            });
+            
+            // Notify the new agent
+            const newAgentSocket = io.sockets.sockets.get(newAgent.socketId);
+            if (newAgentSocket) {
+              newAgentSocket.emit(SOCKET_EVENTS.CALL_INCOMING, {
+                request: newRequest,
+                visitor: {
+                  visitorId: visitor.visitorId,
+                  pageUrl: visitor.pageUrl,
+                  connectedAt: visitor.connectedAt,
+                  location: visitor.location,
+                },
+              });
+              
+              // Start RNA timeout for new agent
+              startRNATimeout(io, poolManager, newRequest.requestId, newAgent.agentId, visitor.visitorId);
+            }
+          } else {
+            // No other agents available - hide the widget with "got pulled away" message
+            console.log(`[Socket] Agent ${request.agentId} rejected, no other agents available for visitor ${request.visitorId} - hiding widget`);
+            
+            // Get rejecting agent's name for the message
+            const rejectingAgent = poolManager.getAgent(request.agentId);
+            const agentName = rejectingAgent?.profile.displayName;
+            
+            // Mark visitor as unassigned since no agents available
+            visitor.assignedAgentId = null;
+            poolManager.updateVisitorState(request.visitorId, "browsing");
+            
+            // Send AGENT_UNAVAILABLE with agent name so widget can show "got pulled away" message
+            const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+            if (visitorSocket) {
+              const poolId = poolManager.matchPathToPool(visitor.orgId, visitor.pageUrl);
+              const widgetSettings = await getWidgetSettings(visitor.orgId, poolId);
+              visitorSocket.emit(SOCKET_EVENTS.AGENT_UNAVAILABLE, {
+                visitorId: visitor.visitorId,
+                widgetSettings,
+                poolId,
+                previousAgentName: agentName,
+                reason: "agent_away",
+              });
+            }
+          }
         }
-        
-        // NOTE: We do NOT emit CALL_REJECTED to the visitor - they keep waiting
       }
     });
 
@@ -784,6 +893,105 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           }, 1000); // Small delay to let the UI update first
         }
       }
+    });
+
+    // -------------------------------------------------------------------------
+    // CALL RECONNECTION (Visitor page navigation or server restart)
+    // -------------------------------------------------------------------------
+
+    socket.on(SOCKET_EVENTS.CALL_RECONNECT, async (data: CallReconnectPayload) => {
+      console.log(`[Socket] 🔄 CALL_RECONNECT request from ${data.role}:`, data.reconnectToken.slice(0, 8) + "...");
+
+      // Look up the call by reconnect token
+      const callInfo = await getCallByReconnectToken(data.reconnectToken);
+      
+      if (!callInfo) {
+        console.log("[Socket] ❌ No active call found for reconnect token");
+        socket.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
+          callId: "",
+          reason: "error",
+          message: "No active call found",
+        });
+        return;
+      }
+
+      if (data.role === "visitor") {
+        // Visitor is reconnecting after page navigation
+        const agent = poolManager.getAgent(callInfo.agent_id);
+        
+        if (!agent) {
+          console.log("[Socket] ❌ Agent no longer online for reconnection");
+          socket.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
+            callId: callInfo.id,
+            reason: "other_party_disconnected",
+            message: "Agent is no longer available",
+          });
+          // Mark call as ended in database
+          await markCallReconnectFailed(callInfo.id);
+          return;
+        }
+
+        // Check if agent is still in a call (should be with this visitor)
+        if (agent.profile.status !== "in_call") {
+          console.log("[Socket] ❌ Agent is not in a call anymore");
+          socket.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
+            callId: callInfo.id,
+            reason: "other_party_disconnected", 
+            message: "Call has already ended",
+          });
+          await markCallReconnectFailed(callInfo.id);
+          return;
+        }
+
+        // Register visitor with their old visitorId
+        const visitorSession = poolManager.registerVisitor(
+          socket.id,
+          callInfo.visitor_id,
+          callInfo.organization_id,
+          callInfo.page_url,
+          null
+        );
+
+        // Generate a new callId for the reconnected call
+        const newCallId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+        // Re-establish the call in pool manager
+        poolManager.reconnectVisitorToCall(
+          visitorSession.visitorId,
+          agent.agentId,
+          newCallId
+        );
+
+        // Mark call as reconnected in database and get new token
+        const newToken = await markCallReconnected(callInfo.id, newCallId) ?? data.reconnectToken;
+
+        console.log(`[Socket] ✅ Visitor ${callInfo.visitor_id} reconnected to call with agent ${agent.agentId}`);
+
+        // Notify visitor of successful reconnection (include agent profile for WebRTC)
+        socket.emit(SOCKET_EVENTS.CALL_RECONNECTED, {
+          callId: newCallId,
+          reconnectToken: newToken,
+          peerId: agent.agentId,
+          agent: {
+            id: agent.profile.id,
+            displayName: agent.profile.displayName,
+            avatarUrl: agent.profile.avatarUrl,
+            waveVideoUrl: agent.profile.waveVideoUrl,
+            introVideoUrl: agent.profile.introVideoUrl,
+            connectVideoUrl: agent.profile.connectVideoUrl,
+            loopVideoUrl: agent.profile.loopVideoUrl,
+          },
+        });
+
+        // Notify agent that visitor reconnected (they need to re-initiate WebRTC)
+        const agentSocket = io.sockets.sockets.get(agent.socketId);
+        agentSocket?.emit(SOCKET_EVENTS.CALL_RECONNECTED, {
+          callId: newCallId,
+          reconnectToken: newToken,
+          peerId: visitorSession.visitorId,
+        });
+      }
+      // TODO: Handle agent reconnection after server restart (data.role === "agent")
     });
 
     // -------------------------------------------------------------------------
@@ -973,12 +1181,17 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
                     reason: "agent_offline",
                   });
                 } else {
-                  // No other agent available
+                  // No other agent available - send proper event with widget settings
                   const visitorSocket = io.sockets.sockets.get(visitor.socketId);
-                  visitorSocket?.emit(SOCKET_EVENTS.ERROR, {
-                    code: ERROR_CODES.AGENT_UNAVAILABLE,
-                    message: "All agents are currently unavailable",
-                  });
+                  if (visitorSocket) {
+                    const poolId = poolManager.matchPathToPool(visitor.orgId, visitor.pageUrl);
+                    const widgetSettings = await getWidgetSettings(visitor.orgId, poolId);
+                    visitorSocket.emit(SOCKET_EVENTS.AGENT_UNAVAILABLE, {
+                      visitorId: visitor.visitorId,
+                      widgetSettings,
+                      poolId,
+                    });
+                  }
                 }
               }
             }
@@ -1038,7 +1251,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
   const STALENESS_CHECK_INTERVAL = 60_000; // 60 seconds
   const STALENESS_THRESHOLD = 120_000; // 2 minutes without heartbeat = stale
 
-  setInterval(() => {
+  setInterval(async () => {
     const staleAgents = poolManager.getStaleAgents(STALENESS_THRESHOLD);
     
     for (const agent of staleAgents) {
@@ -1063,7 +1276,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       const reassignments = poolManager.reassignVisitors(agent.agentId);
       if (reassignments.reassigned.size > 0 || reassignments.unassigned.length > 0) {
         console.log(`[Staleness] Reassignment results for ${agent.agentId}: ${reassignments.reassigned.size} reassigned, ${reassignments.unassigned.length} unassigned`);
-        notifyReassignments(io, poolManager, reassignments, "agent_away");
+        await notifyReassignments(io, poolManager, reassignments, "agent_away", agent.profile.displayName);
       }
     }
   }, STALENESS_CHECK_INTERVAL);
@@ -1085,13 +1298,30 @@ function startRNATimeout(
 
   console.log(`[RNA] Starting ${TIMING.RNA_TIMEOUT}ms timeout for request ${requestId}`);
 
-  const timeout = setTimeout(() => {
+  const timeout = setTimeout(async () => {
     console.log(`[RNA] ⏰ Timeout reached for request ${requestId}`);
     
-    // Get the request (it may have been handled already)
+    // RACE CONDITION FIX: Add a small grace period to let any pending CALL_ACCEPT
+    // handlers complete. This handles the edge case where the agent clicks Accept
+    // at the exact moment the timeout fires - the agent should always win.
+    // Without this delay, if both callbacks are queued in the same event loop tick,
+    // the RNA callback might run first and mark the agent as away before CALL_ACCEPT
+    // can process the acceptance.
+    await new Promise(resolve => setTimeout(resolve, 100)); // 100ms grace period
+    
+    // Get the request (it may have been handled already during grace period)
     const request = poolManager.getCallRequest(requestId);
     if (!request) {
-      console.log(`[RNA] Request ${requestId} no longer exists, skipping`);
+      console.log(`[RNA] Request ${requestId} no longer exists (likely accepted during grace period), skipping`);
+      rnaTimeouts.delete(requestId);
+      return;
+    }
+
+    // Double-check if call was accepted during grace period
+    // This handles the case where agent clicks Accept at the exact moment timeout fires
+    const activeCall = poolManager.getActiveCallByVisitorId(visitorId);
+    if (activeCall) {
+      console.log(`[RNA] Call already active for visitor ${visitorId}, agent won the race - skipping timeout`);
       rnaTimeouts.delete(requestId);
       return;
     }
@@ -1171,8 +1401,26 @@ function startRNATimeout(
           startRNATimeout(io, poolManager, newRequest.requestId, newAgent.agentId, visitorId);
         }
       } else {
-        console.log(`[RNA] No other agents available for visitor ${visitorId}`);
-        // Visitor keeps waiting - request is already cancelled above
+        // No other agents available - hide widget with "got pulled away" message
+        console.log(`[RNA] No other agents available for visitor ${visitorId} - hiding widget`);
+        
+        // Mark visitor as unassigned
+        visitor.assignedAgentId = null;
+        poolManager.updateVisitorState(visitorId, "browsing");
+        
+        // Send AGENT_UNAVAILABLE with agent name so widget can show "got pulled away" message
+        const visitorSocket = io.sockets.sockets.get(visitor.socketId);
+        if (visitorSocket) {
+          const poolId = poolManager.matchPathToPool(visitor.orgId, visitor.pageUrl);
+          const widgetSettings = await getWidgetSettings(visitor.orgId, poolId);
+          visitorSocket.emit(SOCKET_EVENTS.AGENT_UNAVAILABLE, {
+            visitorId: visitor.visitorId,
+            widgetSettings,
+            poolId,
+            previousAgentName: agent.profile.displayName,
+            reason: "rna_timeout",
+          });
+        }
       }
     }
 
@@ -1197,11 +1445,12 @@ function clearRNATimeout(requestId: string): void {
 /**
  * Helper to notify visitors about agent reassignments and unavailability
  */
-function notifyReassignments(
+async function notifyReassignments(
   io: AppServer,
   poolManager: PoolManager,
   result: { reassigned: Map<string, string>; unassigned: string[] },
-  reason: "agent_busy" | "agent_offline" | "agent_away"
+  reason: "agent_busy" | "agent_offline" | "agent_away",
+  previousAgentName?: string // Name of agent who became unavailable (for "got pulled away" message)
 ) {
   // Notify reassigned visitors of their new agent
   for (const [visitorId, newAgentId] of result.reassigned) {
@@ -1227,15 +1476,21 @@ function notifyReassignments(
   }
 
   // Notify unassigned visitors that no agents are available
+  // Send proper AGENT_UNAVAILABLE event with agent name for "got pulled away" message
   for (const visitorId of result.unassigned) {
     const visitor = poolManager.getVisitor(visitorId);
     if (visitor) {
       const visitorSocket = io.sockets.sockets.get(visitor.socketId);
       if (visitorSocket && visitorSocket.connected) {
-        console.log(`[Socket] 📤 Emitting AGENT_UNAVAILABLE to visitor ${visitorId} (socket: ${visitor.socketId})`);
-        visitorSocket.emit(SOCKET_EVENTS.ERROR, {
-          code: ERROR_CODES.AGENT_UNAVAILABLE,
-          message: "All agents are currently unavailable",
+        const poolId = poolManager.matchPathToPool(visitor.orgId, visitor.pageUrl);
+        const widgetSettings = await getWidgetSettings(visitor.orgId, poolId);
+        console.log(`[Socket] 📤 Emitting AGENT_UNAVAILABLE to visitor ${visitorId} (socket: ${visitor.socketId}), previousAgent: ${previousAgentName}`);
+        visitorSocket.emit(SOCKET_EVENTS.AGENT_UNAVAILABLE, {
+          visitorId: visitor.visitorId,
+          widgetSettings,
+          poolId,
+          previousAgentName,
+          reason: reason === "agent_away" ? "agent_away" : "agent_offline",
         });
       } else {
         console.log(`[Socket] ⚠️ Visitor ${visitorId} socket not connected (socketId: ${visitor.socketId}, exists: ${!!visitorSocket}, connected: ${visitorSocket?.connected})`);

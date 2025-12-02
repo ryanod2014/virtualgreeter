@@ -56,35 +56,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "An invite has already been sent to this email" }, { status: 400 });
     }
 
-    // === ADD SEAT TO BILLING (only for agent role) ===
-    // Admins get to choose whether to take calls when they accept the invite
-    const shouldChargeSeat = role === "agent";
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    
-    if (shouldChargeSeat) {
-      const seatResponse = await fetch(`${baseUrl}/api/billing/seats`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          // Forward auth cookie
-          "Cookie": request.headers.get("cookie") || "",
-        },
-        body: JSON.stringify({ action: "add", quantity: 1 }),
-      });
-
-      if (!seatResponse.ok) {
-        const seatError = await seatResponse.json();
-        return NextResponse.json(
-          { error: seatError.error || "Failed to add billing seat" },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Generate secure token
+    // === STEP 1: Generate token and create invite record FIRST ===
+    // This is easily reversible with a simple DELETE if billing fails
     const token = crypto.randomUUID();
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-    // Create invite record
     const { data: invite, error: inviteError } = await supabase
       .from("invites")
       .insert({
@@ -99,20 +75,39 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (inviteError) {
-      // Rollback the seat charge if we charged one
-      if (shouldChargeSeat) {
-        await fetch(`${baseUrl}/api/billing/seats`, {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Cookie": request.headers.get("cookie") || "",
-          },
-          body: JSON.stringify({ action: "remove", quantity: 1 }),
-        });
-      }
-      
       console.error("Failed to create invite:", inviteError);
       return NextResponse.json({ error: "Failed to create invite" }, { status: 500 });
+    }
+
+    // === STEP 2: ADD SEAT TO BILLING (only for agent role) ===
+    // We do this AFTER creating the invite so rollback is trivial (just delete the invite)
+    // Admins get to choose whether to take calls when they accept the invite
+    const shouldChargeSeat = role === "agent";
+    
+    if (shouldChargeSeat) {
+      const seatResponse = await fetch(`${baseUrl}/api/billing/seats`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          // Forward auth cookie
+          "Cookie": request.headers.get("cookie") || "",
+        },
+        body: JSON.stringify({ action: "add", quantity: 1 }),
+      });
+
+      if (!seatResponse.ok) {
+        // Rollback: Delete the invite we just created (this is reliable)
+        await supabase
+          .from("invites")
+          .delete()
+          .eq("id", invite.id);
+        
+        const seatError = await seatResponse.json();
+        return NextResponse.json(
+          { error: seatError.error || "Failed to add billing seat" },
+          { status: 400 }
+        );
+      }
     }
 
     // Send email

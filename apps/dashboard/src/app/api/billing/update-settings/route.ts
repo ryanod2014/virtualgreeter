@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { stripe, getPriceIdForFrequency } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -116,8 +116,25 @@ export async function POST(request: NextRequest) {
       updates.billing_frequency = billingFrequency;
       response.billingFrequency = billingFrequency;
 
-      // TODO: In production, update Stripe subscription to new price ID
-      // This would swap the subscription item to a different price
+      // Update Stripe subscription to new price ID if frequency is changing
+      if (stripe && org.stripe_subscription_item_id && org.billing_frequency !== billingFrequency) {
+        const newPriceId = getPriceIdForFrequency(billingFrequency as "monthly" | "annual" | "six_month");
+        
+        if (!newPriceId) {
+          return NextResponse.json({ 
+            error: `Price not configured for ${billingFrequency} billing` 
+          }, { status: 500 });
+        }
+
+        // Swap the subscription item to the new price
+        // This replaces the current price with the new one, applying proration
+        await stripe.subscriptionItems.update(org.stripe_subscription_item_id, {
+          price: newPriceId,
+          proration_behavior: "create_prorations",
+        });
+        
+        response.stripePriceUpdated = true;
+      }
     }
 
     // Apply updates

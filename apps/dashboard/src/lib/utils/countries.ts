@@ -11,12 +11,38 @@ export interface Country {
 
 export type Region = "americas" | "europe" | "asia_pacific" | "middle_east_africa";
 
+// Special groupings (not mutually exclusive with regions)
+export type SpecialGroup = "developing_countries";
+
 export const REGIONS: Record<Region, { name: string; icon: string }> = {
   americas: { name: "Americas", icon: "🌎" },
   europe: { name: "Europe", icon: "🌍" },
   asia_pacific: { name: "Asia-Pacific", icon: "🌏" },
   middle_east_africa: { name: "Middle East & Africa", icon: "🌍" },
 };
+
+export const SPECIAL_GROUPS: Record<SpecialGroup, { name: string; icon: string }> = {
+  developing_countries: { name: "Developing Countries", icon: "🌐" },
+};
+
+// Developing countries list based on UN/World Bank classifications
+// These are typically lower-income and lower-middle-income countries
+export const DEVELOPING_COUNTRY_CODES: string[] = [
+  // Africa
+  "NG", "ET", "EG", "CD", "TZ", "KE", "UG", "DZ", "SD", "MA", "AO", "GH", "MZ", 
+  "CI", "CM", "NE", "BF", "ML", "MW", "ZM", "SN", "ZW", "TD", "RW", "TN", "GN", 
+  "BJ", "BI", "SO", "SS", "TG", "SL", "LY", "CG", "LR", "CF", "MR", "ER", "GM", 
+  "GW", "GQ", "DJ", "KM", "ST",
+  // Middle East
+  "IR", "IQ", "YE", "SY", "PS", "LB", "JO", "AF",
+  // Asia
+  "IN", "ID", "PK", "BD", "PH", "VN", "MM", "NP", "LK", "KH", "LA", "MN", "KG", 
+  "TJ", "TM", "BT", "KP", "UZ",
+  // Americas  
+  "GT", "CU", "BO", "HN", "NI", "SV", "HT", "GY", "SR", "VE", "EC", "PE", "CO",
+  // Eastern Europe
+  "UA", "BY", "MD",
+];
 
 /**
  * Full list of countries with ISO codes, names, flags, and regions
@@ -246,5 +272,24 @@ export function searchCountries(query: string): Country[] {
  */
 export function getAllRegions(): Region[] {
   return Object.keys(REGIONS) as Region[];
+}
+
+/**
+ * Get all special group keys
+ */
+export function getAllSpecialGroups(): SpecialGroup[] {
+  return Object.keys(SPECIAL_GROUPS) as SpecialGroup[];
+}
+
+/**
+ * Get country codes by special group
+ */
+export function getCountryCodesBySpecialGroup(group: SpecialGroup): string[] {
+  switch (group) {
+    case "developing_countries":
+      return DEVELOPING_COUNTRY_CODES;
+    default:
+      return [];
+  }
 }
 

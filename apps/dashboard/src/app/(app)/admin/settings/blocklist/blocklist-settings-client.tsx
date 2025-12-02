@@ -1,257 +1,198 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ArrowLeft, Shield, Search, X, Check, Loader2, Globe } from "lucide-react";
+import { ArrowLeft, Shield, Search, X, Check, Loader2, Globe, Ban, CheckCircle2, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import type { CountryListMode } from "@ghost-greeter/domain/database.types";
+import {
+  COUNTRIES,
+  REGIONS,
+  SPECIAL_GROUPS,
+  type Region,
+  type SpecialGroup,
+  getCountryCodesByRegion,
+  getCountryCodesBySpecialGroup,
+  searchCountries,
+  getAllRegions,
+  getAllSpecialGroups,
+  type Country,
+} from "@/lib/utils/countries";
 
-// Complete list of countries with ISO 3166-1 alpha-2 codes
-const COUNTRIES = [
-  { code: "AF", name: "Afghanistan" },
-  { code: "AL", name: "Albania" },
-  { code: "DZ", name: "Algeria" },
-  { code: "AD", name: "Andorra" },
-  { code: "AO", name: "Angola" },
-  { code: "AG", name: "Antigua and Barbuda" },
-  { code: "AR", name: "Argentina" },
-  { code: "AM", name: "Armenia" },
-  { code: "AU", name: "Australia" },
-  { code: "AT", name: "Austria" },
-  { code: "AZ", name: "Azerbaijan" },
-  { code: "BS", name: "Bahamas" },
-  { code: "BH", name: "Bahrain" },
-  { code: "BD", name: "Bangladesh" },
-  { code: "BB", name: "Barbados" },
-  { code: "BY", name: "Belarus" },
-  { code: "BE", name: "Belgium" },
-  { code: "BZ", name: "Belize" },
-  { code: "BJ", name: "Benin" },
-  { code: "BT", name: "Bhutan" },
-  { code: "BO", name: "Bolivia" },
-  { code: "BA", name: "Bosnia and Herzegovina" },
-  { code: "BW", name: "Botswana" },
-  { code: "BR", name: "Brazil" },
-  { code: "BN", name: "Brunei" },
-  { code: "BG", name: "Bulgaria" },
-  { code: "BF", name: "Burkina Faso" },
-  { code: "BI", name: "Burundi" },
-  { code: "CV", name: "Cabo Verde" },
-  { code: "KH", name: "Cambodia" },
-  { code: "CM", name: "Cameroon" },
-  { code: "CA", name: "Canada" },
-  { code: "CF", name: "Central African Republic" },
-  { code: "TD", name: "Chad" },
-  { code: "CL", name: "Chile" },
-  { code: "CN", name: "China" },
-  { code: "CO", name: "Colombia" },
-  { code: "KM", name: "Comoros" },
-  { code: "CG", name: "Congo" },
-  { code: "CD", name: "Congo (DRC)" },
-  { code: "CR", name: "Costa Rica" },
-  { code: "CI", name: "Côte d'Ivoire" },
-  { code: "HR", name: "Croatia" },
-  { code: "CU", name: "Cuba" },
-  { code: "CY", name: "Cyprus" },
-  { code: "CZ", name: "Czech Republic" },
-  { code: "DK", name: "Denmark" },
-  { code: "DJ", name: "Djibouti" },
-  { code: "DM", name: "Dominica" },
-  { code: "DO", name: "Dominican Republic" },
-  { code: "EC", name: "Ecuador" },
-  { code: "EG", name: "Egypt" },
-  { code: "SV", name: "El Salvador" },
-  { code: "GQ", name: "Equatorial Guinea" },
-  { code: "ER", name: "Eritrea" },
-  { code: "EE", name: "Estonia" },
-  { code: "SZ", name: "Eswatini" },
-  { code: "ET", name: "Ethiopia" },
-  { code: "FJ", name: "Fiji" },
-  { code: "FI", name: "Finland" },
-  { code: "FR", name: "France" },
-  { code: "GA", name: "Gabon" },
-  { code: "GM", name: "Gambia" },
-  { code: "GE", name: "Georgia" },
-  { code: "DE", name: "Germany" },
-  { code: "GH", name: "Ghana" },
-  { code: "GR", name: "Greece" },
-  { code: "GD", name: "Grenada" },
-  { code: "GT", name: "Guatemala" },
-  { code: "GN", name: "Guinea" },
-  { code: "GW", name: "Guinea-Bissau" },
-  { code: "GY", name: "Guyana" },
-  { code: "HT", name: "Haiti" },
-  { code: "HN", name: "Honduras" },
-  { code: "HU", name: "Hungary" },
-  { code: "IS", name: "Iceland" },
-  { code: "IN", name: "India" },
-  { code: "ID", name: "Indonesia" },
-  { code: "IR", name: "Iran" },
-  { code: "IQ", name: "Iraq" },
-  { code: "IE", name: "Ireland" },
-  { code: "IL", name: "Israel" },
-  { code: "IT", name: "Italy" },
-  { code: "JM", name: "Jamaica" },
-  { code: "JP", name: "Japan" },
-  { code: "JO", name: "Jordan" },
-  { code: "KZ", name: "Kazakhstan" },
-  { code: "KE", name: "Kenya" },
-  { code: "KI", name: "Kiribati" },
-  { code: "KP", name: "North Korea" },
-  { code: "KR", name: "South Korea" },
-  { code: "KW", name: "Kuwait" },
-  { code: "KG", name: "Kyrgyzstan" },
-  { code: "LA", name: "Laos" },
-  { code: "LV", name: "Latvia" },
-  { code: "LB", name: "Lebanon" },
-  { code: "LS", name: "Lesotho" },
-  { code: "LR", name: "Liberia" },
-  { code: "LY", name: "Libya" },
-  { code: "LI", name: "Liechtenstein" },
-  { code: "LT", name: "Lithuania" },
-  { code: "LU", name: "Luxembourg" },
-  { code: "MG", name: "Madagascar" },
-  { code: "MW", name: "Malawi" },
-  { code: "MY", name: "Malaysia" },
-  { code: "MV", name: "Maldives" },
-  { code: "ML", name: "Mali" },
-  { code: "MT", name: "Malta" },
-  { code: "MH", name: "Marshall Islands" },
-  { code: "MR", name: "Mauritania" },
-  { code: "MU", name: "Mauritius" },
-  { code: "MX", name: "Mexico" },
-  { code: "FM", name: "Micronesia" },
-  { code: "MD", name: "Moldova" },
-  { code: "MC", name: "Monaco" },
-  { code: "MN", name: "Mongolia" },
-  { code: "ME", name: "Montenegro" },
-  { code: "MA", name: "Morocco" },
-  { code: "MZ", name: "Mozambique" },
-  { code: "MM", name: "Myanmar" },
-  { code: "NA", name: "Namibia" },
-  { code: "NR", name: "Nauru" },
-  { code: "NP", name: "Nepal" },
-  { code: "NL", name: "Netherlands" },
-  { code: "NZ", name: "New Zealand" },
-  { code: "NI", name: "Nicaragua" },
-  { code: "NE", name: "Niger" },
-  { code: "NG", name: "Nigeria" },
-  { code: "MK", name: "North Macedonia" },
-  { code: "NO", name: "Norway" },
-  { code: "OM", name: "Oman" },
-  { code: "PK", name: "Pakistan" },
-  { code: "PW", name: "Palau" },
-  { code: "PS", name: "Palestine" },
-  { code: "PA", name: "Panama" },
-  { code: "PG", name: "Papua New Guinea" },
-  { code: "PY", name: "Paraguay" },
-  { code: "PE", name: "Peru" },
-  { code: "PH", name: "Philippines" },
-  { code: "PL", name: "Poland" },
-  { code: "PT", name: "Portugal" },
-  { code: "QA", name: "Qatar" },
-  { code: "RO", name: "Romania" },
-  { code: "RU", name: "Russia" },
-  { code: "RW", name: "Rwanda" },
-  { code: "KN", name: "Saint Kitts and Nevis" },
-  { code: "LC", name: "Saint Lucia" },
-  { code: "VC", name: "Saint Vincent and the Grenadines" },
-  { code: "WS", name: "Samoa" },
-  { code: "SM", name: "San Marino" },
-  { code: "ST", name: "São Tomé and Príncipe" },
-  { code: "SA", name: "Saudi Arabia" },
-  { code: "SN", name: "Senegal" },
-  { code: "RS", name: "Serbia" },
-  { code: "SC", name: "Seychelles" },
-  { code: "SL", name: "Sierra Leone" },
-  { code: "SG", name: "Singapore" },
-  { code: "SK", name: "Slovakia" },
-  { code: "SI", name: "Slovenia" },
-  { code: "SB", name: "Solomon Islands" },
-  { code: "SO", name: "Somalia" },
-  { code: "ZA", name: "South Africa" },
-  { code: "SS", name: "South Sudan" },
-  { code: "ES", name: "Spain" },
-  { code: "LK", name: "Sri Lanka" },
-  { code: "SD", name: "Sudan" },
-  { code: "SR", name: "Suriname" },
-  { code: "SE", name: "Sweden" },
-  { code: "CH", name: "Switzerland" },
-  { code: "SY", name: "Syria" },
-  { code: "TW", name: "Taiwan" },
-  { code: "TJ", name: "Tajikistan" },
-  { code: "TZ", name: "Tanzania" },
-  { code: "TH", name: "Thailand" },
-  { code: "TL", name: "Timor-Leste" },
-  { code: "TG", name: "Togo" },
-  { code: "TO", name: "Tonga" },
-  { code: "TT", name: "Trinidad and Tobago" },
-  { code: "TN", name: "Tunisia" },
-  { code: "TR", name: "Turkey" },
-  { code: "TM", name: "Turkmenistan" },
-  { code: "TV", name: "Tuvalu" },
-  { code: "UG", name: "Uganda" },
-  { code: "UA", name: "Ukraine" },
-  { code: "AE", name: "United Arab Emirates" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "US", name: "United States" },
-  { code: "UY", name: "Uruguay" },
-  { code: "UZ", name: "Uzbekistan" },
-  { code: "VU", name: "Vanuatu" },
-  { code: "VA", name: "Vatican City" },
-  { code: "VE", name: "Venezuela" },
-  { code: "VN", name: "Vietnam" },
-  { code: "YE", name: "Yemen" },
-  { code: "ZM", name: "Zambia" },
-  { code: "ZW", name: "Zimbabwe" },
-];
-
-// Create a lookup map for quick country name retrieval
-const COUNTRY_MAP = new Map(COUNTRIES.map((c) => [c.code, c.name]));
+// Create a lookup map for quick country retrieval
+const COUNTRY_MAP = new Map(COUNTRIES.map((c) => [c.code, c]));
 
 interface Props {
   orgId: string;
   initialBlockedCountries: string[];
+  initialMode: CountryListMode;
 }
 
-export function BlocklistSettingsClient({ orgId, initialBlockedCountries }: Props) {
-  const [blockedCountries, setBlockedCountries] = useState<string[]>(initialBlockedCountries);
+export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initialMode }: Props) {
+  const [countryList, setCountryList] = useState<string[]>(initialBlockedCountries);
+  const [mode, setMode] = useState<CountryListMode>(initialMode);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+  
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClient();
 
-  const hasChanges = JSON.stringify([...blockedCountries].sort()) !== 
-                     JSON.stringify([...initialBlockedCountries].sort());
+  const hasChanges = 
+    JSON.stringify([...countryList].sort()) !== JSON.stringify([...initialBlockedCountries].sort()) ||
+    mode !== initialMode;
 
   // Filter countries based on search query
   const filteredCountries = useMemo(() => {
-    if (!searchQuery.trim()) return COUNTRIES;
-    const query = searchQuery.toLowerCase();
-    return COUNTRIES.filter(
-      (c) =>
-        c.name.toLowerCase().includes(query) ||
-        c.code.toLowerCase().includes(query)
-    );
+    return searchCountries(searchQuery);
   }, [searchQuery]);
 
-  // Countries not yet blocked
-  const availableCountries = useMemo(() => {
-    return filteredCountries.filter((c) => !blockedCountries.includes(c.code));
-  }, [filteredCountries, blockedCountries]);
+  // Group filtered countries by region
+  const groupedCountries = useMemo(() => {
+    const groups: Record<Region, Country[]> = {
+      americas: [],
+      europe: [],
+      asia_pacific: [],
+      middle_east_africa: [],
+    };
+    filteredCountries.forEach((country) => {
+      groups[country.region].push(country);
+    });
+    return groups;
+  }, [filteredCountries]);
 
-  const handleAddCountry = (code: string) => {
-    if (!blockedCountries.includes(code)) {
-      setBlockedCountries([...blockedCountries, code]);
-    }
-    setSearchQuery("");
-    setIsDropdownOpen(false);
+  // Check if a full region is selected
+  const isRegionFullySelected = (region: Region): boolean => {
+    const regionCodes = getCountryCodesByRegion(region);
+    return regionCodes.every((code) => countryList.includes(code));
   };
 
-  const handleRemoveCountry = (code: string) => {
-    setBlockedCountries(blockedCountries.filter((c) => c !== code));
+  // Check if a special group is fully selected
+  const isSpecialGroupFullySelected = (group: SpecialGroup): boolean => {
+    const groupCodes = getCountryCodesBySpecialGroup(group);
+    return groupCodes.every((code) => countryList.includes(code));
+  };
+
+  // Toggle entire region
+  const toggleRegion = (region: Region) => {
+    const regionCodes = getCountryCodesByRegion(region);
+    if (isRegionFullySelected(region)) {
+      setCountryList(countryList.filter((code) => !regionCodes.includes(code)));
+    } else {
+      const newSelected = new Set([...countryList, ...regionCodes]);
+      setCountryList(Array.from(newSelected));
+    }
+  };
+
+  // Toggle special group
+  const toggleSpecialGroup = (group: SpecialGroup) => {
+    const groupCodes = getCountryCodesBySpecialGroup(group);
+    if (isSpecialGroupFullySelected(group)) {
+      setCountryList(countryList.filter((code) => !groupCodes.includes(code)));
+    } else {
+      const newSelected = new Set([...countryList, ...groupCodes]);
+      setCountryList(Array.from(newSelected));
+    }
+  };
+
+  // Toggle individual country
+  const toggleCountry = (code: string) => {
+    if (countryList.includes(code)) {
+      setCountryList(countryList.filter((c) => c !== code));
+    } else {
+      setCountryList([...countryList, code]);
+    }
+  };
+
+  // Remove a country from selection
+  const removeCountry = (code: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCountryList(countryList.filter((c) => c !== code));
+  };
+
+  // Clear all selections
+  const clearAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCountryList([]);
+  };
+
+  // Calculate menu position
+  const updateMenuPosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const menuHeight = Math.min(450, viewportHeight * 0.8);
+      
+      const spaceBelow = viewportHeight - rect.bottom;
+      const showAbove = spaceBelow < menuHeight && rect.top > menuHeight;
+      
+      setMenuPosition({
+        top: showAbove ? rect.top - menuHeight - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: Math.max(rect.width, 400),
+      });
+    }
+  };
+
+  // Keep menu position updated while open
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    
+    updateMenuPosition();
+    
+    const handleScroll = () => {
+      requestAnimationFrame(updateMenuPosition);
+    };
+    
+    document.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", updateMenuPosition);
+    
+    return () => {
+      document.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", updateMenuPosition);
+    };
+  }, [isDropdownOpen]);
+
+  // Focus search input when opening
+  useEffect(() => {
+    if (isDropdownOpen && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    }
+  }, [isDropdownOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        buttonRef.current &&
+        !buttonRef.current.contains(target) &&
+        menuRef.current &&
+        !menuRef.current.contains(target)
+      ) {
+        setIsDropdownOpen(false);
+        setSearchQuery("");
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isDropdownOpen]);
+
+  const handleModeChange = (newMode: CountryListMode) => {
+    setMode(newMode);
+    if (countryList.length > 0) {
+      setCountryList([]);
+    }
   };
 
   const handleSave = async () => {
@@ -264,7 +205,10 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries }: Prop
     try {
       const { error: updateError } = await supabase
         .from("organizations")
-        .update({ blocked_countries: blockedCountries })
+        .update({ 
+          blocked_countries: countryList,
+          country_list_mode: mode,
+        })
         .eq("id", orgId);
 
       if (updateError) throw updateError;
@@ -277,6 +221,70 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries }: Prop
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const isBlocklistMode = mode === "blocklist";
+
+  // Get display content for the dropdown button
+  const getDisplayContent = () => {
+    if (countryList.length === 0) {
+      return (
+        <span className="text-muted-foreground">
+          {isBlocklistMode ? "Select countries to block..." : "Select countries to allow..."}
+        </span>
+      );
+    }
+
+    const displayItems = countryList
+      .map((code) => COUNTRY_MAP.get(code))
+      .filter(Boolean) as Country[];
+
+    if (displayItems.length <= 2) {
+      return (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {displayItems.map((country) => (
+            <span
+              key={country.code}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${
+                isBlocklistMode
+                  ? "bg-destructive/10 text-destructive"
+                  : "bg-green-500/10 text-green-500"
+              }`}
+            >
+              <span className="text-sm">{country.flag}</span>
+              {country.name}
+              <button
+                type="button"
+                onClick={(e) => removeCountry(country.code, e)}
+                className={`rounded-full p-0.5 ${
+                  isBlocklistMode ? "hover:bg-destructive/20" : "hover:bg-green-500/20"
+                }`}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1.5">
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${
+            isBlocklistMode
+              ? "bg-destructive/10 text-destructive"
+              : "bg-green-500/10 text-green-500"
+          }`}
+        >
+          <span className="text-sm">{displayItems[0].flag}</span>
+          {displayItems[0].name}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          +{displayItems.length - 1} more
+        </span>
+      </div>
+    );
   };
 
   return (
@@ -296,9 +304,9 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries }: Prop
             <Shield className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">Country Blocklist</h1>
+            <h1 className="text-3xl font-bold">Country Restrictions</h1>
             <p className="text-muted-foreground">
-              Block visitors from specific countries from seeing the widget
+              Control which countries can see the widget
             </p>
           </div>
         </div>
@@ -319,91 +327,319 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries }: Prop
         </div>
       )}
 
-      {/* Blocklist Section */}
+      {/* Mode Selection */}
       <div className="space-y-6">
-        <div className="glass rounded-2xl p-6">
-          <h2 className="text-lg font-semibold mb-4">Blocked Countries</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Visitors from these countries will not see the widget on your website. 
-            Their connection will be silently ignored.
-          </p>
+        <div className="glass rounded-2xl overflow-hidden">
+          {/* Mode Toggle Header */}
+          <div className="p-3 border-b border-border" style={{ flexShrink: 0 }}>
+            <span className="text-sm font-medium text-muted-foreground">Restriction Mode</span>
+          </div>
+          
+          <div className="p-4">
+            <div className="grid grid-cols-2 gap-3">
+              {/* Blocklist Option */}
+              <button
+                onClick={() => handleModeChange("blocklist")}
+                className={`p-4 rounded-xl border-2 transition-all text-left ${
+                  isBlocklistMode
+                    ? "border-destructive bg-destructive/5"
+                    : "border-border hover:border-muted-foreground/50"
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`p-2 rounded-lg ${isBlocklistMode ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>
+                    <Ban className="w-5 h-5" />
+                  </div>
+                  <span className="font-semibold">Blocklist</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Block specific countries. Everyone else can see the widget.
+                </p>
+              </button>
 
-          {/* Country Search/Select */}
-          <div className="relative mb-4">
+              {/* Allowlist Option */}
+              <button
+                onClick={() => handleModeChange("allowlist")}
+                className={`p-4 rounded-xl border-2 transition-all text-left ${
+                  !isBlocklistMode
+                    ? "border-green-500 bg-green-500/5"
+                    : "border-border hover:border-muted-foreground/50"
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`p-2 rounded-lg ${!isBlocklistMode ? "bg-green-500/10 text-green-500" : "bg-muted text-muted-foreground"}`}>
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <span className="font-semibold">Allowlist</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Only allow specific countries. Everyone else is blocked.
+                </p>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Country List Section */}
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="p-3 border-b border-border" style={{ flexShrink: 0 }}>
+            <span className="text-sm font-medium text-muted-foreground">
+              {isBlocklistMode ? "Blocked Countries" : "Allowed Countries"}
+            </span>
+          </div>
+          
+          <div className="p-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              {isBlocklistMode
+                ? "Visitors from these countries will not see the widget on your website. Their connection will be silently ignored."
+                : "Only visitors from these countries will see the widget. All other countries will be blocked."}
+            </p>
+
+            {/* Country Selector Dropdown */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setIsDropdownOpen(true);
-                }}
-                onFocus={() => setIsDropdownOpen(true)}
-                placeholder="Search countries to block..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none transition-colors"
-              />
+              <button
+                ref={buttonRef}
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-muted/50 border transition-colors outline-none text-left min-h-[42px] ${
+                  isDropdownOpen ? "border-primary" : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="flex-1 min-w-0">{getDisplayContent()}</div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {countryList.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearAll}
+                      className="p-1 hover:bg-muted rounded transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
+                  )}
+                  <ChevronDown
+                    className={`w-4 h-4 text-muted-foreground transition-transform ${
+                      isDropdownOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </div>
+              </button>
+
+              {/* Dropdown Menu - Rendered via Portal */}
+              {isDropdownOpen &&
+                typeof window !== "undefined" &&
+                createPortal(
+                  <div
+                    ref={menuRef}
+                    className="fixed z-[9999] rounded-xl bg-background border border-border shadow-xl overflow-hidden"
+                    style={{
+                      top: menuPosition.top,
+                      left: menuPosition.left,
+                      width: menuPosition.width,
+                      height: "450px",
+                      maxHeight: "80vh",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    {/* Search Input */}
+                    <div className="p-3 border-b border-border" style={{ flexShrink: 0 }}>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input
+                          ref={searchInputRef}
+                          type="text"
+                          placeholder={isBlocklistMode ? "Search countries to block..." : "Search countries to allow..."}
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary outline-none text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Selected Countries as Chips */}
+                    {countryList.length > 0 && !searchQuery && (
+                      <div 
+                        className={`p-2 border-b border-border ${isBlocklistMode ? "bg-destructive/5" : "bg-green-500/5"}`}
+                        style={{ flexShrink: 0 }}
+                      >
+                        <div className={`text-xs font-medium mb-1.5 ${isBlocklistMode ? "text-destructive" : "text-green-500"}`}>
+                          {isBlocklistMode ? "Blocked" : "Allowed"} ({countryList.length})
+                        </div>
+                        <div className="flex flex-wrap gap-1 max-h-[60px] overflow-y-auto">
+                          {countryList.map((code) => {
+                            const country = COUNTRY_MAP.get(code);
+                            if (!country) return null;
+                            return (
+                              <span
+                                key={code}
+                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${
+                                  isBlocklistMode
+                                    ? "bg-destructive/10 text-destructive"
+                                    : "bg-green-500/10 text-green-500"
+                                }`}
+                              >
+                                <span>{country.flag}</span>
+                                {country.name}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleCountry(code);
+                                  }}
+                                  className={`rounded-full p-0.5 ml-0.5 ${
+                                    isBlocklistMode ? "hover:bg-destructive/20" : "hover:bg-green-500/20"
+                                  }`}
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Region & Special Group Quick Buttons */}
+                    {!searchQuery && (
+                      <div className="px-3 py-2 border-b border-border bg-muted/30" style={{ flexShrink: 0 }}>
+                        <div className="flex flex-wrap gap-1.5">
+                          {/* Special Groups First (like Developing Countries) */}
+                          {getAllSpecialGroups().map((group) => {
+                            const isFullySelected = isSpecialGroupFullySelected(group);
+                            return (
+                              <button
+                                key={group}
+                                type="button"
+                                onClick={() => toggleSpecialGroup(group)}
+                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                                  isFullySelected
+                                    ? isBlocklistMode
+                                      ? "bg-destructive text-destructive-foreground"
+                                      : "bg-green-500 text-white"
+                                    : "bg-muted hover:bg-muted/80"
+                                }`}
+                              >
+                                <span className="text-sm">{SPECIAL_GROUPS[group].icon}</span>
+                                {SPECIAL_GROUPS[group].name}
+                                {isFullySelected && <Check className="w-3 h-3" />}
+                              </button>
+                            );
+                          })}
+                          
+                          {/* Divider */}
+                          <div className="w-px h-6 bg-border mx-1" />
+                          
+                          {/* Region Buttons */}
+                          {getAllRegions().map((region) => {
+                            const isFullySelected = isRegionFullySelected(region);
+                            return (
+                              <button
+                                key={region}
+                                type="button"
+                                onClick={() => toggleRegion(region)}
+                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                                  isFullySelected
+                                    ? isBlocklistMode
+                                      ? "bg-destructive text-destructive-foreground"
+                                      : "bg-green-500 text-white"
+                                    : "bg-muted hover:bg-muted/80"
+                                }`}
+                              >
+                                <span className="text-sm">{REGIONS[region].icon}</span>
+                                {REGIONS[region].name}
+                                {isFullySelected && <Check className="w-3 h-3" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Country List - Scrollable */}
+                    <div 
+                      style={{ 
+                        flex: "1 1 0",
+                        overflowY: "auto", 
+                        minHeight: 0,
+                        overscrollBehavior: "contain",
+                      }}
+                    >
+                      {filteredCountries.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-muted-foreground">
+                          No countries found for &quot;{searchQuery}&quot;
+                        </div>
+                      ) : searchQuery ? (
+                        // Flat list when searching
+                        <div className="p-1">
+                          {filteredCountries.map((country) => (
+                            <CountryOption
+                              key={country.code}
+                              country={country}
+                              isSelected={countryList.includes(country.code)}
+                              onToggle={() => toggleCountry(country.code)}
+                              isBlocklistMode={isBlocklistMode}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        // Grouped by region when not searching
+                        getAllRegions().map((region) => {
+                          const countries = groupedCountries[region];
+                          if (countries.length === 0) return null;
+                          return (
+                            <div key={region}>
+                              <div className="px-3 py-2 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0">
+                                {REGIONS[region].icon} {REGIONS[region].name}
+                              </div>
+                              <div className="p-1">
+                                {countries.map((country) => (
+                                  <CountryOption
+                                    key={country.code}
+                                    country={country}
+                                    isSelected={countryList.includes(country.code)}
+                                    onToggle={() => toggleCountry(country.code)}
+                                    isBlocklistMode={isBlocklistMode}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Footer with selection count */}
+                    {countryList.length > 0 && (
+                      <div className="p-3 border-t border-border bg-muted/30 flex items-center justify-between rounded-b-xl" style={{ flexShrink: 0 }}>
+                        <span className="text-sm text-muted-foreground">
+                          {countryList.length} {countryList.length === 1 ? "country" : "countries"} {isBlocklistMode ? "blocked" : "allowed"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={clearAll}
+                          className={`text-sm hover:underline ${isBlocklistMode ? "text-destructive" : "text-green-500"}`}
+                        >
+                          Clear all
+                        </button>
+                      </div>
+                    )}
+                  </div>,
+                  document.body
+                )}
             </div>
 
-            {/* Dropdown */}
-            {isDropdownOpen && availableCountries.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 max-h-60 overflow-auto rounded-lg bg-zinc-900 border border-border shadow-lg">
-                {availableCountries.slice(0, 10).map((country) => (
-                  <button
-                    key={country.code}
-                    onClick={() => handleAddCountry(country.code)}
-                    className="w-full px-4 py-2.5 text-left hover:bg-zinc-800 flex items-center gap-3 transition-colors"
-                  >
-                    <span className="text-lg">{getCountryFlag(country.code)}</span>
-                    <span>{country.name}</span>
-                    <span className="text-muted-foreground text-sm">({country.code})</span>
-                  </button>
-                ))}
-                {availableCountries.length > 10 && (
-                  <div className="px-4 py-2 text-sm text-muted-foreground border-t border-border">
-                    {availableCountries.length - 10} more countries...
-                  </div>
-                )}
+            {/* Empty State */}
+            {countryList.length === 0 && !isDropdownOpen && (
+              <div className="flex items-center gap-3 py-8 justify-center text-muted-foreground mt-4">
+                <Globe className="w-5 h-5" />
+                <span>
+                  {isBlocklistMode
+                    ? "No countries blocked - widget visible worldwide"
+                    : "No countries allowed - add countries to show widget"}
+                </span>
               </div>
             )}
-
-            {/* Click outside to close */}
-            {isDropdownOpen && (
-              <div
-                className="fixed inset-0 z-0"
-                onClick={() => setIsDropdownOpen(false)}
-              />
-            )}
           </div>
-
-          {/* Selected Countries */}
-          {blockedCountries.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {blockedCountries.map((code) => (
-                <div
-                  key={code}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive"
-                >
-                  <span className="text-base">{getCountryFlag(code)}</span>
-                  <span className="text-sm font-medium">
-                    {COUNTRY_MAP.get(code) || code}
-                  </span>
-                  <button
-                    onClick={() => handleRemoveCountry(code)}
-                    className="p-0.5 hover:bg-destructive/20 rounded transition-colors"
-                    aria-label={`Remove ${COUNTRY_MAP.get(code) || code}`}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 py-8 justify-center text-muted-foreground">
-              <Globe className="w-5 h-5" />
-              <span>No countries blocked - widget visible worldwide</span>
-            </div>
-          )}
         </div>
 
         {/* Save Button */}
@@ -427,26 +663,71 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries }: Prop
 
       {/* Info Box */}
       <div className="mt-6 p-4 rounded-xl bg-orange-500/5 border border-orange-500/20">
-        <h4 className="font-medium mb-2 text-orange-500">⚠️ How Country Blocking Works</h4>
+        <h4 className="font-medium mb-2 text-orange-500">
+          ⚠️ How Country {isBlocklistMode ? "Blocking" : "Allowlisting"} Works
+        </h4>
         <ul className="text-sm text-muted-foreground space-y-2">
           <li>• Visitor location is determined by IP address when they load your page</li>
-          <li>• Blocked visitors will simply not see the widget - no error is shown to them</li>
+          {isBlocklistMode ? (
+            <>
+              <li>• Blocked visitors will simply not see the widget - no error is shown to them</li>
+              <li>• If we cannot determine a visitor&apos;s location, they will <strong>not</strong> be blocked</li>
+            </>
+          ) : (
+            <>
+              <li>• Only visitors from allowed countries will see the widget</li>
+              <li>• If we cannot determine a visitor&apos;s location, they will be <strong>blocked</strong></li>
+              <li>• Make sure to add all countries you want to serve!</li>
+            </>
+          )}
           <li>• VPN users may bypass this restriction by appearing from a different country</li>
-          <li>• If we cannot determine a visitor&apos;s location, they will <strong>not</strong> be blocked</li>
         </ul>
       </div>
     </div>
   );
 }
 
-/**
- * Get country flag emoji from ISO 3166-1 alpha-2 code
- */
-function getCountryFlag(countryCode: string): string {
-  const codePoints = countryCode
-    .toUpperCase()
-    .split("")
-    .map((char) => 127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
-}
+// Individual country option component
+function CountryOption({
+  country,
+  isSelected,
+  onToggle,
+  isBlocklistMode,
+}: {
+  country: Country;
+  isSelected: boolean;
+  onToggle: () => void;
+  isBlocklistMode: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-lg hover:bg-muted/50 transition-colors ${
+        isSelected ? (isBlocklistMode ? "bg-destructive/5" : "bg-green-500/5") : ""
+      }`}
+    >
+      {/* Checkbox indicator */}
+      <div
+        className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+          isSelected
+            ? isBlocklistMode
+              ? "bg-destructive border-destructive"
+              : "bg-green-500 border-green-500"
+            : "border-border"
+        }`}
+      >
+        {isSelected && <Check className="w-3 h-3 text-white" />}
+      </div>
 
+      {/* Flag */}
+      <span className="text-base flex-shrink-0">{country.flag}</span>
+
+      {/* Country name */}
+      <span className="text-sm truncate">{country.name}</span>
+
+      {/* Country code */}
+      <span className="text-xs text-muted-foreground ml-auto">{country.code}</span>
+    </button>
+  );
+}

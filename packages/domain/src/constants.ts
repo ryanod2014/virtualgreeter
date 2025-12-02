@@ -9,6 +9,7 @@ export const SOCKET_EVENTS = {
   VISITOR_INTERACTION: "visitor:interaction",
   VISITOR_DISCONNECT: "visitor:disconnect",
   WIDGET_PAGEVIEW: "widget:pageview",
+  WIDGET_MISSED_OPPORTUNITY: "widget:missed_opportunity", // Sent when trigger delay passes but no agent available
   
   // Dashboard -> Server
   AGENT_LOGIN: "agent:login",
@@ -23,6 +24,8 @@ export const SOCKET_EVENTS = {
   CALL_REJECT: "call:reject",
   CALL_CANCEL: "call:cancel",
   CALL_END: "call:end",
+  CALL_HEARTBEAT: "call:heartbeat", // Periodic heartbeat during active call
+  CALL_RECONNECT: "call:reconnect", // Client requesting to reconnect to an interrupted call
   WEBRTC_SIGNAL: "webrtc:signal",
   
   // Co-browsing (Widget -> Server -> Dashboard)
@@ -34,9 +37,13 @@ export const SOCKET_EVENTS = {
   // Server -> Widget
   AGENT_ASSIGNED: "agent:assigned",
   AGENT_REASSIGNED: "agent:reassigned",
+  AGENT_UNAVAILABLE: "agent:unavailable", // No agent available, but sends widget settings for trigger_delay tracking
   CALL_ACCEPTED: "call:accepted",
   CALL_REJECTED: "call:rejected",
   CALL_ENDED: "call:ended",
+  CALL_RECONNECTING: "call:reconnecting", // Server restart detected, attempting reconnect
+  CALL_RECONNECTED: "call:reconnected", // Both parties reconnected successfully
+  CALL_RECONNECT_FAILED: "call:reconnect_failed", // Reconnect timed out or failed
   
   // Server -> Dashboard
   LOGIN_SUCCESS: "login:success",
@@ -77,6 +84,12 @@ export const TIMING = {
   RNA_TIMEOUT: 15_000,
   /** Agent idle timeout before auto-away */
   AGENT_IDLE_TIMEOUT: 5 * 60 * 1000, // 5 minutes
+  /** Call reconnect timeout - both parties must reconnect within this time */
+  CALL_RECONNECT_TIMEOUT: 30_000, // 30 seconds
+  /** Call heartbeat interval - how often to send heartbeat during active call */
+  CALL_HEARTBEAT_INTERVAL: 10_000, // 10 seconds
+  /** Max age for orphaned calls to be considered for recovery */
+  ORPHANED_CALL_MAX_AGE: 60, // 60 seconds
 } as const;
 
 /** Error codes */

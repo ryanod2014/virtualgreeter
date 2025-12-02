@@ -13,6 +13,8 @@ export async function recordPageview(data: {
   orgId: string;
   pageUrl: string;
   poolId?: string | null;
+  visitorCountryCode?: string | null;
+  triggerDelaySeconds?: number; // Widget trigger delay when this pageview was recorded
 }): Promise<string | null> {
   if (!isSupabaseConfigured || !supabase) {
     console.log("[PageviewLogger] Supabase not configured, skipping pageview log");
@@ -48,6 +50,7 @@ export async function recordPageview(data: {
         visitor_id: data.visitorId,
         page_url: data.pageUrl,
         agent_id: data.agentId, // Can be null - indicates no agent was available
+        visitor_country_code: data.visitorCountryCode ?? null,
       })
       .select("id")
       .single();

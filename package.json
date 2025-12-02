@@ -8,7 +8,9 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "clean": "turbo clean",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "test:watch": "pnpm --filter=@ghost-greeter/server test:watch"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

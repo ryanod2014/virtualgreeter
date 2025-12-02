@@ -189,7 +189,10 @@ NEXT_PUBLIC_WIDGET_CDN_URL=https://your-railway-url.railway.app/widget.js
 
 # Stripe (add when ready)
 STRIPE_SECRET_KEY=sk_test_xxx
-STRIPE_SEAT_PRICE_ID=price_xxx
+# Price IDs for each billing frequency
+STRIPE_MONTHLY_PRICE_ID=price_monthly_xxx
+STRIPE_ANNUAL_PRICE_ID=price_annual_xxx
+STRIPE_SIX_MONTH_PRICE_ID=price_six_month_xxx
 STRIPE_WEBHOOK_SECRET=whsec_xxx
 
 # Email (add when ready)
@@ -284,7 +287,9 @@ For customer websites, you'll need to add their domains or use a wildcard strate
 | `NEXT_PUBLIC_SIGNALING_SERVER` | Yes | Railway server URL |
 | `NEXT_PUBLIC_WIDGET_CDN_URL` | Yes | Widget JS file URL |
 | `STRIPE_SECRET_KEY` | For billing | Stripe secret key |
-| `STRIPE_SEAT_PRICE_ID` | For billing | Stripe price ID |
+| `STRIPE_MONTHLY_PRICE_ID` | For billing | Monthly plan price ID ($297/seat/mo) |
+| `STRIPE_ANNUAL_PRICE_ID` | For billing | Annual plan price ID ($2,316/seat/yr) |
+| `STRIPE_SIX_MONTH_PRICE_ID` | For billing | 6-month plan price ID ($1,068/seat/6mo) |
 | `STRIPE_WEBHOOK_SECRET` | For billing | Stripe webhook secret |
 | `RESEND_API_KEY` | For emails | Resend API key |
 | `RESEND_FROM_EMAIL` | For emails | Sender email address |

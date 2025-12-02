@@ -42,6 +42,7 @@ import {
   type CallLogForStats,
   type DispositionForStats,
 } from "@/lib/stats/agent-stats";
+import { type HourlyStats } from "@/lib/stats/coverage-stats";
 import { DateRangePicker } from "@/lib/components/date-range-picker";
 import { MultiSelectDropdown } from "@/lib/components/multi-select-dropdown";
 import { CountrySelector } from "@/lib/components/country-selector";
@@ -120,6 +121,7 @@ interface Props {
   };
   pageviewCount: number;
   coverageStats: CoverageStats;
+  hourlyCoverage: HourlyStats[];
 }
 
 export function CallsClient({
@@ -132,6 +134,7 @@ export function CallsClient({
   teamActivity,
   pageviewCount,
   coverageStats,
+  hourlyCoverage,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -668,119 +671,115 @@ export function CallsClient({
         )}
       </div>
 
-      {/* MISSED OPPORTUNITIES ALERT */}
-      {coverageStats.missedOpportunities > 0 && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 mb-6 hover-lift">
-          <div className="flex items-start justify-between gap-6 flex-wrap">
-            <div className="flex items-start gap-4">
-              <div className="p-3 rounded-xl bg-amber-500/10">
+      {/* Coverage Card - Shows visitor coverage based on agent availability */}
+      <div className={`rounded-2xl p-6 mb-6 hover-lift border ${
+        coverageStats.missedOpportunities > 0 
+          ? "bg-amber-500/10 border-amber-500/30" 
+          : "bg-primary/10 border-primary/30"
+      }`}>
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="flex items-start gap-4">
+            <div className={`p-3 rounded-xl ${
+              coverageStats.missedOpportunities > 0 
+                ? "bg-amber-500/10" 
+                : "bg-primary/10"
+            }`}>
+              {coverageStats.missedOpportunities > 0 ? (
                 <AlertTriangle className="w-7 h-7 text-amber-500" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold mb-1">
-                  {coverageStats.missedOpportunities} Missed Opportunities
-                </h3>
-                <p className="text-muted-foreground mb-3 max-w-xl">
-                  <span className="font-semibold text-foreground">{coverageStats.missedOpportunities} visitors</span> wanted to connect but no agents were online.
-                </p>
-                
-                {/* Coverage breakdown */}
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Eye className="w-4 h-4 text-muted-foreground" />
-                    <span>{pageviewCount} total visitors</span>
-                  </div>
-                  <div className="w-px h-4 bg-border" />
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-primary" />
-                    <span>{coverageStats.pageviewsWithAgent} had agent available</span>
-                  </div>
-                  <div className="w-px h-4 bg-border" />
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-foreground">
-                      {coverageStats.coverageRate.toFixed(0)}% coverage
-                    </span>
-                  </div>
-                </div>
-              </div>
+              ) : (
+                <CheckCircle className="w-7 h-7 text-primary" />
+              )}
             </div>
-            
-            {/* CTA */}
+            <div>
+              <h3 className="text-xl font-bold mb-1">
+                {coverageStats.missedOpportunities > 0 
+                  ? `${coverageStats.missedOpportunities} Missed Opportunities`
+                  : "Full Coverage"
+                }
+              </h3>
+              <p className="text-muted-foreground mb-3 max-w-xl">
+                {coverageStats.missedOpportunities > 0 ? (
+                  <>
+                    <span className="font-semibold text-foreground">{coverageStats.missedOpportunities} visitors</span> arrived when no agent was available — either offline or all agents were busy on other calls.
+                  </>
+                ) : (
+                  <>Every visitor had at least one agent available to take their call.</>
+                )}
+              </p>
+              
+              {/* Coverage breakdown - visual stats */}
+              <div className="flex items-center gap-4 text-sm flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-muted-foreground" />
+                  <span><span className="font-semibold">{pageviewCount}</span> visitors</span>
+                </div>
+                <div className="w-px h-4 bg-border hidden sm:block" />
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" />
+                  <span><span className="font-semibold text-primary">{coverageStats.pageviewsWithAgent}</span> had agent available</span>
+                </div>
+                {coverageStats.missedOpportunities > 0 && (
+                  <>
+                    <div className="w-px h-4 bg-border hidden sm:block" />
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      <span><span className="font-semibold text-amber-500">{coverageStats.missedOpportunities}</span> no agent</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              {/* Explainer text */}
+              <p className="text-xs text-muted-foreground mt-3 max-w-lg">
+                💡 <span className="font-medium">How this works:</span> When a visitor lands on your site, they&apos;re assigned to an available agent. 
+                If all agents are offline or busy in calls, that&apos;s a missed opportunity — they couldn&apos;t connect even if they wanted to.
+              </p>
+            </div>
+          </div>
+          
+          {/* CTA */}
+          {coverageStats.missedOpportunities > 0 ? (
             <Link
               href="/admin/agents"
-              className="group inline-flex items-center gap-3 px-6 py-3 rounded-full bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/30"
+              className="group inline-flex items-center gap-3 px-6 py-3 rounded-full bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-all hover:shadow-xl hover:shadow-amber-500/30"
             >
               <UserPlus className="w-5 h-5" />
               Add More Agents
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
-          </div>
-          
-          {/* Progress bar showing coverage */}
-          <div className="mt-4">
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-muted-foreground">Coverage Rate</span>
-              <span className="font-medium text-foreground">
-                {coverageStats.coverageRate.toFixed(1)}%
-              </span>
-            </div>
-            <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
-              <div 
-                className="h-full rounded-full transition-all bg-gradient-to-r from-primary to-purple-500"
-                style={{ width: `${coverageStats.coverageRate}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Coverage Rate - Hero Card */}
-      <div className="bg-muted/30 border border-border/50 rounded-xl p-6 mb-6 hover-lift">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-primary/10 text-primary">
-              <TrendingUp className="w-7 h-7" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground mb-1">Coverage Rate</div>
-              <div className="text-4xl font-bold text-foreground">
-                {coverageStats.coverageRate.toFixed(1)}%
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold">{pageviewCount}</div>
-              <div className="text-xs text-muted-foreground">Total Pageviews</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{coverageStats.pageviewsWithAgent}</div>
-              <div className="text-xs text-muted-foreground">Widget Popups</div>
-            </div>
-            <div className="text-center">
-              <div className={`text-2xl font-bold ${coverageStats.missedOpportunities > 0 ? "text-amber-500" : "text-muted-foreground"}`}>
-                {coverageStats.missedOpportunities}
-              </div>
-              <div className="text-xs text-muted-foreground">Missed Leads</div>
-            </div>
-          </div>
-          {coverageStats.coverageRate < 80 ? (
-            <Link
-              href="/admin/agents"
-              className="group inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-all"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add More Agents
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
           ) : (
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-medium">
-              <CheckCircle className="w-4 h-4" />
-              All visitors covered
+            <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-primary/10 text-primary font-semibold">
+              <TrendingUp className="w-5 h-5" />
+              Great Coverage!
             </div>
           )}
         </div>
+        
+        {/* Progress bar showing coverage */}
+        <div className="mt-5">
+          <div className="flex justify-between text-xs mb-1.5">
+            <span className="text-muted-foreground font-medium">Coverage Rate</span>
+            <span className={`font-bold ${coverageStats.missedOpportunities > 0 ? "text-amber-500" : "text-primary"}`}>
+              {coverageStats.coverageRate.toFixed(1)}%
+            </span>
+          </div>
+          <div className="h-2.5 bg-muted/50 rounded-full overflow-hidden">
+            <div 
+              className={`h-full rounded-full transition-all ${
+                coverageStats.missedOpportunities > 0 
+                  ? "bg-gradient-to-r from-amber-500 to-orange-500" 
+                  : "bg-gradient-to-r from-primary to-purple-500"
+              }`}
+              style={{ width: `${coverageStats.coverageRate}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-xs mt-1.5 text-muted-foreground">
+            <span>0%</span>
+            <span>100% of visitors covered</span>
+          </div>
+        </div>
       </div>
+
 
       {/* Call Stats Grid - 2 rows of 5 cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
@@ -1316,4 +1315,5 @@ function CallLogRow({
     </>
   );
 }
+
 

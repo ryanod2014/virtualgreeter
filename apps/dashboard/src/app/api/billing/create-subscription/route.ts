@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe, SEAT_PRICE_ID } from "@/lib/stripe";
+import { stripe, getPriceIdForFrequency } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     const { data: org } = await supabase
       .from("organizations")
-      .select("stripe_customer_id, stripe_subscription_id, name")
+      .select("stripe_customer_id, stripe_subscription_id, name, subscription_status")
       .eq("id", userData.organization_id)
       .single();
 
@@ -44,12 +44,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 });
     }
 
-    // Check if already has a subscription
-    if (org.stripe_subscription_id) {
+    // Check if already has an active subscription (allow re-subscribe if cancelled)
+    if (org.stripe_subscription_id && org.subscription_status !== "cancelled") {
       return NextResponse.json({ 
         error: "Subscription already exists",
         subscriptionId: org.stripe_subscription_id 
       }, { status: 400 });
+    }
+
+    // If user was cancelled, clear old subscription IDs before creating new one
+    if (org.subscription_status === "cancelled") {
+      await supabase
+        .from("organizations")
+        .update({ 
+          stripe_subscription_id: null,
+          stripe_subscription_item_id: null 
+        })
+        .eq("id", userData.organization_id);
     }
 
     // Validate billing preference
@@ -106,14 +117,12 @@ export async function POST(request: NextRequest) {
     // Calculate trial end (7 days from now)
     const trialEnd = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60);
 
-    // Determine price ID based on billing preference
-    // TODO: Create separate price IDs in Stripe for annual/6-month plans
-    // For now, using the same price ID (monthly) - adjust pricing in Stripe Dashboard
-    const priceId = SEAT_PRICE_ID;
+    // Get the correct price ID for the selected billing frequency
+    const priceId = getPriceIdForFrequency(billingFrequency as "monthly" | "annual" | "six_month");
     
     if (!priceId) {
       return NextResponse.json({ 
-        error: "Stripe price not configured" 
+        error: `Stripe price not configured for ${billingFrequency} billing` 
       }, { status: 500 });
     }
 
