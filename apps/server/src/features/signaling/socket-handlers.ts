@@ -45,6 +45,7 @@ import { recordPageview } from "../../lib/pageview-logger.js";
 import { getWidgetSettings } from "../../lib/widget-settings.js";
 import { getClientIP, getLocationFromIP } from "../../lib/geolocation.js";
 import { isCountryBlocked } from "../../lib/country-blocklist.js";
+import { trackWidgetView, trackCallStarted } from "../../lib/greetnow-retargeting.js";
 
 // Track RNA (Ring-No-Answer) timeouts
 const rnaTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -204,6 +205,18 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         poolId,
       }).catch(() => {
         // Silently ignore - pageview tracking is best-effort
+      });
+
+      // Track GreetNow retargeting pixel (fire-and-forget, non-blocking)
+      // Only fires for orgs with retargeting enabled
+      trackWidgetView({
+        orgId: visitor.orgId,
+        visitorId: visitor.visitorId,
+        pageUrl: visitor.pageUrl,
+        ipAddress: visitor.ipAddress ?? undefined,
+        userAgent: socket.handshake.headers["user-agent"],
+      }).catch(() => {
+        // Silently ignore - retargeting is best-effort
       });
 
       console.log(`[Socket] 👁️ WIDGET_PAGEVIEW recorded for visitor ${visitor.visitorId}`);
@@ -632,6 +645,19 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
 
       // Notify the visitor
       const visitor = poolManager.getVisitor(request.visitorId);
+
+      // Track GreetNow retargeting pixel for call started (fire-and-forget, non-blocking)
+      // Only fires for orgs with retargeting enabled
+      trackCallStarted({
+        orgId: request.orgId,
+        visitorId: request.visitorId,
+        callId: activeCall.callId,
+        agentId: request.agentId,
+        pageUrl: request.pageUrl,
+        ipAddress: visitor?.ipAddress ?? undefined,
+      }).catch(() => {
+        // Silently ignore - retargeting is best-effort
+      });
       if (visitor) {
         const visitorSocket = io.sockets.sockets.get(visitor.socketId);
         visitorSocket?.emit(SOCKET_EVENTS.CALL_ACCEPTED, {

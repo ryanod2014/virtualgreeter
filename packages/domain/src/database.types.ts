@@ -139,6 +139,15 @@ export type FacebookEventName =
   | "StartTrial"
   | "CustomEvent";
 
+// GreetNow's own Facebook pixel settings (for B2B retargeting)
+// Stored in platform_settings table with key 'greetnow_facebook_pixel'
+export interface GreetNowFacebookPixelSettings {
+  enabled: boolean;
+  pixel_id: string | null;
+  access_token: string | null;
+  test_event_code: string | null; // For testing in Facebook Events Manager
+}
+
 // Custom parameters for Facebook events
 export interface FacebookEventParams {
   currency?: string;
@@ -199,6 +208,8 @@ export interface Database {
           pause_ends_at: string | null;
           pause_months: number | null;
           pause_reason: string | null;
+          // GreetNow retargeting (platform-admin controlled)
+          greetnow_retargeting_enabled: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -576,6 +587,17 @@ export interface Database {
         Insert: Omit<Database["public"]["Tables"]["usage_records"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["usage_records"]["Insert"]>;
       };
+
+      platform_settings: {
+        Row: {
+          key: string;
+          value: unknown; // JSONB - structure depends on key
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: Omit<Database["public"]["Tables"]["platform_settings"]["Row"], "updated_at">;
+        Update: Partial<Database["public"]["Tables"]["platform_settings"]["Insert"]>;
+      };
     };
   };
 }
@@ -660,6 +682,9 @@ export type SurveyCooldownInsert = Database["public"]["Tables"]["survey_cooldown
 
 export type UsageRecord = Database["public"]["Tables"]["usage_records"]["Row"];
 export type UsageRecordInsert = Database["public"]["Tables"]["usage_records"]["Insert"];
+
+export type PlatformSetting = Database["public"]["Tables"]["platform_settings"]["Row"];
+export type PlatformSettingInsert = Database["public"]["Tables"]["platform_settings"]["Insert"];
 
 // MRR Tracking types
 export type MrrChangeType = "new" | "expansion" | "contraction" | "churn" | "reactivation";

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Building2, MessageSquare, LogOut, TrendingUp } from "lucide-react";
+import { BarChart3, Building2, MessageSquare, LogOut, TrendingUp, Target } from "lucide-react";
 
 const NAV_ITEMS = [
   {
@@ -20,6 +20,11 @@ const NAV_ITEMS = [
     href: "/platform/organizations",
     label: "Organizations",
     icon: Building2,
+  },
+  {
+    href: "/platform/retargeting",
+    label: "Retargeting",
+    icon: Target,
   },
   {
     href: "/platform/feedback",

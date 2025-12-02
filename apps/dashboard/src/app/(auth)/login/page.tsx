@@ -37,9 +37,9 @@ export default function LoginPage() {
       return;
     }
 
-    console.log("[Login] Success! Redirecting to dashboard...");
+    console.log("[Login] Success! Redirecting to admin...");
     // Use hard redirect to ensure cookies are properly sent with the request
-    window.location.href = "/dashboard";
+    window.location.href = "/admin";
   };
 
   return (

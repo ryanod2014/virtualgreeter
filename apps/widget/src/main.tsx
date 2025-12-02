@@ -4,7 +4,7 @@ import { getWidgetStyles } from "./widget-styles";
 import { CONFIG_DEFAULTS, ERROR_MESSAGES } from "./constants";
 
 // Widget configuration from script tag or global
-interface GhostGreeterConfig {
+interface GreetNowConfig {
   orgId: string;
   serverUrl?: string;
   position?: "bottom-right" | "bottom-left";
@@ -13,9 +13,15 @@ interface GhostGreeterConfig {
 
 declare global {
   interface Window {
+    GreetNow?: {
+      config?: GreetNowConfig;
+      init?: (config: GreetNowConfig) => void;
+      destroy?: () => void;
+    };
+    // Legacy support for old embed codes
     GhostGreeter?: {
-      config?: GhostGreeterConfig;
-      init?: (config: GhostGreeterConfig) => void;
+      config?: GreetNowConfig;
+      init?: (config: GreetNowConfig) => void;
       destroy?: () => void;
     };
   }
@@ -25,7 +31,7 @@ declare global {
  * Validates widget configuration and returns normalized config with defaults.
  * Throws descriptive errors for invalid configurations.
  */
-function validateConfig(config: unknown): GhostGreeterConfig {
+function validateConfig(config: unknown): GreetNowConfig {
   // Check if config exists and is an object
   if (!config || typeof config !== "object") {
     throw new Error(`${ERROR_MESSAGES.INVALID_CONFIG} Missing configuration object.`);
@@ -77,25 +83,25 @@ function validateConfig(config: unknown): GhostGreeterConfig {
  * Initialize the widget with the given configuration.
  * Creates a Shadow DOM container for style isolation.
  */
-function init(rawConfig: GhostGreeterConfig): void {
+function init(rawConfig: GreetNowConfig): void {
   // Validate configuration
-  let config: GhostGreeterConfig;
+  let config: GreetNowConfig;
   try {
     config = validateConfig(rawConfig);
   } catch (error) {
-    console.error("[Ghost-Greeter]", error instanceof Error ? error.message : "Configuration error");
+    console.error("[GreetNow]", error instanceof Error ? error.message : "Configuration error");
     return;
   }
 
   // Prevent duplicate initialization
-  if (document.getElementById("ghost-greeter-widget")) {
-    console.warn("[Ghost-Greeter] Widget already initialized");
+  if (document.getElementById("greetnow-widget")) {
+    console.warn("[GreetNow] Widget already initialized");
     return;
   }
 
   // Create container
   const container = document.createElement("div");
-  container.id = "ghost-greeter-widget";
+  container.id = "greetnow-widget";
   document.body.appendChild(container);
 
   // Create shadow root for style isolation
@@ -108,41 +114,51 @@ function init(rawConfig: GhostGreeterConfig): void {
 
   // Create render target
   const root = document.createElement("div");
-  root.id = "ghost-greeter-root";
+  root.id = "greetnow-root";
   shadow.appendChild(root);
 
   // Render widget
   render(<Widget config={config} />, root);
 
-  console.log("[Ghost-Greeter] Widget initialized", { orgId: config.orgId, position: config.position });
+  console.log("[GreetNow] Widget initialized", { orgId: config.orgId, position: config.position });
 }
 
 /**
  * Destroy the widget and clean up.
  */
 function destroy(): void {
-  const container = document.getElementById("ghost-greeter-widget");
+  // Check both new and legacy container IDs
+  const container = document.getElementById("greetnow-widget") || document.getElementById("ghost-greeter-widget");
   if (container) {
     container.remove();
-    console.log("[Ghost-Greeter] Widget destroyed");
+    console.log("[GreetNow] Widget destroyed");
   }
 }
 
-// Auto-init if config is already set
-if (window.GhostGreeter?.config) {
+// Auto-init if config is already set (check both new and legacy globals)
+const initialConfig = window.GreetNow?.config || window.GhostGreeter?.config;
+if (initialConfig) {
   // Use requestAnimationFrame to ensure DOM is ready
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
-      if (window.GhostGreeter?.config) {
-        init(window.GhostGreeter.config);
+      const cfg = window.GreetNow?.config || window.GhostGreeter?.config;
+      if (cfg) {
+        init(cfg);
       }
     });
   } else {
-    init(window.GhostGreeter.config);
+    init(initialConfig);
   }
 }
 
-// Expose API
+// Expose API on both new and legacy globals
+window.GreetNow = {
+  ...window.GreetNow,
+  init,
+  destroy,
+};
+
+// Legacy support
 window.GhostGreeter = {
   ...window.GhostGreeter,
   init,
@@ -167,7 +183,7 @@ function processQueue(): void {
     const queue = ggFunc?.q;
     
     if (queue && Array.isArray(queue) && queue.length > 0) {
-      console.log("[Ghost-Greeter] Processing queued commands:", queue.length);
+      console.log("[GreetNow] Processing queued commands:", queue.length);
       
       for (let i = 0; i < queue.length; i++) {
         const args = queue[i];
@@ -176,17 +192,17 @@ function processQueue(): void {
         const command = args[0];
         const config = args[1];
         
-        console.log("[Ghost-Greeter] Queue item:", { command, config });
+        console.log("[GreetNow] Queue item:", { command, config });
         
         if (command === "init" && config) {
-          init(config as GhostGreeterConfig);
+          init(config as GreetNowConfig);
         }
       }
     } else {
-      console.log("[Ghost-Greeter] No queued commands found");
+      console.log("[GreetNow] No queued commands found");
     }
   } catch (e) {
-    console.error("[Ghost-Greeter] Error processing queue:", e);
+    console.error("[GreetNow] Error processing queue:", e);
   }
 
   // Replace the queue function with a real implementation
@@ -195,7 +211,7 @@ function processQueue(): void {
     const config = args[1];
     
     if (command === "init" && config) {
-      init(config as GhostGreeterConfig);
+      init(config as GreetNowConfig);
     } else if (command === "destroy") {
       destroy();
     }

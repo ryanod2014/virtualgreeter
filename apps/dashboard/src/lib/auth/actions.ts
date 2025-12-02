@@ -44,7 +44,7 @@ export async function signIn(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/dashboard");
+  redirect("/admin");
 }
 
 export async function signOut() {

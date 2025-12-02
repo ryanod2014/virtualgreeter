@@ -109,7 +109,7 @@ function ResetPasswordContent() {
 
     // Redirect to dashboard after a short delay
     setTimeout(() => {
-      window.location.href = "/dashboard";
+      window.location.href = "/admin";
     }, 2000);
   };
 
