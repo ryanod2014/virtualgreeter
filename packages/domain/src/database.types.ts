@@ -45,7 +45,7 @@ export type CountryListMode = "blocklist" | "allowlist";
 export type RuleMatchType = "is_exactly" | "contains" | "does_not_contain" | "starts_with" | "ends_with";
 export type RuleConditionType = "domain" | "path" | "query_param";
 
-// Recording settings for organization
+// Call settings for organization (includes recording + call behavior)
 export interface RecordingSettings {
   enabled: boolean;
   retention_days: number;
@@ -54,6 +54,9 @@ export interface RecordingSettings {
   // AI Summary settings (requires transcription)
   ai_summary_enabled: boolean;
   ai_summary_prompt_format: string | null; // User-editable format for AI summaries
+  // Call behavior settings
+  rna_timeout_seconds: number; // Ring-No-Answer timeout (default 15 seconds)
+  max_call_duration_minutes: number; // Maximum call duration (default 120 minutes / 2 hours)
 }
 
 // Pricing constants (2x API costs)
