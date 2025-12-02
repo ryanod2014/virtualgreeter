@@ -318,6 +318,7 @@ export interface CallRejectedPayload {
 export interface CallEndedPayload {
   callId: string;
   reason: "agent_ended" | "visitor_ended" | "timeout" | "error" | "reconnect_failed" | "max_duration";
+  message?: string;
 }
 
 /** Server notifying that a call is being reconnected */
