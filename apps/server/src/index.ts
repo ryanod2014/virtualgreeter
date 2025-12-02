@@ -1,4 +1,5 @@
 import "dotenv/config";
+// Infrastructure v2: Redis, health checks, rate limiting
 import * as Sentry from "@sentry/node";
 import express from "express";
 import { createServer } from "http";
