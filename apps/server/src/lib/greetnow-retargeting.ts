@@ -13,7 +13,7 @@
 
 import crypto from "crypto";
 import { supabase, isSupabaseConfigured } from "./supabase.js";
-import type { GreetNowFacebookPixelSettings } from "@ghost-greeter/domain";
+import type { GreetNowFacebookPixelSettings } from "@ghost-greeter/domain/database.types";
 
 const FB_CAPI_URL = "https://graph.facebook.com/v18.0";
 

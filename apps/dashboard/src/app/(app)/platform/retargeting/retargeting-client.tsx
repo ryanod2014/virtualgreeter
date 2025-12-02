@@ -15,7 +15,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { GreetNowFacebookPixelSettings, SubscriptionPlan, SubscriptionStatus } from "@ghost-greeter/domain";
+import type { GreetNowFacebookPixelSettings, SubscriptionPlan, SubscriptionStatus } from "@ghost-greeter/domain/database.types";
 
 interface OrgWithStats {
   id: string;

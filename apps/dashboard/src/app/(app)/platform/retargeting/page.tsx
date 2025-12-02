@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { RetargetingClient } from "./retargeting-client";
-import type { GreetNowFacebookPixelSettings } from "@ghost-greeter/domain";
+import type { GreetNowFacebookPixelSettings } from "@ghost-greeter/domain/database.types";
 
 export default async function PlatformRetargetingPage() {
   const supabase = await createClient();
