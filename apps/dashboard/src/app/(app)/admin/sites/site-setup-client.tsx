@@ -40,24 +40,45 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customHideDelay, setCustomHideDelay] = useState<string>("");
   const [showCustomHideInput, setShowCustomHideInput] = useState(false);
-  const [isVerified, setIsVerified] = useState(initialEmbedVerified);
-  const [verifiedDomain, setVerifiedDomain] = useState<string | null>(initialVerifiedDomain);
+  // Widget is verified if either embed_verified_at is set OR we have detected pageviews
+  const [isVerified, setIsVerified] = useState(initialEmbedVerified || detectedSites.length > 0);
+  const [verifiedDomain, setVerifiedDomain] = useState<string | null>(initialVerifiedDomain || (detectedSites.length > 0 ? detectedSites[0].domain : null));
   const supabase = createClient();
 
   // Poll for verification status every 5 seconds until verified
+  // Also check for new pageviews as an alternative verification method
   useEffect(() => {
     if (isVerified) return;
     
     const checkVerification = async () => {
-      const { data } = await supabase
-        .from("organizations")
-        .select("embed_verified_at, embed_verified_domain")
-        .eq("id", organizationId)
-        .single();
+      // Check both embed_verified_at flag AND pageviews
+      const [orgResult, pageviewsResult] = await Promise.all([
+        supabase
+          .from("organizations")
+          .select("embed_verified_at, embed_verified_domain")
+          .eq("id", organizationId)
+          .single(),
+        supabase
+          .from("widget_pageviews")
+          .select("page_url")
+          .eq("organization_id", organizationId)
+          .limit(1)
+      ]);
       
-      if (data?.embed_verified_at) {
+      // Verified if we have the flag OR any pageviews exist
+      if (orgResult.data?.embed_verified_at) {
         setIsVerified(true);
-        setVerifiedDomain(data.embed_verified_domain);
+        setVerifiedDomain(orgResult.data.embed_verified_domain);
+      } else if (pageviewsResult.data && pageviewsResult.data.length > 0) {
+        // Extract domain from first pageview
+        try {
+          const url = new URL(pageviewsResult.data[0].page_url);
+          setIsVerified(true);
+          setVerifiedDomain(url.origin);
+        } catch {
+          setIsVerified(true);
+          setVerifiedDomain(null);
+        }
       }
     };
     

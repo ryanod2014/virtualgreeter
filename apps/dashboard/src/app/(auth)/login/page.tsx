@@ -37,9 +37,21 @@ export default function LoginPage() {
       return;
     }
 
-    console.log("[Login] Success! Redirecting to admin...");
+    console.log("[Login] Success! Checking user role...");
+    
+    // Check user's role to determine redirect destination
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+    
+    const isAdmin = profile?.role === "admin";
+    const redirectUrl = isAdmin ? "/admin" : "/dashboard";
+    
+    console.log("[Login] Redirecting to:", redirectUrl, "isAdmin:", isAdmin);
     // Use hard redirect to ensure cookies are properly sent with the request
-    window.location.href = "/admin";
+    window.location.href = redirectUrl;
   };
 
   return (

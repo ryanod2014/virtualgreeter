@@ -35,7 +35,7 @@ export async function signIn(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
@@ -44,7 +44,15 @@ export async function signIn(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/admin");
+  // Check user's role to determine redirect destination
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", data.user.id)
+    .single();
+
+  const isAdmin = profile?.role === "admin";
+  redirect(isAdmin ? "/admin" : "/dashboard");
 }
 
 export async function signOut() {

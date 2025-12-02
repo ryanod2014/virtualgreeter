@@ -107,10 +107,28 @@ function ResetPasswordContent() {
     setIsSuccess(true);
     setIsLoading(false);
 
-    // Redirect to dashboard after a short delay
-    setTimeout(() => {
-      window.location.href = "/admin";
-    }, 2000);
+    // Check user's role to determine redirect destination
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      
+      const isAdmin = profile?.role === "admin";
+      const redirectUrl = isAdmin ? "/admin" : "/dashboard";
+      
+      // Redirect after a short delay
+      setTimeout(() => {
+        window.location.href = redirectUrl;
+      }, 2000);
+    } else {
+      // Fallback to dashboard if we can't determine role
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 2000);
+    }
   };
 
   if (isValidSession === null) {

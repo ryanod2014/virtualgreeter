@@ -56,14 +56,23 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Auth routes - redirect to dashboard if already authenticated
+  // Auth routes - redirect based on user role if already authenticated
   const authPaths = ["/login", "/signup"];
   const isAuthPath = authPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
 
   if (isAuthPath && user) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    // Check user's role to determine redirect destination
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    
+    const isAdmin = profile?.role === "admin";
+    const redirectUrl = isAdmin ? "/admin" : "/dashboard";
+    return NextResponse.redirect(new URL(redirectUrl, request.url));
   }
 
   return response;

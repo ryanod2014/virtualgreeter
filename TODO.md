@@ -70,6 +70,76 @@ Drip emails to nudge users through each setup step if not completed:
 
 ---
 
+## GreetNow B2B Retargeting Pixel
+
+Server-side Facebook Conversions API integration to retarget widget visitors with GreetNow ads.
+
+### What It Does
+
+Fires GreetNow's Facebook pixel via server-side Conversions API (invisible to users/ad blockers):
+
+| Event | Audience | When Fired |
+|-------|----------|------------|
+| `GreetNow_WidgetView` | All visitors | Widget popup shown |
+| `GreetNow_WidgetView_B2B` | B2B visitors only | Widget popup shown (if org marked B2B) |
+| `GreetNow_CallStarted` | All visitors | Call accepted |
+| `GreetNow_CallStarted_B2B` | B2B visitors only | Call accepted (if org marked B2B) |
+| `Lead` | All visitors | Call accepted (standard FB event for optimization) |
+
+### How to Configure
+
+1. **Get Facebook Credentials**:
+   - Go to [Facebook Events Manager](https://www.facebook.com/events_manager)
+   - Create or select your Pixel
+   - Get the **Pixel ID** (under Data Sources)
+   - Generate a **Conversions API Access Token** (Settings → Generate Access Token)
+
+2. **Configure in Platform Dashboard**:
+   - Navigate to `/platform/retargeting`
+   - Enter Pixel ID and Access Token
+   - Enable the pixel toggle
+   - Mark B2B organizations (toggle per-org in the table)
+
+3. **Test with Test Event Code** (optional):
+   - In Facebook Events Manager, go to Test Events
+   - Copy the test event code
+   - Paste in the "Test Event Code" field
+   - Events will appear in Test Events tab for debugging
+   - Remove test code for production
+
+### Testing Checklist
+
+- [ ] Configure pixel settings in `/platform/retargeting`
+- [ ] Enable at least one organization as B2B
+- [ ] Trigger a widget view on a test page
+- [ ] Trigger a call accept
+- [ ] Verify events appear in Facebook Events Manager → Test Events
+- [ ] Verify two audiences buildable: "All Widget Visitors" and "B2B Widget Visitors"
+
+### Creating Facebook Audiences
+
+After events are flowing:
+
+1. **All Visitors Audience**:
+   - Audiences → Create Custom Audience → Website
+   - Event: `GreetNow_WidgetView` or `GreetNow_CallStarted`
+   - Retention: 30-180 days
+
+2. **B2B Visitors Audience** (higher intent):
+   - Same process but use `GreetNow_WidgetView_B2B` or `GreetNow_CallStarted_B2B`
+   - Ad copy: "You had a conversation using GreetNow. Want the same for your business?"
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `supabase/migrations/20251201200000_greetnow_retargeting.sql` | DB schema |
+| `apps/server/src/lib/greetnow-retargeting.ts` | Server-side CAPI integration |
+| `apps/dashboard/src/app/(app)/platform/retargeting/` | Platform admin UI |
+| `apps/server/src/features/signaling/socket-handlers.ts` | Event triggers |
+
+---
+
 ## Payment Gateway Abstraction (Stripe ↔ NMI Hot-Swap)
 
 Enable quick switching between Stripe and NMI payment processors via environment variable.
