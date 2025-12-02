@@ -6,6 +6,7 @@ import {
   Video,
   Play,
   Square,
+  Pause,
   Check,
   ArrowRight,
   ArrowLeft,
@@ -265,6 +266,10 @@ export default function VideosPage() {
   // Get example video URL (falls back to agent's existing videos)
   const getExampleWaveUrl = () => {
     return selectedPool?.example_wave_video_url || selectedPool?.wave_video_url || null;
+  };
+
+  const getExampleIntroUrl = () => {
+    return selectedPool?.example_intro_video_url || selectedPool?.intro_video_url || null;
   };
 
   const getExampleLoopUrl = () => {
@@ -571,34 +576,36 @@ export default function VideosPage() {
 
         {/* Progress Steps - only show when recording */}
         {!["loading", "pool-select", "has-videos"].includes(stage) && (
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <ProgressStep 
-              step={1} 
-              label="Wave" 
-              active={stage.includes("mimic")} 
-              completed={recordedVideos.mimic !== null && !stage.includes("mimic")} 
-            />
-            <div className="w-8 h-px bg-border/50" />
-            <ProgressStep 
-              step={2} 
-              label="Speak" 
-              active={stage.includes("script")} 
-              completed={recordedVideos.script !== null && !stage.includes("script")} 
-            />
-            <div className="w-8 h-px bg-border/50" />
-            <ProgressStep 
-              step={3} 
-              label="Smile" 
-              active={stage.includes("smile")} 
-              completed={recordedVideos.smile !== null && !stage.includes("smile")} 
-            />
-            <div className="w-8 h-px bg-border/50" />
-            <ProgressStep 
-              step={4} 
-              label="Done" 
-              active={stage === "review" || stage === "uploading" || stage === "complete"} 
-              completed={stage === "complete"} 
-            />
+          <div className="mb-8">
+            <div className="flex items-center justify-center max-w-md mx-auto">
+              <ProgressStep 
+                step={1} 
+                label="Wave" 
+                active={stage.includes("mimic")} 
+                completed={recordedVideos.mimic !== null && !stage.includes("mimic")} 
+              />
+              <ProgressConnector completed={recordedVideos.mimic !== null && !stage.includes("mimic")} />
+              <ProgressStep 
+                step={2} 
+                label="Speak" 
+                active={stage.includes("script")} 
+                completed={recordedVideos.script !== null && !stage.includes("script")} 
+              />
+              <ProgressConnector completed={recordedVideos.script !== null && !stage.includes("script")} />
+              <ProgressStep 
+                step={3} 
+                label="Smile" 
+                active={stage.includes("smile")} 
+                completed={recordedVideos.smile !== null && !stage.includes("smile")} 
+              />
+              <ProgressConnector completed={recordedVideos.smile !== null && !stage.includes("smile")} />
+              <ProgressStep 
+                step={4} 
+                label="Done" 
+                active={stage === "review" || stage === "uploading" || stage === "complete"} 
+                completed={stage === "complete"} 
+              />
+            </div>
           </div>
         )}
 
@@ -969,19 +976,32 @@ export default function VideosPage() {
             <div className="text-center">
               <h2 className="text-2xl font-bold mb-4">Part 2: Say Your Script</h2>
               <p className="text-muted-foreground mb-6">
-                Read the script below naturally, like you're talking to a real visitor
+                {getExampleIntroUrl() 
+                  ? "Watch the example, then record yourself saying the script!"
+                  : "Read the script below naturally, like you're talking to a real visitor"}
               </p>
-              <div className="max-w-2xl mx-auto mb-6">
-                <div className="text-sm font-medium text-muted-foreground mb-2 text-left">Your Camera</div>
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
-                  <video
-                    ref={webcamRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover scale-x-[-1]"
-                  />
+              <div className={`grid ${getExampleIntroUrl() ? "grid-cols-2" : "grid-cols-1 max-w-2xl mx-auto"} gap-6 mb-6`}>
+                <div className="text-left">
+                  <div className="text-sm font-medium text-muted-foreground mb-2">Your Camera</div>
+                  <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
+                    <video
+                      ref={webcamRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover scale-x-[-1]"
+                    />
+                  </div>
                 </div>
+                {getExampleIntroUrl() && (
+                  <div className="text-left">
+                    <div className="text-sm font-medium text-muted-foreground mb-2">Example (click to play)</div>
+                    <VideoWithPlayButton 
+                      src={getExampleIntroUrl()!} 
+                      className="aspect-video rounded-xl overflow-hidden bg-black"
+                    />
+                  </div>
+                )}
               </div>
               <div className="max-w-lg mx-auto p-6 rounded-2xl bg-primary/10 border border-primary/30 mb-6">
                 <div className="flex items-center gap-2 text-primary mb-3">
@@ -1075,9 +1095,11 @@ export default function VideosPage() {
             <div className="text-center">
               <h2 className="text-2xl font-bold mb-4">Review Your Script</h2>
               <p className="text-muted-foreground mb-6">
-                Make sure you're happy with how you delivered the script
+                {getExampleIntroUrl() 
+                  ? "Compare your recording with the example. Happy with it?"
+                  : "Make sure you're happy with how you delivered the script"}
               </p>
-              <div className="grid grid-cols-1 gap-6 mb-6 max-w-2xl mx-auto">
+              <div className={`grid ${getExampleIntroUrl() ? "grid-cols-2" : "grid-cols-1 max-w-2xl mx-auto"} gap-6 mb-6 max-w-4xl mx-auto`}>
                 <div className="text-left">
                   <div className="text-sm font-medium text-muted-foreground mb-2">Your Recording</div>
                   <VideoWithPlayButton 
@@ -1085,8 +1107,17 @@ export default function VideosPage() {
                     className="aspect-video rounded-xl overflow-hidden bg-black"
                   />
                 </div>
+                {getExampleIntroUrl() && (
+                  <div className="text-left">
+                    <div className="text-sm font-medium text-muted-foreground mb-2">Example</div>
+                    <VideoWithPlayButton 
+                      src={getExampleIntroUrl()!} 
+                      className="aspect-video rounded-xl overflow-hidden bg-black"
+                    />
+                  </div>
+                )}
               </div>
-              <div className="max-w-lg mx-auto p-4 rounded-xl bg-muted/50 mb-6">
+              <div className="max-w-lg mx-auto p-4 rounded-xl bg-muted/30 border border-border/50 mb-6">
                 <div className="text-sm text-muted-foreground">Script you should have said:</div>
                 <p className="font-medium mt-1">"{selectedPool.intro_script}"</p>
               </div>
@@ -1366,23 +1397,16 @@ export default function VideosPage() {
           {/* Uploading */}
           {stage === "uploading" && (
             <div className="text-center py-12">
-              <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6 relative">
-                <Loader2 className="w-10 h-10 text-primary animate-spin" />
-                <div className="absolute inset-0 rounded-full border-4 border-primary/20 animate-pulse" />
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Uploading Your Videos</h2>
-              <p className="text-muted-foreground mb-6">This will only take a moment...</p>
+              <Loader2 className="w-16 h-16 text-primary animate-spin mx-auto mb-6" />
+              <h2 className="text-2xl font-bold mb-4">Uploading Your Videos</h2>
               <div className="max-w-md mx-auto">
-                <div className="h-3 bg-muted/50 rounded-full overflow-hidden mb-3 shadow-inner">
+                <div className="h-3 bg-muted rounded-full overflow-hidden mb-2">
                   <div 
-                    className="h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-primary via-purple-500 to-primary bg-[length:200%_100%] animate-gradient-x"
+                    className="h-full bg-primary transition-all duration-300 ease-out"
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-2xl font-bold text-foreground">{uploadProgress}%</span>
-                  <span className="text-muted-foreground">complete</span>
-                </div>
+                <p className="text-muted-foreground">{uploadProgress}% complete</p>
               </div>
             </div>
           )}
@@ -1432,21 +1456,32 @@ function ProgressStep({ step, label, active, completed }: {
   completed: boolean; 
 }) {
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-1.5">
       <div
-        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
+        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
           completed
-            ? "bg-green-500 text-white shadow-lg shadow-green-500/30"
+            ? "bg-primary text-primary-foreground"
             : active
-            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
-            : "bg-muted/50 border border-border/50 text-muted-foreground"
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted/30 border border-border/50 text-muted-foreground"
         }`}
       >
-        {completed ? <Check className="w-5 h-5" /> : step}
+        {completed ? <Check className="w-4 h-4" /> : step}
       </div>
-      <span className={`text-xs font-medium ${active || completed ? "text-foreground" : "text-muted-foreground"}`}>
+      <span className={`text-[11px] font-medium ${active || completed ? "text-foreground" : "text-muted-foreground"}`}>
         {label}
       </span>
+    </div>
+  );
+}
+
+// Progress Connector Component
+function ProgressConnector({ completed }: { completed: boolean }) {
+  return (
+    <div className="flex-1 h-0.5 mx-2 mb-5 rounded-full overflow-hidden bg-border/30">
+      <div 
+        className={`h-full transition-all duration-500 ${completed ? "w-full bg-primary" : "w-0 bg-primary"}`}
+      />
     </div>
   );
 }
@@ -1613,7 +1648,7 @@ function VideoPreviewCard({
                 className="absolute inset-0 opacity-0 hover:opacity-100 flex items-center justify-center bg-black/20 transition-opacity"
               >
                 <div className="w-16 h-16 rounded-full bg-white/80 flex items-center justify-center">
-                  <Square className="w-7 h-7 text-black" fill="currentColor" />
+                  <Pause className="w-7 h-7 text-black" fill="currentColor" />
                 </div>
               </button>
             )}
@@ -1703,7 +1738,7 @@ function VideoWithPlayButton({
           className="absolute inset-0 opacity-0 hover:opacity-100 flex items-center justify-center bg-black/20 transition-opacity"
         >
           <div className="w-16 h-16 rounded-full bg-white/80 flex items-center justify-center">
-            <Square className="w-7 h-7 text-black" fill="currentColor" />
+            <Pause className="w-7 h-7 text-black" fill="currentColor" />
           </div>
         </button>
       )}
