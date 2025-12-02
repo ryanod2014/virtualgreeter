@@ -1,4 +1,5 @@
 import "dotenv/config";
+import * as Sentry from "@sentry/node";
 import express from "express";
 import { createServer } from "http";
 import cors from "cors";
@@ -12,6 +13,16 @@ import type {
   ServerToWidgetEvents,
   ServerToDashboardEvents,
 } from "@ghost-greeter/domain";
+
+// Initialize Sentry for error tracking
+if (process.env["SENTRY_DSN"]) {
+  Sentry.init({
+    dsn: process.env["SENTRY_DSN"],
+    environment: process.env["NODE_ENV"] ?? "development",
+    tracesSampleRate: 1.0,
+  });
+  console.log("🔍 Sentry error tracking enabled");
+}
 
 const PORT = process.env["PORT"] ?? 3001;
 // CORS configuration
@@ -154,5 +165,16 @@ process.on("SIGTERM", () => {
     console.log("Server closed");
     process.exit(0);
   });
+});
+
+// Global error handlers for Sentry
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
+  Sentry.captureException(error);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled Rejection:", reason);
+  Sentry.captureException(reason);
 });
 

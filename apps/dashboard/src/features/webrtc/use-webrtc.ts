@@ -28,7 +28,27 @@ interface UseWebRTCReturn {
 
 const ICE_SERVERS = [
   { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:greetnow.metered.live:80" },
+  {
+    urls: "turn:greetnow.metered.live:80?transport=udp",
+    username: "2y_4Rd8ZYSfsejf4FGWkHokoyuqeAi1ks2L9onnugIoW0ZlN",
+    credential: "2y_4Rd8ZYSfsejf4FGWkHokoyuqeAi1ks2L9onnugIoW0ZlN",
+  },
+  {
+    urls: "turn:greetnow.metered.live:80?transport=tcp",
+    username: "2y_4Rd8ZYSfsejf4FGWkHokoyuqeAi1ks2L9onnugIoW0ZlN",
+    credential: "2y_4Rd8ZYSfsejf4FGWkHokoyuqeAi1ks2L9onnugIoW0ZlN",
+  },
+  {
+    urls: "turn:greetnow.metered.live:443?transport=tcp",
+    username: "2y_4Rd8ZYSfsejf4FGWkHokoyuqeAi1ks2L9onnugIoW0ZlN",
+    credential: "2y_4Rd8ZYSfsejf4FGWkHokoyuqeAi1ks2L9onnugIoW0ZlN",
+  },
+  {
+    urls: "turns:greetnow.metered.live:5349?transport=tcp",
+    username: "2y_4Rd8ZYSfsejf4FGWkHokoyuqeAi1ks2L9onnugIoW0ZlN",
+    credential: "2y_4Rd8ZYSfsejf4FGWkHokoyuqeAi1ks2L9onnugIoW0ZlN",
+  },
 ];
 
 export function useWebRTC({
