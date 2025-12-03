@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { CancellationReason, SubscriptionStatus } from "@ghost-greeter/domain/database.types";
+import { stripe } from "@/lib/stripe";
 
 interface SubmitCancellationFeedbackParams {
   organizationId: string;
@@ -86,6 +87,30 @@ export async function pauseAccount(params: PauseAccountParams) {
     throw new Error("Invalid pause duration. Must be 1, 2, or 3 months.");
   }
 
+  // Get organization to check for Stripe subscription
+  const { data: org, error: orgError } = await supabase
+    .from("organizations")
+    .select("stripe_subscription_id")
+    .eq("id", params.organizationId)
+    .single();
+
+  if (orgError) {
+    console.error("Failed to fetch organization:", orgError);
+    throw new Error("Failed to fetch organization");
+  }
+
+  // Pause Stripe subscription FIRST (if Stripe fails, we don't want DB out of sync)
+  if (stripe && org.stripe_subscription_id) {
+    try {
+      await stripe.subscriptions.update(org.stripe_subscription_id, {
+        pause_collection: { behavior: "void" },
+      });
+    } catch (stripeError) {
+      console.error("Failed to pause Stripe subscription:", stripeError);
+      throw new Error("Failed to pause billing. Please try again or contact support.");
+    }
+  }
+
   // Calculate pause end date
   const pausedAt = new Date();
   const pauseEndsAt = new Date();
@@ -124,11 +149,10 @@ export async function pauseAccount(params: PauseAccountParams) {
     // Don't throw - the pause itself succeeded
   }
 
-  // In production, you would also:
-  // 1. Update Stripe subscription (pause or swap to pause price)
-  // 2. Send confirmation email
-  // 3. Schedule reminder email for 7 days before resume
-  // 4. Disable the widget on all sites
+  // TODO: In production, you would also:
+  // 1. Send confirmation email
+  // 2. Schedule reminder email for 7 days before resume
+  // 3. Disable the widget on all sites
 
   revalidatePath("/admin/settings/billing");
 
@@ -149,6 +173,30 @@ interface ResumeAccountParams {
 
 export async function resumeAccount(params: ResumeAccountParams) {
   const supabase = await createClient();
+
+  // Get organization to check for Stripe subscription
+  const { data: org, error: orgError } = await supabase
+    .from("organizations")
+    .select("stripe_subscription_id")
+    .eq("id", params.organizationId)
+    .single();
+
+  if (orgError) {
+    console.error("Failed to fetch organization:", orgError);
+    throw new Error("Failed to fetch organization");
+  }
+
+  // Resume Stripe subscription FIRST (if Stripe fails, we don't want DB out of sync)
+  if (stripe && org.stripe_subscription_id) {
+    try {
+      await stripe.subscriptions.update(org.stripe_subscription_id, {
+        pause_collection: null,
+      });
+    } catch (stripeError) {
+      console.error("Failed to resume Stripe subscription:", stripeError);
+      throw new Error("Failed to resume billing. Please try again or contact support.");
+    }
+  }
 
   // Update organization to active status
   const { error: updateError } = await supabase
@@ -183,10 +231,9 @@ export async function resumeAccount(params: ResumeAccountParams) {
     // Don't throw - the resume itself succeeded
   }
 
-  // In production, you would also:
-  // 1. Resume Stripe subscription or swap back to full price
-  // 2. Send confirmation email
-  // 3. Re-enable widgets on all sites
+  // TODO: In production, you would also:
+  // 1. Send confirmation email
+  // 2. Re-enable widgets on all sites
 
   revalidatePath("/admin/settings/billing");
 
