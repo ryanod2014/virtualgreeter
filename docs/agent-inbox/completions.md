@@ -43,6 +43,14 @@
 - **Files Locking:** `apps/widget/src/features/simulation/VideoSequencer.tsx`, `packages/domain/src/constants.ts`
 - **Notes:** Beginning video analytics implementation
 
+### 2024-12-03 (Dec 3, 2025)
+- **Agent:** Dev Agent FIX-001-v2
+- **Ticket:** FIX-001
+- **Status:** COMPLETE
+- **Branch:** fix/FIX-001-pool-routing
+- **Output:** Branch pushed - https://github.com/ryanod2014/virtualgreeter/pull/new/fix/FIX-001-pool-routing
+- **Notes:** Pool routing now respected during reassignment. Changed `reassignVisitors()` to use `findBestAgentForVisitor(visitor.orgId, visitor.pageUrl)` instead of bare `findBestAgent()`. Server typecheck, tests (65 passed), and build all succeeded.
+
 ---
 
 ## Format for Agents
