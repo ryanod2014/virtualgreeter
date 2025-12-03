@@ -1,0 +1,766 @@
+{
+  "meta": {
+    "last_updated": "2025-12-03",
+    "version": "1.0",
+    "total_tickets": 23
+  },
+  "tickets": [
+    {
+      "id": "TKT-001",
+      "title": "Co-Browse Sensitive Data Sanitization",
+      "priority": "critical",
+      "feature": "Co-Browse (Viewer + Sender)",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "high",
+      "source": "Findings A-cobrowse-viewer #1, #2; V-cobrowse-sender #1",
+      "issue": "Password fields, credit card numbers, and other sensitive data are captured in DOM snapshots and transmitted to agents during co-browse sessions. This exposes plaintext passwords, violates PCI compliance, and creates privacy risks.",
+      "fix_required": [
+        "Mask password fields with ••••••••",
+        "Mask credit card inputs (input[autocomplete='cc-number'], input[type='tel'])",
+        "Mask elements with data-sensitive='true' attribute"
+      ],
+      "files": [
+        "apps/widget/src/features/cobrowse/domSerializer.ts",
+        "apps/widget/src/features/cobrowse/cobrowseSender.ts",
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx"
+      ],
+      "risk_notes": [
+        "If sanitization regex is too aggressive, may mask non-sensitive content",
+        "If sanitization is bypassed, sensitive data leaks to agents",
+        "Must test with various form structures (React forms, vanilla HTML, etc.)"
+      ],
+      "acceptance_criteria": [
+        "Password input values show as •••••••• in agent viewer",
+        "Credit card fields show as masked",
+        "Elements with data-sensitive attribute are masked",
+        "Regular form fields still work correctly",
+        "Unit tests cover sanitization logic"
+      ]
+    },
+    {
+      "id": "TKT-002",
+      "title": "Complete Stripe Subscription Cancellation",
+      "priority": "critical",
+      "feature": "Organization Settings, Cancel Subscription",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "high",
+      "source": "Findings D-organization-settings #1, #2; B-cancel-subscription #1",
+      "issue": "When users cancel their subscription: 1) Code only sets plan='free' in Supabase, 2) Does NOT call Stripe API to cancel, 3) UI says 'access until end of billing period' but access is removed immediately. Customers may continue being charged by Stripe.",
+      "fix_required": [
+        "Call stripe.subscriptions.update({ cancel_at_period_end: true }) when user cancels",
+        "Keep access active until current_period_end from Stripe",
+        "Add webhook handler for customer.subscription.deleted to finalize downgrade"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "apps/dashboard/src/lib/stripe.ts",
+        "apps/server/src/features/webhooks/stripe.ts",
+        "packages/domain/src/database.types.ts"
+      ],
+      "risk_notes": [
+        "If Stripe call fails but DB updates, subscription cancelled locally but still billed",
+        "Need idempotency - user might click cancel multiple times",
+        "Webhook must be verified to prevent spoofing",
+        "Test with Stripe test mode before production"
+      ],
+      "acceptance_criteria": [
+        "Clicking 'Cancel' calls Stripe API with cancel_at_period_end: true",
+        "User retains access until their paid period ends",
+        "After period ends, plan automatically becomes 'free'",
+        "Stripe dashboard shows subscription as 'canceling'",
+        "Webhook properly handles the final cancellation event"
+      ]
+    },
+    {
+      "id": "TKT-003",
+      "title": "Update Cancellation Data Deletion Copy",
+      "priority": "critical",
+      "feature": "Cancel Subscription",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "medium",
+      "source": "Finding B-cancel-subscription #2",
+      "issue": "Cancel modal warns that data will be 'permanently deleted' but actual behavior just downgrades to free - no data is deleted. This is misleading.",
+      "fix_required": [
+        "Update copy to: 'Your data will be retained for 30 days after cancellation, then may be permanently deleted.'"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx"
+      ],
+      "risk_notes": [
+        "Copy change only - low risk",
+        "Should match any terms of service language",
+        "Consider adding actual 30-day cleanup job later (separate ticket)"
+      ],
+      "acceptance_criteria": [
+        "Cancel modal shows updated retention language",
+        "No mention of 'immediate' deletion",
+        "Copy reviewed by stakeholder"
+      ]
+    },
+    {
+      "id": "TKT-004",
+      "title": "Complete Pause Subscription with Stripe Integration",
+      "priority": "critical",
+      "feature": "Pause Subscription",
+      "status": "ready",
+      "difficulty": "hard",
+      "complexity": "high",
+      "risk": "high",
+      "source": "Findings B-pause-subscription #1, #2",
+      "issue": "1) pauseAccount() updates DB but does NOT pause billing in Stripe - customers still charged. 2) No auto-resume when pause_ends_at is reached - subscriptions stay paused forever.",
+      "fix_required": [
+        "Implement Stripe subscription.pause_collection when pausing",
+        "Implement scheduled job to auto-resume when pause period ends",
+        "Add webhook handler for pause/resume events"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "apps/dashboard/src/lib/stripe.ts",
+        "apps/server/src/features/webhooks/stripe.ts",
+        "apps/server/src/features/scheduler/",
+        "supabase/migrations/"
+      ],
+      "risk_notes": [
+        "Stripe pause behavior varies by plan type - test thoroughly",
+        "Auto-resume job must be reliable - missed resume = extended pause",
+        "Race condition possible if user manually resumes while job runs",
+        "Need to handle case where payment fails on resume"
+      ],
+      "acceptance_criteria": [
+        "Pausing account stops Stripe billing",
+        "Resuming account restarts Stripe billing",
+        "Auto-resume triggers at pause_ends_at timestamp",
+        "User receives notification before auto-resume",
+        "Failed payment on resume is handled gracefully",
+        "Widget disabled for paused orgs - visitors see 'temporarily unavailable'",
+        "All agents forced to 'offline' status when org pauses"
+      ]
+    },
+    {
+      "id": "TKT-005",
+      "title": "Payment Failure Blocking + Retry UI",
+      "priority": "critical",
+      "feature": "Payment Failure",
+      "status": "ready",
+      "difficulty": "hard",
+      "complexity": "high",
+      "risk": "high",
+      "source": "Finding B-payment-failure #2",
+      "issue": "When payment fails, users get ZERO feedback: No dashboard notification, No email, No popup, Account continues working as if nothing happened.",
+      "fix_required": [
+        "Add past_due status to TypeScript types",
+        "Create full-screen payment retry modal that blocks app usage",
+        "Add Stripe webhook handler for invoice.payment_failed",
+        "Email notification on payment failure",
+        "Block all dashboard access for admin + agents until resolved",
+        "Force all agents to 'offline' status"
+      ],
+      "files": [
+        "packages/domain/src/database.types.ts",
+        "apps/dashboard/src/components/PaymentBlocker.tsx",
+        "apps/dashboard/src/app/(dashboard)/layout.tsx",
+        "apps/server/src/features/webhooks/stripe.ts",
+        "apps/server/src/lib/email.ts",
+        "apps/dashboard/src/lib/stripe.ts",
+        "apps/server/src/features/agents/agentStatus.ts"
+      ],
+      "risk_notes": [
+        "Blocking too aggressively could frustrate users with temporary card issues",
+        "Need grace period logic (e.g., 3 days before full block)",
+        "Retry flow must handle all Stripe error types",
+        "Must unblock immediately once payment succeeds",
+        "In-progress calls should complete, but no new calls allowed"
+      ],
+      "acceptance_criteria": [
+        "Payment failure triggers past_due status in database",
+        "Full-screen modal appears blocking dashboard access",
+        "Modal includes 'Update Payment Method' button (admin only)",
+        "Agents see read-only modal explaining billing issue - directs them to contact admin",
+        "Email sent to admin on payment failure",
+        "Successful payment immediately unblocks account",
+        "All agents forced to 'offline' status - widget won't show them as available",
+        "Visitors see no available agents (widget shows 'no agents available' or hides)"
+      ]
+    },
+    {
+      "id": "TKT-006",
+      "title": "Fix Middleware Redirect for Unauthenticated Users",
+      "priority": "critical",
+      "feature": "Login Flow / Authentication",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "medium",
+      "source": "Finding AUTH-login-flow #1",
+      "issue": "Middleware code for protected routes has 'if (isProtectedPath && !user) { return }' but no redirect to login page. Unauthenticated users get blank/error page.",
+      "fix_required": [
+        "Complete the redirect logic: if (isProtectedPath && !user) { return NextResponse.redirect(new URL('/login', request.url)) }"
+      ],
+      "files": [
+        "apps/dashboard/middleware.ts"
+      ],
+      "risk_notes": [
+        "Must preserve any existing redirect logic (e.g., callback URLs)",
+        "Test that authenticated users are NOT affected",
+        "Ensure redirect doesn't create infinite loop if /login is misconfigured"
+      ],
+      "acceptance_criteria": [
+        "Visiting /dashboard while logged out redirects to /login",
+        "Visiting any protected path while logged out redirects to /login",
+        "Logged-in users can access protected paths normally",
+        "No redirect loops"
+      ]
+    },
+    {
+      "id": "TKT-017",
+      "title": "Enforce Pool Routing on Visitor Reassignment",
+      "priority": "critical",
+      "feature": "Visitor Reassignment",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "high",
+      "source": "Finding P-visitor-reassignment #1",
+      "issue": "When a visitor is reassigned, findBestAgent() is called WITHOUT the pool ID. A visitor from 'Sales Pool' could be reassigned to 'Support Pool' agent. This defeats pool-based routing.",
+      "fix_required": [
+        "Pass pool ID to findBestAgent() during reassignment",
+        "Visitor should only be reassigned to agents in the same pool"
+      ],
+      "files": [
+        "apps/server/src/features/reassignment/reassignVisitors.ts",
+        "apps/server/src/lib/agentSelection.ts",
+        "apps/server/src/features/calls/callRequest.ts"
+      ],
+      "risk_notes": [
+        "If pool has no available agents, need fallback behavior (queue? error? any-pool?)",
+        "Must test with multi-pool organizations",
+        "Race condition possible if agent goes unavailable mid-reassignment"
+      ],
+      "acceptance_criteria": [
+        "Reassigned visitor stays in original pool",
+        "If no agents in pool, appropriate fallback behavior",
+        "Pool routing rules are logged for debugging",
+        "Unit tests cover pool-aware reassignment"
+      ]
+    },
+    {
+      "id": "TKT-009",
+      "title": "Org-Level Co-Browse Disable Setting",
+      "priority": "high",
+      "feature": "Co-Browse, Organization Settings",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "low",
+      "source": "Finding A-cobrowse-viewer #3",
+      "issue": "Visitors have no control over screen sharing during calls. Co-browse is automatic with no opt-out. May violate privacy expectations or GDPR.",
+      "fix_required": [
+        "Add organization-level setting to enable/disable co-browse feature entirely"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/settings/page.tsx",
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "supabase/migrations/",
+        "apps/widget/src/features/cobrowse/cobrowseSender.ts",
+        "apps/server/src/lib/organization.ts"
+      ],
+      "risk_notes": [
+        "Default should be true (enabled) to maintain current behavior",
+        "Need to handle mid-call disable gracefully"
+      ],
+      "acceptance_criteria": [
+        "Org settings shows 'Enable Co-Browse' toggle",
+        "When disabled, co-browse does not initialize for visitors",
+        "Existing orgs default to enabled",
+        "Setting change takes effect on next call (not mid-call)"
+      ],
+      "feature_inventory_update": true
+    },
+    {
+      "id": "TKT-011",
+      "title": "Email Invite Retry Mechanism",
+      "priority": "high",
+      "feature": "Agent Management (Invites)",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding D4-agent-management #3",
+      "issue": "If Resend API fails to send invite email, invite is still created in DB. Admin has no visibility. Invitee waits for email that never arrives.",
+      "fix_required": [
+        "Implement retry mechanism with admin notification on failure"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/agents/actions.ts",
+        "apps/dashboard/src/lib/email.ts",
+        "apps/dashboard/src/app/(dashboard)/agents/page.tsx"
+      ],
+      "risk_notes": [
+        "Don't retry infinitely - cap at 3 attempts",
+        "If all retries fail, show clear error to admin",
+        "Consider adding 'Resend Invite' button for failed invites"
+      ],
+      "acceptance_criteria": [
+        "Failed email triggers automatic retry (up to 3 attempts)",
+        "Admin sees status of invite (sent/pending/failed)",
+        "After all retries fail, admin gets clear notification",
+        "'Resend Invite' button available for failed invites"
+      ]
+    },
+    {
+      "id": "TKT-012",
+      "title": "Migrate Geolocation to MaxMind",
+      "priority": "high",
+      "feature": "Blocklist Settings, Geolocation",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding D-blocklist-settings #1",
+      "issue": "Geolocation uses ip-api.com free tier (45 req/min limit). At scale, geolocation fails and ALL visitors allowed through, bypassing blocklist.",
+      "fix_required": [
+        "Migrate to MaxMind GeoIP service for higher rate limits and reliability"
+      ],
+      "files": [
+        "apps/server/src/lib/geolocation.ts",
+        "apps/server/env.example",
+        "apps/server/src/features/blocklist/checkVisitor.ts"
+      ],
+      "risk_notes": [
+        "COST CONSIDERATION: MaxMind pricing needs review before starting",
+        "Need to understand pricing tiers and expected usage",
+        "Consider caching IP lookups to reduce API calls",
+        "Keep ip-api as fallback during migration?"
+      ],
+      "acceptance_criteria": [
+        "Geolocation uses MaxMind API",
+        "Rate limit is sufficient for expected traffic",
+        "Fallback behavior documented if MaxMind fails",
+        "Costs are within budget"
+      ],
+      "pre_work": [
+        "Research MaxMind pricing tiers",
+        "Estimate monthly API calls based on traffic",
+        "Get budget approval if needed"
+      ]
+    },
+    {
+      "id": "TKT-013",
+      "title": "Retention Policy Retroactive Deletion Warning",
+      "priority": "high",
+      "feature": "Organization Settings, Recording Retention",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "high",
+      "source": "Finding D-organization-settings #3",
+      "issue": "When admin reduces retention from 90→30 days, behavior is unclear. Should be retroactive (delete old recordings) with clear warning.",
+      "fix_required": [
+        "Implement retroactive deletion when retention is reduced",
+        "Show popup warning with count of recordings that will be deleted",
+        "Require confirmation before applying"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "apps/dashboard/src/app/(dashboard)/settings/RetentionWarningModal.tsx",
+        "apps/dashboard/src/app/(dashboard)/settings/page.tsx",
+        "apps/server/src/features/recordings/deleteOldRecordings.ts"
+      ],
+      "risk_notes": [
+        "Deletion is IRREVERSIBLE - must have clear confirmation",
+        "Count affected recordings before showing warning",
+        "Log all deletions for audit trail",
+        "Consider adding 'scheduled deletion' with grace period"
+      ],
+      "acceptance_criteria": [
+        "Reducing retention triggers confirmation modal",
+        "Modal shows exact count of recordings to be deleted",
+        "User must type 'DELETE' or similar to confirm",
+        "Deletions are logged for audit",
+        "Recordings older than new retention are deleted"
+      ]
+    },
+    {
+      "id": "TKT-014",
+      "title": "Recording Consent Indicator for Visitors",
+      "priority": "high",
+      "feature": "Recording Settings, Widget",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "low",
+      "source": "Finding D-recording-settings #1",
+      "issue": "Visitors are recorded with NO indication. No 'This call may be recorded' message. Compliance risk for GDPR, CCPA, two-party consent states.",
+      "fix_required": [
+        "Add visible recording indicator that appears AFTER both parties are connected",
+        "Show in same location where 'Live' badge appeared during preview loop"
+      ],
+      "files": [
+        "apps/widget/src/features/call/CallUI.tsx",
+        "apps/widget/src/features/call/RecordingBadge.tsx",
+        "apps/server/src/features/calls/callStart.ts",
+        "apps/widget/src/styles.css"
+      ],
+      "risk_notes": [
+        "Badge should be visible but not intrusive",
+        "Only show when recording is actually enabled for the org"
+      ],
+      "acceptance_criteria": [
+        "'Recording' indicator appears after call connects",
+        "Indicator is in same location as 'Live' badge was",
+        "Only shows when org has recording enabled"
+      ]
+    },
+    {
+      "id": "TKT-015",
+      "title": "Secure Recording URLs with Signed Access",
+      "priority": "high",
+      "feature": "Recordings, Storage",
+      "status": "ready",
+      "difficulty": "hard",
+      "complexity": "high",
+      "risk": "high",
+      "source": "Finding A-agent-active-call #1",
+      "issue": "Recording uploads go to public Supabase bucket with predictable URL patterns. Anyone who guesses the pattern can access recordings without auth. HIPAA/GDPR compliance risk.",
+      "fix_required": [
+        "Move recordings to private bucket",
+        "Generate signed URLs with expiration for access",
+        "Add randomized UUIDs to paths"
+      ],
+      "files": [
+        "supabase/",
+        "apps/dashboard/src/features/recordings/RecordingPlayer.tsx",
+        "apps/server/src/features/recordings/uploadRecording.ts",
+        "apps/server/src/features/recordings/getRecordingUrl.ts",
+        "apps/dashboard/src/lib/supabase.ts"
+      ],
+      "risk_notes": [
+        "Existing recordings need migration to private bucket",
+        "Signed URLs should expire (e.g., 1 hour)",
+        "Must handle URL refresh for long viewing sessions",
+        "Test download functionality still works"
+      ],
+      "acceptance_criteria": [
+        "New recordings go to private bucket",
+        "Recording URLs are signed with 1-hour expiration",
+        "URLs contain randomized UUIDs (not predictable)",
+        "Existing recordings migrated to private bucket",
+        "Playback works with signed URLs"
+      ]
+    },
+    {
+      "id": "TKT-016",
+      "title": "WebRTC ICE Restart on Connection Failure",
+      "priority": "high",
+      "feature": "Agent Active Call, WebRTC",
+      "status": "ready",
+      "difficulty": "hard",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding A-agent-active-call #2",
+      "issue": "When WebRTC connection fails mid-call (network glitch, NAT timeout), agent must manually end and start new call. Customer may be lost.",
+      "fix_required": [
+        "Implement ICE restart mechanism with automatic retry before showing failure state"
+      ],
+      "files": [
+        "apps/dashboard/src/features/call/useWebRTC.ts",
+        "apps/widget/src/features/call/useWebRTC.ts",
+        "apps/server/src/features/signaling/handleIceRestart.ts"
+      ],
+      "risk_notes": [
+        "ICE restart has browser-specific quirks",
+        "Set max retry attempts (3) before giving up",
+        "Log all reconnection attempts for debugging",
+        "May need to handle TURN server failover"
+      ],
+      "acceptance_criteria": [
+        "ICE failure triggers automatic restart attempt",
+        "Up to 3 restart attempts before showing error",
+        "User sees 'Reconnecting...' status during attempts",
+        "If all attempts fail, graceful error message",
+        "Reconnection events logged for debugging"
+      ]
+    },
+    {
+      "id": "TKT-018",
+      "title": "Transcription Auto-Retry with Manual Fallback",
+      "priority": "high",
+      "feature": "Transcription Service",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "low",
+      "source": "Finding P-transcription-service #2",
+      "issue": "When transcription fails (Deepgram error, timeout), there's no retry mechanism and no UI to manually retry. Failed transcriptions are stuck permanently.",
+      "fix_required": [
+        "Auto-retry failed transcriptions (3 attempts with exponential backoff)",
+        "Add 'Retry Transcription' button for calls where all retries failed",
+        "Log retry attempts for debugging"
+      ],
+      "files": [
+        "apps/server/src/features/transcription/processTranscription.ts",
+        "apps/dashboard/src/features/call-logs/CallLogRow.tsx",
+        "apps/dashboard/src/app/api/transcription/retry/route.ts",
+        "apps/server/src/lib/queue.ts"
+      ],
+      "risk_notes": [
+        "Exponential backoff: 1s, 4s, 16s delays",
+        "Max 3 attempts before marking permanently failed",
+        "Don't retry if error is 'audio too short' or similar non-retriable errors"
+      ],
+      "acceptance_criteria": [
+        "Failed transcription auto-retries up to 3 times",
+        "Retry button appears for permanently failed transcriptions",
+        "Retry attempts are logged with error details",
+        "Non-retriable errors skip retry logic"
+      ]
+    },
+    {
+      "id": "TKT-019",
+      "title": "Sync Incoming Call Countdown with RNA Timeout",
+      "priority": "high",
+      "feature": "Incoming Call",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "low",
+      "source": "Finding A-incoming-call #1",
+      "issue": "Incoming call modal shows hardcoded 30-second countdown, but RNA timeout fires at 15 seconds (org-configured). Agents think they have more time and get unexpectedly marked away.",
+      "fix_required": [
+        "Fetch org's actual RNA timeout value and use it for the countdown display"
+      ],
+      "files": [
+        "apps/dashboard/src/features/incoming-call/incoming-call-modal.tsx",
+        "apps/server/src/features/calls/callRequest.ts"
+      ],
+      "risk_notes": [
+        "Simple fix - just syncing UI with existing server value",
+        "Test with various org timeout settings (15s, 25s, 30s)"
+      ],
+      "acceptance_criteria": [
+        "Countdown matches org's RNA timeout setting",
+        "Countdown and RNA timeout fire at the same moment",
+        "Works correctly for different org configurations"
+      ]
+    },
+    {
+      "id": "TKT-022",
+      "title": "Enforce Seat Limit in API",
+      "priority": "high",
+      "feature": "Seat Management",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "low",
+      "source": "Finding B-seat-management #1",
+      "issue": "UI caps seats at 50, but API has no validation. Direct API calls could set arbitrarily high seat counts, causing billing issues or system strain.",
+      "fix_required": [
+        "Add server-side validation to enforce maximum seat limit in API endpoints"
+      ],
+      "files": [
+        "apps/dashboard/src/app/api/billing/seats/route.ts",
+        "apps/dashboard/src/app/api/billing/update-settings/route.ts"
+      ],
+      "risk_notes": [
+        "Consider making limit configurable per plan (50 for standard, higher for enterprise)",
+        "Return clear error message when limit exceeded"
+      ],
+      "acceptance_criteria": [
+        "API rejects seat count > 50 (or plan limit)",
+        "Clear error message returned to client",
+        "Existing orgs over limit are grandfathered (don't break them)"
+      ]
+    },
+    {
+      "id": "TKT-023",
+      "title": "Atomic Stripe-DB Updates for Seat Changes",
+      "priority": "high",
+      "feature": "Seat Management",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding B-seat-management #2",
+      "issue": "Stripe is updated before DB for seat changes. If DB update fails after Stripe succeeds, customer is charged for seats not reflected in app. Inconsistent state.",
+      "fix_required": [
+        "Implement compensating transaction pattern",
+        "If DB update fails, rollback Stripe change",
+        "Add monitoring for any failures"
+      ],
+      "files": [
+        "apps/dashboard/src/app/api/billing/seats/route.ts",
+        "apps/dashboard/src/lib/stripe.ts",
+        "apps/server/src/lib/monitoring.ts"
+      ],
+      "risk_notes": [
+        "Rollback window is small - Stripe change is immediate",
+        "Log all rollback attempts for audit",
+        "Consider optimistic locking pattern"
+      ],
+      "acceptance_criteria": [
+        "DB failure triggers Stripe rollback",
+        "Rollback failures are alerted to ops team",
+        "Successful flow unchanged",
+        "Audit log captures all seat change attempts"
+      ]
+    },
+    {
+      "id": "TKT-024",
+      "title": "Visitor Call Reconnection Window",
+      "priority": "high",
+      "feature": "Visitor Call, Call Lifecycle",
+      "status": "ready",
+      "difficulty": "hard",
+      "complexity": "high",
+      "risk": "medium",
+      "source": "Finding P-visitor-reassignment #2",
+      "issue": "If visitor disconnects mid-call (browser crash, accidental close), call ends permanently. No way to rejoin. Different from TKT-016 (WebRTC) which handles network blips.",
+      "fix_required": [
+        "Add reconnection window allowing visitor to rejoin same call within 60 seconds of disconnect"
+      ],
+      "files": [
+        "apps/server/src/features/calls/callLifecycle.ts",
+        "apps/widget/src/features/call/useCallSession.ts",
+        "apps/widget/src/features/call/RejoinPrompt.tsx",
+        "apps/server/src/features/signaling/handleRejoin.ts",
+        "apps/dashboard/src/features/call/useActiveCall.ts"
+      ],
+      "risk_notes": [
+        "Session token must be stored locally (localStorage) to survive page reload",
+        "Agent should see 'Visitor reconnecting...' status",
+        "After 60 seconds, call truly ends",
+        "Consider what happens if agent ends call during reconnection window"
+      ],
+      "acceptance_criteria": [
+        "Visitor who crashes browser can rejoin within 60 seconds",
+        "Agent sees 'Visitor disconnected - waiting for reconnection' status",
+        "After 60 seconds, call ends normally",
+        "Rejoin continues from same call state (not new call)"
+      ]
+    },
+    {
+      "id": "TKT-007",
+      "title": "Fix Public Feedback Feature Documentation",
+      "priority": "medium",
+      "feature": "Public Feedback",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "low",
+      "source": "Finding V-public-feedback #1",
+      "issue": "The 'Public Feedback' feature documentation describes it as 'Post-call feedback for visitors' but the actual feature is a UserVoice-style feature request voting system for authenticated dashboard users.",
+      "fix_required": [
+        "Rename to 'Feature Request Voting & Bug Reporting' or similar",
+        "Update description to explain it's for authenticated dashboard users",
+        "Clarify that 'public' means cross-organization visibility, not anonymous access"
+      ],
+      "files": [
+        "docs/features/feedback/public-feedback.md"
+      ],
+      "risk_notes": [
+        "Documentation only - no production risk",
+        "May need to update any UI that references this feature name"
+      ],
+      "acceptance_criteria": [
+        "Feature doc accurately describes the voting/feedback system",
+        "No mention of 'visitors' or 'post-call'",
+        "Clear that authentication is required"
+      ]
+    },
+    {
+      "id": "TKT-020",
+      "title": "Price ID Missing Should Error Not Fallback",
+      "priority": "medium",
+      "feature": "Subscription Creation",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "low",
+      "source": "Finding B-subscription-creation #2",
+      "issue": "When annual or 6-month price IDs aren't configured in environment, system silently falls back to monthly pricing. User selects annual, gets charged monthly rates - billing dispute risk.",
+      "fix_required": [
+        "Make missing price ID a hard error that blocks subscription creation with user-visible message"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(auth)/paywall/page.tsx",
+        "apps/dashboard/src/lib/stripe.ts"
+      ],
+      "risk_notes": [
+        "This should never happen in production if deployment is correct",
+        "But defensive coding prevents silent failures",
+        "Consider startup-time validation of all required price IDs"
+      ],
+      "acceptance_criteria": [
+        "Missing price ID throws visible error (not console warning)",
+        "Billing options not shown if price ID missing",
+        "Clear error message directs admin to fix configuration"
+      ]
+    },
+    {
+      "id": "TKT-010",
+      "title": "Graceful Call End on Agent Removal",
+      "priority": "low",
+      "feature": "Agent Management",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding D4-agent-management #1",
+      "issue": "When admin removes an agent who's in an active call, the call continues. Creates confusing state - agent marked as 'removed' but still serving visitor.",
+      "fix_required": [
+        "Emit call:end event when removing an agent who is in in_call status",
+        "Show graceful message to visitor"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/agents/actions.ts",
+        "apps/server/src/features/agents/removeAgent.ts",
+        "apps/widget/src/features/call/CallUI.tsx"
+      ],
+      "risk_notes": [
+        "Visitor should see friendly message, not abrupt disconnect",
+        "Consider giving agent a few seconds warning before removal takes effect",
+        "Log the forced call end for audit"
+      ],
+      "acceptance_criteria": [
+        "Removing in-call agent triggers graceful call end",
+        "Visitor sees 'Agent has ended the call' message",
+        "Call is properly logged/ended in database",
+        "If agent not in call, removal proceeds normally"
+      ]
+    },
+    {
+      "id": "TKT-008",
+      "title": "Fix Uptime Monitoring Doc - Use Free Tier Settings",
+      "priority": "low",
+      "feature": "Uptime Monitoring",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "low",
+      "source": "Finding M-UPTIME_MONITORING #1",
+      "issue": "The uptime monitoring setup doc says to use Better Uptime's free tier (3-minute checks) but configures monitors with 1-minute checks (paid tier). Contradictory.",
+      "fix_required": [
+        "Update monitor configurations to use 3-minute check frequency to stay on free tier"
+      ],
+      "files": [
+        "docs/features/monitoring/UPTIME_MONITORING.md"
+      ],
+      "risk_notes": [
+        "Documentation only - no production risk",
+        "3-minute checks are still adequate for most uptime monitoring needs"
+      ],
+      "acceptance_criteria": [
+        "All monitor configs show 3-minute check frequency",
+        "Doc clearly states this is the free tier limit",
+        "No contradictions between tier description and config"
+      ]
+    }
+  ]
+}
+

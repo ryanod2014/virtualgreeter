@@ -1,10 +1,31 @@
 # PM Documentation Workflow
 
 > **Purpose:** PM workflow for documentation sprints AND review sprints.
-> **Dashboard:** `docs/PM_DASHBOARD.md` - Human's single view of entire pipeline
+> **Dashboard:** `docs/PM_DASHBOARD.md` - Human's single view of entire pipeline (auto-generated)
+> **Data Files:** `docs/data/tickets.json` and `docs/data/findings-summary.json`
 > **Launch Commands:**
 > - **Doc Mode:** `You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md`
 > - **Review Mode:** `You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md - Review Mode`
+
+---
+
+## Data-Driven Workflow
+
+The PM workflow now uses **structured JSON data** for accuracy:
+
+| File | Purpose |
+|------|---------|
+| `docs/data/tickets.json` | All tickets with full details |
+| `docs/data/findings-summary.json` | Finding counts by priority/category |
+| `docs/PM_DASHBOARD.md` | Auto-generated dashboard (read-only) |
+| `docs/TICKET_BACKLOG.md` | Auto-generated backlog (read-only) |
+
+**To update tickets:**
+1. Edit `docs/data/tickets.json`
+2. Run `node docs/scripts/generate-docs.js`
+3. Dashboard and backlog are regenerated with accurate counts
+
+**The PM workflow (questions, decisions, ticket creation) remains exactly the same.**
 
 ---
 
