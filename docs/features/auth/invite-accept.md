@@ -1,7 +1,7 @@
 # Feature: Invite Accept (AUTH3)
 
 ## Quick Summary
-The Invite Accept flow enables new team members to join an organization by clicking an email invite link, validating their invitation token, and creating their account with password authentication to join as either an Agent or Admin.
+Agent/Admin invitation acceptance flow that validates invite tokens, collects account setup information (name, password), creates the user account in the invited organization, and optionally creates an agent profile based on role and user preference.
 
 ## Affected Users
 - [ ] Website Visitor
@@ -14,74 +14,87 @@ The Invite Accept flow enables new team members to join an organization by click
 ## 1. WHAT IT DOES
 
 ### Purpose
-The Invite Accept feature provides a secure, self-service onboarding path for new team members to join an existing organization. It handles account creation, role assignment, billing seat allocation, and agent profile setup in a single streamlined flow.
+Enables new team members (agents or admins) to join an existing organization by accepting an email invitation. The flow validates the invite, collects necessary account information, creates all required database records, handles billing seat allocation, and onboards the user into the organization.
 
 ### User Goals
 | User Type | What They Want | How This Feature Helps |
 |-----------|---------------|----------------------|
-| Invited User | Join the team quickly | Single-page form with pre-filled email and name |
-| Invited User | Set up secure account | Password creation with validation |
-| Admin (inviting) | Add team members without manual setup | Automated account provisioning |
-| Admin (accepting) | Choose whether to also take calls | Option to become an agent or admin-only |
-| Organization | Control access | Role-based permissions from invite |
+| Invited Agent | Quick and simple account setup | One-click link from email, minimal form fields, automatic org membership |
+| Invited Admin | Choose their level of participation | Can decide whether to take calls (use agent seat) or be admin-only (free) |
+| Existing Admin | Team members to join easily | Sends professional invite emails, tracks acceptance status |
+| Organization | Control over team composition | Seat billing handled automatically, role-based permissions enforced |
 
 ---
 
 ## 2. HOW IT WORKS
 
 ### High-Level Flow (Happy Path)
-1. Admin sends invite via Agent Management page
-2. Invited user receives email with invite link
-3. User clicks link → `/accept-invite?token={token}`
-4. Page fetches and validates invite by token
-5. User sees form with pre-filled email/name, enters password
-6. For admin invites: User chooses whether to take calls
-7. User submits form
-8. System creates auth user → user record → agent profile (if applicable)
-9. Invite marked as accepted
-10. User redirected to `/admin` dashboard
+1. Admin sends invite via Agent Management page → `/api/invites/send`
+2. System creates invite record, charges billing seat (for agent role), sends email via Resend
+3. Invitee receives email with "Accept Invitation" button linking to `/accept-invite?token=xxx`
+4. Invitee clicks link, lands on accept invite page
+5. Page validates token: exists, not expired, not already accepted
+6. Invitee fills in: Full Name (pre-filled), Password, Confirm Password
+7. (Admin role only) Invitee chooses: "Yes, I'll take calls" or "No, admin only"
+8. Invitee clicks "Create Account"
+9. System creates: auth.users record, users record, agent_profiles record (if applicable)
+10. Invite marked as accepted (`accepted_at` timestamp set)
+11. User redirected to `/admin` dashboard
 
 ### State Machine
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           INVITE LIFECYCLE                               │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   [PENDING]                                                              │
-│      │                                                                   │
-│      ├──▶ Click Link ──▶ [VALIDATING]                                   │
-│      │                       │                                           │
-│      │                       ├──▶ Invalid/Expired ──▶ [ERROR]           │
-│      │                       │                                           │
-│      │                       └──▶ Valid ──▶ [FORM_DISPLAYED]            │
-│      │                                          │                        │
-│      │                                          ├──▶ Submit ──▶ [CREATING_ACCOUNT]
-│      │                                          │                   │    │
-│      │                                          │                   │    │
-│      │                                          │                   ▼    │
-│      │                                          │              [ACCEPTED]│
-│      │                                          │                   │    │
-│      │                                          │                   ▼    │
-│      │                                          │           Redirect to /admin
-│      │                                          │                        │
-│      ├──▶ Revoked by Admin ──▶ [DELETED]                                │
-│      │                                                                   │
-│      └──▶ 7 days pass ──▶ [EXPIRED]                                     │
-│                                                                          │
+│                          INVITE LIFECYCLE                                │
 └─────────────────────────────────────────────────────────────────────────┘
+
+  [CREATED]                                                    
+      │                                                        
+      ▼                                                        
+ ┌─────────┐    7 days    ┌──────────┐                        
+ │ PENDING │─────────────►│ EXPIRED  │                        
+ └────┬────┘              └──────────┘                        
+      │                                                        
+      │ Token clicked                                          
+      ▼                                                        
+ ┌──────────┐   Invalid token    ┌─────────────┐              
+ │ VALIDATING│──────────────────►│ ERROR STATE │              
+ └────┬─────┘                    └─────────────┘              
+      │                                                        
+      │ Valid token                                            
+      ▼                                                        
+ ┌────────────┐                                                
+ │ FORM SHOWN │◄──────────────┐                               
+ └─────┬──────┘               │                               
+       │                      │ Validation error               
+       │ Submit               │                               
+       ▼                      │                               
+ ┌────────────┐               │                               
+ │ PROCESSING │───────────────┘                               
+ └─────┬──────┘                                               
+       │                                                       
+       │ Success                                               
+       ▼                                                       
+ ┌──────────┐                                                  
+ │ ACCEPTED │────────────────► Redirect to /admin             
+ └──────────┘                                                  
+
+Parallel path:
+ ┌─────────┐                                                   
+ │ PENDING │──── Admin revokes ────► [DELETED]                
+ └─────────┘                                                   
 ```
 
 ### State Definitions
 | State | Description | How to Enter | How to Exit |
 |-------|-------------|--------------|-------------|
-| `pending` | Invite created, awaiting acceptance | Admin sends invite | Accepted, revoked, or expired |
-| `validating` | Token being checked | User loads page with token | Valid or invalid result |
-| `form_displayed` | User sees acceptance form | Token validated successfully | Form submitted |
-| `creating_account` | Account being created | User submits form | Success or error |
-| `accepted` | Invite used, user created | Account created successfully | N/A (terminal) |
-| `expired` | 7-day window passed | Time elapsed | N/A (terminal) |
-| `revoked` | Admin cancelled invite | Admin clicks revoke | N/A (invite deleted) |
+| `CREATED/PENDING` | Invite exists in database, email sent | Admin sends invite via API | Accepted, expired, or revoked |
+| `EXPIRED` | Invite past 7-day validity | `expires_at < NOW()` | Cannot exit (permanent) |
+| `VALIDATING` | User clicked link, token being checked | URL with token accessed | Valid → Form Shown, Invalid → Error |
+| `FORM_SHOWN` | Valid invite, signup form displayed | Token validation passed | Form submitted |
+| `PROCESSING` | Account creation in progress | User clicks "Create Account" | Success or validation error |
+| `ACCEPTED` | User account created, invite complete | `accepted_at` timestamp set | N/A (terminal state) |
+| `REVOKED/DELETED` | Admin cancelled the invite | Admin clicks revoke | Row deleted from database |
 
 ---
 
@@ -90,67 +103,86 @@ The Invite Accept feature provides a secure, self-service onboarding path for ne
 ### Triggers & Events
 | Event/Trigger | Where It Fires | What It Does | Side Effects |
 |--------------|---------------|--------------|--------------|
-| Invite link clicked | Email → Browser | Loads accept-invite page with token | Page fetch, token validation |
-| Token validation | Page load | Queries `invites` table | None |
-| Form submission | Accept form | Creates account + marks accepted | Auth user, user record, agent profile, billing seat |
-| Password validation | Client-side | Checks min length, match | Error display |
-| Admin role choice | Form (admin invites only) | Sets willTakeCalls flag | Determines agent profile creation |
+| Token URL accessed | `/accept-invite?token=xxx` | Validates token, loads invite data | Shows form or error |
+| Form submitted | Accept invite page | Creates user + agent records | Auth user, DB records, billing |
+| "Will take calls" selected | Admin invite form | Flags user to create agent profile | Adds billing seat at accept time |
+| Password validation | Client-side | Checks length and match | Shows error if invalid |
+| Supabase signUp | Accept flow | Creates auth.users record | Triggers no auto-org creation (handled manually) |
 
 ### Key Functions/Components
 | Function/Component | File | Purpose |
 |-------------------|------|---------|
-| `AcceptInviteContent` | `apps/dashboard/src/app/accept-invite/page.tsx` | Main acceptance form component |
-| `fetchInvite()` | `apps/dashboard/src/app/accept-invite/page.tsx:31-57` | Validates token and fetches invite data |
-| `handlePasswordSignup()` | `apps/dashboard/src/app/accept-invite/page.tsx:63-166` | Creates account and marks invite accepted |
-| `/api/invites/send` | `apps/dashboard/src/app/api/invites/send/route.ts` | Creates invite and sends email |
-| `/api/invites/revoke` | `apps/dashboard/src/app/api/invites/revoke/route.ts` | Deletes pending invite |
-| `/api/billing/seats` | `apps/dashboard/src/app/api/billing/seats/route.ts` | Manages seat billing |
-| `handle_new_user()` | Database trigger | Skips auto-org creation for invited users |
+| `AcceptInvitePage` | `apps/dashboard/src/app/accept-invite/page.tsx` | Main accept invite UI |
+| `AcceptInviteContent` | `apps/dashboard/src/app/accept-invite/page.tsx` | Form logic and state |
+| `fetchInvite` (useEffect) | `apps/dashboard/src/app/accept-invite/page.tsx` | Token validation via Supabase |
+| `handlePasswordSignup` | `apps/dashboard/src/app/accept-invite/page.tsx` | Account creation flow |
+| `POST /api/invites/send` | `apps/dashboard/src/app/api/invites/send/route.ts` | Creates invite, sends email |
+| `POST /api/invites/revoke` | `apps/dashboard/src/app/api/invites/revoke/route.ts` | Deletes invite, credits seat |
+| `POST /api/billing/seats` | `apps/dashboard/src/app/api/billing/seats/route.ts` | Seat allocation for billing |
+| `handle_new_user` trigger | `supabase/migrations/20251127000000_add_invites.sql` | Skips auto-org creation for invites |
 
 ### Data Flow
 
 ```
 USER CLICKS INVITE LINK
     │
-    ├─► Browser: Navigate to /accept-invite?token={token}
+    ├─► Browser: Navigate to /accept-invite?token=xxx
     │
-    ├─► React: useEffect → fetchInvite()
+    ├─► Component: useEffect → fetchInvite()
     │   │
-    │   ├─► Supabase Query:
-    │   │   SELECT *, organization:organizations(name)
-    │   │   FROM invites
-    │   │   WHERE token = {token}
-    │   │     AND accepted_at IS NULL
-    │   │     AND expires_at > NOW()
+    │   ├─► Supabase: SELECT from invites
+    │   │   WHERE token = xxx
+    │   │   AND accepted_at IS NULL
+    │   │   AND expires_at > NOW()
     │   │
-    │   ├─► If error/no data → Show "Invalid Invitation" error
+    │   ├─► [Invalid/Expired] → setError("This invite is invalid or has expired")
+    │   │                     → Show error screen with "Go to Login" link
     │   │
-    │   └─► If valid → Set invite state, pre-fill form
+    │   └─► [Valid] → setInvite(data)
+    │               → setFullName(data.full_name)
+    │               → Show signup form
     │
 USER SUBMITS FORM
     │
-    ├─► Client Validation:
-    │   ├─► Password length >= 8
-    │   └─► Password === confirmPassword
+    ├─► Validation:
+    │   ├─► Password length >= 8? 
+    │   ├─► Password === confirmPassword?
+    │   └─► [Failed] → setError() → Return
     │
-    ├─► Supabase Auth: signUp({ email, password, metadata: { full_name } })
+    ├─► Step 1: Create Auth User
+    │   ├─► supabase.auth.signUp({ email, password, options: { data: { full_name } } })
+    │   ├─► [Error] → setError(authError.message) → Return
+    │   └─► [Success] → authData.user.id available
+    │
+    ├─► Step 2: Create User Record
+    │   ├─► supabase.from("users").insert({
+    │   │       id: authData.user.id,
+    │   │       organization_id: invite.organization_id,
+    │   │       email: invite.email,
+    │   │       full_name: fullName,
+    │   │       role: invite.role
+    │   │   })
+    │   └─► [Error] → Log (continue anyway - may be trigger-created)
+    │
+    ├─► Step 3: Create Agent Profile (conditional)
     │   │
-    │   └─► Creates auth.users record
-    │
-    ├─► Supabase: INSERT INTO users
-    │   { id, organization_id, email, full_name, role }
-    │
-    ├─► If role === 'agent' OR (role === 'admin' AND willTakeCalls):
+    │   ├─► shouldCreateAgentProfile = (role === "agent") OR (willTakeCalls)
     │   │
-    │   ├─► If admin taking calls: POST /api/billing/seats { action: 'add', quantity: 1 }
-    │   │   (Agent seats already charged at invite send time)
+    │   ├─► [Admin + willTakeCalls] → fetch("/api/billing/seats", { action: "add" })
+    │   │                           → Adds 1 billing seat
     │   │
-    │   └─► Supabase: INSERT INTO agent_profiles
-    │       { user_id, organization_id, display_name, is_active: true }
+    │   └─► supabase.from("agent_profiles").insert({
+    │           user_id: authData.user.id,
+    │           organization_id: invite.organization_id,
+    │           display_name: fullName,
+    │           is_active: true
+    │       })
     │
-    ├─► Supabase: UPDATE invites SET accepted_at = NOW() WHERE id = {invite.id}
+    ├─► Step 4: Mark Invite Accepted
+    │   └─► supabase.from("invites").update({ accepted_at: NOW() }).eq("id", invite.id)
     │
-    └─► Redirect: window.location.href = "/admin"
+    └─► Step 5: Redirect
+        └─► window.location.href = "/admin"
 ```
 
 ---
@@ -160,57 +192,69 @@ USER SUBMITS FORM
 ### Complete Scenario Matrix
 | # | Scenario | Trigger | Current Behavior | Correct? | Notes |
 |---|----------|---------|------------------|----------|-------|
-| 1 | Happy path - Agent invite | Valid token | Account created, agent profile created | ✅ | |
-| 2 | Happy path - Admin invite (takes calls) | Valid token + willTakeCalls=true | Account created, agent profile created, seat added | ✅ | |
-| 3 | Happy path - Admin invite (no calls) | Valid token + willTakeCalls=false | Account created, NO agent profile | ✅ | Free admin |
-| 4 | No token provided | `/accept-invite` (no query param) | Shows "Invalid invite link - no token provided" | ✅ | |
-| 5 | Invalid token | Non-existent token | Shows "This invite is invalid or has expired" | ✅ | |
-| 6 | Expired invite | Token exists but expires_at < NOW() | Shows "This invite is invalid or has expired" | ✅ | |
-| 7 | Already accepted invite | accepted_at IS NOT NULL | Shows "This invite is invalid or has expired" | ✅ | Same message as invalid |
-| 8 | Revoked invite | Invite deleted by admin | Shows "This invite is invalid or has expired" | ✅ | Token not found |
-| 9 | Password too short | < 8 characters | Client-side error "Password must be at least 8 characters" | ✅ | |
-| 10 | Passwords don't match | Mismatch | Client-side error "Passwords don't match" | ✅ | |
-| 11 | Email already registered | Same email exists in auth.users | Supabase error "User already registered" | ✅ | |
-| 12 | User exists in different org | User has account in another org | Creates new auth user (email is locked to invite) | ⚠️ | Could be confusing |
-| 13 | Logged in as different user | Session exists | Creates NEW account (ignores session) | ⚠️ | Session not checked |
-| 14 | Multiple pending invites | Same email, different orgs | Each has unique token; user can accept multiple | ✅ | Different org_id |
-| 15 | Duplicate invite same org | Same email + org_id | Prevented at send time by unique constraint | ✅ | |
-| 16 | Network error during submission | API failure | Shows "An unexpected error occurred" | ✅ | |
-| 17 | User record already exists | Created by trigger | Continues anyway (logged but not fatal) | ✅ | Defensive |
-| 18 | Agent profile creation fails | DB error | Continues anyway (logged but not fatal) | ⚠️ | Agent may need manual setup |
-| 19 | Billing seat add fails (admin taking calls) | Stripe error | Logged but continues | ⚠️ | Potential billing discrepancy |
+| 1 | Happy path - Agent invite | Valid token + form submit | Account created, joins org as agent | ✅ | |
+| 2 | Happy path - Admin invite (takes calls) | Valid token + "Yes" selected | Account + agent profile created, seat charged | ✅ | |
+| 3 | Happy path - Admin invite (admin only) | Valid token + "No" selected | Account created, no agent profile, no seat | ✅ | |
+| 4 | Expired invite link | Token > 7 days old | "This invite is invalid or has expired" error | ✅ | |
+| 5 | Already-used invite link | `accepted_at IS NOT NULL` | Same error as expired | ✅ | User-friendly |
+| 6 | No token in URL | `/accept-invite` (no ?token=) | "Invalid invite link - no token provided" | ✅ | |
+| 7 | Invalid/random token | Token doesn't exist in DB | Generic invalid/expired error | ✅ | Security: doesn't reveal if token ever existed |
+| 8 | Password too short | < 8 characters | "Password must be at least 8 characters" | ✅ | Client-side validation |
+| 9 | Password mismatch | password !== confirmPassword | "Passwords don't match" | ✅ | Client-side validation |
+| 10 | Email already has Supabase account | Same email in auth.users | Supabase signUp error shown | ✅ | Error message from Supabase |
+| 11 | User record creation fails | DB insert error | Logged, continues anyway | ✅ | Trigger might have created it |
+| 12 | Agent profile creation fails | DB insert error | Logged, continues anyway | ⚠️ | User is created but may not appear as agent |
+| 13 | Billing seat add fails | Stripe/API error | Logged, continues anyway | ⚠️ | Admin may not have seat allocated |
+| 14 | Revoked invite clicked | Invite deleted before click | Generic invalid/expired error | ✅ | |
+| 15 | Multiple pending invites same email | Different orgs invite same person | Each has unique token, can accept both | ✅ | Creates user in each org |
+| 16 | Invite to email already in org | Admin sends to existing member | Blocked at invite send time: "User already exists in this organization" | ✅ | |
+| 17 | Name field edited | User changes pre-filled name | New name used for user + agent profile | ✅ | |
+| 18 | Browser refresh during submit | Interrupts API calls | May leave partial state | ⚠️ | No transaction rollback |
 
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
 |-------|-----------------|----------------|---------------|
-| Invalid token | Token doesn't exist or expired | Full-page error with "Go to Login" button | Request new invite |
-| Password validation | Client-side check fails | Inline error below form | Fix password and retry |
-| Auth signup error | Email exists, invalid format, etc. | Inline error banner | May need different email |
-| User creation error | DB constraint violation | Error logged, continues | Usually still works |
-| Billing error | Stripe API failure | Error logged, continues | Admin may need to fix billing |
+| Invalid/expired token | Token not found or expired | Full-screen error with AlertCircle icon + "Go to Login" button | Request new invite |
+| No token provided | URL missing ?token param | Same error screen | Get correct link from email |
+| Password too short | < 8 characters entered | Inline error: "Password must be at least 8 characters" | Enter longer password |
+| Passwords don't match | confirm !== password | Inline error: "Passwords don't match" | Re-enter passwords |
+| Auth user exists | Email already in auth.users | Supabase error message (varies) | Login instead, or contact admin |
+| Unexpected error | Catch-all | "An unexpected error occurred" | Try again, contact support |
 
 ---
 
 ## 5. UI/UX REVIEW
 
 ### User Experience Audit
+
 | Step | User Action | System Response | Clear? | Issues |
 |------|------------|-----------------|--------|--------|
-| 1 | Click email link | Page loads with spinner | ✅ | Good loading state |
-| 2 | Wait for validation | Form appears or error shown | ✅ | Clear feedback |
-| 3 | Review pre-filled data | Email locked, name editable | ✅ | Name note says "You can change this later" |
-| 4 | Enter password | Live validation feedback | ✅ | Shows requirements |
-| 5 | Confirm password | No real-time match check | ⚠️ | Only validates on submit |
-| 6 | Choose admin role | Clear radio buttons | ✅ | Good explanations |
-| 7 | Click "Create Account" | Button shows loading state | ✅ | "Creating account..." text |
-| 8 | Success | Redirects to dashboard | ✅ | Immediate redirect |
-| 9 | Error case | Returns to form with error | ✅ | Error banner visible |
+| 1 | Click email link | Loading spinner shown | ✅ | |
+| 2 | Wait for validation | Form or error appears | ✅ | |
+| 3 | See pre-filled name | Can edit if needed | ✅ | Helper text: "You can change this later" |
+| 4 | Enter password | 8+ char requirement shown | ✅ | Helper text visible |
+| 5 | Confirm password | No helper text | ✅ | |
+| 6 | (Admin) Choose call preference | Two clear options with icons | ✅ | "Uses an agent seat" / "Free • manage only" |
+| 7 | Click Create Account | Button shows loading state | ✅ | "Creating account..." |
+| 8 | Error occurs | Red error banner at top of form | ✅ | |
+| 9 | Success | Redirect to /admin | ✅ | No success message (instant redirect) |
+
+### Visual Design
+- **Background:** Gradient with blur effects (primary/purple tones)
+- **Card:** Glass-morphism effect (`glass` class)
+- **Logo:** Centered above form
+- **Header:** Organization name prominently displayed
+- **Form fields:** Icon-prefixed inputs (Mail, User, Lock icons)
+- **Email field:** Disabled, shown as read-only (security)
+- **Admin choice:** Two-column button grid with border highlight on selection
 
 ### Accessibility
-- Keyboard navigation: ✅ Standard form elements work
-- Screen reader support: ⚠️ Not explicitly tested
-- Color contrast: ✅ Uses theme variables
-- Loading states: ✅ Spinner and button text changes
+- Keyboard navigation: ✅ Standard form tabbing works
+- Screen reader support: ⚠️ No explicit ARIA labels on custom choice buttons
+- Color contrast: ✅ Follows design system
+- Loading states: ✅ Spinner + disabled state + text change
+- Error states: ✅ Red border/background, clear error text
+- Focus indicators: ⚠️ Uses outline-none, relies on border change
 
 ---
 
@@ -219,48 +263,51 @@ USER SUBMITS FORM
 ### Performance
 | Concern | Implementation | Status |
 |---------|----------------|--------|
-| Token lookup | Indexed on `token` column | ✅ Fast |
-| Multiple DB calls | Sequential (auth, user, profile) | ⚠️ Could batch |
-| Billing API call | Synchronous within flow | ⚠️ Adds latency |
+| Token lookup | Single Supabase query with compound WHERE | ✅ Indexed on token column |
+| Multiple sequential DB operations | User → Agent Profile → Invite update | ⚠️ No batching, acceptable latency |
+| Suspense boundary | Loading fallback shown during useSearchParams | ✅ Good UX |
 
 ### Security
 | Concern | Mitigation |
 |---------|------------|
-| Token guessing | UUID tokens (128-bit entropy) |
-| Token in URL | Single-use, 7-day expiry |
-| Password storage | Supabase Auth (bcrypt) |
-| RLS bypass | Uses SECURITY DEFINER for trigger |
-| Direct DB access | RLS policies on invites table |
-| Email enumeration | Generic error messages |
+| Token enumeration | Generic "invalid or expired" message for all failure cases |
+| Token predictability | UUID-based tokens (`crypto.randomUUID()`) |
+| Email spoofing | Email pre-filled and disabled, cannot be changed |
+| Password requirements | Minimum 8 characters enforced |
+| Invite scope | Can only join the org specified in invite (org_id in token) |
+| RLS bypass | Token validation uses direct Supabase query with RLS policy allowing public read |
+| Session hijacking | Standard Supabase auth flow handles session |
 
 ### Reliability
 | Concern | Mitigation |
 |---------|------------|
-| Partial creation failure | Error logged, user redirected anyway |
-| Billing seat failure | Logged but not blocking |
-| Network interruption | Standard error handling |
-| Concurrent acceptance | `accepted_at IS NULL` check prevents |
+| Partial account creation | Sequential operations continue on non-critical errors |
+| Duplicate invites | Unique constraint on (organization_id, email) |
+| Expired during form fill | Form submission re-validates (implicit via accepted_at check) |
+| Email delivery failure | Invite created even if email fails (logged) |
+| Billing API failure | Logged and continued (admin seat may not be charged) |
 
 ---
 
 ## 7. FIRST PRINCIPLES REVIEW
 
 ### Does This Make Sense?
-1. **Is the mental model clear?** ✅ Yes - Invite → Click → Set Password → Done
-2. **Is the control intuitive?** ✅ Yes - Standard sign-up form pattern
-3. **Is feedback immediate?** ✅ Yes - Loading states, error messages
-4. **Is the flow reversible?** ❌ No - Once accepted, can't undo (but can be removed)
-5. **Are errors recoverable?** ⚠️ Mostly - Some errors continue silently
-6. **Is the complexity justified?** ✅ Yes - Billing and role logic necessary
+
+1. **Is the mental model clear?** ✅ Yes - Standard "click link → fill form → create account" flow that users know
+2. **Is the control intuitive?** ✅ Yes - Minimal required fields, clear button labels
+3. **Is feedback immediate?** ✅ Yes - Validation errors inline, loading states clear
+4. **Is the flow reversible?** ⚠️ Partially - Once accepted, invite is consumed; user can delete account but can't "un-accept"
+5. **Are errors recoverable?** ✅ Yes - Form errors allow correction, invalid invites direct to login
+6. **Is the complexity justified?** ✅ Yes - Admin role choice adds value without significant complexity
 
 ### Identified Issues
 | Issue | Impact | Severity | Suggested Fix |
 |-------|--------|----------|--------------|
-| Session not checked | Confusing if already logged in | 🟡 Medium | Check session, offer logout or warning |
-| Silent profile creation failure | Agent may not work | 🟡 Medium | Show warning if profile fails |
-| No real-time password match | Minor UX friction | 🟢 Low | Add onChange validation |
-| Generic invalid/expired error | Can't tell why failed | 🟢 Low | Could differentiate (debatable for security) |
-| Admin billing failure silent | Potential revenue loss | 🟡 Medium | Block or alert on billing failure |
+| No success toast before redirect | Users may be confused by instant redirect | 🟢 Low | Add brief success message |
+| Billing seat failure continues silently | Admin might not get agent capabilities | 🟡 Medium | Show warning if seat allocation fails |
+| No focus management for accessibility | Screen readers may miss error messages | 🟡 Medium | Focus error message on validation failure |
+| Agent profile creation failure continues | User created but not as agent | 🟡 Medium | Show error and allow retry |
+| No email confirmation sent | User doesn't get welcome email | 🟢 Low | Consider sending welcome email post-accept |
 
 ---
 
@@ -268,41 +315,37 @@ USER SUBMITS FORM
 
 | Purpose | File | Lines | Notes |
 |---------|------|-------|-------|
-| Accept page component | `apps/dashboard/src/app/accept-invite/page.tsx` | 1-377 | Full accept flow |
-| Token validation query | `apps/dashboard/src/app/accept-invite/page.tsx` | 39-45 | Supabase query |
-| Account creation | `apps/dashboard/src/app/accept-invite/page.tsx` | 81-104 | Auth + user insert |
-| Agent profile creation | `apps/dashboard/src/app/accept-invite/page.tsx` | 119-151 | Conditional profile |
-| Admin billing seat | `apps/dashboard/src/app/accept-invite/page.tsx` | 125-138 | Seat add for admin agents |
-| Send invite API | `apps/dashboard/src/app/api/invites/send/route.ts` | 1-182 | Creates invite + email |
-| Revoke invite API | `apps/dashboard/src/app/api/invites/revoke/route.ts` | 1-71 | Deletes invite |
-| Billing seats API | `apps/dashboard/src/app/api/billing/seats/route.ts` | 1-119 | Seat management |
-| Invites schema | `supabase/migrations/20251127000000_add_invites.sql` | 1-129 | Table + RLS |
-| handle_new_user trigger | `supabase/migrations/20251127000000_add_invites.sql` | 82-127 | Skips org creation |
-| Invite TypeScript types | `packages/domain/src/database.types.ts` | 393-408 | Type definitions |
-| Agents page (invites list) | `apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx` | 76-83 | PendingInvite interface |
-| Revoke invite handler | `apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx` | 441-464 | Client-side revoke |
+| Accept invite page | `apps/dashboard/src/app/accept-invite/page.tsx` | 1-377 | Main component |
+| Token validation | `apps/dashboard/src/app/accept-invite/page.tsx` | 31-60 | useEffect fetchInvite |
+| Account creation | `apps/dashboard/src/app/accept-invite/page.tsx` | 62-166 | handlePasswordSignup |
+| Admin call choice UI | `apps/dashboard/src/app/accept-invite/page.tsx` | 297-338 | willTakeCalls toggle |
+| Invite send API | `apps/dashboard/src/app/api/invites/send/route.ts` | 1-182 | Creates invite + sends email |
+| Invite revoke API | `apps/dashboard/src/app/api/invites/revoke/route.ts` | 1-71 | Deletes invite + credits seat |
+| Billing seats API | `apps/dashboard/src/app/api/billing/seats/route.ts` | 1-119 | Seat allocation logic |
+| Invites schema | `supabase/migrations/20251127000000_add_invites.sql` | 1-128 | Table + RLS policies |
+| Invites type definition | `packages/domain/src/database.types.ts` | 393-408 | TypeScript interface |
+| Handle new user trigger | `supabase/migrations/20251127000000_add_invites.sql` | 77-127 | Skips auto-org for invites |
 
 ---
 
 ## 9. RELATED FEATURES
-- [Signup Flow](./signup-flow.md) - Normal self-signup creates new org
 - [Agent Management (D4)](../admin/agent-management.md) - Where invites are sent from
-- [Seat Management (B2)](../billing/seat-management.md) - Billing for agent seats
-- [Pool Management (D1)](../admin/pool-management.md) - New agents need pool assignment
+- [Billing Seats (B2)](../billing/seat-management.md) - Seat allocation on invite send/accept
+- [Login Flow (AUTH2)](./login-flow.md) - Alternative path for existing users
+- [Signup Flow (AUTH1)](./signup-flow.md) - Non-invite account creation
 
 ---
 
 ## 10. OPEN QUESTIONS
 
-1. **Should we check existing session?** Currently ignores logged-in state. Should we warn user they're creating a new account?
+1. **What happens if user tries to accept with a different email?** Currently the email field is disabled, so this is prevented. But if they have a Supabase account with a different email, they could be logged in and see a mismatch.
 
-2. **What happens to invite on auth failure?** If Supabase auth fails but user creation started, should we clean up?
+2. **Should there be a "resend invite" option?** Currently admins must revoke and re-invite. A resend button would be more user-friendly.
 
-3. **Should agent profile failure be blocking?** Currently logged but continues. Agent may not work properly.
+3. **Should invite expiry be configurable?** Currently hardcoded to 7 days. Some orgs may want shorter or longer windows.
 
-4. **Is 7-day expiry appropriate?** Could make configurable per-org or add re-send functionality.
+4. **What happens to pending invites when org is deleted?** The `ON DELETE CASCADE` constraint handles this, but should there be notification to invitees?
 
-5. **Should billing failure for admin-taking-calls be blocking?** Currently continues with potential revenue loss.
+5. **Should billing seat be charged at send time or accept time for all roles?** Currently agents charge on send (to prevent invite spam), admins charge on accept if they choose to take calls. This asymmetry could be confusing.
 
-6. **Email mismatch scenario?** What if someone shares their invite link? Email is locked to invite, but name is editable.
-
+6. **Is there a way to upgrade admin-only to agent later?** User would need to manually create agent_profile. Consider adding "Start taking calls" button in dashboard.

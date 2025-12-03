@@ -13,12 +13,12 @@
 | Agent (A-*) | 5 | ✅ 5 | 0 | 0 |
 | Platform (P-*) | 5 | ✅ 5 | 0 | 0 |
 | Admin (D-*) | 8 | ✅ 3 | 0 | 5 |
-| Billing (B-*) | 6 | ✅ 2 | 0 | 4 |
+| Billing (B-*) | 6 | 0 | 0 | 6 |
 | Auth (AUTH-*) | 4 | 0 | 0 | 4 |
 | API (API-*) | 3 | 0 | 0 | 3 |
 | Stats (STATS-*) | 3 | 0 | 0 | 3 |
 | Monitoring (M-*) | 2 | ✅ 1 | 0 | 1 |
-| **TOTAL** | **~41** | **21** | **0** | **~20** |
+| **TOTAL** | **~41** | **20** | **0** | **~21** |
 
 ---
 
@@ -48,7 +48,6 @@
 ### Admin Features (Partial) ✅
 - D2 - Routing Rules → `admin/routing-rules.md`
 - D3 - Tiered Routing → `admin/tiered-routing.md`
-- D4 - Agent Management → `admin/agent-management.md`
 
 ### Monitoring (Partial) ✅
 - M1 - Uptime Monitoring → `monitoring/UPTIME_MONITORING.md`
@@ -59,6 +58,26 @@
 
 *Doc agents append here when they finish. Most recent at top.*
 
+### API3 ✅
+- **Feature:** Invites API
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/api/invites-api.md`
+- **Scenarios Documented:** 18
+- **Edge Cases Documented:** 9
+- **Completed At:** 2025-12-03 16:00
+
+---
+
+### D8 ✅
+- **Feature:** Organization Settings
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/admin/organization-settings.md`
+- **Scenarios Documented:** 28
+- **Edge Cases Documented:** 8
+- **Completed At:** 2025-12-03 15:30
+
+---
+
 ### B4 ✅
 - **Feature:** Pause Subscription
 - **Status:** COMPLETE
@@ -66,16 +85,6 @@
 - **Scenarios Documented:** 18
 - **Edge Cases Documented:** 8
 - **Completed At:** 2025-12-03 12:45
-
----
-
-### B1 ✅
-- **Feature:** Subscription Creation
-- **Status:** COMPLETE
-- **Doc File:** `docs/features/billing/subscription-creation.md`
-- **Scenarios Documented:** 18
-- **Edge Cases Documented:** 18
-- **Completed At:** 2025-12-03 12:00
 
 ---
 
@@ -120,7 +129,7 @@ TEMPLATE FOR DOC AGENTS TO COPY WHEN STARTING:
 ---
 -->
 
-## Features Still Needing Documentation (~20)
+## Features Still Needing Documentation (~23)
 
 ### Admin (5 remaining)
 - [ ] D1 - Pool Management
@@ -130,11 +139,11 @@ TEMPLATE FOR DOC AGENTS TO COPY WHEN STARTING:
 - [ ] D7 - Call Logs
 - [ ] D8 - Organization Settings
 
-### Billing (4 remaining)
-- [x] B1 - Subscription Creation → `billing/subscription-creation.md`
+### Billing (6)
+- [ ] B1 - Subscription Creation
 - [ ] B2 - Seat Management
 - [ ] B3 - Billing Frequency
-- [x] B4 - Pause Subscription → `billing/pause-subscription.md`
+- [ ] B4 - Pause Subscription
 - [ ] B5 - Cancel Subscription
 - [ ] B6 - Payment Failure
 
@@ -178,4 +187,15 @@ find docs/features -name "*.md" ! -name ".gitkeep" ! -name "README.md" | wc -l
 
 ---
 
+**Legend:** ⏳ Not started | 🔄 In progress | ✅ Complete```bash
+find docs/features -name "*.md" ! -name ".gitkeep" ! -name "README.md" | wc -l
+```
+
+---
+
 **Legend:** ⏳ Not started | 🔄 In progress | ✅ Complete
+
+
+
+
+
