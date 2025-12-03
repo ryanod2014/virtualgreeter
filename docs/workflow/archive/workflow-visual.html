@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PM Workflow - Digital Greeter</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+      min-height: 100vh;
+      color: #e0e0e0;
+      padding: 40px;
+    }
+    
+    h1 {
+      text-align: center;
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #00d4ff, #7c3aed, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .subtitle {
+      text-align: center;
+      font-size: 1rem;
+      color: #888;
+      margin-bottom: 50px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .workflow-container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    /* Main Pipeline */
+    .pipeline {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 60px;
+      flex-wrap: wrap;
+    }
+    
+    .stage {
+      position: relative;
+      width: 180px;
+    }
+    
+    .stage-box {
+      background: linear-gradient(145deg, #1e1e3f, #252550);
+      border-radius: 16px;
+      padding: 24px 16px;
+      text-align: center;
+      border: 2px solid;
+      transition: all 0.3s ease;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    
+    .stage-box:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+    
+    .stage-icon {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+    }
+    
+    .stage-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .stage-agent {
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      opacity: 0.7;
+    }
+    
+    /* Stage colors */
+    .backlog .stage-box { border-color: #6366f1; }
+    .dev .stage-box { border-color: #10b981; }
+    .review .stage-box { border-color: #f59e0b; }
+    .qa .stage-box { border-color: #8b5cf6; }
+    .human .stage-box { border-color: #ec4899; }
+    .merged .stage-box { border-color: #22c55e; background: linear-gradient(145deg, #134e33, #166534); }
+    
+    /* Arrows */
+    .arrow {
+      position: absolute;
+      right: -30px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #4a4a7a;
+      font-size: 1.5rem;
+      z-index: 10;
+    }
+    
+    /* Status badges */
+    .status-flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 60px;
+    }
+    
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    
+    .status-dot.started { background: #3b82f6; }
+    .status-dot.complete { background: #10b981; }
+    .status-dot.blocked { background: #ef4444; }
+    .status-dot.approved { background: #22c55e; }
+    .status-dot.failed { background: #f43f5e; }
+    .status-dot.changes { background: #f59e0b; }
+    
+    /* PM Cycle Section */
+    .pm-cycle {
+      background: linear-gradient(145deg, #1a1a35, #22224a);
+      border-radius: 24px;
+      padding: 40px;
+      margin-bottom: 50px;
+      border: 1px solid #3a3a6a;
+    }
+    
+    .pm-cycle h2 {
+      font-size: 1.5rem;
+      margin-bottom: 30px;
+      color: #00d4ff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .phases {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+    
+    .phase {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      padding: 20px;
+      border-left: 4px solid;
+    }
+    
+    .phase:nth-child(1) { border-color: #00d4ff; }
+    .phase:nth-child(2) { border-color: #7c3aed; }
+    .phase:nth-child(3) { border-color: #f472b6; }
+    .phase:nth-child(4) { border-color: #10b981; }
+    .phase:nth-child(5) { border-color: #f59e0b; }
+    .phase:nth-child(6) { border-color: #22c55e; }
+    
+    .phase-number {
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      opacity: 0.6;
+      margin-bottom: 8px;
+    }
+    
+    .phase h3 {
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
+    
+    .phase p {
+      font-size: 0.85rem;
+      opacity: 0.8;
+      line-height: 1.5;
+    }
+    
+    /* Blocker Flow */
+    .blocker-flow {
+      background: linear-gradient(145deg, #2d1a1a, #3d2525);
+      border-radius: 24px;
+      padding: 40px;
+      margin-bottom: 50px;
+      border: 1px solid #5a3a3a;
+    }
+    
+    .blocker-flow h2 {
+      color: #f87171;
+      margin-bottom: 30px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .blocker-diagram {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+    }
+    
+    .blocker-box {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 16px 24px;
+      border-radius: 12px;
+      text-align: center;
+      min-width: 140px;
+    }
+    
+    .blocker-arrow {
+      font-size: 1.5rem;
+      color: #f87171;
+    }
+    
+    /* File Locks */
+    .file-locks {
+      background: linear-gradient(145deg, #1a2a1a, #253325);
+      border-radius: 24px;
+      padding: 40px;
+      margin-bottom: 50px;
+      border: 1px solid #3a5a3a;
+    }
+    
+    .file-locks h2 {
+      color: #4ade80;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .lock-rules {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    
+    .lock-rule {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 12px;
+    }
+    
+    .lock-rule h4 {
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+      color: #86efac;
+    }
+    
+    .lock-rule p {
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+    
+    /* Agent Types */
+    .agents {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 50px;
+    }
+    
+    .agent-card {
+      background: linear-gradient(145deg, #1e1e3f, #252550);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid #3a3a6a;
+    }
+    
+    .agent-card h3 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+      font-size: 1.1rem;
+    }
+    
+    .agent-card .command {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      word-break: break-all;
+      color: #a5b4fc;
+    }
+    
+    .agent-card ul {
+      list-style: none;
+      font-size: 0.85rem;
+    }
+    
+    .agent-card li {
+      padding: 4px 0;
+      padding-left: 16px;
+      position: relative;
+    }
+    
+    .agent-card li::before {
+      content: '›';
+      position: absolute;
+      left: 0;
+      color: #7c3aed;
+    }
+    
+    /* Current Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+      margin-bottom: 50px;
+    }
+    
+    .stat-card {
+      background: linear-gradient(145deg, #1e1e3f, #252550);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      border: 1px solid #3a3a6a;
+    }
+    
+    .stat-number {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00d4ff, #7c3aed);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .stat-label {
+      font-size: 0.85rem;
+      opacity: 0.7;
+      margin-top: 8px;
+    }
+    
+    /* Legend */
+    .legend {
+      text-align: center;
+      padding: 30px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 16px;
+    }
+    
+    .legend h3 {
+      margin-bottom: 20px;
+      font-size: 1rem;
+      opacity: 0.7;
+    }
+    
+    .legend-items {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+    
+    @media (max-width: 768px) {
+      body { padding: 20px; }
+      h1 { font-size: 1.8rem; }
+      .pipeline { flex-direction: column; align-items: center; }
+      .arrow { display: none; }
+      .stage { width: 100%; max-width: 250px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="workflow-container">
+    <h1>🎯 Digital Greeter PM Workflow</h1>
+    <p class="subtitle">Multi-Agent Development Pipeline</p>
+    
+    <!-- Main Pipeline -->
+    <section class="pipeline">
+      <div class="stage backlog">
+        <div class="stage-box">
+          <div class="stage-icon">📚</div>
+          <div class="stage-name">Backlog</div>
+          <div class="stage-agent">Strategy + PM</div>
+        </div>
+        <span class="arrow">→</span>
+      </div>
+      
+      <div class="stage dev">
+        <div class="stage-box">
+          <div class="stage-icon">🛠️</div>
+          <div class="stage-name">Development</div>
+          <div class="stage-agent">Dev Agent</div>
+        </div>
+        <span class="arrow">→</span>
+      </div>
+      
+      <div class="stage review">
+        <div class="stage-box">
+          <div class="stage-icon">👀</div>
+          <div class="stage-name">Code Review</div>
+          <div class="stage-agent">Review Agent</div>
+        </div>
+        <span class="arrow">→</span>
+      </div>
+      
+      <div class="stage qa">
+        <div class="stage-box">
+          <div class="stage-icon">🧪</div>
+          <div class="stage-name">QA Testing</div>
+          <div class="stage-agent">QA Agent</div>
+        </div>
+        <span class="arrow">→</span>
+      </div>
+      
+      <div class="stage human">
+        <div class="stage-box">
+          <div class="stage-icon">👤</div>
+          <div class="stage-name">Human QA</div>
+          <div class="stage-agent">(if needed)</div>
+        </div>
+        <span class="arrow">→</span>
+      </div>
+      
+      <div class="stage merged">
+        <div class="stage-box">
+          <div class="stage-icon">✅</div>
+          <div class="stage-name">Merged</div>
+          <div class="stage-agent">Done!</div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Status Badges -->
+    <section class="status-flow">
+      <div class="status-badge"><div class="status-dot started"></div> STARTED</div>
+      <div class="status-badge"><div class="status-dot complete"></div> COMPLETE</div>
+      <div class="status-badge"><div class="status-dot blocked"></div> BLOCKED</div>
+      <div class="status-badge"><div class="status-dot approved"></div> APPROVED</div>
+      <div class="status-badge"><div class="status-dot changes"></div> CHANGES_REQUESTED</div>
+      <div class="status-badge"><div class="status-dot failed"></div> FAILED</div>
+    </section>
+    
+    <!-- PM Cycle -->
+    <section class="pm-cycle">
+      <h2>🔄 PM Agent Cycle (6 Phases)</h2>
+      <div class="phases">
+        <div class="phase">
+          <div class="phase-number">PHASE 1</div>
+          <h3>📥 Status Collection</h3>
+          <p>Read agent-inbox/completions.md and process all STARTED, COMPLETE, BLOCKED, APPROVED, FAILED entries</p>
+        </div>
+        <div class="phase">
+          <div class="phase-number">PHASE 2</div>
+          <h3>📊 Results Collection</h3>
+          <p>Process Strategy reports, extract new tickets, handle QA approvals/failures</p>
+        </div>
+        <div class="phase">
+          <div class="phase-number">PHASE 3</div>
+          <h3>🎫 Ticket Creation</h3>
+          <p>Create specs for ALL available work (up to 15 parallel). Check file locks first!</p>
+        </div>
+        <div class="phase">
+          <div class="phase-number">PHASE 4</div>
+          <h3>📋 Update Task Board</h3>
+          <p>Update AGENT_TASKS.md with pipeline counts, running agents, file locks, stats</p>
+        </div>
+        <div class="phase">
+          <div class="phase-number">PHASE 5</div>
+          <h3>✔️ Mark Processed</h3>
+          <p>Add PM Cycle marker to completions.md with processed entries list</p>
+        </div>
+        <div class="phase">
+          <div class="phase-number">PHASE 6</div>
+          <h3>🚀 Output Launch Commands</h3>
+          <p>List ALL ready-to-launch agents with copy-paste commands</p>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Blocker Flow -->
+    <section class="blocker-flow">
+      <h2>🚫 Blocker Handling</h2>
+      <div class="blocker-diagram">
+        <div class="blocker-box">
+          <div>🛠️ Dev Agent</div>
+          <div style="font-size:0.8rem;opacity:0.7;margin-top:8px">Gets stuck</div>
+        </div>
+        <span class="blocker-arrow">→</span>
+        <div class="blocker-box">
+          <div>📝 BLOCKED</div>
+          <div style="font-size:0.8rem;opacity:0.7;margin-top:8px">Status + Question</div>
+        </div>
+        <span class="blocker-arrow">→</span>
+        <div class="blocker-box">
+          <div>🔄 PM Triage</div>
+          <div style="font-size:0.8rem;opacity:0.7;margin-top:8px">Check docs</div>
+        </div>
+        <span class="blocker-arrow">→</span>
+        <div class="blocker-box" style="border: 2px solid #22c55e;">
+          <div>HIGH Confidence</div>
+          <div style="font-size:0.8rem;opacity:0.7;margin-top:8px">→ Continuation ticket</div>
+        </div>
+        <div class="blocker-box" style="border: 2px solid #f59e0b;">
+          <div>LOW Confidence</div>
+          <div style="font-size:0.8rem;opacity:0.7;margin-top:8px">→ Escalate to human</div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- File Locks -->
+    <section class="file-locks">
+      <h2>🔒 File Lock System</h2>
+      <div class="lock-rules">
+        <div class="lock-rule">
+          <h4>Rule #1: No Conflicts</h4>
+          <p>No two agents can modify the same file simultaneously. PM checks before creating tickets.</p>
+        </div>
+        <div class="lock-rule">
+          <h4>Adding Locks</h4>
+          <p>When ticket starts → Files listed in FILE LOCKS table in AGENT_TASKS.md</p>
+        </div>
+        <div class="lock-rule">
+          <h4>Releasing Locks</h4>
+          <p>When agent reports COMPLETE → PM removes lock from table</p>
+        </div>
+        <div class="lock-rule">
+          <h4>Conflict Resolution</h4>
+          <p>If conflict: Queue new ticket, note dependency, create after lock released</p>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Agent Types -->
+    <h2 style="text-align:center;margin-bottom:30px;color:#a5b4fc;">🤖 Agent Types</h2>
+    <section class="agents">
+      <div class="agent-card">
+        <h3>🎯 PM Agent</h3>
+        <div class="command">You are the PM Agent. Read and execute docs/workflow/PM_SOP.md</div>
+        <ul>
+          <li>Orchestrates all work</li>
+          <li>Creates ticket specs</li>
+          <li>Manages file locks</li>
+          <li>Triages blockers</li>
+          <li>Updates AGENT_TASKS.md</li>
+        </ul>
+      </div>
+      
+      <div class="agent-card">
+        <h3>🛠️ Dev Agent</h3>
+        <div class="command">You are a Dev Agent. Read DEV_AGENT_SOP.md then execute: [ticket].md</div>
+        <ul>
+          <li>Implements fixes/features</li>
+          <li>Creates branches</li>
+          <li>Writes code + tests</li>
+          <li>Reports COMPLETE/BLOCKED</li>
+        </ul>
+      </div>
+      
+      <div class="agent-card">
+        <h3>👀 Review Agent</h3>
+        <div class="command">You are a Review Agent. Read REVIEW_AGENT_SOP.md then execute: [ticket].md</div>
+        <ul>
+          <li>Reviews code changes</li>
+          <li>Checks requirements</li>
+          <li>Reports APPROVED/CHANGES</li>
+        </ul>
+      </div>
+      
+      <div class="agent-card">
+        <h3>🧪 QA Agent</h3>
+        <div class="command">You are a QA Agent. Read QA_AGENT_SOP.md then execute: [ticket].md</div>
+        <ul>
+          <li>Runs automated tests</li>
+          <li>Verifies functionality</li>
+          <li>Decides human QA needs</li>
+          <li>Reports APPROVED/FAILED</li>
+        </ul>
+      </div>
+      
+      <div class="agent-card">
+        <h3>🔍 Strategy Agent</h3>
+        <div class="command">You are a Strategy Agent. Read STRATEGY_AGENT_SOP.md with focus: [FOCUS]</div>
+        <ul>
+          <li>Audits codebase</li>
+          <li>Finds issues proactively</li>
+          <li>Creates strategy reports</li>
+          <li>Feeds backlog</li>
+        </ul>
+      </div>
+    </section>
+    
+    <!-- Current Stats -->
+    <h2 style="text-align:center;margin-bottom:30px;color:#a5b4fc;">📊 Current Pipeline Status</h2>
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-number">17</div>
+        <div class="stat-label">Docs Complete</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">4</div>
+        <div class="stat-label">Strategy Reports</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">2</div>
+        <div class="stat-label">Dev Running</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">1</div>
+        <div class="stat-label">Review Ready</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">1</div>
+        <div class="stat-label">QA Running</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">2</div>
+        <div class="stat-label">Merged ✅</div>
+      </div>
+    </section>
+    
+    <!-- Key Files Legend -->
+    <section class="legend">
+      <h3>📁 Key Files</h3>
+      <div class="legend-items">
+        <div class="legend-item">📋 AGENT_TASKS.md → Main task board</div>
+        <div class="legend-item">📥 completions.md → Agent notifications</div>
+        <div class="legend-item">📝 prompts/active/ → Ticket specs</div>
+        <div class="legend-item">👤 human-qa-queue.md → Human testing</div>
+        <div class="legend-item">📄 workflow/templates/ → Spec templates</div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
+

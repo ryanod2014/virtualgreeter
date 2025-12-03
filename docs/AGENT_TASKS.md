@@ -1,155 +1,141 @@
-# 📋 Agent Task Board
+# 📋 Documentation Sprint Board
 
-> **This is your single source of truth for all work in progress.**
-> 
-> Updated by: PM Agent (main chat)
-> Last updated: 2024-12-03 14:45 (STRIPE-001, FIX-008 merged!)
-
----
-
-## 🎯 Pipeline Overview
-
-| Phase | Count | Status |
-|-------|-------|--------|
-| 📚 Documentation | 17 | ✅ Complete |
-| 🔍 Strategy | 4 | ✅ Complete |
-| 🛠️ Dev | 10 | 🔄 **STRIPE-003 dev agent running** |
-| 👀 Code Review | 10 | ⏳ Waiting on dev |
-| 🧪 QA | 1 | 🔄 **SEC-002 QA running** |
-| 👤 Human Review | 0 | - |
-| ✔️ Merged | 2 | **STRIPE-001, FIX-008** |
+> **Current Focus:** Feature documentation
+> **PM SOP:** `docs/workflow/PM_DOCS_SOP.md`
+> **Git:** PM handles automatically (human never thinks about it)
 
 ---
 
+## 📊 Documentation Progress
 
-## 🚀 AGENTS CURRENTLY RUNNING
-
-| Agent | Ticket | Type | Spec | Status |
-|-------|--------|------|------|--------|
-| Dev Agent | STRIPE-003 | 🛠️ Dev | `dev-agent-STRIPE003-v2.md` | 🔄 Running |
-| QA Agent | SEC-002 | 🧪 QA | `qa-agent-SEC002.md` | 🔄 Running |
-
-**2 agents running. Review agents completed (found empty branches).**
-
-### ✅ Just Merged
-| Ticket | What | Branch |
-|--------|------|--------|
-| STRIPE-001 | Webhook handler | `fix/STRIPE-001-webhook-handler` |
-| FIX-008 | Reconnect token expiry | `fix/FIX-008-reconnect-expiry-sync` |
-
----
-
-## ✅ APPROVED - Ready for QA
-
-| Ticket | Branch | Notes | QA Status |
-|--------|--------|-------|-----------|
-| FIX-008 | `fix/FIX-008-reconnect-expiry-sync` | localStorage token expiry synced to 30s | ⏳ Needs QA agent |
-| STRIPE-001 | `fix/STRIPE-001-webhook-handler` | Webhook handler complete | 🔄 QA Running |
-| SEC-002 | `fix/SEC-002-cobrowse-sanitization` | Sensitive field sanitization | 🔄 QA Running |
-
-### ❌ BLOCKED - Need Dev Work (6 tickets - branches empty!)
-
-**Fresh Dev Specs Ready - Run These:**
-
-| Priority | Ticket | One-Liner |
-|----------|--------|-----------|
-| **🔴 P0** | STRIPE-003 | `Read and execute docs/prompts/active/dev-agent-STRIPE003-v2.md` |
-| **🟡 P1** | FIX-001 | `Read and execute docs/prompts/active/dev-agent-FIX001-v2.md` |
-| **🟡 P1** | FIX-004 | `Read and execute docs/prompts/active/dev-agent-FIX004-v2.md` |
-| **🟢 P2** | FIX-003 | `Read and execute docs/prompts/active/dev-agent-FIX003-v2.md` |
-| **🟢 P2** | FIX-006 | `Read and execute docs/prompts/active/dev-agent-FIX006-v2.md` |
-| **🟢 P2** | FIX-007 | `Read and execute docs/prompts/active/dev-agent-FIX007-v2.md` |
-
-**Blocked on Dependencies:**
-| Ticket | Branch | Issue |
-|--------|--------|-------|
-| SEC-001 | `fix/SEC-001-api-auth` | ⏳ Needs STRIPE-001 merged first, then dashboard updates |
-
-**Note:** All specs above use existing branches (checkout, don't create new)
-
-### ⏳ Not Yet Reviewed (1 ticket)
-| Ticket | Branch | Notes |
-|--------|--------|-------|
-| FIX-002 | `fix/FIX-002-rna-countdown-sync` | Review not started |
-| STRIPE-002 | `fix/STRIPE-002-actual-cancellation` | Review not started |
+| Category | Complete | Remaining | Status |
+|----------|----------|-----------|--------|
+| Visitor (V1-V5) | ✅ 5 | 0 | Done |
+| Agent (A1-A5) | ✅ 5 | 0 | Done |
+| Platform (P2-P6) | ✅ 5 | 0 | Done |
+| Admin (D1-D8) | 2 | 6 | In Progress |
+| Billing (B1-B6) | 0 | 6 | Not Started |
+| Auth (AUTH1-4) | 0 | 4 | Not Started |
+| API (API1-3) | 0 | 3 | Not Started |
+| Stats (STATS1-3) | 0 | 3 | Not Started |
+| Monitoring (M1-2) | 1 | 1 | Partial |
+| **TOTAL** | **18** | **~23** | **44% done** |
 
 ---
 
-## 📋 All Fix Tickets
+## 🚀 Ready to Launch
 
-| ID | Task | Priority | Dev | Review | QA |
-|----|------|----------|-----|--------|-----|
-| FIX-001 | Pool routing during reassignment | P1 | ❌ Empty branch | ❌ BLOCKED | - |
-| FIX-002 | RNA countdown sync | P2 | ❌ Empty branch | ❌ BLOCKED | - |
-| FIX-003 | Handoff message | P2 | ❌ Empty branch | ❌ BLOCKED | - |
-| FIX-004 | Disconnect grace period | P1 | ❌ Empty branch | ❌ BLOCKED | - |
-| FIX-006 | Idle warning toast | P2 | ❌ Empty branch | ❌ BLOCKED | - |
-| FIX-007 | Video load analytics | P2 | ❌ Empty branch | ❌ BLOCKED | - |
-| FIX-008 | Reconnect token expiry | P2 | ✅ | ✅ | ✅ **MERGED** |
-| SEC-001 | API authentication | P0 | ⚠️ Build fail | ❌ BLOCKED | - |
-| SEC-002 | Co-browse sanitization | P0 | ✅ Implemented | ✅ APPROVED | 🔄 **QA RUNNING** |
-| STRIPE-001 | Webhook handler | P0 | ✅ | ✅ | ✅ **MERGED** |
-| STRIPE-002 | Cancellation fix | P0 | ❌ Empty branch | ❌ BLOCKED | - |
-| STRIPE-003 | Pause/Resume fix | P0 | 🔄 **DEV RUNNING** | ❌ BLOCKED | - |
+### Doc Agent Prompts Available
 
-**Legend:** ✅ Done | ⏳ Pending | ❌ Failed/Blocked | ⚠️ Issues | 🔄 In Progress
+| Feature | Prompt File | Category |
+|---------|-------------|----------|
+| B1 - Subscription Creation | `docs/prompts/active/doc-agent-B1.md` | Billing |
+| D1 - Pool Management | `docs/prompts/active/doc-agent-D1.md` | Admin |
+| AUTH1 - Signup Flow | `docs/prompts/active/doc-agent-AUTH1.md` | Auth |
+
+**Launch command:**
+```
+You are a Doc Agent. Read docs/workflow/DOC_AGENT_SOP.md then execute: docs/prompts/active/doc-agent-[ID].md
+```
 
 ---
 
-## 📚 Documentation Complete (17 features)
+## 📝 PM Actions Needed
 
-| Category | Features |
-|----------|----------|
-| Platform | P2, P4, P5, P6, Heartbeat, Call Lifecycle, WebRTC Signaling |
-| Visitor | V1, V2, V3, V4, V5 (Co-browse Sender) |
-| Agent | A1, A2, A3, A4, A5 (Co-browse Viewer) |
-| Admin | D2 (Routing Rules), D3 (Tiered Routing) |
+### Create More Doc Prompts
 
-All docs in `docs/features/`
+PM should create prompts for remaining features using:
+- **Template:** `docs/workflow/templates/doc-agent.md`
+- **Inventory:** `docs/FEATURE_INVENTORY.md`
+- **Format reference:** Any doc in `docs/features/visitor/` or `docs/features/platform/`
+
+### Features Still Needing Prompts
+
+**Admin (6 remaining):**
+- [ ] D4 - Agent Management
+- [ ] D5 - Widget Settings
+- [ ] D6 - Embed Code
+- [ ] D7 - Call Logs
+- [ ] D8 - Organization Settings
+
+**Billing (5 remaining):**
+- [ ] B2 - Seat Management
+- [ ] B3 - Billing Frequency
+- [ ] B4 - Pause Subscription
+- [ ] B5 - Cancel Subscription
+- [ ] B6 - Payment Failure
+
+**Auth (3 remaining):**
+- [ ] AUTH2 - Login Flow
+- [ ] AUTH3 - Invite Accept
+- [ ] AUTH4 - Password Reset
+
+**API (3):**
+- [ ] API1 - Agent API
+- [ ] API2 - Billing API
+- [ ] API3 - Invites API
+
+**Stats (3):**
+- [ ] STATS1 - Agent Stats
+- [ ] STATS2 - Coverage Stats
+- [ ] STATS3 - Call Analytics
+
+**Monitoring (1):**
+- [ ] M2 - Error Tracking
 
 ---
 
-## 🔍 Strategy Reports Complete (4)
+## 📂 Key Files
 
-| Report | File | Key Findings |
-|--------|------|--------------|
-| Security Audit | `docs/strategy/2024-12-03-security-audit.md` | SEC-001, SEC-002 |
-| Stripe Audit | `docs/strategy/2024-12-03-stripe-audit.md` | STRIPE-001, 002, 003 |
-| Database Audit | `docs/strategy/2024-12-03-database-audit.md` | Index suggestions |
-| Error Monitoring | `docs/strategy/2024-12-03-error-audit.md` | Missing boundaries |
-
-Full findings in `docs/strategy/INSIGHTS-LOG.md`
-
----
-
-## 💬 Awaiting Discussion
-
-*None - all questions resolved*
+| File | Purpose |
+|------|---------|
+| `docs/FEATURE_INVENTORY.md` | Full feature list with source files |
+| `docs/DOC_TRACKER.md` | Completion log (agents post here) |
+| `docs/features/` | Output documentation |
+| `docs/workflow/PM_DOCS_SOP.md` | PM instructions |
+| `docs/workflow/DOC_AGENT_SOP.md` | Doc agent instructions |
 
 ---
 
-## 🔒 FILE LOCKS
+## ✅ Completed Docs
 
-*All cleared - dev work complete*
+All in `docs/features/`:
+
+### Visitor
+- `visitor/widget-lifecycle.md` (V1)
+- `visitor/video-sequencer.md` (V2)
+- `visitor/visitor-call.md` (V3)
+- `visitor/call-reconnection.md` (V4)
+- `visitor/cobrowse-sender.md` (V5)
+
+### Agent
+- `agent/bullpen-states.md` (A1)
+- `agent/incoming-call.md` (A2)
+- `agent/rna-timeout.md` (A3)
+- `agent/agent-active-call.md` (A4)
+- `agent/cobrowse-viewer.md` (A5)
+
+### Platform
+- `platform/agent-assignment.md` (P2)
+- `platform/call-lifecycle.md` (P3)
+- `platform/visitor-reassignment.md` (P4)
+- `platform/webrtc-signaling.md` (P5)
+- `platform/heartbeat-staleness.md` (P6)
+
+### Admin
+- `admin/routing-rules.md` (D2)
+- `admin/tiered-routing.md` (D3)
+
+### Monitoring
+- `monitoring/UPTIME_MONITORING.md` (M1)
 
 ---
 
-## 🔔 Agent Completion Inbox
+## 🗄️ Note: Old Workflow Archived
 
-**Check `docs/agent-inbox/completions.md` for agent notifications.**
+The previous Dev/QA/Review/Strategy workflow is archived at:
+```
+docs/workflow/archive/
+```
 
-When agents complete work, they append to that file. PM reads it and updates this board.
-
----
-
-## Quick Stats
-
-- **Session Started:** 2024-12-02
-- **Features Documented:** 17
-- **Strategy Reports:** 4
-- **Fix Tickets:** 12 (5 P0, 2 P1, 5 P2)
-- **Dev Branches:** 4/12 actually implemented (8 empty!)
-- **Reviews Approved:** 3 (FIX-008, SEC-002, STRIPE-001)
-- **Reviews Blocked:** 8 (waiting for dev work)
-- **Ready for QA:** 3 tickets
-- **Last Updated:** 2024-12-03
+This board is now **documentation-only**.
