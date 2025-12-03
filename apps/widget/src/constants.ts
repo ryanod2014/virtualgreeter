@@ -93,6 +93,24 @@ export const ANIMATION_TIMING = {
 } as const;
 
 /**
+ * Idle tracking timing
+ * Matches server AGENT_IDLE_TIMEOUT for consistency
+ */
+export const IDLE_TIMING = {
+  /**
+   * Time (ms) before idle warning is shown.
+   * 4:30 (270000ms) leaves 30 seconds before the 5-minute disconnect.
+   */
+  WARNING_THRESHOLD: 270000,
+
+  /**
+   * Time (ms) for idle warning toast auto-dismiss if user doesn't interact.
+   * Shorter than actual disconnect to encourage action.
+   */
+  WARNING_DURATION: 25000,
+} as const;
+
+/**
  * Connection timing
  */
 export const CONNECTION_TIMING = {

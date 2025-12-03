@@ -5,7 +5,7 @@ import { useSignaling, shouldSkipIntroForAgent, storeWidgetState, clearStoredWid
 import { useWebRTC } from "./features/webrtc/useWebRTC";
 import { useCobrowse } from "./features/cobrowse/useCobrowse";
 import type { AgentAssignedPayload, AgentUnavailablePayload, WidgetSettings } from "@ghost-greeter/domain";
-import { ARIA_LABELS, ANIMATION_TIMING, ERROR_MESSAGES, CONNECTION_TIMING, SIZE_DIMENSIONS } from "./constants";
+import { ARIA_LABELS, ANIMATION_TIMING, ERROR_MESSAGES, CONNECTION_TIMING, SIZE_DIMENSIONS, IDLE_TIMING } from "./constants";
 
 /**
  * Default widget settings (used until server sends actual settings)
@@ -114,6 +114,32 @@ function ErrorToast({
   );
 }
 
+/**
+ * IdleWarningToast - Displays warning when visitor is about to be disconnected due to inactivity
+ */
+function IdleWarningToast({
+  onStayConnected,
+}: {
+  onStayConnected: () => void;
+}) {
+  return (
+    <div 
+      className="gg-idle-warning-toast" 
+      role="alert" 
+      aria-live="assertive"
+      onClick={onStayConnected}
+    >
+      <div className="gg-idle-warning-content">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 6v6l4 2" />
+        </svg>
+        <span>Still there? Tap to stay connected</span>
+      </div>
+    </div>
+  );
+}
+
 export function Widget({ config }: WidgetProps) {
   const [state, setState] = useState<WidgetState>("hidden");
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -138,6 +164,11 @@ export function Widget({ config }: WidgetProps) {
   // Track when visitor connected (from server) to calculate remaining trigger delay
   // This allows widget to reappear correctly when agent becomes available
   const visitorConnectedAtRef = useRef<number>(Date.now());
+  
+  // Idle warning state - shows toast at 4:30 of inactivity before 5min disconnect
+  const [showIdleWarning, setShowIdleWarning] = useState(false);
+  const idleWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleWarningDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Apply theme class to shadow host
   // Needs to run when state changes (widget becomes visible) and when theme changes

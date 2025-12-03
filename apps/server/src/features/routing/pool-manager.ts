@@ -779,17 +779,21 @@ export class PoolManager {
     );
 
     for (const visitorId of visitorsToReassign) {
-      const newAgent = this.findBestAgent();
+      const visitor = this.visitors.get(visitorId);
+      if (!visitor) continue;
+      
+      // Use findBestAgentForVisitor to respect pool routing rules
+      // Visitors stay within their matched pool during reassignment
+      const result = this.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
+      const newAgent = result?.agent;
+      
       if (newAgent && newAgent.agentId !== fromAgentId) {
         this.assignVisitorToAgent(visitorId, newAgent.agentId);
         reassigned.set(visitorId, newAgent.agentId);
       } else {
-        // No agent available - mark visitor as unassigned
-        const visitor = this.visitors.get(visitorId);
-        if (visitor) {
-          visitor.assignedAgentId = null;
-          unassigned.push(visitorId);
-        }
+        // No agent available in visitor's pool - mark visitor as unassigned
+        visitor.assignedAgentId = null;
+        unassigned.push(visitorId);
       }
     }
 
