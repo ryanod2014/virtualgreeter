@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { stripe } from "@/lib/stripe";
 import { revalidatePath } from "next/cache";
 import type { CancellationReason, SubscriptionStatus } from "@ghost-greeter/domain/database.types";
 
@@ -45,21 +46,40 @@ export async function submitCancellationFeedback(
     throw new Error("Failed to save cancellation feedback");
   }
 
-  // In production, you would also:
-  // 1. Call Stripe to cancel the subscription
-  // 2. Update the organization's plan to 'free' or mark as cancelled
-  // 3. Send a confirmation email
-  // 4. Schedule data retention/deletion
+  // Get organization to check for Stripe subscription
+  const { data: org, error: orgError } = await supabase
+    .from("organizations")
+    .select("stripe_subscription_id")
+    .eq("id", params.organizationId)
+    .single();
 
-  // For now, we'll just downgrade to free plan
+  if (orgError) {
+    console.error("Failed to fetch organization:", orgError);
+    throw new Error("Failed to fetch organization");
+  }
+
+  // Call Stripe FIRST (if Stripe fails, we don't want DB out of sync)
+  if (stripe && org.stripe_subscription_id) {
+    try {
+      await stripe.subscriptions.cancel(org.stripe_subscription_id);
+    } catch (stripeError) {
+      console.error("Failed to cancel Stripe subscription:", stripeError);
+      throw new Error("Failed to cancel subscription. Please try again or contact support.");
+    }
+  }
+
+  // Update the organization's plan to 'free' (only after Stripe succeeds)
   const { error: updateError } = await supabase
     .from("organizations")
-    .update({ plan: "free" })
+    .update({ 
+      plan: "free",
+      stripe_subscription_id: null, // Clear subscription ID since it's now cancelled
+    })
     .eq("id", params.organizationId);
 
   if (updateError) {
     console.error("Failed to update organization plan:", updateError);
-    // Don't throw - feedback is saved, that's the important part
+    // Don't throw - Stripe cancellation succeeded, that's the critical part
   }
 
   revalidatePath("/admin/settings/billing");
