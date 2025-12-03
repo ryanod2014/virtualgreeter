@@ -22,7 +22,7 @@
 
 ---
 
-## ✅ All Completed (42 docs)
+## ✅ All Completed (43 docs)
 
 ### Visitor Features ✅
 - V1 - Widget Lifecycle → `visitor/widget-lifecycle.md`
@@ -55,6 +55,7 @@
 - D7 - Call Logs → `admin/call-logs.md`
 - D8 - Organization Settings → `admin/organization-settings.md`
 - D9 - Blocklist Settings → `admin/blocklist-settings.md`
+- D10 - Dispositions → `admin/dispositions.md`
 
 ### Billing Features ✅
 - B1 - Subscription Creation → `billing/subscription-creation.md`
@@ -106,8 +107,20 @@
 Count actual doc files:
 ```bash
 find docs/features -name "*.md" ! -name ".gitkeep" ! -name "README.md" | wc -l
-# Expected: 41
+# Expected: 43
 ```
+
+---
+
+## Additional Documentation
+
+### SA2 ✅
+- **Feature:** Cancellations Dashboard
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/superadmin/cancellations-dashboard.md`
+- **Scenarios Documented:** 13
+- **Edge Cases Documented:** 13
+- **Completed At:** 2025-12-03
 
 ---
 
