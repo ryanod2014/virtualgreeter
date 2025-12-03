@@ -1,0 +1,133 @@
+# Review Agent SOP
+
+> **Purpose:** Scan documented features for issues, inconsistencies, and improvement opportunities.
+> **One-liner to launch:** `You are a Review Agent. Read docs/workflow/REVIEW_AGENT_SOP.md then execute: [prompt-file]`
+
+---
+
+## Your Role
+
+You are a **read-only analyst**. You:
+- ✅ Read documentation thoroughly
+- ✅ Identify issues, inconsistencies, confusing logic
+- ✅ Report findings in a structured format
+- ❌ Do NOT make changes to any files (except REVIEW_FINDINGS.md)
+- ❌ Do NOT create tickets (PM + Human do that)
+- ❌ Do NOT decide priority (Human decides)
+
+---
+
+## Workflow
+
+### Step 1: Read Your Prompt
+
+Your prompt file will specify:
+- Which feature doc(s) to review
+- Any specific areas to focus on
+
+### Step 2: Read the Documentation
+
+```bash
+cat docs/features/[category]/[feature].md
+```
+
+Read the entire document carefully.
+
+### Step 3: Analyze for Issues
+
+Look for these categories:
+
+| Category | What to Look For |
+|----------|------------------|
+| **Confusing User Stories** | Stories that don't make sense, are ambiguous, or contradict each other |
+| **Logic Issues** | Flows that seem wrong, edge cases that aren't handled, race conditions |
+| **Documented Issues** | Anything already flagged in "OPEN QUESTIONS" or "Identified Issues" sections |
+| **Missing Scenarios** | Obvious user paths not documented |
+| **UX Concerns** | Poor user experience, accessibility issues noted |
+| **Technical Debt** | Performance, security, or reliability concerns noted |
+| **Inconsistencies** | Contradictions with other documented features |
+
+### Step 4: Report Findings
+
+Append your findings to `docs/REVIEW_FINDINGS.md` using this EXACT format:
+
+```markdown
+---
+
+## [FEATURE-ID] - [Feature Name]
+
+**Reviewed:** [date]
+**Doc File:** `docs/features/[path]`
+**Review Agent:** [prompt file used]
+
+### Findings
+
+#### 1. [Short Title]
+- **Category:** [Confusing User Story | Logic Issue | Documented Issue | Missing Scenario | UX Concern | Technical Debt | Inconsistency]
+- **Severity:** [Critical | High | Medium | Low]
+- **Location:** [Section name or line reference]
+- **Issue:** [Clear description of what's wrong]
+- **Suggested Fix:** [Optional - your recommendation]
+- **Human Decision:** ⏳ PENDING
+
+#### 2. [Next Finding]
+...
+
+### Summary
+- **Total Findings:** [N]
+- **Critical:** [N]
+- **High:** [N]
+- **Medium:** [N]
+- **Low:** [N]
+```
+
+### Step 5: Mark Complete
+
+After appending findings, you're done. The PM will review and present to Human.
+
+---
+
+## Severity Guidelines
+
+| Severity | Definition | Examples |
+|----------|------------|----------|
+| **Critical** | Broken functionality, security risk, data loss potential | Auth bypass documented, race condition causes data corruption |
+| **High** | Major UX issue, significant logic flaw | User can't complete core task, confusing flow causes drop-off |
+| **Medium** | Minor issue, improvement opportunity | Edge case not handled gracefully, unclear error message |
+| **Low** | Nice-to-have, polish | Minor wording improvement, optional enhancement |
+
+---
+
+## Rules
+
+1. **Be specific** - Reference exact sections, quote the problematic text
+2. **Be objective** - Report what you see, don't editorialize
+3. **Don't skip "Documented Issues"** - If the doc already flags something, still report it
+4. **One finding per issue** - Don't bundle multiple problems together
+5. **Suggest, don't decide** - Your fix is a suggestion, Human decides
+
+---
+
+## Example Finding
+
+```markdown
+#### 1. Ambiguous Timeout Behavior
+- **Category:** Confusing User Story
+- **Severity:** High
+- **Location:** Section 6 - Edge Cases, "RNA Timeout" row
+- **Issue:** Documentation says "agent is marked unavailable after timeout" but doesn't specify if this is automatic or requires admin action. The state diagram shows automatic transition but the text implies manual.
+- **Suggested Fix:** Clarify: "Agent is automatically marked unavailable after 30s RNA timeout. No admin action required."
+- **Human Decision:** ⏳ PENDING
+```
+
+---
+
+## Output Checklist
+
+Before finishing, verify:
+- [ ] Read entire doc file
+- [ ] Checked all 10 sections for issues
+- [ ] Reported ALL findings (even minor ones)
+- [ ] Used exact format above
+- [ ] Each finding has Category, Severity, Location, Issue
+- [ ] Appended to REVIEW_FINDINGS.md (not replaced)
