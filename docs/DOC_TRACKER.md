@@ -9,8 +9,8 @@
 
 | Category | Total | Complete | In Progress | Remaining |
 |----------|-------|----------|-------------|-----------|
-| Visitor (V-*) | 5 | ✅ 5 | 0 | 0 |
-| Agent (A-*) | 5 | ✅ 5 | 0 | 0 |
+| Visitor (V-*) | 7 | ✅ 7 | 0 | 0 |
+| Agent (A-*) | 7 | ✅ 7 | 0 | 0 |
 | Platform (P-*) | 5 | ✅ 5 | 0 | 0 |
 | Admin (D-*) | 10 | ✅ 10 | 0 | 0 |
 | Billing (B-*) | 6 | ✅ 6 | 0 | 0 |
@@ -18,11 +18,12 @@
 | API (API-*) | 3 | ✅ 3 | 0 | 0 |
 | Stats (STATS-*) | 3 | ✅ 3 | 0 | 0 |
 | Monitoring (M-*) | 2 | ✅ 2 | 0 | 0 |
-| **TOTAL** | **43** | **✅ 43** | **0** | **0** |
+| Superadmin (SA-*) | 3 | ✅ 3 | 0 | 0 |
+| **TOTAL** | **50** | **✅ 50** | **0** | **0** |
 
 ---
 
-## ✅ All Completed (43 docs)
+## ✅ All Completed (45 docs)
 
 ### Visitor Features ✅
 - V1 - Widget Lifecycle → `visitor/widget-lifecycle.md`
@@ -30,6 +31,8 @@
 - V3 - Visitor Call → `visitor/visitor-call.md`
 - V4 - Call Reconnection → `visitor/call-reconnection.md`
 - V5 - Co-Browse Sender → `visitor/cobrowse-sender.md`
+- V6 - Public Feedback → `visitor/public-feedback.md`
+- V7 - Mobile Gate → `visitor/mobile-gate.md`
 
 ### Agent Features ✅
 - A1 - Bullpen States → `agent/bullpen-states.md`
@@ -37,6 +40,8 @@
 - A3 - RNA Timeout → `agent/rna-timeout.md`
 - A4 - Agent Active Call → `agent/agent-active-call.md`
 - A5 - Co-Browse Viewer → `agent/cobrowse-viewer.md`
+- A6 - Agent Stats Detail → `agent/agent-stats-detail.md`
+- A8 - Video Recordings → `agent/video-recordings.md`
 
 ### Platform Features ✅
 - P2 - Agent Assignment → `platform/agent-assignment.md`
@@ -107,12 +112,20 @@
 Count actual doc files:
 ```bash
 find docs/features -name "*.md" ! -name ".gitkeep" ! -name "README.md" | wc -l
-# Expected: 43
+# Expected: 45
 ```
 
 ---
 
 ## Additional Documentation
+
+### SA1 ✅
+- **Feature:** Platform Dashboard
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/superadmin/platform-dashboard.md`
+- **Scenarios Documented:** 12
+- **Edge Cases Documented:** 12
+- **Completed At:** 2025-12-03
 
 ### SA2 ✅
 - **Feature:** Cancellations Dashboard
@@ -122,6 +135,74 @@ find docs/features -name "*.md" ! -name ".gitkeep" ! -name "README.md" | wc -l
 - **Edge Cases Documented:** 13
 - **Completed At:** 2025-12-03
 
+### SA3 ✅
+- **Feature:** Feedback Dashboard
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/superadmin/feedback-dashboard.md`
+- **Scenarios Documented:** 18
+- **Edge Cases Documented:** 18
+- **Completed At:** 2025-12-03
+
+### A6 ✅
+- **Feature:** Agent Stats Detail
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/agent/agent-stats-detail.md`
+- **Scenarios Documented:** 15
+- **Edge Cases Documented:** 15
+- **Completed At:** 2025-12-03
+
 ---
 
 **Legend:** ✅ Complete
+
+---
+
+**Legend:** ✅ Complete
+
+### D11 ✅
+- **Feature:** Recording Settings
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/admin/recording-settings.md`
+- **Scenarios Documented:** 20
+- **Edge Cases Documented:** 7
+- **Completed At:** 2025-12-03
+
+### V6 ✅
+- **Feature:** Public Feedback
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/visitor/public-feedback.md`
+- **Scenarios Documented:** 21
+- **Edge Cases Documented:** 6
+- **Completed At:** 2025-12-03
+
+### V7 ✅
+- **Feature:** Mobile Gate
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/visitor/mobile-gate.md`
+- **Scenarios Documented:** 18
+- **Edge Cases Documented:** 4
+- **Completed At:** 2025-12-03
+
+### SVC2 ✅
+- **Feature:** Transcription Service
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/platform/transcription-service.md`
+- **Scenarios Documented:** 20
+- **Edge Cases Documented:** 8
+- **Completed At:** 2025-12-03
+
+### A7 ✅
+- **Feature:** Agent Call Logs
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/agent/agent-call-logs.md`
+- **Scenarios Documented:** 18
+- **Edge Cases Documented:** 18
+- **Completed At:** 2025-12-03
+
+### SA5 ✅
+- **Feature:** Organizations Manager
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/superadmin/organizations-manager.md`
+- **Scenarios Documented:** 12
+- **Edge Cases Documented:** 12
+- **Completed At:** 2025-12-03
