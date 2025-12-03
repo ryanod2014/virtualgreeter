@@ -291,6 +291,7 @@ git push
 |------|----------|-------------|
 | `docs/FEATURE_INVENTORY.md` | ✅ Read | ✅ Read |
 | `docs/DOC_TRACKER.md` | ✅ Read/Write | ✅ Read |
+| `docs/REVIEW_TRACKER.md` | - | ✅ Read/Write |
 | `docs/REVIEW_FINDINGS.md` | - | ✅ Read/Write |
 | `docs/TICKET_BACKLOG.md` | - | ✅ Write |
 | `docs/workflow/templates/doc-agent.md` | ✅ Use | - |
@@ -355,7 +356,7 @@ A: Re-launch that one agent, or manually edit REVIEW_FINDINGS.md
 A: Update REVIEW_FINDINGS.md and TICKET_BACKLOG.md accordingly
 
 **Q: How do I know what's been reviewed?**
-A: Check REVIEW_FINDINGS.md for which features have entries
+A: Check `REVIEW_TRACKER.md` for completion status (✅ = done, ⏳ = pending)
 
 **Q: Can I run both modes at once?**
 A: Yes, but use separate PM sessions to avoid confusion

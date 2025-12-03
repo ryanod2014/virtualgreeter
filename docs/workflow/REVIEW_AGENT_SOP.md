@@ -11,7 +11,8 @@ You are a **read-only analyst**. You:
 - ✅ Read documentation thoroughly
 - ✅ Identify issues, inconsistencies, confusing logic
 - ✅ Report findings in a structured format
-- ❌ Do NOT make changes to any files (except REVIEW_FINDINGS.md)
+- ✅ Mark completion in REVIEW_TRACKER.md
+- ❌ Do NOT make changes to any files (except REVIEW_FINDINGS.md and REVIEW_TRACKER.md)
 - ❌ Do NOT create tickets (PM + Human do that)
 - ❌ Do NOT decide priority (Human decides)
 
@@ -81,9 +82,23 @@ Append your findings to `docs/REVIEW_FINDINGS.md` using this EXACT format:
 - **Low:** [N]
 ```
 
-### Step 5: Mark Complete
+### Step 5: Update Review Tracker
 
-After appending findings, you're done. The PM will review and present to Human.
+Update `docs/REVIEW_TRACKER.md` to mark your feature as reviewed:
+
+1. Find the feature row in the appropriate category table
+2. Change `⏳` to `✅`
+3. Add today's date
+4. Add finding count (e.g., "3 findings" or "0 - clean")
+
+**Example:**
+```markdown
+| agent-management | `admin/agent-management.md` | ✅ | 2025-12-03 | 3 findings |
+```
+
+### Step 6: Done
+
+After updating both files, you're done. The PM will review findings and present to Human.
 
 ---
 
@@ -131,3 +146,4 @@ Before finishing, verify:
 - [ ] Used exact format above
 - [ ] Each finding has Category, Severity, Location, Issue
 - [ ] Appended to REVIEW_FINDINGS.md (not replaced)
+- [ ] Updated REVIEW_TRACKER.md (marked ✅, added date, added finding count)
