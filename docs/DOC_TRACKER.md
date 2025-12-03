@@ -13,12 +13,12 @@
 | Agent (A-*) | 5 | ✅ 5 | 0 | 0 |
 | Platform (P-*) | 5 | ✅ 5 | 0 | 0 |
 | Admin (D-*) | 8 | ✅ 3 | 0 | 5 |
-| Billing (B-*) | 6 | 0 | 0 | 6 |
+| Billing (B-*) | 6 | ✅ 2 | 0 | 4 |
 | Auth (AUTH-*) | 4 | 0 | 0 | 4 |
 | API (API-*) | 3 | 0 | 0 | 3 |
 | Stats (STATS-*) | 3 | 0 | 0 | 3 |
 | Monitoring (M-*) | 2 | ✅ 1 | 0 | 1 |
-| **TOTAL** | **~41** | **19** | **0** | **~22** |
+| **TOTAL** | **~41** | **21** | **0** | **~20** |
 
 ---
 
@@ -58,6 +58,16 @@
 ## Completion Log (New Docs)
 
 *Doc agents append here when they finish. Most recent at top.*
+
+### B4 ✅
+- **Feature:** Pause Subscription
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/billing/pause-subscription.md`
+- **Scenarios Documented:** 18
+- **Edge Cases Documented:** 8
+- **Completed At:** 2025-12-03 12:45
+
+---
 
 ### B1 ✅
 - **Feature:** Subscription Creation
@@ -110,21 +120,21 @@ TEMPLATE FOR DOC AGENTS TO COPY WHEN STARTING:
 ---
 -->
 
-## Features Still Needing Documentation (~23)
+## Features Still Needing Documentation (~20)
 
 ### Admin (5 remaining)
 - [ ] D1 - Pool Management
 - [x] D4 - Agent Management → `admin/agent-management.md`
 - [ ] D5 - Widget Settings
-- [ ] D6 - Embed Code
+- [x] D6 - Embed Code → `admin/embed-code.md`
 - [ ] D7 - Call Logs
 - [ ] D8 - Organization Settings
 
-### Billing (6)
-- [ ] B1 - Subscription Creation
+### Billing (4 remaining)
+- [x] B1 - Subscription Creation → `billing/subscription-creation.md`
 - [ ] B2 - Seat Management
 - [ ] B3 - Billing Frequency
-- [ ] B4 - Pause Subscription
+- [x] B4 - Pause Subscription → `billing/pause-subscription.md`
 - [ ] B5 - Cancel Subscription
 - [ ] B6 - Payment Failure
 
@@ -162,14 +172,6 @@ grep "🔄" docs/DOC_TRACKER.md | wc -l
 ```
 
 Count actual doc files:
-```bash
-find docs/features -name "*.md" ! -name ".gitkeep" ! -name "README.md" | wc -l
-```
-
----
-
-**Legend:** ⏳ Not started | 🔄 In progress | ✅ Complete
-
 ```bash
 find docs/features -name "*.md" ! -name ".gitkeep" ! -name "README.md" | wc -l
 ```
