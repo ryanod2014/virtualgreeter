@@ -94,6 +94,42 @@ export function useCobrowse({ socket, isInCall }: UseCobrowseOptions): void {
         }
       });
 
+      // SEC-002: Sanitize sensitive input fields before capturing
+      // This prevents password, credit card, and other sensitive data from being exposed
+      const sensitiveSelectors = [
+        'input[type="password"]',
+        'input[autocomplete*="cc-"]',
+        'input[autocomplete="current-password"]',
+        'input[autocomplete="new-password"]',
+        'input[name*="password" i]',
+        'input[name*="passwd" i]',
+        'input[name*="ssn" i]',
+        'input[name*="social" i]',
+        'input[name*="cvv" i]',
+        'input[name*="cvc" i]',
+        'input[name*="card" i]',
+        'input[name*="credit" i]',
+        'input[name*="secret" i]',
+        'input[name*="pin" i]',
+      ].join(", ");
+
+      const sensitiveInputs = docClone.querySelectorAll(sensitiveSelectors);
+      sensitiveInputs.forEach((input) => {
+        const el = input as HTMLInputElement;
+        if (el.value) {
+          el.value = "••••••••";
+          el.setAttribute("value", "••••••••");
+        }
+      });
+
+      // Also clear any hidden inputs (could contain tokens/secrets)
+      const hiddenInputs = docClone.querySelectorAll('input[type="hidden"]');
+      hiddenInputs.forEach((input) => {
+        const el = input as HTMLInputElement;
+        el.value = "";
+        el.setAttribute("value", "");
+      });
+
       // Serialize to HTML
       const html = docClone.documentElement.outerHTML;
 
