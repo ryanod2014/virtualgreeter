@@ -12,17 +12,17 @@
 | Visitor (V-*) | 5 | ✅ 5 | 0 | 0 |
 | Agent (A-*) | 5 | ✅ 5 | 0 | 0 |
 | Platform (P-*) | 5 | ✅ 5 | 0 | 0 |
-| Admin (D-*) | 8 | ✅ 8 | 0 | 0 |
+| Admin (D-*) | 10 | ✅ 10 | 0 | 0 |
 | Billing (B-*) | 6 | ✅ 6 | 0 | 0 |
 | Auth (AUTH-*) | 4 | ✅ 4 | 0 | 0 |
 | API (API-*) | 3 | ✅ 3 | 0 | 0 |
 | Stats (STATS-*) | 3 | ✅ 3 | 0 | 0 |
 | Monitoring (M-*) | 2 | ✅ 2 | 0 | 0 |
-| **TOTAL** | **41** | **✅ 41** | **0** | **0** |
+| **TOTAL** | **43** | **✅ 43** | **0** | **0** |
 
 ---
 
-## ✅ All Completed (41 docs)
+## ✅ All Completed (42 docs)
 
 ### Visitor Features ✅
 - V1 - Widget Lifecycle → `visitor/widget-lifecycle.md`
@@ -54,6 +54,7 @@
 - D6 - Embed Code → `admin/embed-code.md`
 - D7 - Call Logs → `admin/call-logs.md`
 - D8 - Organization Settings → `admin/organization-settings.md`
+- D9 - Blocklist Settings → `admin/blocklist-settings.md`
 
 ### Billing Features ✅
 - B1 - Subscription Creation → `billing/subscription-creation.md`
