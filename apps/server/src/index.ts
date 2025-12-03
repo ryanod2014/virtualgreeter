@@ -34,6 +34,7 @@ import type {
   ServerToWidgetEvents,
   ServerToDashboardEvents,
 } from "@ghost-greeter/domain";
+import { handleStripeWebhook } from "./features/billing/stripe-webhook-handler.js";
 
 // ============================================================================
 // CONFIGURATION
@@ -77,6 +78,13 @@ const METRICS_API_KEY = process.env["METRICS_API_KEY"];
 
 const app = express();
 app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
+
+// ============================================================================
+// STRIPE WEBHOOK (must be before express.json() for raw body access)
+// ============================================================================
+// Stripe webhooks require the raw request body for signature verification
+app.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), handleStripeWebhook);
+
 app.use(express.json());
 
 // Rate limiting configuration
