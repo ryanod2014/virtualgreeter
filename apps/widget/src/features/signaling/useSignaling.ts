@@ -20,7 +20,7 @@ import { CONNECTION_TIMING, ERROR_MESSAGES } from "../../constants";
 // These allow calls to survive page navigation by storing reconnect info
 
 const CALL_STORAGE_KEY = "gg_active_call";
-const CALL_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes max call recovery window
+const CALL_EXPIRY_MS = 30 * 1000; // 30 seconds - matches server CALL_RECONNECT_TIMEOUT
 
 interface StoredCallData {
   reconnectToken: string;
