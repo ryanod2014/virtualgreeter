@@ -1,8 +1,7 @@
 # Feature Inventory
 
-> **Purpose:** Complete list of all features that need scenario-based documentation.
-> **PM:** Use this to generate doc-agent prompts for parallel execution.
-> **Format:** Uses your existing comprehensive documentation format (10 sections per doc)
+> **Purpose:** Complete list of all features with scenario-based documentation.
+> **Status:** ✅ ALL DOCUMENTATION COMPLETE (Sprint finished Dec 3, 2025)
 
 ---
 
@@ -13,17 +12,17 @@
 | Visitor | 5 | ✅ 5 | 0 |
 | Agent | 5 | ✅ 5 | 0 |
 | Platform | 5 | ✅ 5 | 0 |
-| Admin | 2 | ✅ 2 | ~6 more |
-| Billing | 6 | 0 | 6 |
-| Auth | 4 | 0 | 4 |
-| API | 3 | 0 | 3 |
-| Stats | 3 | 0 | 3 |
-| Monitoring | 1 | ✅ 1 | 1 |
-| **TOTAL** | **~40** | **18** | **~22** |
+| Admin | 8 | ✅ 8 | 0 |
+| Billing | 6 | ✅ 6 | 0 |
+| Auth | 4 | ✅ 4 | 0 |
+| API | 3 | ✅ 3 | 0 |
+| Stats | 3 | ✅ 3 | 0 |
+| Monitoring | 2 | ✅ 2 | 0 |
+| **TOTAL** | **41** | **✅ 41** | **0** |
 
 ---
 
-## ✅ COMPLETED DOCUMENTATION (17 features)
+## ✅ COMPLETED DOCUMENTATION (41 features)
 
 ### Visitor Features (V1-V5) - ALL COMPLETE ✅
 
@@ -55,81 +54,67 @@
 | P5 | WebRTC Signaling | `platform/webrtc-signaling.md` | ✅ |
 | P6 | Heartbeat & Staleness | `platform/heartbeat-staleness.md` | ✅ |
 
-### Admin Features (D2-D3) - PARTIAL ✅
+### Admin Features (D1-D8) - ALL COMPLETE ✅
 
 | ID | Feature | Doc File | Status |
 |----|---------|----------|--------|
+| D1 | Pool Management | `admin/pool-management.md` | ✅ |
 | D2 | Routing Rules | `admin/routing-rules.md` | ✅ |
 | D3 | Tiered Routing | `admin/tiered-routing.md` | ✅ |
+| D4 | Agent Management | `admin/agent-management.md` | ✅ |
+| D5 | Widget Settings | `admin/widget-settings.md` | ✅ |
+| D6 | Embed Code | `admin/embed-code.md` | ✅ |
+| D7 | Call Logs | `admin/call-logs.md` | ✅ |
+| D8 | Organization Settings | `admin/organization-settings.md` | ✅ |
 
-### Monitoring - PARTIAL ✅
+### Billing Features (B1-B6) - ALL COMPLETE ✅
+
+| ID | Feature | Doc File | Status |
+|----|---------|----------|--------|
+| B1 | Subscription Creation | `billing/subscription-creation.md` | ✅ |
+| B2 | Seat Management | `billing/seat-management.md` | ✅ |
+| B3 | Billing Frequency | `billing/billing-frequency.md` | ✅ |
+| B4 | Pause Subscription | `billing/pause-subscription.md` | ✅ |
+| B5 | Cancel Subscription | `billing/cancel-subscription.md` | ✅ |
+| B6 | Payment Failure | `billing/payment-failure.md` | ✅ |
+
+### Auth Features (AUTH1-AUTH4) - ALL COMPLETE ✅
+
+| ID | Feature | Doc File | Status |
+|----|---------|----------|--------|
+| AUTH1 | Signup Flow | `auth/signup-flow.md` | ✅ |
+| AUTH2 | Login Flow | `auth/login-flow.md` | ✅ |
+| AUTH3 | Invite Accept | `auth/invite-accept.md` | ✅ |
+| AUTH4 | Password Reset | `auth/password-reset.md` | ✅ |
+
+### API Features (API1-API3) - ALL COMPLETE ✅
+
+| ID | Feature | Doc File | Status |
+|----|---------|----------|--------|
+| API1 | Agent API | `api/agent-api.md` | ✅ |
+| API2 | Billing API | `api/billing-api.md` | ✅ |
+| API3 | Invites API | `api/invites-api.md` | ✅ |
+
+### Stats Features (STATS1-STATS3) - ALL COMPLETE ✅
+
+| ID | Feature | Doc File | Status |
+|----|---------|----------|--------|
+| STATS1 | Agent Stats | `stats/agent-stats.md` | ✅ |
+| STATS2 | Coverage Stats | `stats/coverage-stats.md` | ✅ |
+| STATS3 | Call Analytics | `stats/call-analytics.md` | ✅ |
+
+### Monitoring Features (M1-M2) - ALL COMPLETE ✅
 
 | ID | Feature | Doc File | Status |
 |----|---------|----------|--------|
 | M1 | Uptime Monitoring | `monitoring/UPTIME_MONITORING.md` | ✅ |
+| M2 | Error Tracking | `monitoring/error-tracking.md` | ✅ |
 
 ---
 
-## ⏳ NEEDS DOCUMENTATION (~22 features)
+## Documentation Format (Standard)
 
-### Admin Features (Remaining)
-
-| ID | Feature | Description | Key Files | Status |
-|----|---------|-------------|-----------|--------|
-| D1 | Pool Management | Create/edit/delete pools | `admin/pools/pools-client.tsx` | ⏳ |
-| D4 | Agent Management | Invite/remove agents, seat allocation | `admin/agents/agents-client.tsx` | ⏳ |
-| D5 | Widget Settings | Per-pool widget configuration | `admin/pools/` (widget settings section) | ⏳ |
-| D6 | Embed Code | Widget installation instructions | `admin/installation/` | ⏳ |
-| D7 | Call Logs | Historical call records and analytics | `admin/calls/` | ⏳ |
-| D8 | Organization Settings | Company settings, branding | `admin/settings/` | ⏳ |
-
-### Billing Features (B1-B6)
-
-| ID | Feature | Description | Key Files | Status |
-|----|---------|-------------|-----------|--------|
-| B1 | Subscription Creation | Trial → payment → active subscription | `api/billing/create-subscription/`, `paywall/` | ⏳ |
-| B2 | Seat Management | Add/remove seats, proration | `api/billing/seats/` | ⏳ |
-| B3 | Billing Frequency | Monthly/annual/6-month switching | `api/billing/update-settings/` | ⏳ |
-| B4 | Pause Subscription | Temporary pause and auto-resume | `api/billing/` pause routes | ⏳ |
-| B5 | Cancel Subscription | Cancellation flow with feedback | `api/billing/` cancel routes | ⏳ |
-| B6 | Payment Failure | Past due handling, Stripe webhooks | `stripe-webhook-handler.ts` | ⏳ |
-
-### Auth Features (AUTH1-AUTH4)
-
-| ID | Feature | Description | Key Files | Status |
-|----|---------|-------------|-----------|--------|
-| AUTH1 | Signup Flow | Email signup, org creation | `(auth)/signup/` | ⏳ |
-| AUTH2 | Login Flow | Email/password login | `(auth)/login/` | ⏳ |
-| AUTH3 | Invite Accept | Agent joins via invite link | `accept-invite/` | ⏳ |
-| AUTH4 | Password Reset | Forgot password flow | `(auth)/forgot-password/`, `reset-password/` | ⏳ |
-
-### API Features (API1-API3)
-
-| ID | Feature | Description | Key Files | Status |
-|----|---------|-------------|-----------|--------|
-| API1 | Agent API | Agent CRUD operations | `api/agents/` | ⏳ |
-| API2 | Billing API | All billing endpoints | `api/billing/` | ⏳ |
-| API3 | Invites API | Invite send/revoke | `api/invites/` | ⏳ |
-
-### Stats Features (STATS1-STATS3)
-
-| ID | Feature | Description | Key Files | Status |
-|----|---------|-------------|-----------|--------|
-| STATS1 | Agent Stats | Per-agent performance metrics | `lib/stats/agent-stats.ts` | ⏳ |
-| STATS2 | Coverage Stats | Pool coverage analytics | `lib/stats/coverage-stats.ts` | ⏳ |
-| STATS3 | Call Analytics | Call volume, duration, outcomes | `admin/dashboard/` | ⏳ |
-
-### Monitoring (Remaining)
-
-| ID | Feature | Description | Key Files | Status |
-|----|---------|-------------|-----------|--------|
-| M2 | Error Tracking | Sentry integration | `sentry.*.config.ts` | ⏳ |
-
----
-
-## Documentation Format (Your Existing Standard)
-
-Each doc follows your 10-section format:
+Each doc follows the 10-section format:
 
 1. **Quick Summary** - 1-2 sentence overview
 2. **Affected Users** - Checkboxes for Visitor/Agent/Admin/Platform Admin
@@ -146,64 +131,58 @@ Plus: **RELATED FEATURES** and **OPEN QUESTIONS**
 
 ---
 
-## Generating Doc Agent Prompts
-
-PM: For each undocumented feature, create a prompt file:
-
-```
-docs/prompts/active/doc-agent-[ID].md
-```
-
-Use template: `docs/workflow/templates/doc-agent.md`
-
-Reference existing completed docs for format examples:
-- `docs/features/visitor/widget-lifecycle.md` - Comprehensive example
-- `docs/features/platform/call-lifecycle.md` - Another great reference
-
----
-
-## Legend
-
-| Symbol | Meaning |
-|--------|---------|
-| ⏳ | Not started |
-| 🔄 | In progress (doc agent running) |
-| ✅ | Complete |
-
----
-
 ## File Structure
 
 ```
 docs/features/
 ├── admin/
-│   ├── routing-rules.md      ✅
-│   └── tiered-routing.md     ✅
+│   ├── agent-management.md    ✅
+│   ├── call-logs.md           ✅
+│   ├── embed-code.md          ✅
+│   ├── organization-settings.md ✅
+│   ├── pool-management.md     ✅
+│   ├── routing-rules.md       ✅
+│   ├── tiered-routing.md      ✅
+│   └── widget-settings.md     ✅
 ├── agent/
-│   ├── agent-active-call.md  ✅
-│   ├── bullpen-states.md     ✅
-│   ├── cobrowse-viewer.md    ✅
-│   ├── incoming-call.md      ✅
-│   └── rna-timeout.md        ✅
-├── api/                      ⏳ Empty
-├── auth/                     ⏳ Empty
-├── feedback/                 ⏳ Empty
-├── marketing/                ⏳ Empty
+│   ├── agent-active-call.md   ✅
+│   ├── bullpen-states.md      ✅
+│   ├── cobrowse-viewer.md     ✅
+│   ├── incoming-call.md       ✅
+│   └── rna-timeout.md         ✅
+├── api/
+│   ├── agent-api.md           ✅
+│   ├── billing-api.md         ✅
+│   └── invites-api.md         ✅
+├── auth/
+│   ├── invite-accept.md       ✅
+│   ├── login-flow.md          ✅
+│   ├── password-reset.md      ✅
+│   └── signup-flow.md         ✅
+├── billing/
+│   ├── billing-frequency.md   ✅
+│   ├── cancel-subscription.md ✅
+│   ├── pause-subscription.md  ✅
+│   ├── payment-failure.md     ✅
+│   ├── seat-management.md     ✅
+│   └── subscription-creation.md ✅
 ├── monitoring/
-│   └── UPTIME_MONITORING.md  ✅
+│   ├── error-tracking.md      ✅
+│   └── UPTIME_MONITORING.md   ✅
 ├── platform/
-│   ├── agent-assignment.md   ✅
-│   ├── call-lifecycle.md     ✅
+│   ├── agent-assignment.md    ✅
+│   ├── call-lifecycle.md      ✅
 │   ├── heartbeat-staleness.md ✅
 │   ├── visitor-reassignment.md ✅
-│   └── webrtc-signaling.md   ✅
-├── stats/                    ⏳ Empty
-├── superadmin/               ⏳ Empty
-├── utils/                    ⏳ Empty
+│   └── webrtc-signaling.md    ✅
+├── stats/
+│   ├── agent-stats.md         ✅
+│   ├── call-analytics.md      ✅
+│   └── coverage-stats.md      ✅
 └── visitor/
-    ├── call-reconnection.md  ✅
-    ├── cobrowse-sender.md    ✅
-    ├── video-sequencer.md    ✅
-    ├── visitor-call.md       ✅
-    └── widget-lifecycle.md   ✅
+    ├── call-reconnection.md   ✅
+    ├── cobrowse-sender.md     ✅
+    ├── video-sequencer.md     ✅
+    ├── visitor-call.md        ✅
+    └── widget-lifecycle.md    ✅
 ```
