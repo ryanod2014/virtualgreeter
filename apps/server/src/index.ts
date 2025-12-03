@@ -34,6 +34,7 @@ import type {
   ServerToWidgetEvents,
   ServerToDashboardEvents,
 } from "@ghost-greeter/domain";
+import { handleStripeWebhook } from "./features/billing/stripe-webhook-handler.js";
 
 // ============================================================================
 // CONFIGURATION
@@ -71,12 +72,22 @@ const CORS_ORIGIN = ALLOWED_ORIGINS_ENV === "*" || IS_PRODUCTION
 const HEALTH_CHECK_TIMEOUT_MS = parseInt(process.env["HEALTH_CHECK_TIMEOUT_MS"] ?? "5000", 10);
 const METRICS_API_KEY = process.env["METRICS_API_KEY"];
 
+// API authentication
+const INTERNAL_API_KEY = process.env["INTERNAL_API_KEY"];
+
 // ============================================================================
 // EXPRESS APP SETUP
 // ============================================================================
 
 const app = express();
 app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
+
+// ============================================================================
+// STRIPE WEBHOOK (must be before express.json() for raw body access)
+// ============================================================================
+// Stripe webhooks require the raw request body for signature verification
+app.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), handleStripeWebhook);
+
 app.use(express.json());
 
 // Rate limiting configuration
@@ -295,6 +306,32 @@ app.get("/metrics", async (req, res) => {
 // ============================================================================
 // API ROUTES
 // ============================================================================
+
+// API Authentication middleware - protects all /api/* routes except webhooks
+// Webhooks have their own authentication (e.g., Stripe signature verification)
+app.use("/api", (req, res, next) => {
+  // Skip auth for webhook endpoints - they have their own verification
+  if (req.path.startsWith("/webhooks")) {
+    return next();
+  }
+  
+  const apiKey = req.headers["x-api-key"];
+  
+  // Require INTERNAL_API_KEY to be configured
+  if (!INTERNAL_API_KEY) {
+    console.error("[API Auth] INTERNAL_API_KEY not configured - rejecting request");
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  
+  // Validate the provided API key
+  if (!apiKey || apiKey !== INTERNAL_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  
+  next();
+});
 
 // API: Update organization configuration
 app.post("/api/config/org", async (req, res) => {
