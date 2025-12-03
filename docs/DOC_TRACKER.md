@@ -12,13 +12,13 @@
 | Visitor (V-*) | 5 | ✅ 5 | 0 | 0 |
 | Agent (A-*) | 5 | ✅ 5 | 0 | 0 |
 | Platform (P-*) | 5 | ✅ 5 | 0 | 0 |
-| Admin (D-*) | 8 | ✅ 2 | 0 | 6 |
+| Admin (D-*) | 8 | ✅ 3 | 0 | 5 |
 | Billing (B-*) | 6 | 0 | 0 | 6 |
 | Auth (AUTH-*) | 4 | 0 | 0 | 4 |
 | API (API-*) | 3 | 0 | 0 | 3 |
 | Stats (STATS-*) | 3 | 0 | 0 | 3 |
 | Monitoring (M-*) | 2 | ✅ 1 | 0 | 1 |
-| **TOTAL** | **~41** | **18** | **0** | **~23** |
+| **TOTAL** | **~41** | **19** | **0** | **~22** |
 
 ---
 
@@ -48,6 +48,7 @@
 ### Admin Features (Partial) ✅
 - D2 - Routing Rules → `admin/routing-rules.md`
 - D3 - Tiered Routing → `admin/tiered-routing.md`
+- D4 - Agent Management → `admin/agent-management.md`
 
 ### Monitoring (Partial) ✅
 - M1 - Uptime Monitoring → `monitoring/UPTIME_MONITORING.md`
@@ -57,6 +58,24 @@
 ## Completion Log (New Docs)
 
 *Doc agents append here when they finish. Most recent at top.*
+
+### B1 ✅
+- **Feature:** Subscription Creation
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/billing/subscription-creation.md`
+- **Scenarios Documented:** 18
+- **Edge Cases Documented:** 18
+- **Completed At:** 2025-12-03 12:00
+
+---
+
+### D6 ✅
+- **Feature:** Embed Code
+- **Status:** COMPLETE
+- **Doc File:** `docs/features/admin/embed-code.md`
+- **Scenarios Documented:** 20
+- **Edge Cases Documented:** 5
+- **Completed At:** 2025-12-03 12:30
 
 ---
 
@@ -93,9 +112,9 @@ TEMPLATE FOR DOC AGENTS TO COPY WHEN STARTING:
 
 ## Features Still Needing Documentation (~23)
 
-### Admin (6 remaining)
+### Admin (5 remaining)
 - [ ] D1 - Pool Management
-- [ ] D4 - Agent Management
+- [x] D4 - Agent Management → `admin/agent-management.md`
 - [ ] D5 - Widget Settings
 - [ ] D6 - Embed Code
 - [ ] D7 - Call Logs
@@ -143,6 +162,14 @@ grep "🔄" docs/DOC_TRACKER.md | wc -l
 ```
 
 Count actual doc files:
+```bash
+find docs/features -name "*.md" ! -name ".gitkeep" ! -name "README.md" | wc -l
+```
+
+---
+
+**Legend:** ⏳ Not started | 🔄 In progress | ✅ Complete
+
 ```bash
 find docs/features -name "*.md" ! -name ".gitkeep" ! -name "README.md" | wc -l
 ```
