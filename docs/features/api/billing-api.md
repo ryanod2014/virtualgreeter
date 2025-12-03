@@ -535,3 +535,5 @@ Processes Stripe webhook events (server-side only).
 - 500: Handler failed (triggers Stripe retry)
 - 503: Stripe not configured
 
+
+

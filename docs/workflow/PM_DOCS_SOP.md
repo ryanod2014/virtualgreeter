@@ -1,6 +1,7 @@
 # PM Documentation Workflow
 
 > **Purpose:** PM workflow for documentation sprints AND review sprints.
+> **Dashboard:** `docs/PM_DASHBOARD.md` - Human's single view of entire pipeline
 > **Launch Commands:**
 > - **Doc Mode:** `You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md`
 > - **Review Mode:** `You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md - Review Mode`
@@ -17,9 +18,16 @@
 ### Mode 2: Review Sprint
 1. Create review-agent prompts for documented features
 2. Output launch commands for parallel execution
-3. Collect findings from `REVIEW_FINDINGS.md`
-4. **Present ALL findings to Human for decisions**
-5. Create tickets in `TICKET_BACKLOG.md` for approved items
+3. **🔴 SYNC CHECK: Cross-verify findings vs tracker** (agents may write findings but fail to update tracker)
+4. Collect findings from `REVIEW_FINDINGS.md`
+5. **⚠️ Ask which priority level to process** (Critical, High, etc.)
+6. Present findings for selected priority with questions
+7. Wait for human answers
+8. Create tickets for answered findings only
+9. Keep remaining findings as `⏳ PENDING` for future sessions
+10. Human reviews tickets async before dev sprint (approve/reject/prioritize)
+
+> 💡 **Batched Processing:** Human can process Critical first, then High later, etc. Findings stay in backlog until processed.
 
 ---
 
@@ -159,72 +167,264 @@ git push
 
 ---
 
-## Phase 3: Collect & Present Findings
+## Phase 2.5: Sync Verification (MANDATORY)
 
-**3.1 Wait for Agents to Complete**
+> 🔴 **CRITICAL:** Run this EVERY time before proceeding. Agents sometimes write findings but fail to update the tracker.
+
+**2.5.0 Cross-Check Findings vs Tracker**
+
 ```bash
-cat docs/REVIEW_FINDINGS.md | tail -100   # Check new findings
+# Count features with findings in REVIEW_FINDINGS.md
+echo "Features with findings:"
+grep "^## [A-Z].*- " docs/REVIEW_FINDINGS.md | grep -v "How This" | grep -v "Decision" | grep -v "^## Findings" | wc -l
+
+# Count features marked ✅ in REVIEW_TRACKER.md  
+echo "Features marked reviewed:"
+grep "✅" docs/REVIEW_TRACKER.md | grep -v "Legend" | wc -l
 ```
 
-**3.2 Present to Human**
+**If counts don't match:**
+1. List features with findings: `grep "^## [A-Z]" docs/REVIEW_FINDINGS.md`
+2. Compare to tracker marks: `grep "✅" docs/REVIEW_TRACKER.md`
+3. Update REVIEW_TRACKER.md for any missing ✅ marks
+4. Update Quick Stats table to match
+5. Update PM_DASHBOARD.md with correct counts
 
-⚠️ **CRITICAL: Human makes ALL decisions. PM presents, does not decide.**
-
-For each finding, present to Human:
-
-```markdown
-## Finding Review - [FEATURE-ID]
-
-**Issue:** [description]
-**Category:** [type]
-**Severity:** [level]
-**Agent Suggestion:** [what agent recommended]
-
-**Options:**
-1. ✅ Approve as-is → Create ticket
-2. 🔄 Modify → Create ticket with changes
-3. ❌ Reject → Not a real issue
-4. ⏸️ Defer → Revisit later
-
-**Your decision?**
-```
-
-**3.3 Record Decisions**
-
-Update `REVIEW_FINDINGS.md` with Human's decision:
-- Change `⏳ PENDING` to `✅ APPROVED`, `❌ REJECTED`, or `🔄 MODIFIED`
-- Add any notes from Human
+> ⚠️ **DO NOT PROCEED** until these counts match. This prevents the "phantom agent" problem where agents completed but weren't tracked.
 
 ---
 
-## Phase 4: Create Tickets
+## Phase 2.6: Clarification Questions (REQUIRED)
 
-**4.1 For Each Approved Finding**
+> ⚠️ **STOP:** Before creating any tickets, PM must ask clarifying questions.
 
-Add to `docs/TICKET_BACKLOG.md`:
-
-```markdown
-| TKT-[NNN] | [Feature] | [Issue summary] | [Finding ref] | 📋 Ready |
+**2.6.1 Wait for Agents to Complete**
+```bash
+cat docs/REVIEW_FINDINGS.md | tail -100   # Check new findings
+grep -c "^#### [0-9]" docs/REVIEW_FINDINGS.md  # Count findings
 ```
 
-**4.2 Assign Priority**
+**2.6.2 Summarize Findings for Human**
 
-Ask Human for priority on each ticket:
-- 🔴 Critical
-- 🟠 High
-- 🟡 Medium
-- 🟢 Low
+Present a summary of all findings grouped by category and severity:
 
-**4.3 Commit Updates**
+```markdown
+## 📋 Review Findings Summary
+
+**Total Findings:** [N]
+
+### By Severity
+- 🔴 Critical: [N] findings
+- 🟠 High: [N] findings
+- 🟡 Medium: [N] findings
+- 🟢 Low: [N] findings
+
+### Findings Pending Questions (not yet ticketed)
+- 🔴 Critical: [N] pending
+- 🟠 High: [N] pending
+- 🟡 Medium: [N] pending
+- 🟢 Low: [N] pending
+```
+
+**2.6.3 Ask Which Priority to Process**
+
+> 💡 **Batched Processing:** Human can choose to process one priority level at a time.
+
+Ask the human:
+
+```markdown
+**Which priority level would you like to process now?**
+
+1. 🔴 **Critical only** ([N] findings) - Recommended first
+2. 🔴🟠 **Critical + High** ([N] findings)
+3. 🔴🟠🟡 **Critical + High + Medium** ([N] findings)
+4. 🔴🟠🟡🟢 **All findings** ([N] findings)
+
+Remaining findings will stay in the backlog for future sessions.
+```
+
+**2.6.4 Present Findings for Selected Priority**
+
+For each finding in the selected priority batch, present:
+
+```markdown
+### 🔴 Critical Finding #1: [Title]
+**Feature:** [Feature name]
+**Issue:** [Description]
+**Source:** [Reference]
+
+**Questions:**
+1. [Specific question about this finding]
+2. [Any context needed]
+
+---
+```
+
+**2.6.5 Ask Clarifying Questions**
+
+For the selected batch only, ask:
+
+1. **Per-Finding Questions:**
+   - Present each finding with specific questions
+   - "Is [behavior] intentional or a bug?"
+   - "Can you clarify the intended behavior for [X]?"
+
+2. **Grouping Questions:**
+   - "Findings #X and #Y seem related. Combine into one ticket?"
+
+3. **Priority Adjustment:**
+   - "Should any of these be escalated or deprioritized?"
+
+4. **Exclusions:**
+   - "Should any of these be marked 'Won't Fix'?"
+
+**2.6.6 Wait for Human Response**
+
+> ⏸️ **PAUSE HERE.** Do not proceed to Phase 3 until the human has answered all questions for this batch.
+
+Document the human's answers in the chat for reference during ticket creation.
+
+**2.6.7 Track Remaining Backlog**
+
+After creating tickets for the current batch, update findings status:
+- Processed findings: `📋 TICKETED` or `❌ WON'T FIX`
+- Remaining findings: `⏳ PENDING` (for next session)
+
+---
+
+## Phase 3: Create Tickets
+
+> ✅ **Proceed only after Phase 2.5 sync check AND Phase 2.6 questions are answered.**
+
+**3.1 Apply Human's Decisions**
+
+Before creating tickets, apply any:
+- Exclusions (skip certain findings)
+- Priority overrides
+- Ticket combinations
+- Immediate rejections
+
+**3.2 Create Tickets for Approved Findings**
+
+> ℹ️ **Workflow:** PM creates tickets based on human's answers. Human reviews tickets async before dev sprint.
+
+For each approved finding in `REVIEW_FINDINGS.md`:
+
+1. Add ticket to `TICKET_BACKLOG.md` in appropriate priority section:
+   - Agent severity "Critical" → 🔴 Critical
+   - Agent severity "High" → 🟠 High
+   - Agent severity "Medium" → 🟡 Medium
+   - Agent severity "Low" → 🟢 Low
+
+2. Use detailed ticket format (one per ticket):
+
+```markdown
+### TKT-[NNN]: [Short Title]
+
+| Field | Value |
+|-------|-------|
+| **Priority** | 🔴 Critical / 🟠 High / 🟡 Medium / 🟢 Low |
+| **Feature** | [Feature name] |
+| **Status** | 📋 Ready |
+| **Difficulty** | 🟢 Easy / 🟡 Medium / 🔴 Hard |
+| **Complexity** | Low / Medium / High |
+| **Risk** | 🟢 Low / 🟡 Medium / 🔴 High |
+| **Source** | [Finding reference] |
+
+**Issue:**
+[Description of the problem]
+
+**Fix Required:**
+[What needs to be done]
+
+**Files to Edit:**
+- `path/to/file1.ts` - [what changes]
+- `path/to/file2.tsx` - [what changes]
+
+**Risk Notes:**
+[What could go wrong if fix isn't executed correctly, what other features might be affected]
+
+**Acceptance Criteria:**
+- [ ] [Criterion 1]
+- [ ] [Criterion 2]
+
+**Feature Inventory:**
+- [ ] If new feature added: Update `docs/FEATURE_INVENTORY.md`
+- [ ] If feature modified: Verify inventory still accurate
+```
+
+> ⚠️ **IMPORTANT:** If a ticket adds a new feature or significantly modifies an existing one, include a checklist item to update `docs/FEATURE_INVENTORY.md`. This keeps inventory in sync with the codebase.
+
+3. Update finding status in `REVIEW_FINDINGS.md`:
+   - Change `⏳ PENDING` to `📋 TICKETED`
+
+**Ticket Field Definitions:**
+
+| Field | Description |
+|-------|-------------|
+| **Difficulty** | How hard is the actual coding? 🟢 Easy (< 1hr), 🟡 Medium (1-4hrs), 🔴 Hard (4+ hrs) |
+| **Complexity** | How many systems/concepts involved? Low (1 file), Medium (2-5 files), High (6+ files or cross-cutting) |
+| **Risk** | What happens if done wrong? 🟢 Low (cosmetic), 🟡 Medium (broken feature), 🔴 High (data loss, billing, security) |
+| **Files to Edit** | Explicit list for parallelization - tickets touching different files can run in parallel |
+
+**3.3 Update Quick Stats**
+
+Update the counts in `TICKET_BACKLOG.md` header.
+
+**3.4 Commit Updates**
 ```bash
 git add docs/REVIEW_FINDINGS.md docs/TICKET_BACKLOG.md
-git commit -m "docs: review findings processed, [N] tickets created"
+git commit -m "docs: [N] tickets created from review findings"
 git push
 ```
 
 ---
 
-## Phase 5: Archive & Cleanup
+## Phase 4: Human Reviews Tickets (Async)
+
+> Human reviews `TICKET_BACKLOG.md` before dev sprint starts.
+
+**Human Actions:**
+- ✅ Approve ticket (keep as-is)
+- ❌ Won't Fix (move to Rejected section with reason)
+- 🔄 Modify priority (move to different section)
+- ❄️ On Hold (defer to future sprint)
+
+**PM Updates:**
+- Move rejected tickets to "Rejected Tickets" section
+- Update Quick Stats counts
+- Commit changes
+
+---
+
+## Phase 5: Update Dashboard
+
+> 🔄 **REQUIRED:** Update `docs/PM_DASHBOARD.md` so Human sees current pipeline state.
+
+**5.1 Update Pipeline Counts**
+
+Update these sections in `docs/PM_DASHBOARD.md`:
+- Stage 2: Reviews (counts from `REVIEW_TRACKER.md`)
+- Stage 3: Questions (count `⏳ PENDING` in `REVIEW_FINDINGS.md`)
+- Stage 4: Tickets (counts from `TICKET_BACKLOG.md`)
+- ASCII pipeline diagram at top
+
+**5.2 Log Pending Questions**
+
+If any questions were asked but not answered:
+- Add to "Pending Questions" table at bottom of dashboard
+- Include finding reference, question text, date asked
+
+**5.3 Log Session**
+
+Add entry to Session Log table:
+```markdown
+| [Date] | [Session type] | [Action taken] | [Result] |
+```
+
+---
+
+## Phase 6: Archive & Cleanup
 
 ```bash
 # Archive review prompts
@@ -262,7 +462,8 @@ git push
 
 ### After Processing (Review Mode)
 ```bash
-git add docs/REVIEW_FINDINGS.md docs/TICKET_BACKLOG.md
+# Update dashboard with current pipeline status
+git add docs/PM_DASHBOARD.md docs/REVIEW_FINDINGS.md docs/TICKET_BACKLOG.md
 git commit -m "docs: review complete, [N] tickets created"
 git push
 ```
@@ -289,6 +490,7 @@ git push
 
 | File | Doc Mode | Review Mode |
 |------|----------|-------------|
+| `docs/PM_DASHBOARD.md` | ✅ Update | ✅ Update |
 | `docs/FEATURE_INVENTORY.md` | ✅ Read | ✅ Read |
 | `docs/DOC_TRACKER.md` | ✅ Read/Write | ✅ Read |
 | `docs/REVIEW_TRACKER.md` | - | ✅ Read/Write |
@@ -298,6 +500,8 @@ git push
 | `docs/workflow/templates/review-agent.md` | - | ✅ Use |
 | `docs/prompts/active/` | ✅ Write | ✅ Write |
 | `docs/features/` | ✅ Output | ✅ Read |
+
+> 💡 **PM_DASHBOARD.md** is the Human's single view of the entire pipeline. Update it after each session.
 
 ## Launch Commands
 
@@ -328,7 +532,7 @@ PM starts in Doc Mode...
 7. PM monitors, commits completed docs
 ```
 
-## Review Mode Example
+## Review Mode Example (Batched Processing)
 ```
 PM starts in Review Mode...
 
@@ -339,15 +543,52 @@ PM starts in Review Mode...
 5. Output 50 launch commands
 6. Human launches agents
 7. Agents report 127 findings
-8. PM presents each finding to Human
-9. Human approves 45, rejects 70, modifies 12
-10. PM creates 57 tickets in backlog
-11. Commit and archive
+
+--- SESSION 1: CRITICAL ONLY ---
+
+8. PM summarizes: "Found 127 findings (3 Critical, 15 High, 60 Medium, 49 Low)"
+9. PM asks: "Which priority to process? (1) Critical only, (2) Critical+High, etc."
+10. Human answers: "Critical only for now"
+11. PM presents 3 Critical findings with questions:
+    - "Finding #1: Password fields in DOM - is this the expected masking behavior?"
+    - "Finding #2: Stripe cancel issue - do you want me to verify the API call?"
+    - "Finding #3: [details and question]"
+12. Human answers all questions for Critical findings
+13. PM creates 3 Critical tickets
+14. PM marks 3 findings as 📋 TICKETED, leaves 124 as ⏳ PENDING
+15. Commit
+
+--- SESSION 2: HIGH PRIORITY (later) ---
+
+16. Human: "Let's do High priority now"
+17. PM presents 15 High findings with questions
+18. Human answers questions
+19. PM creates 15 High tickets
+20. 109 findings still pending (Medium + Low)
+
+--- SESSION 3: REMAINING (even later) ---
+
+21. Human: "Process Medium, skip Low for now"
+22. PM presents 60 Medium findings with questions
+23. Human answers, some marked Won't Fix
+24. PM creates 55 Medium tickets
+25. 49 Low findings remain ⏳ PENDING for future
+
+--- HUMAN REVIEW (async) ---
+
+26. Human reviews TICKET_BACKLOG.md
+27. Approves/rejects/reprioritizes as needed
 ```
 
 ---
 
 # TROUBLESHOOTING
+
+**Q: Dashboard shows different counts than tracker**
+A: Run the Sync Check (Phase 2.5). Agents sometimes write findings to REVIEW_FINDINGS.md but fail to update REVIEW_TRACKER.md. Cross-reference both files and fix any mismatches. The source of truth is: which features have sections in REVIEW_FINDINGS.md.
+
+**Q: PM skipped the clarification questions phase**
+A: STOP. Do not create tickets. Go back to Phase 2.6 and ask questions first. This phase is mandatory.
 
 **Q: Agent produced bad findings**
 A: Re-launch that one agent, or manually edit REVIEW_FINDINGS.md
@@ -360,3 +601,12 @@ A: Check `REVIEW_TRACKER.md` for completion status (✅ = done, ⏳ = pending)
 
 **Q: Can I run both modes at once?**
 A: Yes, but use separate PM sessions to avoid confusion
+
+**Q: What if human doesn't answer questions?**
+A: Wait. Do not proceed to ticket creation until human responds. PM should remind human that answers are needed.
+
+**Q: How do I continue processing remaining findings from a previous session?**
+A: Check `REVIEW_FINDINGS.md` for `⏳ PENDING` status. Summarize remaining findings and ask which priority to process next.
+
+**Q: Human only wants to process Critical right now**
+A: Perfect! Present only Critical findings with questions. Create tickets for those. Mark others as `⏳ PENDING` - they stay in backlog for next session.

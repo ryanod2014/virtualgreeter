@@ -279,3 +279,5 @@ VISITOR CONNECTS
 
 6. **Should we warn about empty allowlist?** Empty allowlist currently allows everyone (lenient). Could be confusing - admin might expect it to block everyone.
 
+
+

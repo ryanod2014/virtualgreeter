@@ -371,3 +371,5 @@ Users cannot correct transcription errors.
 
 8. **Should custom vocabulary be supported?** Deepgram supports custom vocabulary for domain-specific terms. Not currently implemented.
 
+
+

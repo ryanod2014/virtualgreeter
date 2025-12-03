@@ -379,3 +379,5 @@ ADD COLUMN disposition_id UUID REFERENCES dispositions(id) ON DELETE SET NULL;
 
 6. **Is there a limit on number of dispositions?** No hard limit. UX degrades with >10 options (scrolling required).
 
+
+

@@ -346,3 +346,5 @@ Calls displayed can be in these final states:
 
 6. **Why no pool filter for agents?** - Agents in multiple pools can't filter by pool. Is this intentional to simplify the UI?
 
+
+

@@ -327,3 +327,5 @@ ADMIN REVOKES INVITE
 4. **Should invites count against org's max_agents limit?** → Currently only checked via seat billing
 5. **Is 7-day expiration the right duration?** → Hardcoded, could be configurable per-org
 
+
+

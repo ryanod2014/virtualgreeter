@@ -403,3 +403,5 @@ ADMIN ADDS SELF AS AGENT
 
 5. **Should email failures block the invite?** - Currently silent failure. Trade-off between reliability (always create invite) vs UX (user thinks email sent).
 
+
+

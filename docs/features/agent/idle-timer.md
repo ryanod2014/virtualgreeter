@@ -378,3 +378,5 @@ tag: "idle-check" (prevents duplicates)
 - `handleStayConnected` function: `apps/widget/src/Widget.tsx:622-634`
 - Activity listeners: `apps/widget/src/Widget.tsx:665-691`
 
+
+

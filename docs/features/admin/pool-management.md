@@ -346,3 +346,5 @@ CREATE TABLE IF NOT EXISTS public.agent_pool_members (
 2. **New agent** → Automatically added to the organization's catch-all pool
 3. **Catch-all rule prevention** → DB trigger blocks routing rules on catch-all pools
 
+
+

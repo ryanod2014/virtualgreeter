@@ -333,3 +333,5 @@ VISITOR_JOIN EVENT
 
 6. **Should empty allowlist block everyone?** Current behavior allows everyone when allowlist is empty. This may be counterintuitive - should it block all instead (strict interpretation)?
 
+
+

@@ -333,3 +333,5 @@ PLAYBACK
 5. **Should failed transcriptions auto-retry?** Currently requires manual intervention
 6. **What about GDPR right to deletion?** Retention policy exists but no per-recording delete UI
 
+
+

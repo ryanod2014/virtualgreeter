@@ -355,3 +355,5 @@ The signup form includes consent text:
 | is_active | BOOLEAN | true | FALSE for new signups |
 | status | TEXT | 'offline' | offline/idle/in_simulation/in_call |
 
+
+

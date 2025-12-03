@@ -307,3 +307,5 @@ MOBILE GATE PAGE
 
 5. **Should there be analytics tracking on the mobile gate page?** - Currently no tracking of how many users hit the mobile gate, which could inform product decisions about mobile support.
 
+
+

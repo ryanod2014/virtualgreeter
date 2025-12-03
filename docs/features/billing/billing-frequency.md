@@ -371,3 +371,5 @@ ADD COLUMN has_six_month_offer BOOLEAN DEFAULT false;
 
 6. **Is the 6-month offer available for re-subscribers?** Currently: No. Once cancelled and re-subscribed, they don't get the offer. Is this intentional?
 
+
+

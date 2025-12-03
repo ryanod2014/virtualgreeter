@@ -341,3 +341,5 @@ SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
 | `maskAllText` | `true` | All text replaced with asterisks in replay |
 | `blockAllMedia` | `true` | Images/videos replaced with placeholders |
 
+
+

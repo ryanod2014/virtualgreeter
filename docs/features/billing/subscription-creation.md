@@ -357,3 +357,5 @@ STEP 3: BILLING PREFERENCE (/paywall/billing)
 
 6. **Price ID fallback behavior** - If annual or 6-month price IDs aren't configured, system falls back to monthly price ID with a console warning. Should this be a hard error instead?
 
+
+

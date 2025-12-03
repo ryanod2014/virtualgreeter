@@ -304,3 +304,5 @@ PAGE LOAD
 4. **Are there plans for real-time stats?** Current implementation requires page refresh.
 5. **Should deleted agents retain historical stats?** Currently, stats page 404s for deleted agents.
 
+
+

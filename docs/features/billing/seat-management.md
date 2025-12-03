@@ -291,3 +291,5 @@ ADMIN MANUALLY CHANGES SEAT COUNT
 4. **Should expired invites auto-free seats?** Currently they're just not counted - no explicit cleanup
 5. **Is the 7-day invite expiration appropriate for all use cases?** Hardcoded, not configurable per-org
 
+
+

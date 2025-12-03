@@ -401,3 +401,5 @@ POST https://graph.facebook.com/v18.0/{pixel_id}/events
 7. **How are events verified working?** - Admin must manually check FB Events Manager
 8. **Should there be event volume monitoring?** - No visibility into event success rates
 
+
+

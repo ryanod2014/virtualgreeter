@@ -353,3 +353,5 @@ stateDiagram-v2
 
 6. **Recording storage costs** - Recordings stored in Supabase storage. No visibility into storage costs from this UI. Should there be storage usage metrics?
 
+
+

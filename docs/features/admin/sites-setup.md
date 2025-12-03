@@ -382,3 +382,5 @@ WIDGET INSTALLATION (on customer's site)
 
 7. **Is infinite verification polling acceptable?** Dashboard polls every 5 seconds forever until verified. Consider exponential backoff or a "check again" button after timeout.
 
+
+

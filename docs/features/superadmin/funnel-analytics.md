@@ -316,3 +316,5 @@ sessionId = `s_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
 6. **How far back should historical data be retained?** - No data retention policy defined
 7. **Should the landing page tracker be added?** - Currently no `landing` events visible in tracked pages
 
+
+

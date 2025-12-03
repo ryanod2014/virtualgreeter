@@ -308,3 +308,5 @@ VISITOR CONNECTS
 3. **Should there be a settings preview on the live site?** Admins can only see preview in dashboard, not on actual customer site.
 4. **Is 5-minute cache TTL optimal?** Trade-off between freshness and DB load could be tuned.
 
+
+

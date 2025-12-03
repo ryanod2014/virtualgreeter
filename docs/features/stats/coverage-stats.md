@@ -338,3 +338,5 @@ CREATE INDEX idx_agent_sessions_org_date ON agent_sessions(organization_id, star
 
 6. **Should the heatmap show predicted vs actual?** Could overlay historical patterns to suggest optimal schedules.
 
+
+

@@ -328,3 +328,5 @@ PASSWORD SUBMISSION
 
 5. **Should password requirements be stricter?** - Currently only 8 character minimum. No requirements for uppercase, numbers, or special characters.
 
+
+

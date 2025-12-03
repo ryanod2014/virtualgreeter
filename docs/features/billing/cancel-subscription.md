@@ -427,3 +427,5 @@ Platform admins have access to a comprehensive cancellation analytics dashboard 
 - Date range picker (default: 90 days)
 - All data filtered by selected range
 
+
+
