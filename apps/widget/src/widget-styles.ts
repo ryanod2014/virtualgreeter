@@ -1575,6 +1575,65 @@ const ERROR_TOAST_STYLES = `
 `;
 
 /**
+ * Idle warning toast styles - shown at 4:30 of inactivity before disconnect
+ */
+const IDLE_WARNING_STYLES = `
+  .gg-idle-warning-toast {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.95) 0%, rgba(245, 158, 11, 0.95) 100%);
+    color: #1f2937;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    animation: gg-idle-warning-pulse 2s ease-in-out infinite;
+    z-index: ${Z_INDEX.HANDOFF_MESSAGE + 5};
+    box-shadow: 0 4px 20px rgba(251, 191, 36, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .gg-idle-warning-toast:hover {
+    transform: scale(1.02);
+    box-shadow: 0 6px 24px rgba(251, 191, 36, 0.5);
+  }
+
+  .gg-idle-warning-toast:active {
+    transform: scale(0.98);
+  }
+
+  .gg-idle-warning-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .gg-idle-warning-content svg {
+    flex-shrink: 0;
+    animation: gg-clock-tick 1s ease-in-out infinite;
+  }
+
+  @keyframes gg-idle-warning-pulse {
+    0%, 100% { 
+      box-shadow: 0 4px 20px rgba(251, 191, 36, 0.4);
+    }
+    50% { 
+      box-shadow: 0 4px 30px rgba(251, 191, 36, 0.6);
+    }
+  }
+
+  @keyframes gg-clock-tick {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-5deg); }
+    75% { transform: rotate(5deg); }
+  }
+`;
+
+/**
  * Powered by footer
  */
 const POWERED_BY_STYLES = `
@@ -1678,6 +1737,7 @@ export function getWidgetStyles(): string {
     TIMEOUT_STYLES,
     HANDOFF_STYLES,
     ERROR_TOAST_STYLES,
+    IDLE_WARNING_STYLES,
     POWERED_BY_STYLES,
     RESPONSIVE_STYLES,
     LIGHT_THEME_OVERRIDES,

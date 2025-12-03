@@ -5,7 +5,7 @@ import { useSignaling, shouldSkipIntroForAgent, storeWidgetState, clearStoredWid
 import { useWebRTC } from "./features/webrtc/useWebRTC";
 import { useCobrowse } from "./features/cobrowse/useCobrowse";
 import type { AgentAssignedPayload, AgentUnavailablePayload, WidgetSettings } from "@ghost-greeter/domain";
-import { ARIA_LABELS, ANIMATION_TIMING, ERROR_MESSAGES, CONNECTION_TIMING, SIZE_DIMENSIONS } from "./constants";
+import { ARIA_LABELS, ANIMATION_TIMING, ERROR_MESSAGES, CONNECTION_TIMING, SIZE_DIMENSIONS, IDLE_TIMING } from "./constants";
 
 /**
  * Default widget settings (used until server sends actual settings)
@@ -114,6 +114,32 @@ function ErrorToast({
   );
 }
 
+/**
+ * IdleWarningToast - Displays warning when visitor is about to be disconnected due to inactivity
+ */
+function IdleWarningToast({
+  onStayConnected,
+}: {
+  onStayConnected: () => void;
+}) {
+  return (
+    <div 
+      className="gg-idle-warning-toast" 
+      role="alert" 
+      aria-live="assertive"
+      onClick={onStayConnected}
+    >
+      <div className="gg-idle-warning-content">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 6v6l4 2" />
+        </svg>
+        <span>Still there? Tap to stay connected</span>
+      </div>
+    </div>
+  );
+}
+
 export function Widget({ config }: WidgetProps) {
   const [state, setState] = useState<WidgetState>("hidden");
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -138,6 +164,11 @@ export function Widget({ config }: WidgetProps) {
   // Track when visitor connected (from server) to calculate remaining trigger delay
   // This allows widget to reappear correctly when agent becomes available
   const visitorConnectedAtRef = useRef<number>(Date.now());
+  
+  // Idle warning state - shows toast at 4:30 of inactivity before 5min disconnect
+  const [showIdleWarning, setShowIdleWarning] = useState(false);
+  const idleWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleWarningDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Apply theme class to shadow host
   // Needs to run when state changes (widget becomes visible) and when theme changes
@@ -549,6 +580,116 @@ export function Widget({ config }: WidgetProps) {
     };
   }, [state, widgetSettings.auto_hide_delay]);
 
+  /**
+   * Reset idle warning timer - called when user interacts with the page
+   */
+  const resetIdleTimer = useCallback(() => {
+    // Clear any existing warning
+    setShowIdleWarning(false);
+    
+    // Clear existing timers
+    if (idleWarningTimerRef.current) {
+      clearTimeout(idleWarningTimerRef.current);
+      idleWarningTimerRef.current = null;
+    }
+    if (idleWarningDismissTimerRef.current) {
+      clearTimeout(idleWarningDismissTimerRef.current);
+      idleWarningDismissTimerRef.current = null;
+    }
+    
+    // Only start idle timer when widget is open (not in call, not minimized)
+    if (state !== "open" || !agent) {
+      return;
+    }
+    
+    // Start new timer for idle warning at 4:30
+    idleWarningTimerRef.current = setTimeout(() => {
+      if (!isUnmountingRef.current && state === "open") {
+        console.log("[Widget] ⚠️ Showing idle warning at 4:30");
+        setShowIdleWarning(true);
+        
+        // Auto-dismiss warning after duration (if user doesn't interact)
+        idleWarningDismissTimerRef.current = setTimeout(() => {
+          setShowIdleWarning(false);
+        }, IDLE_TIMING.WARNING_DURATION);
+      }
+    }, IDLE_TIMING.WARNING_THRESHOLD);
+  }, [state, agent]);
+
+  /**
+   * Handle "stay connected" click from idle warning toast
+   */
+  const handleStayConnected = useCallback(() => {
+    console.log("[Widget] 👆 User clicked stay connected - resetting idle timer");
+    setShowIdleWarning(false);
+    
+    // Clear dismiss timer
+    if (idleWarningDismissTimerRef.current) {
+      clearTimeout(idleWarningDismissTimerRef.current);
+      idleWarningDismissTimerRef.current = null;
+    }
+    
+    // Reset idle timer to start fresh
+    resetIdleTimer();
+  }, [resetIdleTimer]);
+
+  // Idle warning timer - shows toast at 4:30 of inactivity
+  useEffect(() => {
+    // Start idle timer when widget opens with an agent
+    if (state === "open" && agent) {
+      resetIdleTimer();
+    } else {
+      // Clear timers when widget is not in open state
+      if (idleWarningTimerRef.current) {
+        clearTimeout(idleWarningTimerRef.current);
+        idleWarningTimerRef.current = null;
+      }
+      if (idleWarningDismissTimerRef.current) {
+        clearTimeout(idleWarningDismissTimerRef.current);
+        idleWarningDismissTimerRef.current = null;
+      }
+      setShowIdleWarning(false);
+    }
+    
+    return () => {
+      if (idleWarningTimerRef.current) {
+        clearTimeout(idleWarningTimerRef.current);
+      }
+      if (idleWarningDismissTimerRef.current) {
+        clearTimeout(idleWarningDismissTimerRef.current);
+      }
+    };
+  }, [state, agent, resetIdleTimer]);
+
+  // Listen for page interactions to reset idle timer
+  useEffect(() => {
+    if (state !== "open" || !agent) return;
+    
+    const handlePageInteraction = () => {
+      // Hide warning immediately if showing
+      if (showIdleWarning) {
+        setShowIdleWarning(false);
+      }
+      // Reset the idle timer
+      resetIdleTimer();
+    };
+    
+    // Track common interaction events on the page
+    window.addEventListener("click", handlePageInteraction, { passive: true });
+    window.addEventListener("scroll", handlePageInteraction, { passive: true });
+    window.addEventListener("keydown", handlePageInteraction, { passive: true });
+    window.addEventListener("touchstart", handlePageInteraction, { passive: true });
+    window.addEventListener("mousemove", handlePageInteraction, { passive: true, once: true });
+    
+    return () => {
+      window.removeEventListener("click", handlePageInteraction);
+      window.removeEventListener("scroll", handlePageInteraction);
+      window.removeEventListener("keydown", handlePageInteraction);
+      window.removeEventListener("touchstart", handlePageInteraction);
+      window.removeEventListener("mousemove", handlePageInteraction);
+    };
+  }, [state, agent, showIdleWarning, resetIdleTimer]);
+
   // Update self video when preview stream changes
   useEffect(() => {
     if (selfVideoRef.current && previewStream) {
@@ -569,6 +710,14 @@ export function Widget({ config }: WidgetProps) {
       // Clean up auto-hide timer
       if (autoHideTimerRef.current) {
         clearTimeout(autoHideTimerRef.current);
+      }
+
+      // Clean up idle warning timers
+      if (idleWarningTimerRef.current) {
+        clearTimeout(idleWarningTimerRef.current);
+      }
+      if (idleWarningDismissTimerRef.current) {
+        clearTimeout(idleWarningDismissTimerRef.current);
       }
 
       // Clean up preview stream
@@ -1118,6 +1267,9 @@ export function Widget({ config }: WidgetProps) {
         >
           {/* Error Toast */}
           {errorMessage && <ErrorToast message={errorMessage} onDismiss={dismissError} />}
+
+          {/* Idle Warning Toast */}
+          {showIdleWarning && <IdleWarningToast onStayConnected={handleStayConnected} />}
 
           {/* Video Area */}
           <div className="gg-video-container">
