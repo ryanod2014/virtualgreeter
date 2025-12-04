@@ -280,14 +280,13 @@
       );
     }
 
-    function FindingCard({ finding, thread, onSelectOption, onCustomResponse, onResolve, onCombine }) {
+    function FindingCard({ finding, thread, onSelectOption, onCustomResponse, onResolve }) {
       const [customInput, setCustomInput] = useState('');
       const [showCustom, setShowCustom] = useState(false);
       const isResolved = thread?.status === 'resolved';
       const hasDecision = thread?.decision?.option_id;
       const options = finding.options || [];
       const recommendedOption = options.find(o => o.recommended);
-      const combinable = finding.combinable_with;
 
       const handleCustomSubmit = () => {
         if (customInput.trim()) {
@@ -331,39 +330,6 @@
             <div style={{ fontSize: '12px', padding: '12px 14px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', marginBottom: '12px', borderLeft: '3px solid var(--success)' }}>
               <span style={{ color: 'var(--success)', fontWeight: 600 }}>⭐ Agent Recommendation:</span>
               <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{finding.agent_recommendation}</span>
-            </div>
-          )}
-
-          {/* Combinable Findings Alert */}
-          {combinable && combinable.length > 0 && (
-            <div style={{ fontSize: '12px', padding: '12px 14px', background: 'rgba(234,179,8,0.1)', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(234,179,8,0.2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <span style={{ color: 'var(--medium)', fontWeight: 600 }}>🔗 Related Findings:</span>
-                  <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>
-                    {combinable.map(c => `${c.id}: ${c.title}`).join(', ')}
-                  </span>
-                </div>
-                <button
-                  onClick={() => onCombine(finding.id, combinable.map(c => c.id))}
-                  style={{
-                    padding: '6px 12px',
-                    background: 'var(--medium)',
-                    border: 'none',
-                    borderRadius: '6px',
-                    color: 'black',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  Combine into 1 ticket →
-                </button>
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                Category: {combinable[0]?.group?.replace(/_/g, ' ')}
-              </div>
             </div>
           )}
 
@@ -695,36 +661,6 @@
         }));
       };
 
-      const handleCombine = (primaryId, relatedIds) => {
-        const allIds = [primaryId, ...relatedIds];
-        const primaryFinding = findings.find(f => f.id === primaryId);
-        const relatedFindings = relatedIds.map(id => findings.find(f => f.id === id)).filter(Boolean);
-        
-        // Create combined decision
-        const combinedDecision = {
-          option_id: 'combined',
-          option_label: `Combined ticket: ${primaryFinding?.title}`,
-          combined_with: relatedIds,
-          combined_titles: relatedFindings.map(f => f?.title),
-          timestamp: new Date().toISOString()
-        };
-
-        setDecisions(prev => ({
-          ...prev,
-          threads: prev.threads.map(t => {
-            if (!allIds.includes(t.finding_id)) return t;
-            return {
-              ...t,
-              status: 'in_discussion',
-              decision: {
-                ...combinedDecision,
-                is_primary: t.finding_id === primaryId
-              }
-            };
-          })
-        }));
-      };
-
       // Calculate stats - count unanswered per severity + total answered
       const stats = useMemo(() => {
         const bySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
@@ -840,7 +776,6 @@
                   onSelectOption={handleSelectOption}
                   onCustomResponse={handleCustomResponse}
                   onResolve={handleResolve}
-                  onCombine={handleCombine}
                 />
               ))}
               
