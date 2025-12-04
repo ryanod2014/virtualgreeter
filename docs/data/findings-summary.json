@@ -1,48 +1,9 @@
 {
-  "meta": {
-    "last_updated": "2025-12-03",
-    "total_features": 61,
-    "reviewed_features": 61,
-    "total_findings": 742
-  },
-  "by_priority": {
-    "critical": {
-      "total": 15,
-      "answered": 15,
-      "tickets_created": 7,
-      "pending": 0
-    },
-    "high": {
-      "total": 48,
-      "answered": 20,
-      "tickets_created": 12,
-      "pending": 28
-    },
-    "medium": {
-      "total": 315,
-      "answered": 2,
-      "tickets_created": 2,
-      "pending": 313
-    },
-    "low": {
-      "total": 364,
-      "answered": 2,
-      "tickets_created": 2,
-      "pending": 362
-    }
-  },
-  "by_category": {
-    "admin": { "total": 12, "reviewed": 12 },
-    "agent": { "total": 10, "reviewed": 10 },
-    "visitor": { "total": 7, "reviewed": 7 },
-    "platform": { "total": 7, "reviewed": 7 },
-    "superadmin": { "total": 6, "reviewed": 6 },
-    "billing": { "total": 6, "reviewed": 6 },
-    "auth": { "total": 4, "reviewed": 4 },
-    "api": { "total": 3, "reviewed": 3 },
-    "stats": { "total": 3, "reviewed": 3 },
-    "monitoring": { "total": 2, "reviewed": 2 },
-    "feedback": { "total": 1, "reviewed": 1 }
-  }
+  "critical": 15,
+  "high": 48,
+  "medium": 315,
+  "low": 364,
+  "pending": 736,
+  "ticketed": 6,
+  "rejected": 0
 }
-

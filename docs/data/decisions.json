@@ -1,112 +1,4471 @@
 {
-  "meta": {
-    "last_updated": "2025-12-04",
-    "format_version": "1.0"
-  },
   "threads": [
     {
       "finding_id": "F-001",
-      "status": "resolved",
-      "messages": [
-        { "role": "system", "text": "Should we mask ALL password fields or only specific patterns?", "timestamp": "2025-12-03T10:00:00Z" },
-        { "role": "human", "text": "Yes, mask all password fields", "timestamp": "2025-12-03T10:05:00Z" },
-        { "role": "system", "text": "Should this be combined with credit card masking (F-002)?", "timestamp": "2025-12-03T10:05:01Z" },
-        { "role": "human", "text": "Yes, create one ticket for all sensitive data sanitization", "timestamp": "2025-12-03T10:10:00Z" }
-      ],
+      "status": "in_discussion",
+      "messages": [],
       "decision": {
-        "action": "create_ticket",
-        "combine_with": ["F-002"],
-        "priority": "critical",
-        "ticket_id": "TKT-001"
+        "option_id": "implement_strict",
+        "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
+        "recommended": true,
+        "timestamp": "2025-12-04T00:55:20.186Z"
       }
     },
     {
-      "finding_id": "F-002",
-      "status": "resolved",
-      "messages": [
-        { "role": "system", "text": "Combined with F-001 per your decision", "timestamp": "2025-12-03T10:10:01Z" }
-      ],
+      "finding_id": "F-001",
+      "status": "in_discussion",
+      "messages": [],
       "decision": {
-        "action": "combined",
-        "combined_into": "F-001",
-        "ticket_id": "TKT-001"
+        "option_id": "implement_strict",
+        "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
+        "recommended": true,
+        "timestamp": "2025-12-04T00:55:20.186Z"
       }
     },
     {
       "finding_id": "F-003",
-      "status": "resolved",
-      "messages": [
-        { "role": "system", "text": "Should visitors have a per-call toggle, or is org-level disable enough?", "timestamp": "2025-12-03T10:15:00Z" },
-        { "role": "human", "text": "Org-level setting is enough for now", "timestamp": "2025-12-03T10:20:00Z" }
-      ],
-      "decision": {
-        "action": "create_ticket",
-        "priority": "high",
-        "ticket_id": "TKT-009"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-003",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-005",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-006",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-007",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-008",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-009",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-010",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-011",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-413",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-414",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-024",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-419",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-016",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-017",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-018",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-019",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-020",
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-021",
       "status": "pending",
-      "messages": []
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-022",
       "status": "pending",
-      "messages": []
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-023",
       "status": "pending",
-      "messages": []
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-024",
-      "status": "resolved",
-      "messages": [
-        { "role": "system", "text": "Should failed invites auto-retry or require manual resend?", "timestamp": "2025-12-03T11:00:00Z" },
-        { "role": "human", "text": "Auto-retry with manual fallback", "timestamp": "2025-12-03T11:05:00Z" }
-      ],
-      "decision": {
-        "action": "create_ticket",
-        "priority": "high",
-        "ticket_id": "TKT-011"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
-      "finding_id": "F-025",
-      "status": "resolved",
-      "messages": [
-        { "role": "system", "text": "What's the budget for a paid geolocation service?", "timestamp": "2025-12-03T11:10:00Z" },
-        { "role": "human", "text": "Research MaxMind pricing before starting", "timestamp": "2025-12-03T11:15:00Z" }
-      ],
-      "decision": {
-        "action": "create_ticket",
-        "priority": "high",
-        "notes": "Pre-work: research MaxMind pricing",
-        "ticket_id": "TKT-012"
-      }
+      "finding_id": "F-023",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-026",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-027",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-028",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-029",
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-030",
       "status": "pending",
-      "messages": []
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-031",
       "status": "pending",
-      "messages": []
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-032",
       "status": "pending",
-      "messages": []
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-025",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-034",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-035",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-036",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-037",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-038",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-039",
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-040",
       "status": "pending",
-      "messages": []
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-041",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-042",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-043",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-044",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-045",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-046",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-047",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-048",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-049",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-050",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-051",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-052",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-053",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-054",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-055",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-056",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-189",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-191",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-059",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-060",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-061",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-062",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-063",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-064",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-065",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-066",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-067",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-125",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-069",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-070",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-071",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-072",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-141",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-074",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-145",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-076",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-077",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-078",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-143",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-080",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-081",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-082",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-083",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-084",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-085",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-086",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-087",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-088",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-089",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-090",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-091",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-092",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-093",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-094",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-095",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-096",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-097",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-098",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-099",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-100",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-101",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-102",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-103",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-104",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-105",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-106",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-107",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-108",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-109",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-110",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-111",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-112",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-113",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-114",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-115",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-116",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-117",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-118",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-119",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-120",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-121",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-122",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-123",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-124",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-125",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-126",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-127",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-128",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-129",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-130",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-131",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-132",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-133",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-134",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-135",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-136",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-137",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-138",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-139",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-140",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-141",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-142",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-143",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-144",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-145",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-146",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-147",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-148",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-149",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-150",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-151",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-152",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-153",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-154",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-155",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-156",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-157",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-158",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-159",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-160",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-161",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-162",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-163",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-164",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-165",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-166",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-167",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-168",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-169",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-170",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-171",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-172",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-173",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-174",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-175",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-176",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-177",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-178",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-179",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-180",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-181",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-182",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-183",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-184",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-185",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-186",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-187",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-188",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-189",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-190",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-191",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-192",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-193",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-194",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-195",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-196",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-197",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-198",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-199",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-200",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-201",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-202",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-203",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-204",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-205",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-206",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-207",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-208",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-209",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-210",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-211",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-212",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-213",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-214",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-215",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-216",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-217",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-218",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-219",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-220",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-221",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-222",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-223",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-224",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-225",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-226",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-001",
+      "status": "in_discussion",
+      "messages": [],
+      "decision": {
+        "option_id": "implement_strict",
+        "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
+        "recommended": true,
+        "timestamp": "2025-12-04T00:55:20.187Z"
+      }
+    },
+    {
+      "finding_id": "F-228",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-229",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-230",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-231",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-232",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-233",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-234",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-235",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-236",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-237",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-238",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-239",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-240",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-241",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-242",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-243",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-244",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-245",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-246",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-247",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-248",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-249",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-250",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-251",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-252",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-253",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-254",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-255",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-256",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-257",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-258",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-259",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-260",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-261",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-262",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-263",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-264",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-265",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-266",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-267",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-268",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-269",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-270",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-271",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-272",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-273",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-274",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-275",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-276",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-277",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-278",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-279",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-280",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-281",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-282",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-283",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-284",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-285",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-286",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-287",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-288",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-289",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-290",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-291",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-292",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-293",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-294",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-295",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-296",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-297",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-298",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-299",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-300",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-301",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-302",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-303",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-304",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-305",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-306",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-307",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-308",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-309",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-310",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-311",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-312",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-313",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-314",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-315",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-316",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-317",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-318",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-319",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-320",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-321",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-322",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-323",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-324",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-325",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-326",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-327",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-328",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-329",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-330",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-331",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-332",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-333",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-334",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-335",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-336",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-337",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-338",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-339",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-340",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-341",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-342",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-343",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-344",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-345",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-346",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-347",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-348",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-349",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-350",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-351",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-352",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-353",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-354",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-355",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-356",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-357",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-358",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-359",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-360",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-361",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-362",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-363",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-364",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-365",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-366",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-367",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-368",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-369",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-370",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-371",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-372",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-373",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-374",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-375",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-376",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-377",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-378",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-379",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-380",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-381",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-382",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-383",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-384",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-385",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-386",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-387",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-388",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-389",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-390",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-391",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-392",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-393",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-394",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-395",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-396",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-397",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-398",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-399",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-400",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-401",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-402",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-403",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-404",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-405",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-406",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-407",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-408",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-409",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-410",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-411",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-412",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-413",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-414",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-024",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-416",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-417",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-418",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-419",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-420",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-421",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-422",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-423",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-424",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-425",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-426",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-427",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-428",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-429",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-430",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-431",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-432",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-433",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-434",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-435",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-436",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-437",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-438",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-439",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-440",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-441",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-442",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-443",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-444",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-445",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-446",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-447",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-448",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-449",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-450",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-451",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-452",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-453",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-454",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-455",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-456",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-457",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-458",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-459",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-460",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-461",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-462",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-463",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-464",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-465",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-466",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-467",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-468",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-469",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-470",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-471",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-472",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-473",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-474",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-475",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-476",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-477",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-478",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-479",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-480",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-481",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-482",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-483",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-484",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-485",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-486",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-487",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-488",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-489",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-490",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-491",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-492",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-493",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-494",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-495",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-496",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-497",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-498",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-499",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-500",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-501",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-502",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-503",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-504",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-505",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-506",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-507",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-508",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-509",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-510",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-511",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-512",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-513",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-514",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-515",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-516",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-517",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-518",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-519",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-520",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-521",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-522",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-523",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-524",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-525",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-526",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-527",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-528",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-529",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-530",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-531",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-532",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-533",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-534",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-535",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-536",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-537",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-538",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-539",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-540",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-541",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-542",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-543",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-544",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-545",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-546",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-547",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-548",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-549",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-550",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-551",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-552",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-553",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-554",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-555",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-556",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-557",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-558",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-559",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-560",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-561",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-562",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-563",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-564",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-565",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-566",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-567",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-568",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-569",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-570",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-571",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-572",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-573",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-574",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-575",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-576",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-577",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-578",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-579",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-580",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-581",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-582",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-583",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-584",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-585",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-586",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-587",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-588",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-589",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-590",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-591",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-592",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-593",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-594",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-595",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-596",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-597",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-598",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-599",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-600",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-601",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-602",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-603",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-604",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-605",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-606",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-607",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-608",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-609",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-610",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-611",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-612",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-613",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-614",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-615",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-616",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-617",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-618",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-619",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-620",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-621",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-622",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-623",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-624",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-625",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-626",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-627",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-628",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-629",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-630",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-631",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-632",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-633",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-634",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-635",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-636",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-637",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-638",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-639",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-640",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-641",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-642",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-643",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-644",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-645",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-646",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-647",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-648",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-649",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-650",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-651",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-652",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-653",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-654",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-655",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-656",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-657",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-658",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-659",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-660",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-661",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-662",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-663",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-664",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-665",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-666",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-667",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-668",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-669",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-670",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-671",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-672",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-673",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-674",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-675",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-676",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-677",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-678",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-679",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-680",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-681",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-682",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-683",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-684",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-685",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-686",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-687",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-688",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-689",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-690",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-691",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-692",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-693",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-694",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-695",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-696",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-697",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-698",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-699",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-700",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-701",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-702",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-703",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-704",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-705",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-706",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-707",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-708",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-709",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-710",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-711",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-712",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-713",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-714",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-715",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-716",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-717",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-718",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-719",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-720",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-721",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-722",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-723",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-724",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-725",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-726",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-727",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-728",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-729",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-730",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-731",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-732",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-733",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-734",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-735",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-736",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-737",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-738",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-739",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-740",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-741",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-742",
+      "status": "pending",
+      "messages": [],
+      "decision": null
     }
   ]
 }
-
