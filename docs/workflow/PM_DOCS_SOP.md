@@ -16,35 +16,25 @@ The **React Dashboard** lets you answer questions and resolve findings through a
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         YOUR WORKFLOW                                   │
-└─────────────────────────────────────────────────────────────────────────┘
-
-1. OPEN DASHBOARD (browser)
-   └── Visit: docs/pm-dashboard-ui/index.html (or start local server)
-   └── Shows: Pending findings with questions to answer
-
-2. ANSWER QUESTIONS (in dashboard)
-   └── Click Yes/No or type custom answers
-   └── Answers saved to localStorage
-   └── Back-and-forth conversation per finding
-
-3. MARK RESOLVED (when done with a finding)
-   └── Click "Mark Resolved & Create Ticket"
-   └── Finding moves to Resolved tab
-
-4. GET PM COMMAND (click button in dashboard)
-   └── Copy the decisions.json export
-   └── Paste into docs/data/decisions.json
-   └── Copy the PM command
-
-5. PASTE INTO CURSOR (new chat)
-   └── PM agent reads decisions.json
-   └── Creates tickets for resolved findings
-   └── May add follow-up questions
-
-6. REFRESH DASHBOARD
-   └── Shows new tickets created
-   └── If PM has questions, they appear in thread
+│   YOU (Dashboard)                    │   PM (Cursor Chat)               │
+├──────────────────────────────────────┼──────────────────────────────────┤
+│ 1. Open dashboard                    │                                  │
+│    http://localhost:3456             │                                  │
+│                                      │                                  │
+│ 2. Select option OR                  │                                  │
+│    type question in thread           │                                  │
+│                                      │                                  │
+│ 3. Auto-saves to decisions.json      │ 4. Tell PM: "check my answers"   │
+│                                      │                                  │
+│                                      │ 5. PM reads decisions.json       │
+│                                      │    - Creates tickets for resolved│
+│                                      │    - Responds to questions       │
+│                                      │                                  │
+│ 6. Refresh dashboard                 │                                  │
+│    See PM responses in thread!       │                                  │
+│                                      │                                  │
+│ 7. Continue conversation or resolve  │                                  │
+└──────────────────────────────────────┴──────────────────────────────────┘
 ```
 
 ### Data Files
@@ -59,11 +49,32 @@ The **React Dashboard** lets you answer questions and resolve findings through a
 ### Quick Start
 
 ```bash
-# Start local server
-cd docs/pm-dashboard-ui && python3 -m http.server 8765
+# Start server with auto-save
+node docs/pm-dashboard-ui/server.js
 
-# Open http://localhost:8765 in browser
+# Open http://localhost:3456 in browser
 ```
+
+### 🔴 PM: Responding to Questions (MANDATORY)
+
+When human asks a question in the dashboard (e.g., "I don't understand"), PM **MUST** respond in the thread:
+
+```bash
+# PM reads the question from decisions.json
+cat docs/data/decisions.json | grep -B5 -A15 '"status": "in_discussion"'
+
+# PM writes response back to the thread
+node docs/scripts/pm-respond.js F-XXX "Your clarification message here"
+```
+
+**Example:**
+```bash
+node docs/scripts/pm-respond.js F-643 "This finding is about uptime monitoring. The free tier only supports 3-min checks, but configs say 1-min. Options: (1) change to 3-min, (2) pay $20/mo for 1-min, (3) skip - docs issue only"
+```
+
+Human then refreshes dashboard and sees PM response in the conversation thread.
+
+> ⚠️ **NEVER** respond only in Cursor chat. ALWAYS write responses to `decisions.json` so they appear in the dashboard thread.
 
 ### PM Agent Command (after answering in dashboard)
 
@@ -697,3 +708,9 @@ A: Check `REVIEW_FINDINGS.md` for `⏳ PENDING` status. Summarize remaining find
 
 **Q: Human only wants to process Critical right now**
 A: Perfect! Present only Critical findings with questions. Create tickets for those. Mark others as `⏳ PENDING` - they stay in backlog for next session.
+
+**Q: Human asked a question in the dashboard but I responded in chat**
+A: WRONG! You must write your response to `decisions.json` so it appears in the dashboard thread. Run: `node docs/scripts/pm-respond.js F-XXX "your response"`. Human should never have to leave the dashboard to see PM responses.
+
+**Q: How do I see what questions human asked in the dashboard?**
+A: Run: `grep -B5 -A15 '"status": "in_discussion"' docs/data/decisions.json` - this shows threads with pending conversations.
