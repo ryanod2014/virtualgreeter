@@ -527,18 +527,6 @@
             </div>
           </div>
 
-          <div className="section">
-            <div className="section-title">Findings by Priority</div>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              {Object.entries(s.by_priority).map(([p, data]) => (
-                <div key={p} className="card" style={{ flex: 1, minWidth: '140px', textAlign: 'center', padding: '16px' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>{p}</div>
-                  <div style={{ fontSize: '28px', fontWeight: 700, color: p === 'critical' ? 'var(--critical)' : p === 'high' ? 'var(--high)' : p === 'medium' ? 'var(--medium)' : 'var(--low)' }}>{data.total}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{data.pending} pending</div>
-                </div>
-              ))}
-            </div>
-          </div>
 
           <div className="section">
             <div className="section-title">Quick Actions</div>
