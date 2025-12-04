@@ -817,9 +817,9 @@
               {/* Out of Scope */}
               {ticket.out_of_scope && ticket.out_of_scope.length > 0 && (
                 <div className="section">
-                  <div className="section-title">🚫 Out of Scope</div>
+                  <div className="section-title" style={{ color: 'var(--critical)' }}>Out of Scope</div>
                   {ticket.out_of_scope.map((item, i) => (
-                    <div key={i} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.08)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', color: 'var(--critical)' }}>✕ {item}</div>
+                    <div key={i} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.08)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', color: 'var(--critical)' }}>{item}</div>
                   ))}
                 </div>
               )}
@@ -827,7 +827,7 @@
               <div className="section">
                 <div className="section-title">Acceptance Criteria</div>
                 {(ticket.acceptance_criteria || []).map((c, i) => (
-                  <div key={i} style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '6px', marginBottom: '6px', fontSize: '13px' }}>☐ {c}</div>
+                  <div key={i} style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '6px', marginBottom: '6px', fontSize: '13px' }}>{c}</div>
                 ))}
               </div>
               
@@ -842,14 +842,14 @@
               {ticket.dev_checks && ticket.dev_checks.length > 0 && (
                 <div style={{ padding: '16px', background: 'var(--accent-bg)', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.2)', marginBottom: '16px' }}>
                   <div style={{ fontSize: '12px', color: 'var(--accent-bright)', fontWeight: 600, marginBottom: '8px' }}>Dev Checks (Before Submitting)</div>
-                  {ticket.dev_checks.map((check, i) => <div key={i} style={{ fontSize: '13px', marginBottom: '4px' }}>☐ {check}</div>)}
+                  {ticket.dev_checks.map((check, i) => <div key={i} style={{ fontSize: '13px', marginBottom: '4px' }}>{check}</div>)}
                 </div>
               )}
               
               {/* QA Notes */}
               {ticket.qa_notes && (
                 <div style={{ padding: '16px', background: 'rgba(234,179,8,0.1)', borderRadius: '8px', border: '1px solid rgba(234,179,8,0.2)' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--medium)', fontWeight: 600, marginBottom: '8px' }}>🧪 QA Notes</div>
+                  <div style={{ fontSize: '12px', color: 'var(--medium)', fontWeight: 600, marginBottom: '8px' }}>QA Notes</div>
                   <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{ticket.qa_notes}</div>
                 </div>
               )}
@@ -2951,18 +2951,18 @@
                 };
                 
                 const categoryLabels = {
-                  admin: '🔧 Admin',
+                  admin: 'Admin',
                   agent: 'Agent',
-                  api: '🔌 API',
-                  auth: '🔐 Auth',
-                  billing: '💳 Billing',
-                  feedback: '💬 Feedback',
-                  monitoring: '📊 Monitoring',
-                  platform: '⚙️ Platform',
-                  stats: '📈 Stats',
-                  superadmin: '👑 Super Admin',
-                  visitor: '🌐 Visitor',
-                  general: '📁 General'
+                  api: 'API',
+                  auth: 'Auth',
+                  billing: 'Billing',
+                  feedback: 'Feedback',
+                  monitoring: 'Monitoring',
+                  platform: 'Platform',
+                  stats: 'Stats',
+                  superadmin: 'Super Admin',
+                  visitor: 'Visitor',
+                  general: 'General'
                 };
                 
                 return Object.entries(byCategory).sort((a, b) => a[0].localeCompare(b[0])).map(([category, categoryFeatures]) => (
@@ -3017,7 +3017,7 @@
                                   background: 'rgba(16,185,129,0.15)', 
                                   color: 'var(--success)'
                                 }}>
-                                  ✓ Documented
+                                  Documented
                                 </span>
                                 {/* Reviewed badge - green if review agent ran (findings exist) */}
                                 <span style={{ 
@@ -3028,7 +3028,7 @@
                                   background: reviewStatus.reviewed ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)', 
                                   color: reviewStatus.reviewed ? 'var(--success)' : 'var(--accent)'
                                 }}>
-                                  {reviewStatus.reviewed ? '✓ Reviewed' : '⏳ Not reviewed'}
+                                  {reviewStatus.reviewed ? 'Reviewed' : 'Pending'}
                                 </span>
                                 {/* Findings count if any */}
                                 {reviewStatus.total > 0 && (
@@ -3360,6 +3360,7 @@
       const [expandedSection, setExpandedSection] = useState('dev');
       const [expandedTicket, setExpandedTicket] = useState(null);
       const [launchNotes, setLaunchNotes] = useState({});
+      const [savedNotes, setSavedNotes] = useState({});
       
       // Ticket calculations
       const readyTickets = tickets.filter(t => t.status === 'ready');
@@ -3799,11 +3800,65 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
                                       <div style={{ display: 'grid', gap: '4px' }}>
                                         {(ticket.acceptance_criteria || []).map((c, i) => (
                                           <div key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)', padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>
-                                            ☐ {c}
+                                            {c}
                                           </div>
                                         ))}
                                       </div>
                                     </div>
+                                    
+                                    {/* Feature Documentation */}
+                                    {ticket.feature_docs && ticket.feature_docs.length > 0 && (
+                                      <div style={{ marginTop: '16px' }}>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.file /> Feature Documentation</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                          {ticket.feature_docs.map((doc, i) => (
+                                            <code key={i} style={{ fontSize: '11px', padding: '4px 8px', background: 'var(--bg-elevated)', borderRadius: '4px', color: 'var(--text-secondary)' }}>{doc}</code>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Similar Code to Follow */}
+                                    {ticket.similar_code && ticket.similar_code.length > 0 && (
+                                      <div style={{ marginTop: '16px' }}>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>Similar Code to Follow</div>
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                          {ticket.similar_code.map((code, i) => (
+                                            <div key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)', padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{code}</div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Out of Scope */}
+                                    {ticket.out_of_scope && ticket.out_of_scope.length > 0 && (
+                                      <div style={{ marginTop: '16px' }}>
+                                        <div style={{ fontSize: '11px', color: 'var(--critical)', textTransform: 'uppercase', marginBottom: '6px' }}>Out of Scope</div>
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                          {ticket.out_of_scope.map((item, i) => (
+                                            <div key={i} style={{ fontSize: '12px', color: 'var(--critical)', padding: '6px 10px', background: 'rgba(239,68,68,0.08)', borderRadius: '4px' }}>{item}</div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Dev Checks */}
+                                    {ticket.dev_checks && ticket.dev_checks.length > 0 && (
+                                      <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(59,130,246,0.08)', borderRadius: '8px', border: '1px solid rgba(59,130,246,0.2)' }}>
+                                        <div style={{ fontSize: '11px', color: 'var(--accent-bright)', fontWeight: 600, marginBottom: '6px' }}>Dev Checks (Before Submitting)</div>
+                                        {ticket.dev_checks.map((check, i) => (
+                                          <div key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{check}</div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    
+                                    {/* QA Notes */}
+                                    {ticket.qa_notes && (
+                                      <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(251,191,36,0.08)', borderRadius: '8px', border: '1px solid rgba(251,191,36,0.2)' }}>
+                                        <div style={{ fontSize: '11px', color: 'var(--medium)', fontWeight: 600, marginBottom: '6px' }}>QA Notes</div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{ticket.qa_notes}</div>
+                                      </div>
+                                    )}
                                     
                                     {/* Risks */}
                                     {(ticket.risks || []).length > 0 && (
@@ -3817,11 +3872,19 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
                                     
                                     {/* Launch Notes Input */}
                                     <div style={{ marginTop: '20px', padding: '16px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
-                                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>Notes for dev agent <span style={{ opacity: 0.6 }}>(auto-included when you copy)</span></div>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Notes for dev agent</div>
+                                        {savedNotes[ticket.id] && (
+                                          <span style={{ fontSize: '11px', color: 'var(--accent-bright)' }}>Saved</span>
+                                        )}
+                                      </div>
                                       <textarea
                                         value={launchNotes[ticket.id] || ''}
-                                        onChange={e => setLaunchNotes(prev => ({ ...prev, [ticket.id]: e.target.value }))}
-                                        placeholder="Type notes here - they'll be included when you copy the launch command..."
+                                        onChange={e => {
+                                          setLaunchNotes(prev => ({ ...prev, [ticket.id]: e.target.value }));
+                                          setSavedNotes(prev => ({ ...prev, [ticket.id]: false }));
+                                        }}
+                                        placeholder="Add instructions for the dev agent..."
                                         style={{
                                           width: '100%',
                                           minHeight: '60px',
@@ -3831,9 +3894,18 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
                                           borderRadius: '6px',
                                           color: 'var(--text-primary)',
                                           fontSize: '13px',
-                                          resize: 'vertical'
+                                          resize: 'vertical',
+                                          marginBottom: '10px'
                                         }}
                                       />
+                                      <button
+                                        className="btn btn-sm btn-secondary"
+                                        onClick={() => setSavedNotes(prev => ({ ...prev, [ticket.id]: true }))}
+                                        disabled={!launchNotes[ticket.id]?.trim()}
+                                        style={{ opacity: launchNotes[ticket.id]?.trim() ? 1 : 0.5 }}
+                                      >
+                                        <Icons.save /> Save Notes
+                                      </button>
                                     </div>
                                     
                                     {/* Action Buttons */}
