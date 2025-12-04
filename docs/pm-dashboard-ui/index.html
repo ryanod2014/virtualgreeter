@@ -181,18 +181,26 @@
       { id: "F-040", feature: "Incoming Call", title: "Countdown Mismatch with RNA", severity: "high", issue: "Shows 30s but RNA fires at 15s.", suggested_fix: "Use org's actual timeout.", questions: ["Is timeout configurable?", "Show warning at 5s?"], status: "pending" },
     ];
 
-    const AGENT_PROMPTS = {
-      doc: {
-        template: "You are a Doc Agent. Read docs/workflow/DOC_AGENT_SOP.md then execute: docs/prompts/active/doc-agent-{ID}.md",
-        description: "Creates feature documentation from source code"
+    const PM_COMMANDS = {
+      docMode: {
+        label: "📝 Launch Doc Sprint",
+        command: "You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md - Doc Mode.\n\nGenerate launch commands for all undocumented features.",
+        description: "PM reads inventory, creates prompts, outputs batch of doc-agent commands"
       },
-      review: {
-        template: "You are a Review Agent. Read docs/workflow/REVIEW_AGENT_SOP.md then execute: docs/prompts/active/review-agent-{ID}.md",
-        description: "Reviews documentation and reports findings"
+      reviewMode: {
+        label: "🔍 Launch Review Sprint", 
+        command: "You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md - Review Mode.\n\nGenerate launch commands for all documented features that need review.",
+        description: "PM reads tracker, creates prompts, outputs batch of review-agent commands"
       },
-      pm: {
-        template: "You are the PM. Read docs/data/decisions.json and:\n1. For each 'resolved' finding, create ticket in tickets.json\n2. For 'in_discussion' findings, add follow-up questions\n3. Update findings.json status to 'ticketed'\n4. Run: node docs/scripts/generate-pm-dashboard.js",
-        description: "Processes decisions and creates tickets"
+      processDecisions: {
+        label: "🎫 Process Triage Decisions",
+        command: "You are the PM. Read docs/data/decisions.json and:\n1. For each 'resolved' finding, create ticket in tickets.json\n2. For 'in_discussion' findings, add follow-up questions to decisions.json\n3. Update findings.json status to 'ticketed'\n4. Run: node docs/scripts/generate-pm-dashboard.js",
+        description: "Creates tickets from your resolved findings"
+      },
+      continueHighFindings: {
+        label: "📋 Continue High Priority Triage",
+        command: "You are the PM. Continue processing High priority findings.\n\nRead docs/REVIEW_FINDINGS.md and present the next batch of 10 High priority findings with questions.",
+        description: "Continue triaging remaining High priority findings"
       }
     };
 
@@ -552,39 +560,87 @@
     }
 
     function AgentsView() {
+      const s = FINDINGS_SUMMARY;
+      const totalPending = Object.values(s.by_priority).reduce((sum, p) => sum + p.pending, 0);
+      const highPending = s.by_priority.high.pending;
+
       return (
         <div className="fade-in">
+          {/* Current Status */}
           <div className="section">
-            <div className="section-title">Launch PM Agent</div>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>After answering questions in Triage, run the PM agent to create tickets.</p>
-            <CommandBox label="PM Agent" command={AGENT_PROMPTS.pm.template} description={AGENT_PROMPTS.pm.description} />
-          </div>
-
-          <div className="section">
-            <div className="section-title">Launch Doc Agents</div>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>Create documentation for undocumented features. Replace {'{ID}'} with feature ID.</p>
-            <CommandBox label="Doc Agent Template" command={AGENT_PROMPTS.doc.template} description={AGENT_PROMPTS.doc.description} />
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-              Example IDs: D1 (Org Settings), B1 (Subscription), A1 (Agent Dashboard), V1 (Visitor Widget)
+            <div className="section-title">Current Status</div>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              <div className="card" style={{ flex: 1, padding: '16px', textAlign: 'center', minWidth: '140px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Undocumented</div>
+                <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--success)' }}>0</div>
+                <div style={{ fontSize: '11px', color: 'var(--success)' }}>✓ All done</div>
+              </div>
+              <div className="card" style={{ flex: 1, padding: '16px', textAlign: 'center', minWidth: '140px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Unreviewed</div>
+                <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--success)' }}>0</div>
+                <div style={{ fontSize: '11px', color: 'var(--success)' }}>✓ All done</div>
+              </div>
+              <div className="card" style={{ flex: 1, padding: '16px', textAlign: 'center', minWidth: '140px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Pending Triage</div>
+                <div style={{ fontSize: '24px', fontWeight: 700, color: totalPending > 0 ? 'var(--high)' : 'var(--success)' }}>{totalPending}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{highPending} High priority</div>
+              </div>
+            </div>
+            <div className="card" style={{ padding: '16px', background: 'var(--accent-bg)', border: '1px solid rgba(99,102,241,0.3)' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>📋 Next Step: Triage Findings</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                Answer questions in the <strong>Triage</strong> tab, then run the PM command below to create tickets.
+              </div>
             </div>
           </div>
 
+          {/* PM Commands */}
           <div className="section">
-            <div className="section-title">Launch Review Agents</div>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>Review documented features and report findings. Replace {'{ID}'} with feature ID.</p>
-            <CommandBox label="Review Agent Template" command={AGENT_PROMPTS.review.template} description={AGENT_PROMPTS.review.description} />
+            <div className="section-title">PM Commands</div>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Copy these commands and paste into a <strong>new Cursor chat</strong>. The PM agent will generate batch commands for doc/review agents, or process your triage decisions.
+            </p>
+            
+            <CommandBox label={PM_COMMANDS.processDecisions.label} command={PM_COMMANDS.processDecisions.command} description={PM_COMMANDS.processDecisions.description} />
+            <CommandBox label={PM_COMMANDS.continueHighFindings.label} command={PM_COMMANDS.continueHighFindings.command} description={PM_COMMANDS.continueHighFindings.description} />
+            <CommandBox label={PM_COMMANDS.docMode.label} command={PM_COMMANDS.docMode.command} description={PM_COMMANDS.docMode.description} />
+            <CommandBox label={PM_COMMANDS.reviewMode.label} command={PM_COMMANDS.reviewMode.command} description={PM_COMMANDS.reviewMode.description} />
           </div>
 
+          {/* Workflow */}
           <div className="section">
-            <div className="section-title">Workflow Reference</div>
-            <div className="card" style={{ padding: '16px' }}>
-              <pre style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', margin: 0 }}>
-{`1. DOC AGENTS → Create feature documentation
-2. REVIEW AGENTS → Find issues in documentation
-3. PM TRIAGE → Answer questions in this dashboard
-4. PM AGENT → Create tickets from resolved findings
-5. DEV AGENTS → Implement ticket fixes`}
-              </pre>
+            <div className="section-title">How It Works</div>
+            <div className="card" style={{ padding: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--success)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>1</div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '14px' }}>Doc Sprint</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>PM generates batch of doc-agent commands → You paste each into separate Cursor chats → They run in parallel</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--success)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>2</div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '14px' }}>Review Sprint</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>PM generates batch of review-agent commands → Agents find issues → Findings written to REVIEW_FINDINGS.md</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>3</div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '14px' }}>Triage (This Dashboard)</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Answer questions in Triage tab → Decisions auto-saved → Run PM to create tickets</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--bg-elevated)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>4</div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '14px' }}>Dev Sprint</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>PM generates dev-agent commands from tickets → Agents implement fixes</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
