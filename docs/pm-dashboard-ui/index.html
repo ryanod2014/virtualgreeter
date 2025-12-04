@@ -7,129 +7,340 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-base: #050508;
-      --bg-surface: #0c0c12;
-      --bg-elevated: #141420;
-      --bg-hover: #1c1c2a;
-      --text-primary: #f4f4f8;
-      --text-secondary: #9090a8;
-      --text-muted: #5a5a70;
-      --border: #252538;
-      --border-subtle: #1a1a28;
-      --critical: #ef4444;
-      --critical-bg: rgba(239,68,68,0.12);
-      --high: #f97316;
-      --high-bg: rgba(249,115,22,0.12);
-      --medium: #eab308;
-      --medium-bg: rgba(234,179,8,0.12);
-      --low: #22c55e;
-      --low-bg: rgba(34,197,94,0.12);
-      --accent: #6366f1;
-      --accent-bright: #818cf8;
-      --accent-bg: rgba(99,102,241,0.12);
-      --success: #10b981;
-      --gradient-hero: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+      /* Dark blue color scheme */
+      --bg-base: #030712;
+      --bg-surface: rgba(15, 23, 42, 0.6);
+      --bg-elevated: rgba(30, 41, 59, 0.5);
+      --bg-hover: rgba(51, 65, 85, 0.5);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border: rgba(71, 85, 105, 0.4);
+      --border-subtle: rgba(51, 65, 85, 0.3);
+      
+      /* Status colors */
+      --critical: #f87171;
+      --critical-bg: rgba(248,113,113,0.12);
+      --high: #fb923c;
+      --high-bg: rgba(251,146,60,0.12);
+      --medium: #fbbf24;
+      --medium-bg: rgba(251,191,36,0.12);
+      --low: #4ade80;
+      --low-bg: rgba(74,222,128,0.12);
+      
+      /* Dark blue accent */
+      --accent: #3b82f6;
+      --accent-bright: #60a5fa;
+      --accent-dim: #1d4ed8;
+      --accent-bg: rgba(59,130,246,0.12);
+      --success: #22c55e;
+      --gradient-hero: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
+      --gradient-glass: linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(30,64,175,0.05) 100%);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
-      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg-base);
       color: var(--text-primary);
       min-height: 100vh;
       line-height: 1.5;
     }
+    
+    /* Background ambient effects */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(ellipse at 30% 20%, rgba(59,130,246,0.08) 0%, transparent 50%),
+                  radial-gradient(ellipse at 70% 80%, rgba(30,64,175,0.06) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    
+    /* Grid pattern overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(59,130,246,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.02) 1px, transparent 1px);
+      background-size: 50px 50px;
+      pointer-events: none;
+      z-index: 0;
+    }
 
-    code, .mono { font-family: 'IBM Plex Mono', monospace; }
+    code, .mono { font-family: 'JetBrains Mono', monospace; }
     ::selection { background: var(--accent); color: white; }
-    ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: var(--bg-surface); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
+    /* Animations */
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes shine {
+      0% { left: -100%; }
+      50%, 100% { left: 100%; }
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(59,130,246,0.2); }
+      50% { box-shadow: 0 0 40px rgba(59,130,246,0.4); }
+    }
+    
     .fade-in { animation: fadeIn 0.3s ease; }
     .slide-up { animation: slideUp 0.4s ease; }
+    
+    /* Shimmer effect */
+    .shimmer {
+      position: relative;
+      overflow: hidden;
+    }
+    .shimmer::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+      animation: shine 3s ease-in-out infinite;
+    }
+    
+    /* Glass effect */
+    .glass {
+      background: var(--bg-surface);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+    }
+    
+    .glass-card {
+      background: linear-gradient(135deg, rgba(30,41,59,0.7) 0%, rgba(15,23,42,0.8) 100%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(71,85,105,0.3);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
 
-    /* Nav */
-    .nav { display: flex; gap: 4px; background: var(--bg-surface); padding: 6px; border-radius: 12px; border: 1px solid var(--border); }
-    .nav-item { padding: 12px 20px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: 8px; font-size: 14px; font-weight: 600; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
-    .nav-item:hover { color: var(--text-secondary); background: var(--bg-elevated); }
-    .nav-item.active { background: var(--accent-bg); color: var(--accent-bright); }
+    /* Nav - Glass style */
+    .nav { 
+      display: flex; 
+      gap: 4px; 
+      background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.9) 100%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 6px; 
+      border-radius: 16px; 
+      border: 1px solid rgba(71,85,105,0.3);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .nav-item { 
+      padding: 12px 20px; 
+      border: none; 
+      background: transparent; 
+      color: var(--text-muted); 
+      cursor: pointer; 
+      border-radius: 10px; 
+      font-size: 14px; 
+      font-weight: 600; 
+      transition: all 0.2s; 
+      display: flex; 
+      align-items: center; 
+      gap: 8px; 
+    }
+    .nav-item:hover { color: var(--text-secondary); background: rgba(59,130,246,0.1); }
+    .nav-item.active { 
+      background: linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(59,130,246,0.1) 100%);
+      color: var(--accent-bright); 
+      box-shadow: 0 0 20px rgba(59,130,246,0.2);
+    }
 
-    /* Tabs */
-    .tabs { display: flex; gap: 4px; background: var(--bg-surface); padding: 4px; border-radius: 10px; border: 1px solid var(--border); width: fit-content; }
-    .tab { padding: 8px 16px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 500; transition: all 0.2s; }
-    .tab:hover { color: var(--text-secondary); }
-    .tab.active { background: var(--accent-bg); color: var(--accent-bright); }
-    .tab .count { margin-left: 6px; padding: 2px 6px; background: var(--bg-elevated); border-radius: 8px; font-size: 11px; }
+    /* Tabs - Glass style */
+    .tabs { 
+      display: flex; 
+      gap: 4px; 
+      background: linear-gradient(135deg, rgba(30,41,59,0.6) 0%, rgba(15,23,42,0.7) 100%);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 6px; 
+      border-radius: 14px; 
+      border: 1px solid rgba(71,85,105,0.25);
+      box-shadow: 0 2px 16px rgba(0,0,0,0.15);
+      flex-wrap: wrap;
+    }
+    .tab { 
+      padding: 8px 14px; 
+      border: none; 
+      background: transparent; 
+      color: var(--text-muted); 
+      cursor: pointer; 
+      border-radius: 8px; 
+      font-size: 13px; 
+      font-weight: 500; 
+      transition: all 0.2s; 
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tab:hover { color: var(--text-secondary); background: rgba(59,130,246,0.08); }
+    .tab.active { 
+      background: rgba(59,130,246,0.15);
+      color: var(--accent-bright); 
+      border: 1px solid rgba(59,130,246,0.3);
+    }
+    .tab .count { 
+      padding: 2px 8px; 
+      background: rgba(59,130,246,0.2); 
+      border-radius: 10px; 
+      font-size: 11px;
+      font-weight: 600;
+    }
 
-    /* Cards */
-    .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    /* Cards - Glass style */
+    .card { 
+      background: linear-gradient(135deg, rgba(30,41,59,0.6) 0%, rgba(15,23,42,0.7) 100%);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(71,85,105,0.25);
+      border-radius: 16px; 
+      padding: 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+    }
+    .card:hover {
+      border-color: rgba(59,130,246,0.3);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 0 0 1px rgba(59,130,246,0.1);
+    }
     .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
     
-    /* Badges */
-    .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
-    .badge-critical { color: var(--critical); background: var(--critical-bg); }
-    .badge-high { color: var(--high); background: var(--high-bg); }
-    .badge-medium { color: var(--medium); background: var(--medium-bg); }
-    .badge-low { color: var(--low); background: var(--low-bg); }
-    .badge-pending { color: var(--accent-bright); background: var(--accent-bg); }
-    .badge-resolved { color: var(--success); background: rgba(16,185,129,0.12); }
+    /* Badges - Clean modern style */
+    .badge { 
+      display: inline-flex; 
+      align-items: center; 
+      padding: 4px 10px; 
+      border-radius: 8px; 
+      font-size: 10px; 
+      font-weight: 600; 
+      text-transform: uppercase; 
+      letter-spacing: 0.5px;
+      backdrop-filter: blur(8px);
+    }
+    .badge-critical { color: var(--critical); background: var(--critical-bg); border: 1px solid rgba(248,113,113,0.2); }
+    .badge-high { color: var(--high); background: var(--high-bg); border: 1px solid rgba(251,146,60,0.2); }
+    .badge-medium { color: var(--medium); background: var(--medium-bg); border: 1px solid rgba(251,191,36,0.2); }
+    .badge-low { color: var(--low); background: var(--low-bg); border: 1px solid rgba(74,222,128,0.2); }
+    .badge-pending { color: var(--accent-bright); background: var(--accent-bg); border: 1px solid rgba(59,130,246,0.2); }
+    .badge-resolved { color: var(--success); background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.2); }
 
-    /* Pipeline Card */
+    /* Pipeline Card - Glass style */
     .pipeline-card { flex: 1; min-width: 160px; }
-    .pipeline-card .inner { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; height: 100%; position: relative; overflow: hidden; }
+    .pipeline-card .inner { 
+      background: linear-gradient(135deg, rgba(30,41,59,0.6) 0%, rgba(15,23,42,0.7) 100%);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(71,85,105,0.25);
+      border-radius: 16px; 
+      padding: 20px; 
+      height: 100%; 
+      position: relative; 
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+    }
     .pipeline-card.complete .inner::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--success); }
     .pipeline-card .icon { font-size: 18px; margin-right: 8px; }
     .pipeline-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 600; }
-    .pipeline-card .value { font-size: 36px; font-weight: 800; font-family: 'IBM Plex Mono', monospace; margin: 12px 0; }
+    .pipeline-card .value { font-size: 36px; font-weight: 800; font-family: 'JetBrains Mono', monospace; margin: 12px 0; }
     .pipeline-card .value span { font-size: 20px; color: var(--text-muted); }
     .pipeline-card .subtitle { font-size: 12px; color: var(--text-muted); }
-    .pipeline-card .bar { height: 4px; background: var(--bg-elevated); border-radius: 2px; margin: 12px 0 8px; overflow: hidden; }
+    .pipeline-card .bar { height: 4px; background: rgba(51,65,85,0.5); border-radius: 2px; margin: 12px 0 8px; overflow: hidden; }
     .pipeline-card .bar-fill { height: 100%; background: var(--gradient-hero); transition: width 0.5s ease; }
     .pipeline-card.complete .bar-fill { background: var(--success); }
 
-    /* Thread - Chat bubble style */
-    .thread { background: var(--bg-elevated); border-radius: 12px; padding: 16px; margin-top: 12px; }
-    .message { padding: 12px 16px; margin-bottom: 8px; max-width: 80%; position: relative; }
+    /* Thread - Chat bubble style with glass */
+    .thread { 
+      background: linear-gradient(135deg, rgba(30,41,59,0.4) 0%, rgba(15,23,42,0.5) 100%);
+      backdrop-filter: blur(12px);
+      border-radius: 16px; 
+      padding: 16px; 
+      margin-top: 12px;
+      border: 1px solid rgba(71,85,105,0.2);
+    }
+    .message { 
+      padding: 14px 18px; 
+      margin-bottom: 10px; 
+      max-width: 85%; 
+      position: relative;
+      backdrop-filter: blur(8px);
+    }
     .message-system { 
-      background: var(--bg-surface); 
+      background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.9) 100%);
+      border: 1px solid rgba(71,85,105,0.3);
       margin-right: auto; 
-      border-radius: 4px 18px 18px 18px;
+      border-radius: 4px 20px 20px 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
     }
     .message-human { 
-      background: var(--accent); 
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+      border: 1px solid rgba(96,165,250,0.3);
       color: white;
       margin-left: auto; 
-      border-radius: 18px 4px 18px 18px;
+      border-radius: 20px 4px 20px 20px;
+      box-shadow: 0 2px 12px rgba(59,130,246,0.25);
     }
     
-    /* Suggested action card */
+    /* Suggested action card - Glass with shimmer */
     .suggested-action {
-      background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(99,102,241,0.05) 100%);
-      border: 1px solid var(--accent);
-      border-radius: 12px;
-      padding: 16px;
-      margin: 12px 0;
+      background: linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(30,64,175,0.08) 100%);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(59,130,246,0.3);
+      border-radius: 16px;
+      padding: 18px;
+      margin: 14px 0;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(59,130,246,0.1);
+    }
+    .suggested-action::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+      animation: shine 4s ease-in-out infinite;
     }
     .suggested-action-label {
       font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 1.5px;
       color: var(--accent-bright);
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
     .suggested-action-text {
       font-size: 14px;
-      line-height: 1.6;
+      line-height: 1.7;
       color: var(--text-primary);
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
     .suggested-action-buttons {
       display: flex;
@@ -137,57 +348,26 @@
       flex-wrap: wrap;
     }
     
-    /* Quick reply input - always visible */
-    .quick-reply {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-      align-items: flex-end;
-    }
+    /* Quick reply input - Glass style */
     .quick-reply-input {
-      flex: 1;
-      padding: 12px 16px;
-      background: var(--bg-base);
-      border: 1px solid var(--border);
-      border-radius: 24px;
+      width: 100%;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.6) 100%);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(71,85,105,0.3);
+      border-radius: 14px;
       color: var(--text-primary);
       font-size: 14px;
       font-family: inherit;
-      resize: none;
-      min-height: 44px;
-      max-height: 120px;
-      transition: border-color 0.2s;
+      transition: all 0.2s;
     }
     .quick-reply-input:focus {
       outline: none;
       border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
     }
     .quick-reply-input::placeholder {
       color: var(--text-muted);
-    }
-    .quick-reply-send {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: var(--accent);
-      border: none;
-      color: white;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-      flex-shrink: 0;
-    }
-    .quick-reply-send:hover {
-      background: var(--accent-bright);
-      transform: scale(1.05);
-    }
-    .quick-reply-send:disabled {
-      background: var(--bg-elevated);
-      color: var(--text-muted);
-      cursor: not-allowed;
-      transform: none;
     }
     
     /* Details/Summary for "other options" */
@@ -197,19 +377,105 @@
 
     /* Inputs */
     .input-group { display: flex; gap: 8px; margin-top: 12px; }
-    .input { flex: 1; padding: 10px 14px; background: var(--bg-base); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 14px; font-family: inherit; }
-    .input:focus { outline: none; border-color: var(--accent); }
-    .btn { padding: 10px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-    .btn-primary { background: var(--accent); color: white; }
-    .btn-primary:hover { background: var(--accent-bright); }
-    .btn-secondary { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
-    .btn-success { background: var(--success); color: white; }
-    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .input { 
+      flex: 1; 
+      padding: 12px 16px; 
+      background: linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.6) 100%);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(71,85,105,0.3); 
+      border-radius: 10px; 
+      color: var(--text-primary); 
+      font-size: 14px; 
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .input:focus { 
+      outline: none; 
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+    
+    /* Buttons - Glass style */
+    .btn { 
+      padding: 10px 18px; 
+      border: none; 
+      border-radius: 10px; 
+      font-size: 13px; 
+      font-weight: 600; 
+      cursor: pointer; 
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 50%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+      pointer-events: none;
+    }
+    .btn-primary { 
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+      color: white;
+      box-shadow: 0 2px 12px rgba(59,130,246,0.3);
+    }
+    .btn-primary:hover { 
+      background: linear-gradient(135deg, var(--accent-bright) 0%, var(--accent) 100%);
+      box-shadow: 0 4px 20px rgba(59,130,246,0.4);
+      transform: translateY(-1px);
+    }
+    .btn-secondary { 
+      background: linear-gradient(135deg, rgba(51,65,85,0.6) 0%, rgba(30,41,59,0.8) 100%);
+      backdrop-filter: blur(8px);
+      color: var(--text-secondary); 
+      border: 1px solid rgba(71,85,105,0.4);
+    }
+    .btn-secondary:hover { 
+      background: linear-gradient(135deg, rgba(71,85,105,0.6) 0%, rgba(51,65,85,0.8) 100%);
+      border-color: rgba(96,165,250,0.3);
+      color: var(--text-primary);
+    }
+    .btn-success { 
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      color: white;
+      box-shadow: 0 2px 12px rgba(34,197,94,0.3);
+    }
+    .btn-success:hover { 
+      background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+      box-shadow: 0 4px 20px rgba(34,197,94,0.4);
+      transform: translateY(-1px);
+    }
+    .btn-sm { padding: 8px 14px; font-size: 12px; }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
 
     /* Quick answers */
     .quick-answers { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-    .quick-btn { padding: 6px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); font-size: 13px; cursor: pointer; transition: all 0.2s; }
-    .quick-btn:hover { border-color: var(--accent); color: var(--accent-bright); }
+    .quick-btn { 
+      padding: 8px 14px; 
+      background: linear-gradient(135deg, rgba(30,41,59,0.6) 0%, rgba(15,23,42,0.7) 100%);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(71,85,105,0.3); 
+      border-radius: 10px; 
+      color: var(--text-secondary); 
+      font-size: 13px; 
+      cursor: pointer; 
+      transition: all 0.2s; 
+    }
+    .quick-btn:hover { 
+      border-color: rgba(59,130,246,0.4); 
+      color: var(--accent-bright);
+      background: rgba(59,130,246,0.1);
+    }
 
     /* Ticket Grid */
     .ticket-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
@@ -241,6 +507,147 @@
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
+
+    // ================= SVG ICONS =================
+    const Icons = {
+      inbox: () => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+          <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+        </svg>
+      ),
+      pipeline: () => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 3v18h18" />
+          <path d="m19 9-5 5-4-4-3 3" />
+        </svg>
+      ),
+      launch: () => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+          <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+          <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+          <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+        </svg>
+      ),
+      chat: () => (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      ),
+      check: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ),
+      checkCircle: () => (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      ),
+      circle: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+        </svg>
+      ),
+      clock: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+      ),
+      save: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+          <polyline points="17 21 17 13 7 13 7 21" />
+          <polyline points="7 3 7 8 15 8" />
+        </svg>
+      ),
+      sparkle: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+        </svg>
+      ),
+      lightbulb: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
+          <path d="M9 18h6" />
+          <path d="M10 22h4" />
+        </svg>
+      ),
+      x: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      ),
+      arrowUp: () => (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="19" x2="12" y2="5" />
+          <polyline points="5 12 12 5 19 12" />
+        </svg>
+      ),
+      chevronRight: () => (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      ),
+      export: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+      ),
+      copy: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      ),
+      server: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+          <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+          <line x1="6" y1="6" x2="6.01" y2="6" />
+          <line x1="6" y1="18" x2="6.01" y2="18" />
+        </svg>
+      ),
+      warning: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      ),
+      file: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
+      ),
+      ticket: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+          <path d="M13 5v2" />
+          <path d="M13 17v2" />
+          <path d="M13 11v2" />
+        </svg>
+      )
+    };
+
+    // Status dot component
+    const StatusDot = ({ color }) => (
+      <span style={{
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        backgroundColor: color,
+        display: 'inline-block',
+        boxShadow: `0 0 6px ${color}`
+      }} />
+    );
 
     // Format message text with basic markdown-like styling
     function formatMessage(text) {
@@ -289,27 +696,27 @@
 
     const PM_COMMANDS = {
       docMode: {
-        label: "📝 Launch Doc Sprint",
+        label: "Launch Doc Sprint",
         command: "You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md - Doc Mode.\n\nGenerate launch commands for all undocumented features.",
         description: "PM reads inventory, creates prompts, outputs batch of doc-agent commands"
       },
       reviewMode: {
-        label: "🔍 Launch Review Sprint", 
+        label: "Launch Review Sprint", 
         command: "You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md - Review Mode.\n\nGenerate launch commands for all documented features that need review.",
         description: "PM reads tracker, creates prompts, outputs batch of review-agent commands"
       },
       processDecisions: {
-        label: "🎫 Process Triage Decisions",
+        label: "Process Triage Decisions",
         command: "Run: node docs/scripts/process-decisions.js\n\nThis will:\n1. Create tickets in tickets.json for resolved findings\n2. Update findings.json status to 'ticketed'\n3. Dashboard will auto-refresh with changes",
         description: "Creates tickets from your resolved findings (run the script, then refresh dashboard)"
       },
       answerQuestions: {
-        label: "💬 Answer User Questions",
+        label: "Answer User Questions",
         command: "Read docs/data/decisions.json and look for threads where:\n- status is 'in_discussion'\n- decision.option_id is 'custom'\n- There are human messages without a system response\n\nFor each question, add a PM response using:\nnode docs/scripts/pm-respond.js F-XXX 'Your response here'\n\nThen the user can refresh the dashboard to see your answers.",
         description: "Respond to questions from the dashboard"
       },
       continueHighFindings: {
-        label: "📋 Continue High Priority Triage",
+        label: "Continue High Priority Triage",
         command: "You are the PM. Continue processing High priority findings.\n\nRead docs/REVIEW_FINDINGS.md and present the next batch of 10 High priority findings with questions.",
         description: "Continue triaging remaining High priority findings"
       }
@@ -323,11 +730,17 @@
 
     function PipelineCard({ icon, label, current, total, subtitle, complete }) {
       const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+      const iconMap = {
+        doc: <Icons.file />,
+        review: <Icons.checkCircle />,
+        triage: <Icons.inbox />,
+        ticket: <Icons.ticket />
+      };
       return (
         <div className={`pipeline-card ${complete ? 'complete' : ''}`}>
-          <div className="inner">
+          <div className="inner shimmer">
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-              <span className="icon">{icon}</span>
+              <span className="icon" style={{ color: complete ? 'var(--success)' : 'var(--accent-bright)' }}>{iconMap[icon] || icon}</span>
               <span className="label">{label}</span>
             </div>
             <div className="value" style={{ color: complete ? 'var(--success)' : 'var(--text-primary)' }}>
@@ -352,7 +765,7 @@
           </div>
           <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>{ticket.title}</h3>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>{ticket.feature}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>📁 {(ticket.files_to_modify || ticket.files || []).length} files • ✓ {(ticket.acceptance_criteria || []).length} criteria</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{(ticket.files_to_modify || ticket.files || []).length} files • {(ticket.acceptance_criteria || []).length} criteria</div>
         </div>
       );
     }
@@ -383,7 +796,7 @@
               {/* Feature Docs */}
               {ticket.feature_docs && ticket.feature_docs.length > 0 && (
                 <div className="section">
-                  <div className="section-title">📚 Feature Documentation</div>
+                  <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Icons.file /> Feature Documentation</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                     {ticket.feature_docs.map((doc, i) => <code key={i} style={{ padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>{doc}</code>)}
                   </div>
@@ -393,7 +806,7 @@
               {/* Similar Code */}
               {ticket.similar_code && ticket.similar_code.length > 0 && (
                 <div className="section">
-                  <div className="section-title">🔍 Similar Code to Follow</div>
+                  <div className="section-title">Similar Code to Follow</div>
                   {ticket.similar_code.map((code, i) => (
                     <div key={i} style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>{code}</div>
                   ))}
@@ -427,7 +840,7 @@
               {/* Dev Checks */}
               {ticket.dev_checks && ticket.dev_checks.length > 0 && (
                 <div style={{ padding: '16px', background: 'var(--accent-bg)', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.2)', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--accent-bright)', fontWeight: 600, marginBottom: '8px' }}>✓ Dev Checks (Before Submitting)</div>
+                  <div style={{ fontSize: '12px', color: 'var(--accent-bright)', fontWeight: 600, marginBottom: '8px' }}>Dev Checks (Before Submitting)</div>
                   {ticket.dev_checks.map((check, i) => <div key={i} style={{ fontSize: '13px', marginBottom: '4px' }}>☐ {check}</div>)}
                 </div>
               )}
@@ -476,7 +889,7 @@
             </div>
             <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
               <Badge type={finding.severity}>{finding.severity}</Badge>
-              <Badge type={isResolved ? 'resolved' : hasDecision ? 'pending' : 'pending'}>{isResolved ? '✓ Done' : hasDecision ? '⏳ Ready' : '○ Pending'}</Badge>
+              <Badge type={isResolved ? 'resolved' : hasDecision ? 'pending' : 'pending'}><span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{isResolved ? <><Icons.checkCircle /> Done</> : hasDecision ? <><Icons.clock /> Ready</> : <><Icons.circle /> Pending</>}</span></Badge>
             </div>
           </div>
 
@@ -485,7 +898,7 @@
           
           {/* Suggested Fix */}
           <div style={{ fontSize: '12px', padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: '8px', marginBottom: '12px', borderLeft: '3px solid var(--accent)' }}>
-            <span style={{ color: 'var(--accent-bright)', fontWeight: 600 }}>💡 Suggested Fix:</span>
+            <span style={{ color: 'var(--accent-bright)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Icons.lightbulb /> Suggested Fix:</span>
             <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{finding.suggested_fix}</span>
           </div>
 
@@ -494,7 +907,7 @@
             <div style={{ fontSize: '12px', padding: '12px 14px', background: 'rgba(234,179,8,0.1)', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(234,179,8,0.2)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <span style={{ color: 'var(--medium)', fontWeight: 600 }}>🔗 Related Findings:</span>
+                  <span style={{ color: 'var(--medium)', fontWeight: 600 }}>Related Findings:</span>
                   <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>
                     {combinable.map(c => `${c.id}: ${c.title}`).join(', ')}
                   </span>
@@ -545,7 +958,7 @@
                             className="btn btn-success btn-sm"
                             onClick={() => onResolve(finding.id)}
                           >
-                            ✓ Create Ticket
+                            <Icons.check /> Create Ticket
                           </button>
                           <button 
                             className="btn btn-sm"
@@ -567,7 +980,7 @@
                 {/* Suggested Action - The recommended option gets prime real estate */}
                 {recommendedOption && !hasDecision && (
                   <div className="suggested-action">
-                    <div className="suggested-action-label">✨ Suggested</div>
+                    <div className="suggested-action-label"><Icons.sparkle /> Suggested</div>
                     <div className="suggested-action-text">{recommendedOption.label}</div>
                     <div className="suggested-action-buttons">
                       <button 
@@ -578,7 +991,7 @@
                         }}
                         style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                       >
-                        ✓ Accept & Create Ticket
+                        <Icons.check /> Accept & Create Ticket
                       </button>
                       <button 
                         className="btn btn-secondary"
@@ -645,7 +1058,7 @@
                     marginBottom: '12px' 
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                      <span style={{ color: 'var(--success)', fontSize: '16px' }}>✓</span>
+                      <span style={{ color: 'var(--success)' }}><Icons.check /></span>
                       <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{thread?.decision?.option_label}</span>
                     </div>
                     {thread?.decision?.custom_note && (
@@ -691,7 +1104,7 @@
                       disabled={!customInput.trim()}
                       style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
                     >
-                      💬 Ask Question
+                      <Icons.chat /> Ask Question
                     </button>
                     <button 
                       className="btn btn-success btn-sm"
@@ -705,7 +1118,7 @@
                       disabled={!customInput.trim()}
                       style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
                     >
-                      ✓ Create Ticket
+                      <Icons.ticket /> Create Ticket
                     </button>
                   </div>
                 </div>
@@ -715,10 +1128,10 @@
             {/* Resolved State */}
             {isResolved && (
               <div style={{ padding: '12px', background: 'rgba(16,185,129,0.1)', borderRadius: '6px', fontSize: '13px' }}>
-                <div style={{ color: 'var(--success)', fontWeight: 600, marginBottom: '4px' }}>✓ {thread?.decision?.option_label || 'Decision recorded'}</div>
+                <div style={{ color: 'var(--success)', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.check /> {thread?.decision?.option_label || 'Decision recorded'}</div>
                 {thread?.decision?.combined_with && (
                   <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>
-                    🔗 Combined with: {thread.decision.combined_with.join(', ')}
+                    Combined with: {thread.decision.combined_with.join(', ')}
                   </div>
                 )}
                 {thread?.decision?.custom_note && (
@@ -731,11 +1144,11 @@
             {!isResolved && thread?.decision?.combined_with && (
               <div style={{ padding: '12px', background: 'rgba(234,179,8,0.1)', borderRadius: '6px', fontSize: '13px', marginTop: '12px' }}>
                 <div style={{ color: 'var(--medium)', fontWeight: 600, marginBottom: '4px' }}>
-                  🔗 {thread?.decision?.is_primary ? 'Primary finding' : 'Will be combined with'}: {thread?.decision?.is_primary ? thread.decision.combined_with.join(', ') : finding.id}
+                  {thread?.decision?.is_primary ? 'Primary finding' : 'Will be combined with'}: {thread?.decision?.is_primary ? thread.decision.combined_with.join(', ') : finding.id}
                 </div>
                 {thread?.decision?.is_primary && (
                   <button className="btn btn-success btn-sm" style={{ marginTop: '8px' }} onClick={() => onResolve(finding.id)}>
-                    ✓ Confirm Combined Ticket
+                    Confirm Combined Ticket
                   </button>
                 )}
               </div>
@@ -754,7 +1167,7 @@
           {description && <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>{description}</div>}
           <div className="command-box">
             <pre>{command}</pre>
-            <button className="btn btn-sm btn-primary copy-btn" onClick={copy}>{copied ? '✓ Copied!' : 'Copy'}</button>
+            <button className="btn btn-sm btn-primary copy-btn" onClick={copy}>{copied ? 'Copied!' : 'Copy'}</button>
           </div>
         </div>
       );
@@ -774,10 +1187,10 @@
           <div className="section">
             <div className="section-title">Pipeline Status</div>
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-              <PipelineCard icon="📝" label="Documented" current={s.meta.total_features} total={s.meta.total_features} subtitle="Features documented" complete={true} />
-              <PipelineCard icon="🔍" label="Reviewed" current={s.meta.reviewed_features} total={s.meta.total_features} subtitle="Features reviewed" complete={true} />
-              <PipelineCard icon="📋" label="Triaged" current={totalAnswered} total={s.meta.total_findings} subtitle={`${totalPending} pending`} complete={totalPending === 0} />
-              <PipelineCard icon="🎫" label="Ticketed" current={ticketCount} total={ticketCount} subtitle="Ready for dev" complete={true} />
+              <PipelineCard icon="doc" label="Documented" current={s.meta.total_features} total={s.meta.total_features} subtitle="Features documented" complete={true} />
+              <PipelineCard icon="review" label="Reviewed" current={s.meta.reviewed_features} total={s.meta.total_features} subtitle="Features reviewed" complete={true} />
+              <PipelineCard icon="triage" label="Triaged" current={totalAnswered} total={s.meta.total_findings} subtitle={`${totalPending} pending`} complete={totalPending === 0} />
+              <PipelineCard icon="ticket" label="Ticketed" current={ticketCount} total={ticketCount} subtitle="Ready for dev" complete={true} />
               <PipelineCard icon="🔨" label="In Progress" current={0} total={ticketCount} subtitle="Being developed" complete={false} />
             </div>
           </div>
@@ -787,12 +1200,12 @@
             <div className="section-title">Quick Actions</div>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <div className="card" style={{ flex: 1, padding: '16px' }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>📋 Triage Findings</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.inbox /> Triage Findings</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Answer questions for {totalPending} pending findings</div>
                 <button className="btn btn-primary btn-sm">Go to Triage →</button>
               </div>
               <div className="card" style={{ flex: 1, padding: '16px' }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>🚀 Launch Agents</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.launch /> Launch Agents</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Get commands for doc/review agents</div>
                 <button className="btn btn-secondary btn-sm">Go to Agents →</button>
               </div>
@@ -1261,7 +1674,7 @@
                     borderColor: severityFilter === 'convos' ? 'var(--high)' : undefined
                   }}
                 >
-                  💬 Convos <span className="count" style={{ background: 'var(--high)', color: 'white' }}>{stats.openConvos}</span>
+                  <Icons.chat /> Convos <span className="count" style={{ background: 'var(--high)', color: 'white' }}>{stats.openConvos}</span>
                 </button>
               )}
               {/* Blockers Tab - only show if there are blockers */}
@@ -1278,19 +1691,19 @@
                 </button>
               )}
               <button className={`tab ${severityFilter === 'critical' ? 'active' : ''}`} onClick={() => { setSeverityFilter('critical'); setPage(0); }}>
-                🔴 Critical <span className="count">{stats.bySeverity.critical || 0}</span>
+                <StatusDot color="var(--critical)" /> Critical <span className="count">{stats.bySeverity.critical || 0}</span>
                 {stats.answeredBySeverity.critical > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.critical} ready)</span>}
               </button>
               <button className={`tab ${severityFilter === 'high' ? 'active' : ''}`} onClick={() => { setSeverityFilter('high'); setPage(0); }}>
-                🟠 High <span className="count">{stats.bySeverity.high || 0}</span>
+                <StatusDot color="var(--high)" /> High <span className="count">{stats.bySeverity.high || 0}</span>
                 {stats.answeredBySeverity.high > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.high} ready)</span>}
               </button>
               <button className={`tab ${severityFilter === 'medium' ? 'active' : ''}`} onClick={() => { setSeverityFilter('medium'); setPage(0); }}>
-                🟡 Medium <span className="count">{stats.bySeverity.medium || 0}</span>
+                <StatusDot color="var(--medium)" /> Medium <span className="count">{stats.bySeverity.medium || 0}</span>
                 {stats.answeredBySeverity.medium > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.medium} ready)</span>}
               </button>
               <button className={`tab ${severityFilter === 'low' ? 'active' : ''}`} onClick={() => { setSeverityFilter('low'); setPage(0); }}>
-                🟢 Low <span className="count">{stats.bySeverity.low || 0}</span>
+                <StatusDot color="var(--low)" /> Low <span className="count">{stats.bySeverity.low || 0}</span>
                 {stats.answeredBySeverity.low > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.low} ready)</span>}
               </button>
               <button 
@@ -1298,13 +1711,13 @@
                 onClick={() => { setSeverityFilter('answered'); setPage(0); }}
                 style={{ marginLeft: '12px' }}
               >
-                ✅ Answered <span className="count">{stats.answered}</span>
+                <Icons.checkCircle /> Answered <span className="count">{stats.answered}</span>
               </button>
               <button 
                 className={`tab ${severityFilter === 'done' ? 'active' : ''}`} 
                 onClick={() => { setSeverityFilter('done'); setPage(0); }}
               >
-                ✓ Done <span className="count">{stats.done}</span>
+                <Icons.check /> Done <span className="count">{stats.done}</span>
               </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1316,14 +1729,14 @@
                   background: saveStatus === 'saved' ? 'rgba(16,185,129,0.15)' : saveStatus === 'saving' ? 'rgba(99,102,241,0.15)' : saveStatus === 'error' ? 'rgba(239,68,68,0.15)' : 'transparent',
                   color: saveStatus === 'saved' ? 'var(--success)' : saveStatus === 'saving' ? 'var(--accent-bright)' : saveStatus === 'error' ? 'var(--critical)' : 'var(--text-muted)'
                 }}>
-                  {saveStatus === 'saved' ? '✓ Auto-saved' : saveStatus === 'saving' ? '⟳ Saving...' : saveStatus === 'error' ? '✗ Save failed' : '💾 Auto-save enabled'}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.save /> {saveStatus === 'saved' ? 'Auto-saved' : saveStatus === 'saving' ? 'Saving...' : saveStatus === 'error' ? 'Save failed' : 'Auto-save enabled'}</span>
                 </div>
               ) : (
                 <button className="btn btn-primary btn-sm" onClick={() => {
                   const json = JSON.stringify(decisions, null, 2);
                   navigator.clipboard.writeText(json);
                   alert('Decisions JSON copied!\n\nTip: Run "node docs/pm-dashboard-ui/server.js" for auto-save!');
-                }}>📋 Export</button>
+                }}><Icons.export /> Export</button>
               )}
             </div>
           </div>
@@ -1331,7 +1744,7 @@
           {/* Findings List */}
           {filtered.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>{severityFilter === 'done' ? '✓' : severityFilter === 'answered' ? '✅' : '🎉'}</div>
+              <div style={{ marginBottom: '12px', color: 'var(--success)' }}><Icons.checkCircle /></div>
               <div style={{ color: 'var(--text-muted)' }}>
                 {severityFilter === 'done' ? 'No completed findings yet' : severityFilter === 'answered' ? 'No answered findings yet' : `All ${severityFilter} priority findings are done!`}
               </div>
@@ -1363,13 +1776,13 @@
                   <React.Fragment key={f.id}>
                     {showOpenConvoHeader && (
                       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--high)', marginBottom: '12px', marginTop: idx > 0 ? '20px' : '0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>💬 Open Conversations</span>
+                        <Icons.chat /> <span>Open Conversations</span>
                         <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-muted)' }}>Agent responded, pick an option</span>
                       </div>
                     )}
                     {showRegularHeader && (
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', marginTop: idx > 0 ? '20px' : '0' }}>
-                        📋 All Findings
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', marginTop: idx > 0 ? '20px' : '0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Icons.file /> All Findings
                       </div>
                     )}
                     <FindingCard 
@@ -1429,10 +1842,10 @@
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div className="tabs">
               <button className={`tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All <span className="count">{tickets.length}</span></button>
-              <button className={`tab ${filter === 'critical' ? 'active' : ''}`} onClick={() => setFilter('critical')}>🔴 Critical <span className="count">{stats.critical}</span></button>
-              <button className={`tab ${filter === 'high' ? 'active' : ''}`} onClick={() => setFilter('high')}>🟠 High <span className="count">{stats.high}</span></button>
-              <button className={`tab ${filter === 'medium' ? 'active' : ''}`} onClick={() => setFilter('medium')}>🟡 Medium <span className="count">{stats.medium}</span></button>
-              <button className={`tab ${filter === 'low' ? 'active' : ''}`} onClick={() => setFilter('low')}>🟢 Low <span className="count">{stats.low}</span></button>
+              <button className={`tab ${filter === 'critical' ? 'active' : ''}`} onClick={() => setFilter('critical')}><StatusDot color="var(--critical)" /> Critical <span className="count">{stats.critical}</span></button>
+              <button className={`tab ${filter === 'high' ? 'active' : ''}`} onClick={() => setFilter('high')}><StatusDot color="var(--high)" /> High <span className="count">{stats.high}</span></button>
+              <button className={`tab ${filter === 'medium' ? 'active' : ''}`} onClick={() => setFilter('medium')}><StatusDot color="var(--medium)" /> Medium <span className="count">{stats.medium}</span></button>
+              <button className={`tab ${filter === 'low' ? 'active' : ''}`} onClick={() => setFilter('low')}><StatusDot color="var(--low)" /> Low <span className="count">{stats.low}</span></button>
             </div>
           </div>
           <div className="ticket-grid">
@@ -1458,12 +1871,12 @@
               <div className="card" style={{ flex: 1, padding: '16px', textAlign: 'center', minWidth: '140px' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Undocumented</div>
                 <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--success)' }}>0</div>
-                <div style={{ fontSize: '11px', color: 'var(--success)' }}>✓ All done</div>
+                <div style={{ fontSize: '11px', color: 'var(--success)' }}>All done</div>
               </div>
               <div className="card" style={{ flex: 1, padding: '16px', textAlign: 'center', minWidth: '140px' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Unreviewed</div>
                 <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--success)' }}>0</div>
-                <div style={{ fontSize: '11px', color: 'var(--success)' }}>✓ All done</div>
+                <div style={{ fontSize: '11px', color: 'var(--success)' }}>All done</div>
               </div>
               <div className="card" style={{ flex: 1, padding: '16px', textAlign: 'center', minWidth: '140px' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Pending Triage</div>
@@ -1472,7 +1885,7 @@
               </div>
             </div>
             <div className="card" style={{ padding: '16px', background: 'var(--accent-bg)', border: '1px solid rgba(99,102,241,0.3)' }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>📋 Next Step: Triage Findings</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.inbox /> Next Step: Triage Findings</div>
               <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
                 Answer questions in the <strong>Triage</strong> tab, then run the PM command below to create tickets.
               </div>
@@ -1722,7 +2135,7 @@
               <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {tickets.length}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>📋 All Tickets</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>All Tickets</div>
             </div>
             <div 
               className="card" 
@@ -1737,7 +2150,7 @@
               <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--success)' }}>
                 {nextBatch.length}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🚀 Next Batch</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Next Batch</div>
             </div>
             <div 
               className="card" 
@@ -1757,7 +2170,7 @@
                   <span style={{ fontSize: '11px', color: 'var(--medium)', fontWeight: 600 }}>⚠️</span>
                 )}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🔄 In Progress</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>In Progress</div>
             </div>
             <div 
               className="card" 
@@ -1772,7 +2185,7 @@
               <div style={{ fontSize: '24px', fontWeight: 700, color: pendingBlockers.length > 0 ? 'var(--critical)' : 'var(--text-muted)' }}>
                 {pendingBlockers.length}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🚧 Blockers</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Blockers</div>
             </div>
             <div 
               className="card" 
@@ -1787,18 +2200,18 @@
               <div style={{ fontSize: '24px', fontWeight: 700, color: completedItems.length > 0 ? 'var(--accent-bright)' : 'var(--text-muted)' }}>
                 {completedItems.length}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>✅ For Review</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>For Review</div>
             </div>
           </div>
           
           {/* Tab Navigation */}
           <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0', overflowX: 'auto' }}>
             {[
-              { id: 'all', label: '📋 All', count: tickets.length, color: 'var(--text-primary)' },
-              { id: 'batch', label: '🚀 Next Batch', count: nextBatch.length, color: 'var(--success)' },
-              { id: 'progress', label: '🔄 In Progress', count: inProgressItems.length, color: staleCount > 0 ? 'var(--medium)' : 'var(--accent)', stale: staleCount },
-              { id: 'blockers', label: '🚧 Blockers', count: pendingBlockers.length, color: 'var(--critical)' },
-              { id: 'review', label: '✅ For Review', count: completedItems.length, color: 'var(--accent)' }
+              { id: 'all', label: 'All', count: tickets.length, color: 'var(--text-primary)' },
+              { id: 'batch', label: 'Next Batch', count: nextBatch.length, color: 'var(--success)' },
+              { id: 'progress', label: 'In Progress', count: inProgressItems.length, color: staleCount > 0 ? 'var(--medium)' : 'var(--accent)', stale: staleCount },
+              { id: 'blockers', label: 'Blockers', count: pendingBlockers.length, color: 'var(--critical)' },
+              { id: 'review', label: 'For Review', count: completedItems.length, color: 'var(--accent)' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1856,13 +2269,13 @@
                 if (statusTickets.length === 0) return null;
                 
                 const statusConfig = {
-                  ready: { label: 'Ready', icon: '🟢', color: 'var(--success)' },
+                  ready: { label: 'Ready', icon: null, color: 'var(--success)' },
                   in_progress: { label: 'In Progress', icon: '🔄', color: 'var(--accent)' },
                   blocked: { label: 'Blocked', icon: '🚧', color: 'var(--critical)' },
                   review: { label: 'For Review', icon: '✅', color: 'var(--accent)' },
-                  done: { label: 'Done', icon: '✓', color: 'var(--text-muted)' }
+                  done: { label: 'Done', icon: null, color: 'var(--text-muted)' }
                 };
-                const config = statusConfig[status] || { label: status, icon: '📋', color: 'var(--text-muted)' };
+                const config = statusConfig[status] || { label: status, icon: null, color: 'var(--text-muted)' };
                 
                 return (
                   <div key={status} style={{ marginBottom: '24px' }}>
@@ -1908,7 +2321,7 @@
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      🚀 {nextBatch.length} tickets can run in parallel
+                      {nextBatch.length} tickets can run in parallel
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
                       These tickets have no file conflicts — launch them all simultaneously!
@@ -1956,7 +2369,7 @@
                 <div style={{ display: 'grid', gap: '12px' }}>
                   {nextBatch.map((ticket, idx) => {
                     const priorityColors = { critical: 'var(--critical)', high: 'var(--high)', medium: 'var(--medium)', low: 'var(--low)' };
-                    const priorityIcons = { critical: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+                    const priorityIcons = { critical: '', high: '', medium: '', low: '' };
                     
                     return (
                       <div key={ticket.id} className="card" style={{ padding: '16px 20px', borderLeft: `4px solid ${priorityColors[ticket.priority] || 'var(--border)'}` }}>
@@ -2071,8 +2484,8 @@
                     
                     {blocked.progress && (
                       <div style={{ display: 'flex', gap: '24px', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', padding: '12px', background: 'rgba(99,102,241,0.05)', borderRadius: '8px' }}>
-                        <div><strong style={{ color: 'var(--success)' }}>✓ Done:</strong> {blocked.progress.done?.length || 0} items</div>
-                        <div><strong style={{ color: 'var(--medium)' }}>⏳ Remaining:</strong> {blocked.progress.remaining?.length || 0} items</div>
+                        <div><strong style={{ color: 'var(--success)' }}>Done:</strong> {blocked.progress.done?.length || 0} items</div>
+                        <div><strong style={{ color: 'var(--medium)' }}>Remaining:</strong> {blocked.progress.remaining?.length || 0} items</div>
                       </div>
                     )}
                     
@@ -2124,7 +2537,7 @@
               {/* Decided blockers */}
               {blockedItems.filter(b => b.status === 'decided').length > 0 && (
                 <div style={{ marginTop: '24px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--success)', marginBottom: '12px' }}>✓ Recently Decided</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--success)', marginBottom: '12px' }}>Recently Decided</div>
                   {blockedItems.filter(b => b.status === 'decided').map(b => (
                     <div key={b.ticket_id} style={{ padding: '14px', background: 'rgba(16,185,129,0.08)', borderRadius: '10px', marginBottom: '10px', fontSize: '14px', borderLeft: '3px solid var(--success)' }}>
                       <strong>{b.ticket_id}</strong>: {b.decision?.option_label}
@@ -2429,7 +2842,7 @@
               <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--accent-bright)' }}>
                 {FINDINGS_SUMMARY.meta.total_features}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>📚 Features</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Features</div>
             </div>
             <div 
               className="card" 
@@ -2444,7 +2857,7 @@
               <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {tickets.length}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🎫 All Tickets</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>All Tickets</div>
             </div>
             <div 
               className="card" 
@@ -2462,7 +2875,7 @@
                 </span>
                 {staleCount > 0 && <span style={{ fontSize: '11px', color: 'var(--medium)', fontWeight: 600 }}>⚠️</span>}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🔄 In Progress</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>In Progress</div>
             </div>
             <div 
               className="card" 
@@ -2477,17 +2890,17 @@
               <div style={{ fontSize: '24px', fontWeight: 700, color: completedItems.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
                 {completedItems.length}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>✅ For Review</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>For Review</div>
             </div>
           </div>
           
           {/* Tab Navigation */}
           <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0' }}>
             {[
-              { id: 'inventory', label: '📚 Feature Inventory', count: FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
-              { id: 'all', label: '🎫 All Tickets', count: tickets.length, color: 'var(--text-primary)' },
-              { id: 'progress', label: '🔄 In Progress', count: inProgressItems.length, color: staleCount > 0 ? 'var(--medium)' : 'var(--success)', stale: staleCount },
-              { id: 'review', label: '✅ For Review', count: completedItems.length, color: 'var(--success)' }
+              { id: 'inventory', label: 'Feature Inventory', count: FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
+              { id: 'all', label: 'All Tickets', count: tickets.length, color: 'var(--text-primary)' },
+              { id: 'progress', label: 'In Progress', count: inProgressItems.length, color: staleCount > 0 ? 'var(--medium)' : 'var(--success)', stale: staleCount },
+              { id: 'review', label: 'For Review', count: completedItems.length, color: 'var(--success)' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -2537,7 +2950,7 @@
                 border: '1px solid rgba(99,102,241,0.2)'
               }}>
                 <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  📚 Feature Documentation & Review Status
+                  Feature Documentation & Review Status
                 </div>
                 <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
                   {featuresList.length} features documented • Click to view documentation
@@ -2568,7 +2981,7 @@
                 
                 const categoryLabels = {
                   admin: '🔧 Admin',
-                  agent: '👤 Agent',
+                  agent: 'Agent',
                   api: '🔌 API',
                   auth: '🔐 Auth',
                   billing: '💳 Billing',
@@ -2772,16 +3185,16 @@
                     All <span className="count">{tickets.length}</span>
                   </button>
                   <button className={`tab ${filter === 'critical' ? 'active' : ''}`} onClick={() => setFilter('critical')}>
-                    🔴 Critical <span className="count">{tickets.filter(t => t.priority === 'critical').length}</span>
+                    <StatusDot color="var(--critical)" /> Critical <span className="count">{tickets.filter(t => t.priority === 'critical').length}</span>
                   </button>
                   <button className={`tab ${filter === 'high' ? 'active' : ''}`} onClick={() => setFilter('high')}>
-                    🟠 High <span className="count">{tickets.filter(t => t.priority === 'high').length}</span>
+                    <StatusDot color="var(--high)" /> High <span className="count">{tickets.filter(t => t.priority === 'high').length}</span>
                   </button>
                   <button className={`tab ${filter === 'medium' ? 'active' : ''}`} onClick={() => setFilter('medium')}>
-                    🟡 Medium <span className="count">{tickets.filter(t => t.priority === 'medium').length}</span>
+                    <StatusDot color="var(--medium)" /> Medium <span className="count">{tickets.filter(t => t.priority === 'medium').length}</span>
                   </button>
                   <button className={`tab ${filter === 'low' ? 'active' : ''}`} onClick={() => setFilter('low')}>
-                    🟢 Low <span className="count">{tickets.filter(t => t.priority === 'low').length}</span>
+                    <StatusDot color="var(--low)" /> Low <span className="count">{tickets.filter(t => t.priority === 'low').length}</span>
                   </button>
                 </div>
               </div>
@@ -3110,7 +3523,7 @@ TWO TASKS:
 1) RESPOND TO QUESTIONS (threads with decision.option_id = "custom"):
    - Read the PM's question from the last human message
    - Read the finding context (issue, options, suggested_fix)  
-   - Add your response as a new message: { role: "system", text: "📖 [your answer]", timestamp: now }
+   - Add your response as a new message: { role: "system", text: "[your answer]", timestamp: now }
    - Keep answers concise and actionable with clear options
 
 2) CREATE TICKETS (threads with decision.option_id != "custom" AND status != "resolved"):
@@ -3265,7 +3678,7 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          🚀 {nextBatch.length} tickets can run in parallel
+                          {nextBatch.length} tickets can run in parallel
                         </div>
                         <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
                           Click to expand, add notes, then copy command
@@ -3332,10 +3745,10 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
                       if (priorityTickets.length === 0) return null;
                       
                       const priorityConfig = {
-                        critical: { label: '🔴 Critical', color: 'var(--critical)' },
-                        high: { label: '🟠 High', color: 'var(--high)' },
-                        medium: { label: '🟡 Medium', color: 'var(--medium)' },
-                        low: { label: '🟢 Low', color: 'var(--low)' }
+                        critical: { label: 'Critical', color: 'var(--critical)' },
+                        high: { label: 'High', color: 'var(--high)' },
+                        medium: { label: 'Medium', color: 'var(--medium)' },
+                        low: { label: 'Low', color: 'var(--low)' }
                       };
                       const config = priorityConfig[priority];
                       
@@ -3521,7 +3934,7 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
               onClick={() => setExpandedSection(expandedSection === 'doc' ? null : 'doc')}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '18px' }}>📚</span>
+                <span style={{ color: 'var(--accent-bright)' }}><Icons.file /></span>
                 <span style={{ fontWeight: 600 }}>Doc & Review Agents</span>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Documentation sprints</span>
               </div>
@@ -3644,20 +4057,20 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Digital Greeter • {new Date().toLocaleDateString()}</span>
                 {serverMode && (
-                  <span style={{ fontSize: '11px', padding: '2px 8px', background: 'rgba(16,185,129,0.15)', color: 'var(--success)', borderRadius: '4px' }}>
-                    🟢 Server Connected
+                  <span style={{ fontSize: '11px', padding: '4px 10px', background: 'rgba(34,197,94,0.15)', color: 'var(--success)', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(8px)' }}>
+                    <StatusDot color="var(--success)" /> Server Connected
                   </span>
                 )}
                 {!serverMode && !loading && (
-                  <span style={{ fontSize: '11px', padding: '2px 8px', background: 'rgba(234,179,8,0.15)', color: 'var(--medium)', borderRadius: '4px' }}>
-                    ⚠️ Run server for auto-save
+                  <span style={{ fontSize: '11px', padding: '4px 10px', background: 'rgba(251,191,36,0.15)', color: 'var(--medium)', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(8px)' }}>
+                    <Icons.warning /> Run server for auto-save
                   </span>
                 )}
               </div>
             </div>
             <div className="nav">
               <button className={`nav-item ${view === 'inbox' ? 'active' : ''}`} onClick={() => setView('inbox')}>
-                📥 Inbox
+                <Icons.inbox /> Inbox
                 {(() => {
                   const pendingFindings = findings.filter(f => f.status !== 'ticketed' && f.status !== 'skipped');
                   const blockerCount = pendingFindings.filter(f => f.type === 'blocker').length;
@@ -3678,9 +4091,9 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
                   );
                 })()}
               </button>
-              <button className={`nav-item ${view === 'pipeline' ? 'active' : ''}`} onClick={() => setView('pipeline')}>📊 Pipeline</button>
+              <button className={`nav-item ${view === 'pipeline' ? 'active' : ''}`} onClick={() => setView('pipeline')}><Icons.pipeline /> Pipeline</button>
               <button className={`nav-item ${view === 'launch' ? 'active' : ''}`} onClick={() => setView('launch')}>
-                🚀 Launch
+                <Icons.launch /> Launch
                 {tickets.filter(t => t.status === 'ready').length > 0 && (
                   <span style={{ marginLeft: '6px', padding: '2px 6px', background: 'var(--success)', color: 'white', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>
                     {tickets.filter(t => t.status === 'ready').length}
