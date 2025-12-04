@@ -63,11 +63,45 @@ function handleAPI(req, res, body) {
     return true;
   }
   
-  // POST /api/decisions - Save decisions
+  // POST /api/decisions - Save decisions (with PM response preservation)
   if (req.method === 'POST' && url === '/api/decisions') {
     try {
-      const decisions = JSON.parse(body);
-      writeJSON('decisions.json', decisions);
+      const incomingDecisions = JSON.parse(body);
+      const existingDecisions = readJSON('decisions.json') || { threads: [] };
+      
+      // Merge: preserve PM responses (role: 'system') that dashboard might not have
+      const existingThreadMap = new Map();
+      for (const thread of existingDecisions.threads || []) {
+        existingThreadMap.set(thread.finding_id, thread);
+      }
+      
+      // For each incoming thread, merge in any PM messages from existing
+      for (const inThread of incomingDecisions.threads || []) {
+        const existingThread = existingThreadMap.get(inThread.finding_id);
+        if (existingThread) {
+          // Get PM messages from existing that aren't in incoming
+          const existingPmMessages = (existingThread.messages || [])
+            .filter(m => m.role === 'system');
+          const incomingMsgTexts = new Set((inThread.messages || []).map(m => m.text));
+          
+          // Add PM messages that dashboard doesn't have
+          for (const pmMsg of existingPmMessages) {
+            if (!incomingMsgTexts.has(pmMsg.text)) {
+              inThread.messages = inThread.messages || [];
+              inThread.messages.push(pmMsg);
+            }
+          }
+          
+          // Sort messages by timestamp
+          if (inThread.messages) {
+            inThread.messages.sort((a, b) => 
+              new Date(a.timestamp) - new Date(b.timestamp)
+            );
+          }
+        }
+      }
+      
+      writeJSON('decisions.json', incomingDecisions);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
     } catch (e) {
