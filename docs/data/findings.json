@@ -10,10 +10,9 @@
     "high": 48,
     "medium": 315,
     "low": 364,
-    "pending": 672,
-    "ticketed": 61,
-    "rejected": 0,
-    "skipped": 9
+    "pending": 706,
+    "ticketed": 33,
+    "rejected": 0
   },
   "findings": [
     {
@@ -111,8 +110,8 @@
       "suggested_fix": "Add \"Loading visitor's screen...\" placeholder with spinner while waiting for first snapshot. Show skeleton UI or previous snapshot with \"Updating...\" indicator during subsequent refreshes.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
-      "ticket_id": "TKT-055",
+      "status": "pending",
+      "ticket_id": null,
       "options": [
         {
           "id": "implement_fix",
@@ -132,7 +131,7 @@
       "suggested_fix": "Add aria-label to the viewer container describing its purpose, aria-live region for status updates (loading, connected, disconnected), and descriptive text for the cursor position and selection indicators.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "wont_fix",
+      "status": "pending",
       "ticket_id": null,
       "options": [
         {
@@ -153,8 +152,8 @@
       "suggested_fix": "For same-origin iframes, attempt recursive DOM capture. For cross-origin iframes, show clear visual indicator \"Embedded content - not visible to agent\" instead of blank space. Document limitation prominently in admin setup.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
-      "ticket_id": "TKT-051",
+      "status": "pending",
+      "ticket_id": null,
       "options": [
         {
           "id": "implement_fix",
@@ -279,8 +278,8 @@
       "suggested_fix": "Add a \"Reactivate\" option for inactive agents in the UI, OR modify invite logic to check `is_active` status and allow re-invitation for deactivated users.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
-      "ticket_id": "TKT-052",
+      "status": "pending",
+      "ticket_id": null,
       "options": [
         {
           "id": "implement_fix",
@@ -321,7 +320,7 @@
       "suggested_fix": "Conduct accessibility audit with screen reader (NVDA/VoiceOver). Ensure ARIA labels on modal triggers, proper focus management, and status announcements for async operations.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "skipped",
+      "status": "pending",
       "ticket_id": null,
       "options": [
         {
@@ -699,8 +698,8 @@
       "suggested_fix": "Document a concrete plan for scaling: either migrate to MaxMind/paid ip-api tier, or implement IP-based rate limiting with fallback handling.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
-      "ticket_id": "TKT-053",
+      "status": "pending",
+      "ticket_id": null,
       "options": [
         {
           "id": "implement_fix",
@@ -6663,8 +6662,8 @@
       "suggested_fix": "Track `subscription_ends_at`, schedule the actual downgrade for end of billing period, and gate access appropriately during the grace period.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
-      "ticket_id": "TKT-030",
+      "status": "pending",
+      "ticket_id": null,
       "options": [
         {
           "id": "implement_fix",
@@ -7209,7 +7208,7 @@
       "suggested_fix": "Use proper `<button>` elements or add `tabIndex={0}` and `onKeyDown` handlers to the tab controls. Consider using a headless UI library like Radix Tabs for full accessibility.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "skipped",
+      "status": "pending",
       "ticket_id": null,
       "options": [
         {
@@ -7230,7 +7229,7 @@
       "suggested_fix": "Add `role=\"tablist\"`, `role=\"tab\"`, `aria-selected`, `aria-controls` to tabs. Add `aria-label` to date picker. Add `role=\"row\"` and descriptive labels to clickable cancellation rows. Ensure modal has `role=\"dialog\"` and `aria-modal=\"true\"`.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "skipped",
+      "status": "pending",
       "ticket_id": null,
       "options": [
         {
@@ -7482,8 +7481,8 @@
       "suggested_fix": "Implement server-side pagination with limit/offset. Add \"Load more\" or infinite scroll pattern. For immediate mitigation, add list virtualization (e.g., react-virtual) for client-side rendering.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
-      "ticket_id": "TKT-034",
+      "status": "pending",
+      "ticket_id": null,
       "options": [
         {
           "id": "implement_fix",
@@ -7734,8 +7733,8 @@
       "suggested_fix": "Verify and document the exact route protection mechanism (middleware, component check, RLS policy) that restricts `/platform/funnel` to platform admins only.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
-      "ticket_id": "TKT-054",
+      "status": "pending",
+      "ticket_id": null,
       "options": [
         {
           "id": "implement_fix",
@@ -8701,7 +8700,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": "TKT-052",
+      "ticket_id": null,
       "options": [
         {
           "id": "implement_fix",
@@ -8805,7 +8804,7 @@
       "suggested_fix": "Conduct screen reader accessibility audit. Add ARIA labels to status colors, seat counts, and pending invite sections. Verify form labels in invite modal.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "skipped",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -13509,8 +13508,8 @@
       "suggested_fix": "Either update all monitors to 3-minute frequency to stay within free tier, or clarify that 1-minute checks require the $20/mo upgrade and update Cost Analysis section accordingly.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
-      "ticket_id": "TKT-008",
+      "status": "pending",
+      "ticket_id": null,
       "options": [
         {
           "id": "implement_fix",
@@ -15336,8 +15335,8 @@
       "suggested_fix": "Default unknown statuses to \"past_due\" or a new \"unknown\" status that restricts access while logging for investigation. Active should only be set for explicitly known good statuses.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
-      "ticket_id": "TKT-050",
+      "status": "pending",
+      "ticket_id": null,
       "options": [
         {
           "id": "implement_fix",

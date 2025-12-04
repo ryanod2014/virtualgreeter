@@ -675,7 +675,6 @@
       const [saveStatus, setSaveStatus] = useState(null);
       const [page, setPage] = useState(0);
       const PAGE_SIZE = 10;
-      const isLocalUpdate = React.useRef(false); // Track if we triggered the update
       
       const findings = findingsData || [];
 
@@ -686,54 +685,30 @@
       });
 
       // Merge server decisions (PM responses) into local state
-      // Skip if we triggered this update ourselves to prevent infinite loop
       useEffect(() => {
-        if (isLocalUpdate.current) {
-          isLocalUpdate.current = false;
-          return;
-        }
         if (serverDecisions?.threads) {
           setDecisions(prev => {
+            const merged = { ...prev };
             const localThreadMap = new Map(prev.threads.map(t => [t.finding_id, t]));
-            let hasChanges = false;
             
-            // Create new threads array with merged data
-            const newThreads = prev.threads.map(localThread => {
-              const serverThread = serverDecisions.threads.find(t => t.finding_id === localThread.finding_id);
-              if (!serverThread) return localThread;
-              
-              // Check if we need to merge anything
-              const localMsgTexts = new Set((localThread.messages || []).map(m => m.text));
-              const pmMessages = (serverThread.messages || []).filter(m => m.role === 'system');
-              const newMessages = pmMessages.filter(m => !localMsgTexts.has(m.text));
-              
-              const needsDecision = !localThread.decision && serverThread.decision;
-              const needsStatus = localThread.status === 'pending' && serverThread.status !== 'pending';
-              
-              if (newMessages.length === 0 && !needsDecision && !needsStatus) {
-                return localThread; // No changes needed
-              }
-              
-              hasChanges = true;
-              // Create new thread with merged data
-              return {
-                ...localThread,
-                messages: [...(localThread.messages || []), ...newMessages].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)),
-                decision: needsDecision ? serverThread.decision : localThread.decision,
-                status: needsStatus ? serverThread.status : localThread.status
-              };
-            });
-            
-            // Add threads that only exist on server
             for (const serverThread of serverDecisions.threads) {
-              if (!localThreadMap.has(serverThread.finding_id)) {
-                newThreads.push({ ...serverThread });
-                hasChanges = true;
+              const localThread = localThreadMap.get(serverThread.finding_id);
+              if (localThread) {
+                // Merge PM messages (role: system) from server into local
+                const localMsgTexts = new Set((localThread.messages || []).map(m => m.text));
+                const pmMessages = (serverThread.messages || []).filter(m => m.role === 'system');
+                
+                for (const pmMsg of pmMessages) {
+                  if (!localMsgTexts.has(pmMsg.text)) {
+                    localThread.messages = localThread.messages || [];
+                    localThread.messages.push(pmMsg);
+                    localThread.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                  }
+                }
               }
             }
             
-            if (!hasChanges) return prev; // No changes, don't trigger re-render
-            return { ...prev, threads: newThreads };
+            return merged;
           });
         }
       }, [serverDecisions]);
@@ -757,9 +732,7 @@
         localStorage.setItem('pm-decisions-v3', JSON.stringify(decisions));
         
         // Update parent state so other views (like Launch) see the changes
-        // Set flag to prevent merge useEffect from re-triggering
         if (onDecisionsChange) {
-          isLocalUpdate.current = true;
           onDecisionsChange(decisions);
         }
         
@@ -946,30 +919,8 @@
         
         const done = ticketed + skipped + resolved;
         const totalPending = Object.values(bySeverity).reduce((sum, n) => sum + n, 0);
-        
-        // Count open conversations using decisions (merged state that works for rendering)
-        let openConvos = 0;
-        if (decisions?.threads) {
-          findings.forEach(f => {
-            if (f.type === 'blocker' || f.status === 'ticketed' || f.status === 'skipped') return;
-            const thread = decisions.threads.find(t => t.finding_id === f.id);
-            if (!thread) return;
-            
-            const isEffResolved = thread.status === 'resolved' || 
-              (thread.decision && thread.decision.option_id && thread.decision.option_id !== 'custom') ||
-              (thread.messages || []).some(m => m.role === 'system' && 
-                (m.text?.includes('Decision confirmed') || m.text?.includes('Marking resolved') || m.text?.includes('Ticket TKT-')));
-            if (isEffResolved) return;
-            
-            const msgs = thread.messages || [];
-            const lastMsg = msgs[msgs.length - 1];
-            const hasOpenConvo = thread.decision?.option_id === 'custom' && lastMsg?.role === 'system';
-            if (hasOpenConvo) openConvos++;
-          });
-        }
-        
-        return { bySeverity, answeredBySeverity, ticketed, skipped, answered, resolved, done, blockers, totalPending, openConvos };
-      }, [findings, decisions, serverDecisions]);
+        return { bySeverity, answeredBySeverity, ticketed, skipped, answered, resolved, done, blockers, totalPending };
+      }, [findings, decisions]);
 
       // Filter findings - by blockers, severity, ticketed, or answered
       const filtered = useMemo(() => {
@@ -977,8 +928,7 @@
         const isEffectivelyResolved = (f) => {
           const thread = getThread(f.id);
           if (thread?.status === 'resolved') return true;
-          // Only consider resolved if has a FINAL decision (not custom, which means in-progress discussion)
-          if (thread?.decision && thread.decision.option_id && thread.decision.option_id !== 'custom') return true;
+          if (thread?.decision && thread.decision.option_id) return true;
           const msgs = thread?.messages || [];
           return msgs.some(m => 
             m.role === 'system' && 
@@ -986,41 +936,12 @@
           );
         };
         
-        // All filter - show all pending findings, sorted by: open convos first, then severity
+        // All filter - show all pending findings (not ticketed, not skipped, not resolved)
         if (severityFilter === 'all') {
-          const pending = findings.filter(f => {
+          return findings.filter(f => {
             if (f.type === 'blocker') return false; // Blockers shown separately
             if (f.status === 'ticketed' || f.status === 'skipped') return false;
             return !isEffectivelyResolved(f);
-          });
-          
-          // Sort: open convos first (has messages with system response to custom decision), then by severity
-          const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-          
-          // Try serverDecisions first, fall back to decisions (merged local state)
-          const getAnyThread = (id) => {
-            return serverDecisions?.threads?.find(t => t.finding_id === id) 
-                || decisions?.threads?.find(t => t.finding_id === id);
-          };
-          
-          return pending.sort((a, b) => {
-            const threadA = getAnyThread(a.id);
-            const threadB = getAnyThread(b.id);
-            const msgsA = threadA?.messages || [];
-            const msgsB = threadB?.messages || [];
-            const lastMsgA = msgsA[msgsA.length - 1];
-            const lastMsgB = msgsB[msgsB.length - 1];
-            
-            // Check if has open convo (custom decision with system response waiting for PM)
-            const hasOpenConvoA = threadA?.decision?.option_id === 'custom' && lastMsgA?.role === 'system';
-            const hasOpenConvoB = threadB?.decision?.option_id === 'custom' && lastMsgB?.role === 'system';
-            
-            // Open convos first
-            if (hasOpenConvoA && !hasOpenConvoB) return -1;
-            if (!hasOpenConvoA && hasOpenConvoB) return 1;
-            
-            // Then by severity
-            return (severityOrder[a.severity] || 4) - (severityOrder[b.severity] || 4);
           });
         }
         
@@ -1032,29 +953,6 @@
             return !isEffectivelyResolved(f);
           });
         }
-        
-        // Open Convos filter - show items with custom decision and system response
-        if (severityFilter === 'convos') {
-          // Try both serverDecisions and decisions to maximize chances of finding threads
-          const getAnyThread = (id) => {
-            return serverDecisions?.threads?.find(t => t.finding_id === id) 
-                || decisions?.threads?.find(t => t.finding_id === id);
-          };
-          
-          return findings.filter(f => {
-            if (f.type === 'blocker') return false;
-            if (f.status === 'ticketed' || f.status === 'skipped') return false;
-            if (isEffectivelyResolved(f)) return false;
-            
-            const thread = getAnyThread(f.id);
-            if (!thread) return false;
-            
-            const msgs = thread.messages || [];
-            const lastMsg = msgs[msgs.length - 1];
-            return thread.decision?.option_id === 'custom' && lastMsg?.role === 'system';
-          });
-        }
-        
         if (severityFilter === 'ticketed') {
           return findings.filter(f => f.status === 'ticketed');
         }
@@ -1083,7 +981,7 @@
           if (isEffectivelyResolved(f)) return false;
           return f.severity === severityFilter;
         });
-      }, [findings, severityFilter, decisions, serverDecisions]);
+      }, [findings, severityFilter, decisions]);
 
       // Paginated
       const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -1105,19 +1003,6 @@
               <button className={`tab ${severityFilter === 'all' ? 'active' : ''}`} onClick={() => { setSeverityFilter('all'); setPage(0); }}>
                 All <span className="count">{stats.totalPending}</span>
               </button>
-              {/* Open Convos Tab - only show if there are open convos */}
-              {stats.openConvos > 0 && (
-                <button 
-                  className={`tab ${severityFilter === 'convos' ? 'active' : ''}`} 
-                  onClick={() => { setSeverityFilter('convos'); setPage(0); }}
-                  style={{ 
-                    background: severityFilter === 'convos' ? 'rgba(249,115,22,0.15)' : undefined,
-                    borderColor: severityFilter === 'convos' ? 'var(--high)' : undefined
-                  }}
-                >
-                  💬 Convos <span className="count" style={{ background: 'var(--high)', color: 'white' }}>{stats.openConvos}</span>
-                </button>
-              )}
               {/* Blockers Tab - only show if there are blockers */}
               {stats.blockers > 0 && (
                 <button 
@@ -1193,51 +1078,20 @@
           ) : (
             <>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter === 'done' ? 'completed' : severityFilter === 'answered' ? 'answered' : severityFilter === 'all' ? '' : severityFilter} findings
-                {severityFilter === 'all' && stats.openConvos > 0 && page === 0 && ' (open conversations first)'}
+                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter === 'done' ? 'completed' : severityFilter === 'answered' ? 'answered' : severityFilter} findings
               </div>
-              {paginated.map((f, idx) => {
-                // Check if this is an open convo item (using getThread which uses decisions state)
-                const thread = getThread(f.id);
-                const msgs = thread?.messages || [];
-                const lastMsg = msgs[msgs.length - 1];
-                const isOpenConvo = thread?.decision?.option_id === 'custom' && lastMsg?.role === 'system';
-                
-                // Show section header for first open convo and first regular item
-                const prevF = paginated[idx - 1];
-                const prevThread = prevF ? getThread(prevF.id) : null;
-                const prevMsgs = prevThread?.messages || [];
-                const prevLastMsg = prevMsgs[prevMsgs.length - 1];
-                const prevIsOpenConvo = prevThread?.decision?.option_id === 'custom' && prevLastMsg?.role === 'system';
-                
-                const showOpenConvoHeader = severityFilter === 'all' && isOpenConvo && idx === 0;
-                const showRegularHeader = severityFilter === 'all' && !isOpenConvo && (idx === 0 || prevIsOpenConvo);
-                
-                return (
-                  <React.Fragment key={f.id}>
-                    {showOpenConvoHeader && (
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--high)', marginBottom: '12px', marginTop: idx > 0 ? '20px' : '0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>💬 Open Conversations</span>
-                        <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-muted)' }}>Agent responded, pick an option</span>
-                      </div>
-                    )}
-                    {showRegularHeader && (
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', marginTop: idx > 0 ? '20px' : '0' }}>
-                        📋 All Findings
-                      </div>
-                    )}
-                    <FindingCard 
-                      finding={f} 
-                      thread={getThread(f.id)} 
-                      onSelectOption={handleSelectOption}
-                      onCustomResponse={handleCustomResponse}
-                      onResolve={handleResolve}
-                      onSkip={handleSkip}
-                      onCombine={handleCombine}
-                    />
-                  </React.Fragment>
-                );
-              })}
+              {paginated.map(f => (
+                <FindingCard 
+                  key={f.id} 
+                  finding={f} 
+                  thread={getThread(f.id)} 
+                  onSelectOption={handleSelectOption}
+                  onCustomResponse={handleCustomResponse}
+                  onResolve={handleResolve}
+                  onSkip={handleSkip}
+                  onCombine={handleCombine}
+                />
+              ))}
               
               {/* Pagination */}
               {totalPages > 1 && (
@@ -2903,13 +2757,12 @@
       
       // Count pipeline items by category
       const pipelineStats = useMemo(() => {
-        if (!serverDecisions?.threads) return { pendingResponses: [], awaitingDecision: [], pendingTickets: [] };
+        if (!serverDecisions?.threads) return { pendingResponses: [], pendingTickets: [] };
         
         const getThread = (id) => serverDecisions.threads.find(t => t.finding_id === id);
         
-        const pendingResponses = [];  // PM asked a question, last msg is human → waiting for agent
-        const awaitingDecision = [];  // Agent responded, last msg is system → waiting for PM decision
-        const pendingTickets = [];    // PM made final decision → ready for ticket creation
+        const pendingResponses = []; // PM asked a question, waiting for response
+        const pendingTickets = [];   // PM made decision, ready for ticket creation
         
         findings.forEach(f => {
           const thread = getThread(f.id);
@@ -2922,7 +2775,6 @@
           const hasCustomDecision = thread.decision && thread.decision.option_id === 'custom';
           const hasNonCustomDecision = thread.decision && thread.decision.option_id && thread.decision.option_id !== 'custom';
           const msgs = thread.messages || [];
-          const lastMsg = msgs[msgs.length - 1];
           const hasResolutionMsg = msgs.some(m => 
             m.role === 'system' && 
             (m.text?.includes('Decision confirmed') || m.text?.includes('Marking resolved') || m.text?.includes('Ticket TKT-'))
@@ -2931,16 +2783,9 @@
           // Skip if already fully resolved
           if (hasResolutionMsg) return;
           
-          // Custom decision with conversation
+          // Custom decision = PM asked a question, waiting for response
           if (hasCustomDecision && !isResolved) {
-            // Check last message to determine who's waiting
-            if (lastMsg?.role === 'human' || msgs.length === 0) {
-              // Last message from PM (or no messages yet) → waiting for agent response
-              pendingResponses.push({ ...f, thread, isBlocker: f.type === 'blocker' });
-            } else {
-              // Last message from system → agent responded, waiting for PM decision
-              awaitingDecision.push({ ...f, thread, isBlocker: f.type === 'blocker' });
-            }
+            pendingResponses.push({ ...f, thread, isBlocker: f.type === 'blocker' });
           }
           // Non-custom decision or resolved = ready for ticket creation
           else if (isResolved || hasNonCustomDecision) {
@@ -2948,31 +2793,16 @@
           }
         });
         
-        return { pendingResponses, awaitingDecision, pendingTickets };
+        return { pendingResponses, pendingTickets };
       }, [findings, serverDecisions]);
       
-      const totalToProcess = pipelineStats.pendingResponses.length + pipelineStats.awaitingDecision.length + pipelineStats.pendingTickets.length;
+      const totalToProcess = pipelineStats.pendingResponses.length + pipelineStats.pendingTickets.length;
       
       // PM Command - unified
       const pmCommand = {
         label: 'Process Pipeline',
-        description: 'Respond to questions & create tickets',
-        command: `You are a PM agent. Read decisions.json and findings.json.
-
-TWO TASKS:
-
-1) RESPOND TO QUESTIONS (threads with decision.option_id = "custom"):
-   - Read the PM's question from the last human message
-   - Read the finding context (issue, options, suggested_fix)  
-   - Add your response as a new message: { role: "system", text: "📖 [your answer]", timestamp: now }
-   - Keep answers concise and actionable with clear options
-
-2) CREATE TICKETS (threads with decision.option_id != "custom" AND status != "resolved"):
-   - Create ticket in tickets.json following docs/workflow/templates/ticket-schema.json
-   - Update finding status to "ticketed" in findings.json
-   - Update thread status to "resolved" in decisions.json
-
-Report: X questions answered, Y tickets created, Z items skipped/already done.`
+        description: 'Create tickets from answered findings & mark resolved',
+        command: 'You are a PM agent. Read docs/workflow/PM_DEV_SOP.md. Read decisions.json and findings.json. For each finding with a PM decision: (1) if decision is to fix → create ticket in tickets.json following the schema in docs/workflow/templates/ticket-schema.json, (2) update finding status to "ticketed" or "skipped", (3) update thread status to "resolved" in decisions.json. Report: tickets created, items skipped, items already processed.'
       };
       
       const DOC_REVIEW_COMMANDS = {
@@ -3024,33 +2854,34 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
             {expandedSection === 'pm' && (
               <div style={{ display: 'grid', gap: '16px' }}>
                 {/* Stats breakdown */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                   <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
                     <div style={{ fontSize: '28px', fontWeight: 700, color: pipelineStats.pendingResponses.length > 0 ? 'var(--medium)' : 'var(--text-muted)' }}>
                       {pipelineStats.pendingResponses.length}
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>💬 Need Response</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>💬 Pending Responses</div>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      You asked, agent will answer
+                      PM asked questions, awaiting answers
                     </div>
-                  </div>
-                  <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '28px', fontWeight: 700, color: pipelineStats.awaitingDecision.length > 0 ? 'var(--high)' : 'var(--text-muted)' }}>
-                      {pipelineStats.awaitingDecision.length}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>⏳ Awaiting Your Decision</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      Agent responded, pick an option
-                    </div>
+                    {pipelineStats.pendingResponses.filter(f => f.isBlocker).length > 0 && (
+                      <div style={{ fontSize: '10px', color: 'var(--critical)', marginTop: '4px' }}>
+                        🚨 {pipelineStats.pendingResponses.filter(f => f.isBlocker).length} blocker{pipelineStats.pendingResponses.filter(f => f.isBlocker).length !== 1 ? 's' : ''}
+                      </div>
+                    )}
                   </div>
                   <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
                     <div style={{ fontSize: '28px', fontWeight: 700, color: pipelineStats.pendingTickets.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
                       {pipelineStats.pendingTickets.length}
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🎫 Ready for Tickets</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🎫 Pending Ticket Creation</div>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      Decision made, create tickets
+                      Decisions made, ready for tickets
                     </div>
+                    {pipelineStats.pendingTickets.filter(f => f.isBlocker).length > 0 && (
+                      <div style={{ fontSize: '10px', color: 'var(--critical)', marginTop: '4px' }}>
+                        🚨 {pipelineStats.pendingTickets.filter(f => f.isBlocker).length} continuation ticket{pipelineStats.pendingTickets.filter(f => f.isBlocker).length !== 1 ? 's' : ''}
+                      </div>
+                    )}
                   </div>
                 </div>
                 
