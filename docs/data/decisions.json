@@ -2,15 +2,25 @@
   "threads": [
     {
       "finding_id": "F-001",
-      "status": "pending",
+      "status": "in_discussion",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_strict",
+        "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
+        "recommended": true,
+        "timestamp": "2025-12-04T00:55:20.186Z"
+      }
     },
     {
       "finding_id": "F-001",
-      "status": "pending",
+      "status": "in_discussion",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_strict",
+        "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
+        "recommended": true,
+        "timestamp": "2025-12-04T00:55:20.186Z"
+      }
     },
     {
       "finding_id": "F-003",
@@ -38,9 +48,20 @@
     },
     {
       "finding_id": "F-007",
-      "status": "pending",
+      "status": "in_discussion",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "combined",
+        "option_label": "Combined ticket: Stripe Cancellation Not Implemented",
+        "combined_with": [
+          "F-007"
+        ],
+        "combined_titles": [
+          "Iframe Content Not Captured"
+        ],
+        "timestamp": "2025-12-04T01:00:19.817Z",
+        "is_primary": false
+      }
     },
     {
       "finding_id": "F-008",
@@ -362,9 +383,20 @@
     },
     {
       "finding_id": "F-061",
-      "status": "pending",
+      "status": "in_discussion",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "combined",
+        "option_label": "Combined ticket: Stripe Cancellation Not Implemented",
+        "combined_with": [
+          "F-007"
+        ],
+        "combined_titles": [
+          "Iframe Content Not Captured"
+        ],
+        "timestamp": "2025-12-04T01:00:19.817Z",
+        "is_primary": true
+      }
     },
     {
       "finding_id": "F-062",
@@ -1358,9 +1390,14 @@
     },
     {
       "finding_id": "F-001",
-      "status": "pending",
+      "status": "in_discussion",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_strict",
+        "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
+        "recommended": true,
+        "timestamp": "2025-12-04T00:55:20.187Z"
+      }
     },
     {
       "finding_id": "F-228",
@@ -3854,30 +3891,15 @@
     },
     {
       "finding_id": "F-643",
-      "status": "in_discussion",
+      "status": "pending",
       "messages": [
-        {
-          "role": "human",
-          "text": "I dont understand",
-          "timestamp": "2025-12-04T01:06:45.578Z"
-        },
         {
           "role": "system",
           "text": "**Let me clarify:** This is about Better Uptime monitoring config. The docs say free tier = 3-min checks, but monitors are set to 1-min. Either monitors fail to create OR you get charged $20/mo unexpectedly. **Options:** (1) Change to 3-min = stay free, (2) Keep 1-min = pay $20/mo, (3) Skip = this is just a docs issue, not code. What would you like to do?",
           "timestamp": "2025-12-04T01:15:14.012Z"
-        },
-        {
-          "role": "human",
-          "text": "(1) Change to 3-min = stay free,",
-          "timestamp": "2025-12-04T01:22:23.063Z"
         }
       ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "(1) Change to 3-min = stay free,",
-        "timestamp": "2025-12-04T01:22:23.063Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-644",
