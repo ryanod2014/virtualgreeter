@@ -737,10 +737,15 @@
         return { bySeverity, answeredBySeverity, ticketed };
       }, [findings, decisions]);
 
-      // Filter findings - just by severity, hide ticketed
+      // Filter findings - by severity, or show all answered
       const filtered = useMemo(() => {
-        if (severityFilter === 'ticketed') {
-          return findings.filter(f => f.status === 'ticketed');
+        if (severityFilter === 'answered') {
+          // Show all findings with decisions (ready for PM to create tickets)
+          return findings.filter(f => {
+            if (f.status === 'ticketed') return false;
+            const thread = getThread(f.id);
+            return thread?.status === 'resolved' || (thread?.decision && thread?.decision?.option_id !== 'custom');
+          });
         }
         return findings.filter(f => {
           if (f.status === 'ticketed') return false;
@@ -774,11 +779,11 @@
                 {stats.answeredBySeverity.low > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.low} ready)</span>}
               </button>
               <button 
-                className={`tab ${severityFilter === 'ticketed' ? 'active' : ''}`} 
-                onClick={() => { setSeverityFilter('ticketed'); setPage(0); }}
+                className={`tab ${severityFilter === 'answered' ? 'active' : ''}`} 
+                onClick={() => { setSeverityFilter('answered'); setPage(0); }}
                 style={{ marginLeft: '12px' }}
               >
-                🎫 Ticketed <span className="count">{stats.ticketed}</span>
+                ✅ Answered <span className="count">{stats.answeredBySeverity.critical + stats.answeredBySeverity.high + stats.answeredBySeverity.medium + stats.answeredBySeverity.low}</span>
               </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -805,15 +810,16 @@
           {/* Findings List */}
           {filtered.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>{severityFilter === 'ticketed' ? '🎫' : '🎉'}</div>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>{severityFilter === 'answered' ? '📋' : '🎉'}</div>
               <div style={{ color: 'var(--text-muted)' }}>
-                {severityFilter === 'ticketed' ? 'No ticketed findings yet' : `All ${severityFilter} findings have been ticketed!`}
+                {severityFilter === 'answered' ? 'No answered findings waiting for tickets' : `All ${severityFilter} findings have been processed!`}
               </div>
             </div>
           ) : (
             <>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter === 'ticketed' ? 'ticketed' : severityFilter} findings
+                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter === 'answered' ? 'answered' : severityFilter} findings
+                {severityFilter === 'answered' && <span style={{ marginLeft: '8px', color: 'var(--accent-bright)' }}>→ Tell PM "check my answers" to create tickets</span>}
               </div>
               {paginated.map(f => (
                 <FindingCard 
