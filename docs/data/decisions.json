@@ -2,25 +2,15 @@
   "threads": [
     {
       "finding_id": "F-001",
-      "status": "in_discussion",
+      "status": "pending",
       "messages": [],
-      "decision": {
-        "option_id": "implement_strict",
-        "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
-        "recommended": true,
-        "timestamp": "2025-12-04T00:55:20.186Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-001",
-      "status": "in_discussion",
+      "status": "pending",
       "messages": [],
-      "decision": {
-        "option_id": "implement_strict",
-        "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
-        "recommended": true,
-        "timestamp": "2025-12-04T00:55:20.186Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-003",
@@ -1368,14 +1358,9 @@
     },
     {
       "finding_id": "F-001",
-      "status": "in_discussion",
+      "status": "pending",
       "messages": [],
-      "decision": {
-        "option_id": "implement_strict",
-        "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
-        "recommended": true,
-        "timestamp": "2025-12-04T00:55:20.187Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-228",

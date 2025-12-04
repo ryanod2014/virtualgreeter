@@ -10,8 +10,8 @@
     "high": 48,
     "medium": 315,
     "low": 364,
-    "pending": 736,
-    "ticketed": 6,
+    "pending": 714,
+    "ticketed": 28,
     "rejected": 0
   },
   "findings": [
@@ -96,8 +96,8 @@
       "location": "Special Focus section \"Security considerations (passwords, sensitive data)\"",
       "issue": "Beyond passwords, the documentation identifies additional security gaps: \"Credit card fields: Same issue as passwords\", \"Personal data: Any visible data on page is captured\", \"Session tokens: If displayed on page, captured\". These represent PCI compliance risks and privacy violations.",
       "suggested_fix": "Extend sanitization to mask `input[type=\"tel\"]`, `input[autocomplete=\"cc-number\"]`, and elements marked with `data-sensitive=\"true\"`. Consider opt-in allowlisting instead of blocklisting for sensitive field detection.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-001",
       "options": [
         {
           "id": "implement_strict",
@@ -2183,8 +2183,8 @@
       "location": "Section 10 - Open Questions, #4",
       "issue": "The documentation states \"The current code only saves feedback and sets plan to 'free' in Supabase. The actual Stripe subscription cancellation appears to be a TODO comment.\" This means users who cancel may still be charged by Stripe even though the UI shows cancellation was successful.",
       "suggested_fix": "Implement actual Stripe subscription cancellation via `stripe.subscriptions.cancel()` or `stripe.subscriptions.update()` with `cancel_at_period_end: true` in the `submitCancellationFeedback` server action.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-002",
       "options": [
         {
           "id": "strict_block",
@@ -2225,8 +2225,8 @@
       "location": "Section 10 - Open Questions, #3; Section 3 - Data Flow, \"Cancel subscription\"",
       "issue": "The cancel modal UI copy mentions \"access will continue until the end of your current billing period\" but the implementation immediately downgrades the plan to \"free\" (`Update org: plan = \"free\"`). This creates a mismatch between user expectation and actual behavior - users may lose access immediately despite being told they have time remaining.",
       "suggested_fix": "Either update the UI copy to reflect immediate downgrade, or implement proper grace period logic that maintains access until `current_period_end` from Stripe subscription.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-002",
       "options": [
         {
           "id": "strict_block",
@@ -2272,8 +2272,8 @@
       "location": "Section 10 - Open Questions, #1",
       "issue": "Documentation does not specify whether existing recordings are affected when `retention_days` is changed. If an admin reduces retention from 90 days to 30 days, it's unclear if recordings older than 30 days are immediately deleted or if the new policy only applies to new recordings.",
       "suggested_fix": "Document the expected behavior explicitly. If retroactive deletion is intended, add a confirmation warning. If only new recordings are affected, document this clearly for admin understanding.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-013",
       "options": [
         {
           "id": "full_compliance",
@@ -4879,8 +4879,8 @@
       "location": "Section 7 - Identified Issues row 2; Section 10 - Open Questions #2",
       "issue": "Documentation explicitly notes \"No recording indicator for visitors\" with Medium severity, and Open Question #2 asks \"Is there visitor consent notification? Only admin-side privacy warning; no automatic visitor notification.\" This is a significant compliance risk for GDPR, CCPA, and two-party consent states/countries. Visitors are being recorded without any indication.",
       "suggested_fix": "Add visible \"This call may be recorded\" indicator to the visitor widget when recording is enabled. Consider audio announcement at call start.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-014",
       "options": [
         {
           "id": "implement_strict",
@@ -6670,8 +6670,8 @@
       "location": "Section 6 - Technical Concerns, Security bullet #4",
       "issue": "Documentation states \"Recording uploads go to public Supabase bucket - URLs are guessable if you know the pattern.\" This means anyone who can guess the URL pattern could potentially access call recordings without authentication, creating a significant privacy and compliance risk (HIPAA, GDPR).",
       "suggested_fix": "Move recordings to a private bucket with signed URLs that expire, or implement access control at the storage layer. Consider adding randomized UUIDs to paths rather than predictable patterns.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-015",
       "options": [
         {
           "id": "implement_strict",
@@ -6792,8 +6792,8 @@
       "location": "Section 4 - Edge Cases #2 (marked ⚠️) and Section 7 - Identified Issues row 1",
       "issue": "Documentation explicitly flags \"Error state shown, connection retry not automatic\" for WebRTC failures and suggests \"Add ICE restart mechanism.\" When WebRTC connection fails mid-call (network glitch, NAT timeout), the agent must manually end the call and start a new one - potentially losing the customer.",
       "suggested_fix": "Implement ICE restart mechanism per RTCPeerConnection.restartIce() API. Add automatic retry with exponential backoff before showing failure state.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-016",
       "options": [
         {
           "id": "robust_handling",
@@ -7332,8 +7332,8 @@
       "location": "Section 6 - Technical Concerns, \"Known Issue: Pool Routing Ignored in Reassignment\"",
       "issue": "Documentation explicitly flags that `reassignVisitors()` calls `findBestAgent()` without passing a pool ID. A visitor originally matched to \"Sales Pool\" via URL routing could be reassigned to an agent in \"Support Pool\" when their original agent becomes unavailable. This defeats the purpose of pool-based routing and could result in visitors speaking to agents without the right expertise.",
       "suggested_fix": "Change to `findBestAgentForVisitor(visitor.orgId, visitor.pageUrl)` which respects pool routing and falls back to any agent if no pool agents available. Logged as Q-1202-001 in doc.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-017",
       "options": [
         {
           "id": "auto_reconnect",
@@ -7368,8 +7368,8 @@
       "location": "Section 7 - First Principles Review, Identified Issues row 2; Section 10 - Open Questions #2",
       "issue": "When an agent disconnects mid-call (browser crash, network drop), the call ends immediately with no grace period or reconnection attempt. Visitor sees \"Call ended\" and must manually refresh and restart the entire call flow. Open Question #2 asks \"Should mid-call agent disconnect have a grace period?\" but this is currently not implemented. This creates a poor visitor experience especially for important conversations.",
       "suggested_fix": "Add 10-second grace period for mid-call disconnects (matching pre-call behavior). If agent reconnects within window, resume call. If not, then end call with appropriate messaging.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-024",
       "options": [
         {
           "id": "auto_reconnect",
@@ -8476,8 +8476,8 @@
       "location": "Section 5 - UI/UX Review, Admin Call Logs step 6; Section 7 - Identified Issues table row 1",
       "issue": "Documentation explicitly notes \"No retry button\" for failed transcriptions in the UI. When transcription fails (Deepgram error, timeout, etc.), users have no way to retry from the interface. They must wait for next recording or require \"manual intervention\" (not defined). This is confirmed in Section 7: \"Failed transcriptions stuck\" with suggested fix \"Add Retry button in UI\".",
       "suggested_fix": "Add a \"Retry Transcription\" button on the call log row when `transcription_status = \"failed\"`. Button should call the same `/api/transcription/process` endpoint.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-018",
       "options": [
         {
           "id": "full_compliance",
@@ -9712,8 +9712,8 @@
       "location": "Section 3 - Timing Configuration, line 134; Section 5 - UX Audit row 2",
       "issue": "The modal displays a hardcoded 30-second countdown (\"Request expires in 25s\" shown in wireframe), but the actual RNA timeout fires at 15 seconds (or org-configured value). Agents are misled into thinking they have more time than they actually do. When the countdown shows \"15 seconds remaining,\" the RNA timeout may have already fired, marking them away unexpectedly.",
       "suggested_fix": "Fetch the org's actual RNA timeout value from `organizations.recording_settings.rna_timeout_seconds` and use that as the countdown duration in `incoming-call-modal.tsx`. Display a synchronized, accurate countdown.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-019",
       "options": [
         {
           "id": "full_compliance",
@@ -10580,8 +10580,8 @@
       "location": "Section 4 - Edge Cases #18, Section 10 - Open Questions #6",
       "issue": "When annual or 6-month price IDs aren't configured in environment, the system \"falls back to monthly price ID with a console warning\". This means a user explicitly selecting annual billing could be charged monthly rates without clear notification - a potential billing dispute issue and trust violation.",
       "suggested_fix": "Make missing price ID a hard error that blocks subscription creation. Show user-facing error: \"Annual billing temporarily unavailable. Please contact support or select monthly billing.\"",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-020",
       "options": [
         {
           "id": "strict_block",
@@ -11306,8 +11306,8 @@
       "location": "Section 10 - Open Questions #1",
       "issue": "Documentation explicitly states \"Currently capped at 50 in signup UI (`Math.min(prev + 1, 50)`) but not enforced in API\". This creates a security and consistency gap where direct API calls could set arbitrarily high seat counts, potentially causing billing issues or system strain.",
       "suggested_fix": "Enforce maximum seat limit (50 or configurable per plan) in the API endpoints `/api/billing/seats` and `/api/billing/update-settings`. Return validation error if exceeded.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-022",
       "options": [
         {
           "id": "strict_block",
@@ -11423,8 +11423,8 @@
       "location": "Section 6 - Reliability: \"Stripe updated before DB for seats route\"",
       "issue": "Documentation acknowledges \"Stripe updated before DB for seats route\". If Stripe subscription update succeeds but the subsequent database update (`UPDATE organizations SET seat_count = ...`) fails, the system enters an inconsistent state where Stripe charges for seats not reflected in the app.",
       "suggested_fix": "Implement compensating transaction pattern: if DB update fails, roll back Stripe change. Or use a two-phase approach with pending state. Add monitoring/alerting for DB write failures post-Stripe update.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-023",
       "options": [
         {
           "id": "strict_block",
@@ -14009,8 +14009,8 @@
       "location": "Section 6 - Known Implementation Gaps, Issue 1",
       "issue": "The `pauseAccount()` and `resumeAccount()` actions update the database but do NOT interact with Stripe. Documentation explicitly states \"Impact: 🔴 High - Customers will still be billed during 'pause'\". Code comments at `actions.ts:127-131` indicate this is TODO. This defeats the core purpose of the pause feature.",
       "suggested_fix": "Implement Stripe `subscription.pause_collection` with `behavior: void` or one of the alternative approaches listed in Open Questions.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-004",
       "options": [
         {
           "id": "strict_block",
@@ -14191,8 +14191,8 @@
       "location": "Section 6 - Known Implementation Gaps, Issue 2; Section 2 - State Machine",
       "issue": "There is no cron job, scheduled task, or webhook to automatically resume subscriptions when `pause_ends_at` is reached. State diagram explicitly marks auto-resume as \"(NOT YET IMPLEMENTED)\". The database has an index (`idx_organizations_pause_ends_at`) ready for this query, but no scheduler exists. Subscriptions will stay paused indefinitely.",
       "suggested_fix": "Implement scheduled task using Supabase Edge Function, Railway cron, or Vercel cron as suggested in Open Questions.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-004",
       "options": [
         {
           "id": "strict_block",
@@ -17012,8 +17012,8 @@
       "location": "Section 5 - UI/UX Review, Section 7 - First Principles Review",
       "issue": "Documentation clearly states that when payment fails: \"Admin unaware of payment issue\", \"No notification, email, or banner\", \"User never knew there was an issue\". Error States table shows all user-facing responses as \"**NOTHING**\". First Principles Review shows 5 out of 6 criteria failed (❌). This is a fundamental UX failure where users have no idea their subscription is at risk.",
       "suggested_fix": "Implement at minimum: (1) Dashboard banner showing past-due status, (2) Email notification on `invoice.payment_failed`, (3) Toast/alert on login when `past_due`.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-005",
       "options": [
         {
           "id": "strict_block",
@@ -19330,8 +19330,8 @@
       "location": "Section 6 - Technical Concerns > Potential Issues Found > Issue 1",
       "issue": "The document explicitly states that the code contains TODO comments and does NOT call Stripe API to cancel subscriptions. Current behavior only downgrades plan to \"free\" while Stripe subscription may continue billing. Quote: \"Current behavior: Only downgrades plan to 'free', does NOT call Stripe API. Impact: Stripe subscription may continue billing.\"",
       "suggested_fix": "Implement Stripe API call to cancel the subscription before/after downgrading the plan. This should be the highest priority fix as it causes financial harm to customers.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-002",
       "options": [
         {
           "id": "strict_block",
@@ -19617,8 +19617,8 @@
       "location": "Section 6 - Technical Concerns > Potential Issues Found > Issue 2",
       "issue": "The UI shows a deletion warning listing \"All call recordings\", \"Call logs & history\", \"Analytics & stats\", \"Agent configurations\", and \"Routing rules\" as being permanently deleted. However, actual behavior just sets plan to \"free\" with no data deletion occurring. This is a trust issue and potential compliance concern.",
       "suggested_fix": "Either implement actual data deletion with appropriate scheduling/retention, OR update the UI copy to accurately reflect that data is retained but access is limited.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-003",
       "options": [
         {
           "id": "strict_block",
@@ -33374,8 +33374,8 @@
       "location": "Section 10 - Open Questions #7; Section 1 Note",
       "issue": "The prompt description states this is a \"Post-call feedback form for visitors. Collects ratings, comments, and satisfaction data after calls end.\" However, the actual implementation is a UserVoice/Canny-style feature request voting system and bug reporter for authenticated dashboard users (Agents/Admins), NOT website visitors or post-call surveys. This fundamental documentation mismatch could cause significant confusion during development, onboarding, or feature planning. The feature name \"Public Feedback\" is also misleading since it requires authentication.",
       "suggested_fix": "Update all references to accurately describe this as \"Feature Request Voting & Bug Reporting System\" or similar. Clarify that \"public\" refers to cross-organization visibility, not anonymous access.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-007",
       "options": [
         {
           "id": "strict_block",
@@ -43697,8 +43697,8 @@
       "location": "Section 3 - Data Flow, and Section 10 - Open Questions #1",
       "issue": "The middleware code at `middleware.ts` lines 56-57 has `if (isProtectedPath && !user) { return }` but no redirect to login page. Documentation explicitly states: \"No user? Return (incomplete redirect logic - see issues)\" and \"Is this intentional or a bug?\" This creates a security gap where unauthenticated users on protected routes are not redirected.",
       "suggested_fix": "Complete the middleware logic: `if (isProtectedPath && !user) { return NextResponse.redirect(new URL('/login', request.url)) }` to redirect unauthenticated users to the login page.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-006",
       "options": [
         {
           "id": "implement",
@@ -44537,8 +44537,8 @@
       "location": "Section 4 - Edge Cases Row 6; Section 6 - Security; Section 7 - Identified Issues; Section 10 - CRITICAL ISSUES REFERENCED",
       "issue": "Documentation explicitly flags CRIT-A5-001: \"Password field visible - Value may be captured\" with red indicator. Section 6 Security confirms \"Password fields captured | CRIT-A5-001 - no sanitization | 🔴 Critical\". The `captureSnapshot()` function serializes the entire DOM including password field values, allowing agents to see visitor passwords.",
       "suggested_fix": "As documented: \"Mask `<input type=\"password\">` values before serializing\". Add sanitization step in `captureSnapshot()` to replace password field values with asterisks or empty strings.",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-001",
       "options": [
         {
           "id": "implement_strict",
