@@ -3,32 +3,32 @@
     "last_updated": "2025-12-04",
     "total_features": 61,
     "reviewed_features": 61,
-    "total_findings": 742
+    "total_findings": 778
   },
   "by_priority": {
     "critical": {
-      "total": 15,
-      "answered": 14,
-      "tickets_created": 14,
+      "total": 17,
+      "answered": 16,
+      "tickets_created": 16,
       "pending": 1
     },
     "high": {
-      "total": 48,
-      "answered": 41,
-      "tickets_created": 36,
-      "pending": 7
+      "total": 49,
+      "answered": 49,
+      "tickets_created": 43,
+      "pending": 0
     },
     "medium": {
-      "total": 315,
-      "answered": 4,
-      "tickets_created": 4,
+      "total": 329,
+      "answered": 18,
+      "tickets_created": 13,
       "pending": 311
     },
     "low": {
-      "total": 364,
-      "answered": 0,
-      "tickets_created": 0,
-      "pending": 364
+      "total": 383,
+      "answered": 1,
+      "tickets_created": 1,
+      "pending": 382
     }
   },
   "by_category": {
@@ -245,16 +245,24 @@
       "reviewed": 13
     },
     "AUTH-login-flow": {
-      "total": 24,
-      "reviewed": 24
+      "total": 12,
+      "reviewed": 12
+    },
+    "M-UPTIME_MONITORING": {
+      "total": 13,
+      "reviewed": 13
     },
     "V-cobrowse-sender": {
       "total": 24,
       "reviewed": 24
     },
     "API-agent-api": {
-      "total": 25,
-      "reviewed": 25
+      "total": 13,
+      "reviewed": 13
+    },
+    "V-widget-lifecycle": {
+      "total": 12,
+      "reviewed": 12
     },
     "STATS-call-analytics": {
       "total": 15,
@@ -267,6 +275,22 @@
     "API-billing-api": {
       "total": 14,
       "reviewed": 14
+    },
+    "A5": {
+      "total": 13,
+      "reviewed": 13
+    },
+    "V5": {
+      "total": 3,
+      "reviewed": 3
+    },
+    "P5": {
+      "total": 8,
+      "reviewed": 8
+    },
+    "P-call-lifecycle": {
+      "total": 11,
+      "reviewed": 11
     }
   }
 }

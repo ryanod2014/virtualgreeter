@@ -46,10 +46,15 @@ Create your doc file at: `docs/features/[category]/[feature-name].md`
 
 ### Step 3: Notify Completion
 
-Append to `docs/DOC_TRACKER.md`:
+**IMPORTANT:** Write your completion to a per-agent file to prevent conflicts with other doc agents.
+
+**File path:** `docs/agent-output/doc-tracker/[FEATURE-ID]-[TIMESTAMP].md`
+
+Example: `docs/agent-output/doc-tracker/SA1-2025-12-04T1430.md`
 
 ```markdown
-### [FEATURE-ID] ✅
+# Doc Complete: [FEATURE-ID]
+
 - **Feature:** [Feature Name]
 - **Status:** COMPLETE
 - **Doc File:** `docs/features/[category]/[filename].md`
@@ -57,6 +62,8 @@ Append to `docs/DOC_TRACKER.md`:
 - **Edge Cases Documented:** [count]
 - **Completed At:** [timestamp]
 ```
+
+The PM Dashboard automatically aggregates all doc agent completions.
 
 ---
 

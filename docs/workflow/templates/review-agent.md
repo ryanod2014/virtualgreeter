@@ -36,7 +36,7 @@ Check all that apply:
 1. Read `docs/workflow/REVIEW_AGENT_SOP.md` for full process
 2. Read the doc file specified above
 3. Analyze for all issue categories
-4. Append findings to `docs/REVIEW_FINDINGS.md`
+4. Write findings to `docs/agent-output/reviews/[FEATURE-ID]-[TIMESTAMP].md`
 5. Use the exact format specified in the SOP
 
 ---

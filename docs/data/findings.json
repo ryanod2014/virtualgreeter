@@ -1,17 +1,17 @@
 {
   "meta": {
     "last_updated": "2025-12-04",
-    "total_findings": 742,
+    "total_findings": 778,
     "format_version": "3.0",
     "synced_from": "REVIEW_FINDINGS.md"
   },
   "summary": {
-    "critical": 15,
-    "high": 48,
-    "medium": 315,
-    "low": 364,
-    "pending": 706,
-    "ticketed": 33,
+    "critical": 17,
+    "high": 49,
+    "medium": 329,
+    "low": 383,
+    "pending": 696,
+    "ticketed": 71,
     "rejected": 0
   },
   "findings": [
@@ -26,7 +26,7 @@
       "suggested_fix": "Add monitoring for cache hit rate and DB query frequency. Document expected query volumes at different traffic levels to inform TTL selection. Consider making TTL configurable per-environment.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -110,8 +110,8 @@
       "suggested_fix": "Add \"Loading visitor's screen...\" placeholder with spinner while waiting for first snapshot. Show skeleton UI or previous snapshot with \"Updating...\" indicator during subsequent refreshes.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-052",
       "options": [
         {
           "id": "implement_fix",
@@ -131,7 +131,7 @@
       "suggested_fix": "Add aria-label to the viewer container describing its purpose, aria-live region for status updates (loading, connected, disconnected), and descriptive text for the cursor position and selection indicators.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -152,8 +152,8 @@
       "suggested_fix": "For same-origin iframes, attempt recursive DOM capture. For cross-origin iframes, show clear visual indicator \"Embedded content - not visible to agent\" instead of blank space. Document limitation prominently in admin setup.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-053",
       "options": [
         {
           "id": "implement_fix",
@@ -173,7 +173,7 @@
       "suggested_fix": "Use `canvas.toDataURL()` to capture canvas state as image and inject as `<img>` replacement in the snapshot. Accept increased payload size trade-off for important visual context.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -194,8 +194,8 @@
       "suggested_fix": "Implement gzip compression for DOM payloads. Consider chunked transmission for very large DOMs. Add DOM size monitoring to identify problematic pages.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-051",
       "options": [
         {
           "id": "implement_fix",
@@ -278,7 +278,7 @@
       "suggested_fix": "Add a \"Reactivate\" option for inactive agents in the UI, OR modify invite logic to check `is_active` status and allow re-invitation for deactivated users.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -320,7 +320,7 @@
       "suggested_fix": "Conduct accessibility audit with screen reader (NVDA/VoiceOver). Ensure ARIA labels on modal triggers, proper focus management, and status announcements for async operations.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -341,8 +341,8 @@
       "suggested_fix": "Add \"Reactivate\" button/flow for inactive agents, similar to \"Add Myself (reactivate)\" but for other users. Would need to handle billing seat addition.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-052",
       "options": [
         {
           "id": "implement_fix",
@@ -446,8 +446,8 @@
       "suggested_fix": "Implement cursor-based pagination as already suggested in the doc.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-034",
       "options": [
         {
           "id": "implement_fix",
@@ -467,7 +467,7 @@
       "suggested_fix": "Move URL filtering to server-side query as suggested in the doc.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -530,8 +530,8 @@
       "suggested_fix": "Consider soft-delete with status \"cancelled\" instead of hard delete, or at minimum log cancellation events separately.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-059",
       "options": [
         {
           "id": "implement_fix",
@@ -551,7 +551,7 @@
       "suggested_fix": "Add tabindex and keyboard handlers to table rows, or implement a proper data grid component with ARIA grid roles.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -614,8 +614,8 @@
       "suggested_fix": "Move CSV generation to a web worker or server-side endpoint that streams the download.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-054",
       "options": [
         {
           "id": "implement_fix",
@@ -698,7 +698,7 @@
       "suggested_fix": "Document a concrete plan for scaling: either migrate to MaxMind/paid ip-api tier, or implement IP-based rate limiting with fallback handling.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -782,7 +782,7 @@
       "suggested_fix": "Audit the component with a screen reader (VoiceOver, NVDA). Ensure proper ARIA labels on mode selection, country dropdown, selected country badges, and action buttons.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -6662,8 +6662,8 @@
       "suggested_fix": "Track `subscription_ends_at`, schedule the actual downgrade for end of billing period, and gate access appropriately during the grace period.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-018",
       "options": [
         {
           "id": "implement_fix",
@@ -7208,7 +7208,7 @@
       "suggested_fix": "Use proper `<button>` elements or add `tabIndex={0}` and `onKeyDown` handlers to the tab controls. Consider using a headless UI library like Radix Tabs for full accessibility.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -7229,7 +7229,7 @@
       "suggested_fix": "Add `role=\"tablist\"`, `role=\"tab\"`, `aria-selected`, `aria-controls` to tabs. Add `aria-label` to date picker. Add `role=\"row\"` and descriptive labels to clickable cancellation rows. Ensure modal has `role=\"dialog\"` and `aria-modal=\"true\"`.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -7481,8 +7481,8 @@
       "suggested_fix": "Implement server-side pagination with limit/offset. Add \"Load more\" or infinite scroll pattern. For immediate mitigation, add list virtualization (e.g., react-virtual) for client-side rendering.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-019",
       "options": [
         {
           "id": "implement_fix",
@@ -7733,7 +7733,7 @@
       "suggested_fix": "Verify and document the exact route protection mechanism (middleware, component check, RLS policy) that restricts `/platform/funnel` to platform admins only.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -8259,7 +8259,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-043",
       "options": [
         {
           "id": "implement_fix",
@@ -11451,7 +11451,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-045",
       "options": [
         {
           "id": "implement_fix",
@@ -13499,8 +13499,8 @@
     },
     {
       "id": "F-643",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "Free Tier vs 1-Minute Check Frequency Contradiction",
       "severity": "critical",
       "location": "Section \"Provider: Better Uptime\" vs Monitor 1 & 2 configurations",
@@ -13508,8 +13508,8 @@
       "suggested_fix": "Either update all monitors to 3-minute frequency to stay within free tier, or clarify that 1-minute checks require the $20/mo upgrade and update Cost Analysis section accordingly.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-008",
       "options": [
         {
           "id": "implement_fix",
@@ -13520,8 +13520,8 @@
     },
     {
       "id": "F-644",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "Monitor Count Inconsistency",
       "severity": "low",
       "location": "Section \"Production Services to Monitor\" table vs \"Implementation Steps\" section",
@@ -13541,8 +13541,8 @@
     },
     {
       "id": "F-645",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "Placeholder Contact Information Not Flagged",
       "severity": "medium",
       "location": "Section \"Step 3: Configure Alert Escalation\"",
@@ -13562,8 +13562,8 @@
     },
     {
       "id": "F-646",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "Supabase API Key Exposure in Third-Party Service",
       "severity": "medium",
       "location": "Section \"Monitor 4: Supabase API\"",
@@ -13583,8 +13583,8 @@
     },
     {
       "id": "F-647",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "Missing Incident Response Runbook",
       "severity": "high",
       "location": "Entire document",
@@ -13593,7 +13593,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-061",
       "options": [
         {
           "id": "implement_fix",
@@ -13604,8 +13604,8 @@
     },
     {
       "id": "F-648",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "No Staging Environment Monitoring Coverage",
       "severity": "low",
       "location": "Section \"Production Services to Monitor\"",
@@ -13625,8 +13625,8 @@
     },
     {
       "id": "F-649",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "WebSocket Monitor Free Tier Uncertainty",
       "severity": "low",
       "location": "Section \"Monitor 3: Signaling Server WebSocket (Optional)\"",
@@ -13646,8 +13646,8 @@
     },
     {
       "id": "F-650",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "Widget Content Validation May Be Fragile",
       "severity": "medium",
       "location": "Section \"Monitor 5: Widget JavaScript\"",
@@ -13667,8 +13667,8 @@
     },
     {
       "id": "F-651",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "Owner Role Ambiguity in Maintenance Table",
       "severity": "low",
       "location": "Section \"Ongoing Maintenance\"",
@@ -13688,8 +13688,8 @@
     },
     {
       "id": "F-652",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "Maintenance Window Too Narrow",
       "severity": "low",
       "location": "Section \"Step 5: Configure Maintenance Windows\"",
@@ -13709,8 +13709,8 @@
     },
     {
       "id": "F-653",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "Health Endpoint Components Not Individually Validated",
       "severity": "medium",
       "location": "Section \"Monitor 2: Signaling Server Health\" and \"Quick Reference - Health Check Response Format\"",
@@ -13730,8 +13730,8 @@
     },
     {
       "id": "F-654",
-      "feature": "Login Flow",
-      "category": "AUTH-login-flow",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
       "title": "SSL Expiry Alert Only on Dashboard Monitor",
       "severity": "low",
       "location": "Section \"Monitor 1: Dashboard\" vs other monitors",
@@ -13746,6 +13746,47 @@
           "id": "implement_fix",
           "label": "Add SSL expiry alerts to all HTTPS monitors, or document why only Dashboard needs it (e.g., \"Railway and Supabase manage their own certs\").",
           "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-655",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
+      "title": "Health Endpoint Response Format is Completely Wrong",
+      "severity": "critical",
+      "location": "Section \"Monitor 2: Signaling Server Health\" and \"Quick Reference - Health Check Response Format\"",
+      "issue": "The documentation claims the health endpoint returns `{\"status\": \"ok\", ...}` and configures Monitor 2 with `Expected Response Body Contains: \"ok\"` and `JSON Path: $.status Expected Value: ok`. However, the actual `/health` endpoint in `apps/server/src/index.ts` returns `{\"status\": \"healthy\" | \"unhealthy\" | \"degraded\", ...}`. This is a fundamental documentation error. If monitoring is configured as documented, Monitor 2 will immediately show the service as DOWN because the response contains \"healthy\" not \"ok\", causing false positive alerts from day one.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Update documentation to reflect actual response format - change all references of `\"status\": \"ok\"` to `\"status\": \"healthy\"` and update monitor configuration to validate for \"healthy\"",
+        "Update the server code to return `\"status\": \"ok\"` for backwards compatibility - not recommended as it breaks the semantic meaning of health states",
+        "Add a legacy compatibility endpoint `/health-legacy` that returns the old format - unnecessary complexity",
+        "Skip - not worth fixing"
+      ],
+      "agent_recommendation": "Option 1 - Documentation must match actual behavior. The monitor validation should check for `$.status = \"healthy\"` or simply validate HTTP 200 response.",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Update documentation to reflect actual response format - change all references of `\"status\": \"ok\"` to `\"status\": \"healthy\"` and update monitor configuration to validate for \"healthy\"",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Update the server code to return `\"status\": \"ok\"` for backwards compatibility - not recommended as it breaks the semantic meaning of health states",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add a legacy compatibility endpoint `/health-legacy` that returns the old format - unnecessary complexity",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - not worth fixing",
+          "recommended": false
         }
       ]
     },
@@ -14054,8 +14095,8 @@
       "suggested_fix": "Add visible recording indicator in widget UI (red dot or \"Recording\" badge). Consider audio announcement at call start for two-party consent jurisdictions.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "skipped",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-014",
       "options": [
         {
           "id": "implement_fix",
@@ -14527,9 +14568,9 @@
       ]
     },
     {
-      "id": "F-692",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-693",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "Minimize Button Hidden on First Visit - Poor Discoverability",
       "severity": "medium",
       "location": "Section 7 - Identified Issues; Section 5 - UX Review (Step 9)",
@@ -14548,9 +14589,9 @@
       ]
     },
     {
-      "id": "F-693",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-694",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "No Full Keyboard Navigation - Accessibility Gap",
       "severity": "medium",
       "location": "Section 5 - Accessibility",
@@ -14569,9 +14610,9 @@
       ]
     },
     {
-      "id": "F-694",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-695",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "\"Tap to Unmute\" Overlay Not Prominent Enough",
       "severity": "low",
       "location": "Section 5 - UX Review, Step 3",
@@ -14590,9 +14631,9 @@
       ]
     },
     {
-      "id": "F-695",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-696",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "Widget Position Not Persisted Across Page Navigation",
       "severity": "low",
       "location": "Section 7 - Identified Issues; Section 10 - Open Questions #1",
@@ -14611,9 +14652,9 @@
       ]
     },
     {
-      "id": "F-696",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-697",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "Auto-Hide Preference Not Remembered",
       "severity": "low",
       "location": "Section 7 - Identified Issues; Section 10 - Open Questions #2",
@@ -14632,9 +14673,9 @@
       ]
     },
     {
-      "id": "F-697",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-698",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "No \"Close\" Option - Only Minimize Available",
       "severity": "medium",
       "location": "Section 10 - Open Questions #3",
@@ -14653,9 +14694,9 @@
       ]
     },
     {
-      "id": "F-698",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-699",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "Minimized Position Inconsistent with Expanded Position",
       "severity": "low",
       "location": "Section 10 - Open Questions #5",
@@ -14674,9 +14715,9 @@
       ]
     },
     {
-      "id": "F-699",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-700",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "Referenced Feature Docs Do Not Exist",
       "severity": "medium",
       "location": "Section 9 - Related Features",
@@ -14695,9 +14736,9 @@
       ]
     },
     {
-      "id": "F-700",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-701",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "Large Monolithic Code Files",
       "severity": "low",
       "location": "Section 8 - Code References",
@@ -14716,9 +14757,9 @@
       ]
     },
     {
-      "id": "F-701",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-702",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "Call Reconnection Expiry Not Fully Documented",
       "severity": "low",
       "location": "Section 4 - Edge Cases, Row 5",
@@ -14737,9 +14778,9 @@
       ]
     },
     {
-      "id": "F-702",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-703",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "Hidden State Transition When Agent Becomes Unavailable Mid-Call",
       "severity": "medium",
       "location": "Section 2 - State Machine",
@@ -14758,9 +14799,9 @@
       ]
     },
     {
-      "id": "F-703",
-      "feature": "Agent API",
-      "category": "API-agent-api",
+      "id": "F-704",
+      "feature": "Widget Lifecycle",
+      "category": "V-widget-lifecycle",
       "title": "Max Z-Index May Conflict with Host Website Overlays",
       "severity": "low",
       "location": "Section 6 - Security",
@@ -15335,8 +15376,8 @@
       "suggested_fix": "Default unknown statuses to \"past_due\" or a new \"unknown\" status that restricts access while logging for investigation. Active should only be set for explicitly known good statuses.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-050",
       "options": [
         {
           "id": "implement_fix",
@@ -15594,6 +15635,1441 @@
           "id": "implement_fix",
           "label": "Add loading state recommendations: \"All billing endpoints should show loading spinners. Disable submit buttons during API calls. Show progress for multi-step operations.\"",
           "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-227",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Password Fields Captured in DOM Snapshots",
+      "severity": "critical",
+      "location": "Section 4 Edge Case #7, Section 6 Security, Section 7 Identified Issues, Section 10 Open Question #1",
+      "issue": "Documentation explicitly flags: \"Password fields visible in DOM\" with 🔴 High severity. The DOM snapshot includes form input values. While `<input type=\"password\">` visually obscures the password, the `value` attribute is present in the serialized HTML. This is a privacy/security risk where agents could see visitor passwords.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement password sanitization as documented - add `input.setAttribute(\"value\", \"••••••••\")` for all password fields before serialization",
+        "Remove value attributes entirely from password fields - `input.removeAttribute(\"value\")`",
+        "Skip password field elements entirely from DOM snapshot",
+        "Skip - accept risk (not recommended for production)"
+      ],
+      "agent_recommendation": "Option 1 - Replace with masked value as documented, maintains visual context while protecting data",
+      "status": "ticketed",
+      "ticket_id": "TKT-001",
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement password sanitization as documented - add `input.setAttribute(\"value\", \"••••••••\")` for all password fields before serialization",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Remove value attributes entirely from password fields - `input.removeAttribute(\"value\")`",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Skip password field elements entirely from DOM snapshot",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - accept risk (not recommended for production)",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-745",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Sensitive Field Sanitization Incomplete",
+      "severity": "high",
+      "location": "Section 6 Security, \"Security Gaps\" subsection, \"Recommended Mitigations\" code block",
+      "issue": "The security section identifies multiple sensitive field types (credit cards, personal data, session tokens) but the recommended code fix only masks password inputs. The code comment mentions \"Consider also masking: input[type=\"tel\"], input[autocomplete=\"cc-number\"], Elements with data-sensitive=\"true\"\" but this is just a comment, not implemented guidance. Credit card fields could expose full card numbers to agents.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Expand sanitization to include cc-number, tel, ssn, and autocomplete-sensitive fields in the documented fix",
+        "Create a configurable sanitization list per organization (allow admins to define sensitive selectors)",
+        "Document as known limitation and rely on customer-side sanitization via data-sensitive attribute",
+        "Skip - only mask passwords, accept risk for other fields"
+      ],
+      "agent_recommendation": "Option 1 - Include common sensitive field patterns in the standard sanitization; credit cards are too high risk to ignore",
+      "status": "ticketed",
+      "ticket_id": "TKT-001",
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Expand sanitization to include cc-number, tel, ssn, and autocomplete-sensitive fields in the documented fix",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Create a configurable sanitization list per organization (allow admins to define sensitive selectors)",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Document as known limitation and rely on customer-side sanitization via data-sensitive attribute",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - only mask passwords, accept risk for other fields",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-229",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "No Loading State Before First Snapshot",
+      "severity": "medium",
+      "location": "Section 5 UI/UX Review \"Call starts\" row, Section 7 Identified Issues",
+      "issue": "When agent answers call, Section 5 notes \"Could show loading state\" and Section 7 identifies: \"No loading state - Agent sees stale/blank before first snapshot\". The first DOM snapshot takes 2+ seconds to arrive. During this time, agent sees either blank space or placeholder with no indication that content is loading.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add explicit \"Loading visitor's screen...\" message with spinner until first snapshot arrives",
+        "Show skeleton loader that matches expected viewport dimensions",
+        "Show last snapshot from previous call if same visitor (cached state)",
+        "Skip - placeholder message \"Visitor's screen will appear here\" is sufficient"
+      ],
+      "agent_recommendation": "Option 1 - Simple loading state sets correct expectation and confirms feature is working",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add explicit \"Loading visitor's screen...\" message with spinner until first snapshot arrives",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Show skeleton loader that matches expected viewport dimensions",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Show last snapshot from previous call if same visitor (cached state)",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - placeholder message \"Visitor's screen will appear here\" is sufficient",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-007",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Iframe Content Not Captured",
+      "severity": "medium",
+      "location": "Section 4 Edge Case #4, Section 7 Identified Issues, Section 10 Open Question #3",
+      "issue": "Documentation notes: \"Visitor has iframe → iframe not captured → ⚠️\". Open Question #3 asks: \"How should iframe content be handled?\" Cross-origin iframes cannot be captured (CORS), same-origin could theoretically be captured but aren't. Embedded content like payment forms, maps, or videos in iframes appear as blank boxes to agents.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement recursive capture for same-origin iframes only, document cross-origin as unsupported",
+        "Capture iframe as placeholder with URL shown to agent (\"Embedded content: https://...\")",
+        "Attempt cross-origin capture where allowed, fall back to placeholder",
+        "Skip - document as known limitation, iframes remain blank"
+      ],
+      "agent_recommendation": "Option 2 - Showing the iframe URL gives agent context without complex implementation",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement recursive capture for same-origin iframes only, document cross-origin as unsupported",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Capture iframe as placeholder with URL shown to agent (\"Embedded content: https://...\")",
+          "recommended": true
+        },
+        {
+          "id": "option_3",
+          "label": "Attempt cross-origin capture where allowed, fall back to placeholder",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - document as known limitation, iframes remain blank",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-008",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Canvas Elements Appear Blank",
+      "severity": "medium",
+      "location": "Section 4 Edge Case #5, Section 7 Identified Issues, Section 10 Open Question #4",
+      "issue": "Documentation shows: \"Visitor has canvas → Canvas shows blank → ⚠️\". Charts, graphs, and interactive visualizations using canvas are invisible to agents. Open Question #4 asks if canvas.toDataURL() should be used but notes it \"Would add significant complexity and size.\"",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement canvas.toDataURL() conversion before DOM serialization - convert canvas to inline image",
+        "Show placeholder for canvas elements with dimensions shown (\"Chart area: 400x300px\")",
+        "Make canvas capture optional/configurable per org (some sites are canvas-heavy)",
+        "Skip - document as known limitation, charts remain blank"
+      ],
+      "agent_recommendation": "Option 1 for simple canvases - toDataURL is straightforward and charts are high-value context for agents",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement canvas.toDataURL() conversion before DOM serialization - convert canvas to inline image",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Show placeholder for canvas elements with dimensions shown (\"Chart area: 400x300px\")",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Make canvas capture optional/configurable per org (some sites are canvas-heavy)",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - document as known limitation, charts remain blank",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-749",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "No Visitor Privacy Toggle for Co-Browse",
+      "severity": "medium",
+      "location": "Section 10 Open Question #2",
+      "issue": "Open Question #2 states: \"Should there be a 'co-browse disabled' option? Some visitors might prefer privacy during calls. No toggle currently exists - cobrowse is automatic.\" Visitors have no way to prevent their screen from being shared during a call. This could be a privacy concern or compliance issue (GDPR right to privacy, sensitive personal matters).",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add visitor-facing toggle in widget call UI: \"Allow agent to see my screen\" (default on)",
+        "Add org-level setting to disable co-browse entirely for compliance-sensitive orgs",
+        "Add visitor consent prompt before co-browse activates (\"Allow screen sharing?\")",
+        "Skip - keep automatic, document that visitors are informed via privacy policy"
+      ],
+      "agent_recommendation": "Option 1 - Give visitors control while keeping feature on by default for best UX",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add visitor-facing toggle in widget call UI: \"Allow agent to see my screen\" (default on)",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Add org-level setting to disable co-browse entirely for compliance-sensitive orgs",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add visitor consent prompt before co-browse activates (\"Allow screen sharing?\")",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - keep automatic, document that visitors are informed via privacy policy",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-750",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Large DOM Snapshots Not Compressed or Chunked",
+      "severity": "medium",
+      "location": "Section 4 Edge Case #2, Section 6 Performance",
+      "issue": "Edge case #2 notes: \"Large DOM (>1MB) → Sent as-is, may lag → ⚠️\". Section 6 Performance lists \"No compression\" as Medium risk. Complex e-commerce or SaaS pages with many elements could cause latency spikes or socket buffer issues. No chunking, compression, or delta encoding is implemented.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement gzip compression on socket payloads before transmission",
+        "Implement delta encoding - only send changed DOM nodes after initial snapshot",
+        "Add DOM size limit with graceful degradation (\"Page too complex for full view\")",
+        "Skip - most pages are small enough, optimize later if needed"
+      ],
+      "agent_recommendation": "Option 1 - Compression is standard practice and relatively simple to add",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement gzip compression on socket payloads before transmission",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Implement delta encoding - only send changed DOM nodes after initial snapshot",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add DOM size limit with graceful degradation (\"Page too complex for full view\")",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - most pages are small enough, optimize later if needed",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-751",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Screen Reader Accessibility Gap",
+      "severity": "low",
+      "location": "Section 5 Accessibility table",
+      "issue": "Accessibility section shows: \"Screen reader: ⚠️ Could add aria-label for viewer\". The CobrowseViewer component has no ARIA attributes to describe the live view to screen reader users. While agent dashboard isn't primary accessibility target, blind agents using screen readers get no context about the viewer.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add aria-label=\"Live view of visitor's screen\" and aria-live=\"polite\" for updates",
+        "Add descriptive text alternative that reads viewport dimensions and page title",
+        "Add full screen reader support with DOM content narration",
+        "Skip - view-only feature, screen reader support low priority"
+      ],
+      "agent_recommendation": "Option 1 - Minimal effort for basic accessibility compliance",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add aria-label=\"Live view of visitor's screen\" and aria-live=\"polite\" for updates",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Add descriptive text alternative that reads viewport dimensions and page title",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add full screen reader support with DOM content narration",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - view-only feature, screen reader support low priority",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-752",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Snapshot Interval Hardcoded",
+      "severity": "low",
+      "location": "Section 10 Open Question #5, Section 2 High-Level Flow",
+      "issue": "Open Question #5 asks: \"Is 2-second snapshot interval optimal? Could be org-configurable in the future.\" Currently hardcoded. High-bandwidth orgs might want faster updates (1s), bandwidth-constrained environments might need slower (5s). No flexibility exists.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Make interval configurable per-org via admin settings (COBROWSE_SNAPSHOT_INTERVAL_MS)",
+        "Make interval adaptive based on DOM size and network conditions",
+        "Keep 2s default, add widget-level override via embed code parameter",
+        "Skip - 2s is reasonable for all use cases"
+      ],
+      "agent_recommendation": "Option 4 for now - premature optimization; revisit if customers report issues",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Make interval configurable per-org via admin settings (COBROWSE_SNAPSHOT_INTERVAL_MS)",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Make interval adaptive based on DOM size and network conditions",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Keep 2s default, add widget-level override via embed code parameter",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - 2s is reasonable for all use cases",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-753",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "MutationObserver \"Significant Change\" Filter Undefined",
+      "severity": "low",
+      "location": "Section 4 Edge Case #3, Section 6 Performance",
+      "issue": "Edge case #3 mentions: \"Frequent DOM changes → MutationObserver triggers → ✅ Debouncing via significant change filter\". Section 6 says \"Significant change filter helps\". But neither section defines what constitutes a \"significant change\". It's unclear if this filters by node count, attribute changes, text changes, or something else.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Document the specific algorithm used for significant change detection (e.g., \"More than 10 node mutations or text content change\")",
+        "Reference the specific code lines that implement the filter",
+        "Add configuration options for the filter threshold",
+        "Skip - implementation detail, not user-facing"
+      ],
+      "agent_recommendation": "Option 1 - Document the algorithm for developer clarity",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Document the specific algorithm used for significant change detection (e.g., \"More than 10 node mutations or text content change\")",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Reference the specific code lines that implement the filter",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add configuration options for the filter threshold",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - implementation detail, not user-facing",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-754",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Memory Accumulation with Repeated Iframe Writes",
+      "severity": "low",
+      "location": "Section 6 Performance, \"Memory in iframe\" row",
+      "issue": "Performance section notes: \"Memory in iframe: New iframe content each snapshot → 🟡 Medium risk → Could diff and patch\". Writing full HTML to iframe document every 2 seconds may cause memory accumulation in long calls. Browser may not properly garbage collect replaced DOM trees.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement DOM diffing/patching instead of full replacement (virtual DOM approach)",
+        "Periodically recreate the iframe element to force garbage collection",
+        "Monitor memory usage and add warning if call exceeds threshold",
+        "Skip - browser handles this adequately, monitor in production"
+      ],
+      "agent_recommendation": "Option 4 - Monitor first before optimizing; may not be a real issue",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement DOM diffing/patching instead of full replacement (virtual DOM approach)",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Periodically recreate the iframe element to force garbage collection",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Monitor memory usage and add warning if call exceeds threshold",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - browser handles this adequately, monitor in production",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-755",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Cross-Origin Resources May Fail Silently",
+      "severity": "low",
+      "location": "Section 6 Security, \"Cross-origin resources\" row",
+      "issue": "Security section notes: \"Cross-origin resources: Converted to absolute URLs → ✅ Safe → May fail for CORS-restricted resources\". If visitor's page loads images or stylesheets from CORS-restricted CDNs, agent's view will show broken images or missing styles with no indication why. Agent sees degraded view without understanding the cause.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Show placeholder icon for failed resource loads (\"Image failed to load\")",
+        "Pre-fetch resources on server and serve from same origin",
+        "Add visual indicator when resources are blocked (\"Some content may not display\")",
+        "Skip - rare edge case, accept degraded view"
+      ],
+      "agent_recommendation": "Option 3 - Simple warning banner if any resources fail to load",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Show placeholder icon for failed resource loads (\"Image failed to load\")",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Pre-fetch resources on server and serve from same origin",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add visual indicator when resources are blocked (\"Some content may not display\")",
+          "recommended": true
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - rare edge case, accept degraded view",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-756",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Documentation Date Incorrect",
+      "severity": "low",
+      "location": "End of document, footer line",
+      "issue": "Document footer states: \"Last updated: 2024-12-03\" but current date is December 2025. This is either a typo (should be 2025) or the document is almost a year old without updates.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Update date to 2025-12-03 (assuming typo)",
+        "Update date to current date when changes are made",
+        "Add automated date update on file save",
+        "Skip - cosmetic issue only"
+      ],
+      "agent_recommendation": "Option 1 - Fix the typo to maintain documentation credibility",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Update date to 2025-12-03 (assuming typo)",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Update date to current date when changes are made",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add automated date update on file save",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - cosmetic issue only",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-757",
+      "feature": "Co-Browse Sender (Supplementary Review)",
+      "category": "V5",
+      "title": "Documentation Code Reference Line Numbers Incorrect",
+      "severity": "low",
+      "location": "Section 8 - CODE REFERENCES, Widget integration row",
+      "issue": "Documentation states Widget.tsx integration is at \"Lines 420-424\" but code verification shows the `useCobrowse` hook invocation is actually at lines 450-454. The code reference is off by approximately 30 lines, likely due to code additions since documentation was written.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Update line reference to 450-454 and add note about lines being approximate",
+        "Remove line numbers entirely from code references (just reference file)",
+        "Add automated line number verification script to CI",
+        "Skip - line numbers drift naturally, readers can search for function names"
+      ],
+      "agent_recommendation": "Option 1 - Update to current lines 450-454; line numbers add value for quick navigation",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Update line reference to 450-454 and add note about lines being approximate",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Remove line numbers entirely from code references (just reference file)",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add automated line number verification script to CI",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - line numbers drift naturally, readers can search for function names",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-758",
+      "feature": "Co-Browse Sender (Supplementary Review)",
+      "category": "V5",
+      "title": "Missing Server Rate Limit for cobrowse:selection Event",
+      "severity": "low",
+      "location": "Section 3 - Server-Side Rate Limiting table; `apps/server/src/features/signaling/socket-rate-limit.ts`",
+      "issue": "Documentation Section 3 shows server-side rate limits for `cobrowse:snapshot`, `cobrowse:mouse`, and `cobrowse:scroll`, but not for `cobrowse:selection`. Code verification confirms `socket-rate-limit.ts` lines 36-38 only configure those three events. The `cobrowse:selection` event bypasses rate limiting entirely. While selection events are less frequent than mouse events, a malicious or buggy client could flood the server with selection events.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add rate limit for cobrowse:selection (e.g., 30/minute - text selection is infrequent)",
+        "Document that selection is intentionally not rate-limited and why",
+        "Group selection under existing scroll rate limit (similar frequency pattern)",
+        "Skip - selection events are rare enough to not need limiting"
+      ],
+      "agent_recommendation": "Option 1 - Add conservative rate limit (30/min) for consistency and defense-in-depth",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add rate limit for cobrowse:selection (e.g., 30/minute - text selection is infrequent)",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Document that selection is intentionally not rate-limited and why",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Group selection under existing scroll rate limit (similar frequency pattern)",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - selection events are rare enough to not need limiting",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-759",
+      "feature": "Co-Browse Sender (Supplementary Review)",
+      "category": "V5",
+      "title": "MutationObserver May Still Trigger Excessive Snapshots on Animated Pages",
+      "severity": "low",
+      "location": "Section 3 - Throttling/Debouncing Strategy; `apps/widget/src/features/cobrowse/useCobrowse.ts` lines 251-279",
+      "issue": "Code verification shows the MutationObserver triggers `captureSnapshot()` immediately (no debounce) when it detects \"significant\" changes. The filter considers ANY `class` or `style` attribute change as significant (lines 260-265). On pages with CSS animations or JavaScript-driven class toggles, this can trigger dozens of snapshots per second, bypassing the 2-second interval protection. The snapshot has a change-detection check (line 101-104) but the DOM clone operation at line 42 still runs every time.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add debounce/throttle to MutationObserver callback (e.g., 500ms)",
+        "Use more selective mutation filtering (ignore known animation classes)",
+        "Rate-limit calls to captureSnapshot() itself regardless of trigger source",
+        "Skip - the change-detection prevents duplicate sends, performance impact is minimal"
+      ],
+      "agent_recommendation": "Option 3 - Add internal throttle to captureSnapshot() (e.g., 1 snapshot per 500ms max) as defense against all rapid-fire triggers",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add debounce/throttle to MutationObserver callback (e.g., 500ms)",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Use more selective mutation filtering (ignore known animation classes)",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Rate-limit calls to captureSnapshot() itself regardless of trigger source",
+          "recommended": true
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - the change-detection prevents duplicate sends, performance impact is minimal",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-760",
+      "feature": "WebRTC Signaling",
+      "category": "P5",
+      "title": "State Diagram Shows Reconnecting State But No Reconnect Logic Exists",
+      "severity": "medium",
+      "location": "Section 2 - State Machine vs Section 4 - Edge Cases #7 vs Section 7 - Identified Issues",
+      "issue": "The state diagram in Section 2 shows a clear transition path: `Disconnected → Reconnecting → Connected` with \"ICE restart attempt\" as the trigger. However, Edge Case #7 explicitly notes \"Network drops mid-call\" has \"No explicit reconnect logic\" marked with ⚠️, and Section 7 Identified Issues confirms \"No explicit network recovery\" as a Medium severity issue. The state machine promises behavior that is not implemented.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement ICE restart logic to match the state diagram - when `connectionState` becomes \"disconnected\", attempt `peerConnection.restartIce()` with timeout before transitioning to Failed",
+        "Remove the Reconnecting state from the diagram and update to: `Disconnected → Failed` directly after timeout",
+        "Add the Reconnecting state to code but only for visual feedback, not actual recovery attempt",
+        "Skip - acknowledge discrepancy in documentation as aspirational"
+      ],
+      "agent_recommendation": "Option 1 - Implement what the diagram promises; ICE restart is a standard WebRTC recovery mechanism",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement ICE restart logic to match the state diagram - when `connectionState` becomes \"disconnected\", attempt `peerConnection.restartIce()` with timeout before transitioning to Failed",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Remove the Reconnecting state from the diagram and update to: `Disconnected → Failed` directly after timeout",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add the Reconnecting state to code but only for visual feedback, not actual recovery attempt",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - acknowledge discrepancy in documentation as aspirational",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-761",
+      "feature": "WebRTC Signaling",
+      "category": "P5",
+      "title": "No Fallback Handling If ALL ICE Servers Fail",
+      "severity": "medium",
+      "location": "Section 10 - Open Question Q-P5-004",
+      "issue": "Q-P5-004 asks: \"What happens if BOTH STUN servers and ALL TURN servers fail? Should there be a fallback to notify the user that video calling is unavailable?\" The current ICE server array includes 6 servers, but if Metered.live has an outage and Google STUN is blocked (e.g., China), there's no graceful degradation. User would see generic connection error with no actionable guidance.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add additional STUN/TURN server providers for redundancy (e.g., Twilio STUN, Xirsys TURN)",
+        "Detect when all candidates fail and show specific error: \"Video calling is temporarily unavailable. Please try again later or contact support.\"",
+        "Add health check endpoint that tests ICE server availability before initiating calls",
+        "Skip - unlikely scenario, current error handling is sufficient"
+      ],
+      "agent_recommendation": "Option 2 - Specific error messaging improves UX when infrastructure fails; adding more servers (Option 1) is also worthwhile",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add additional STUN/TURN server providers for redundancy (e.g., Twilio STUN, Xirsys TURN)",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Detect when all candidates fail and show specific error: \"Video calling is temporarily unavailable. Please try again later or contact support.\"",
+          "recommended": true
+        },
+        {
+          "id": "option_3",
+          "label": "Add health check endpoint that tests ICE server availability before initiating calls",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - unlikely scenario, current error handling is sufficient",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-762",
+      "feature": "WebRTC Signaling",
+      "category": "P5",
+      "title": "No Explicit ICE Restart on Network Transitions",
+      "severity": "medium",
+      "location": "Section 7 - Identified Issues row 2, Section 10 - Open Question Q-P5-001",
+      "issue": "Documentation explicitly flags: \"No explicit network recovery - Mid-call network changes may not recover\" with Medium severity. Q-P5-001 confirms: \"connectionState === 'disconnected' is logged but not explicitly handled with ICE restart.\" When a user switches from WiFi to cellular mid-call (common mobile scenario), the connection may fail instead of seamlessly transitioning.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement `peerConnection.restartIce()` when `connectionState` transitions to \"disconnected\" with exponential backoff retry",
+        "Implement connection monitoring that detects network changes via `navigator.connection` and proactively restarts ICE",
+        "Show \"Reconnecting...\" UI during disconnected state with manual retry button if auto-recovery fails",
+        "Skip - most users don't switch networks mid-call"
+      ],
+      "agent_recommendation": "Option 1 - ICE restart is the standard WebRTC approach and straightforward to implement",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement `peerConnection.restartIce()` when `connectionState` transitions to \"disconnected\" with exponential backoff retry",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Implement connection monitoring that detects network changes via `navigator.connection` and proactively restarts ICE",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Show \"Reconnecting...\" UI during disconnected state with manual retry button if auto-recovery fails",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - most users don't switch networks mid-call",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-763",
+      "feature": "WebRTC Signaling",
+      "category": "P5",
+      "title": "TURN Credentials Exposed in Client Bundle",
+      "severity": "low",
+      "location": "Section 6 - Technical Concerns - Security, Section 7 - Identified Issues row 1, Section 10 - Q-P5-003",
+      "issue": "Section 6 explicitly flags: \"TURN credentials: Hardcoded in client code (visible in bundle) ⚠️\" with mitigation \"Metered.live credentials are per-domain restricted.\" Q-P5-003 asks about implementing \"short-lived tokens via server-side credential vending.\" While domain restriction mitigates abuse risk, credentials visible in DevTools could be extracted and used if domain restriction is bypassed.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement server-side credential vending - dashboard/widget requests short-lived TURN credentials from server before initiating WebRTC",
+        "Rotate Metered.live credentials periodically (monthly) to limit exposure window",
+        "Add rate limiting on Metered.live dashboard to detect credential abuse",
+        "Skip - domain restriction is sufficient protection"
+      ],
+      "agent_recommendation": "Option 2 - Periodic rotation is low-effort security hygiene; Option 1 is better but higher implementation cost",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement server-side credential vending - dashboard/widget requests short-lived TURN credentials from server before initiating WebRTC",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Rotate Metered.live credentials periodically (monthly) to limit exposure window",
+          "recommended": true
+        },
+        {
+          "id": "option_3",
+          "label": "Add rate limiting on Metered.live dashboard to detect credential abuse",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - domain restriction is sufficient protection",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-764",
+      "feature": "WebRTC Signaling",
+      "category": "P5",
+      "title": "ICE Server Configuration Duplicated Between Widget and Dashboard",
+      "severity": "low",
+      "location": "Section 7 - Identified Issues row 3, Section 10 - Q-P5-002",
+      "issue": "Identified Issues notes: \"Widget/dashboard ICE config duplicated - Maintenance burden, could drift.\" Q-P5-002 suggests centralizing in `@ghost-greeter/domain`. Currently, any ICE server changes require coordinated updates to both `apps/widget/src/features/webrtc/useWebRTC.ts` and `apps/dashboard/src/features/webrtc/use-webrtc.ts`. Drift could cause one party to fail while the other succeeds.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Extract `ICE_SERVERS` constant to `@ghost-greeter/domain` package and import in both apps",
+        "Fetch ICE configuration from server at runtime (allows dynamic updates without deploy)",
+        "Create shared `@ghost-greeter/webrtc-config` package for all WebRTC constants",
+        "Skip - configuration rarely changes, manual sync is acceptable"
+      ],
+      "agent_recommendation": "Option 1 - Minimal change, prevents drift, follows existing monorepo patterns",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Extract `ICE_SERVERS` constant to `@ghost-greeter/domain` package and import in both apps",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Fetch ICE configuration from server at runtime (allows dynamic updates without deploy)",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Create shared `@ghost-greeter/webrtc-config` package for all WebRTC constants",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - configuration rarely changes, manual sync is acceptable",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-765",
+      "feature": "WebRTC Signaling",
+      "category": "P5",
+      "title": "Connection State Feedback May Lag Behind Reality",
+      "severity": "low",
+      "location": "Section 7 - First Principles Review point 3, Section 5 - UI/UX Review \"Connection lost\" row",
+      "issue": "First Principles Review notes: \"Connection state changes: May lag 1-2s behind reality.\" Section 5 UI/UX Review shows \"Connection lost\" row marked ⚠️ with \"Status may not update immediately.\" Users may continue speaking into a dead connection without realizing it, or miss the first 1-2 seconds of restored connection.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add more frequent connection health checks using `RTCPeerConnection.getStats()` to detect quality degradation before full disconnect",
+        "Show \"Reconnecting...\" indicator immediately when any ICE/connection state change is detected",
+        "Add audio/visual cue (brief sound or screen flash) when connection state changes",
+        "Skip - 1-2s lag is acceptable for most use cases"
+      ],
+      "agent_recommendation": "Option 2 - Immediate visual feedback sets correct user expectations",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add more frequent connection health checks using `RTCPeerConnection.getStats()` to detect quality degradation before full disconnect",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Show \"Reconnecting...\" indicator immediately when any ICE/connection state change is detected",
+          "recommended": true
+        },
+        {
+          "id": "option_3",
+          "label": "Add audio/visual cue (brief sound or screen flash) when connection state changes",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - 1-2s lag is acceptable for most use cases",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-766",
+      "feature": "WebRTC Signaling",
+      "category": "P5",
+      "title": "Connection Timeout Callback May Not Fire in All Error Paths",
+      "severity": "low",
+      "location": "Section 7 - Identified Issues row 4",
+      "issue": "Identified Issues notes: \"Connection timeout callback not always called - `onConnectionTimeout` prop but may not fire in all failure modes.\" The 30-second timeout (WEBRTC_CONNECTION_TIMEOUT = 30000) may not trigger if failure happens through non-timeout paths (e.g., immediate ICE failure, permission error). Callers relying on this callback for cleanup may have dangling state.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Ensure `onConnectionTimeout` fires for ALL terminal error states (rename to `onConnectionError`)",
+        "Add separate callbacks: `onConnectionTimeout`, `onConnectionFailed`, `onMediaError` for granular handling",
+        "Document which error paths trigger the callback and which don't",
+        "Skip - callers should use `isConnected` state for cleanup logic"
+      ],
+      "agent_recommendation": "Option 1 - Single unified error callback is simpler for callers; rename clarifies behavior",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Ensure `onConnectionTimeout` fires for ALL terminal error states (rename to `onConnectionError`)",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Add separate callbacks: `onConnectionTimeout`, `onConnectionFailed`, `onMediaError` for granular handling",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Document which error paths trigger the callback and which don't",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - callers should use `isConnected` state for cleanup logic",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-767",
+      "feature": "WebRTC Signaling",
+      "category": "P5",
+      "title": "Server Restart Ends Active Calls Without Notification",
+      "severity": "low",
+      "location": "Section 4 - Edge Cases #13",
+      "issue": "Edge Case #13 notes: \"Server restart during call - Socket disconnects, call ends\" with comment \"Call reconnection is separate feature.\" When the signaling server restarts for deployment or crash recovery, active calls terminate immediately. Users see abrupt disconnection with no explanation that it was server-side.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement call reconnection feature that preserves WebRTC connection across socket reconnects",
+        "Show specific error message when socket disconnects server-side: \"Server is restarting. Please wait...\"",
+        "Add graceful shutdown that notifies connected clients before restart",
+        "Skip - server restarts are rare and brief; standard error handling is sufficient"
+      ],
+      "agent_recommendation": "Option 3 - Graceful shutdown is standard practice for production systems",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement call reconnection feature that preserves WebRTC connection across socket reconnects",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Show specific error message when socket disconnects server-side: \"Server is restarting. Please wait...\"",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add graceful shutdown that notifies connected clients before restart",
+          "recommended": true
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - server restarts are rare and brief; standard error handling is sufficient",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-768",
+      "feature": "Call Lifecycle",
+      "category": "P-call-lifecycle",
+      "title": "callLogIds Map Not Persistent Across Server Restarts",
+      "severity": "medium",
+      "location": "Section 6 - Technical Concerns, Issue 2",
+      "issue": "Documentation explicitly flags: \"The mapping from requestId/callId to database call_logs.id is in-memory. On server restart: New calls won't link to old call_logs entries. This could cause orphaned database records.\" While the doc marks this as \"Low\" impact affecting only analytics, orphaned database records could accumulate over time and complicate debugging/auditing.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Query database by reconnect_token to relink callLogIds on reconnection - as suggested in doc's Identified Issues section",
+        "Store the mapping in Redis for persistence across restarts",
+        "Accept the current behavior and add a cleanup job for orphaned call_logs entries",
+        "Skip - analytics gaps are acceptable"
+      ],
+      "agent_recommendation": "Option 1 (query by reconnect_token) - minimal implementation change, no new infrastructure required",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Query database by reconnect_token to relink callLogIds on reconnection - as suggested in doc's Identified Issues section",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Store the mapping in Redis for persistence across restarts",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Accept the current behavior and add a cleanup job for orphaned call_logs entries",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - analytics gaps are acceptable",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-769",
+      "feature": "Call Lifecycle",
+      "category": "P-call-lifecycle",
+      "title": "No Widget-Side Debounce on Call Button",
+      "severity": "low",
+      "location": "Section 6 - Technical Concerns, Issue 3; Section 4 - Edge Case #18",
+      "issue": "Documentation states: \"Looking at the widget code, there's no explicit debounce on the Call button. The server handles duplicate requests by cleaning up existing calls, but this could cause unnecessary server load and race conditions.\" Edge case #18 is marked with ⚠️: \"Double-click on Call button | Rapid clicks | Server handles via existing call cleanup | ⚠️ | No widget-side debounce visible\"",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add 1-second debounce on Call button click in widget",
+        "Disable button immediately on click, re-enable on state change",
+        "Use both debounce and disable for defense in depth",
+        "Skip - server already handles this gracefully"
+      ],
+      "agent_recommendation": "Option 2 (disable on click) - provides immediate visual feedback and prevents duplicates without arbitrary delay",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add 1-second debounce on Call button click in widget",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Disable button immediately on click, re-enable on state change",
+          "recommended": true
+        },
+        {
+          "id": "option_3",
+          "label": "Use both debounce and disable for defense in depth",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - server already handles this gracefully",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-770",
+      "feature": "Call Lifecycle",
+      "category": "P-call-lifecycle",
+      "title": "Accessibility Not Verified for Call UI",
+      "severity": "medium",
+      "location": "Section 5 - UI/UX Review, Accessibility subsection",
+      "issue": "Three accessibility items are explicitly marked as unverified: \"Keyboard navigation: ⚠️ Not verified\", \"Screen reader support: ⚠️ Not verified\", \"Color contrast: ⚠️ Not verified\". Only loading states are confirmed working. The call UI is a critical user-facing feature; accessibility gaps could exclude users with disabilities.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Conduct accessibility audit of both widget and dashboard call UI components",
+        "Add ARIA labels and keyboard handlers for call button, accept/reject modal, and call controls",
+        "Document that accessibility is out of scope for MVP, add to future roadmap",
+        "Skip - low priority given current user base"
+      ],
+      "agent_recommendation": "Option 2 (add ARIA labels and keyboard handlers) - core accessibility can be added incrementally without full audit",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Conduct accessibility audit of both widget and dashboard call UI components",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Add ARIA labels and keyboard handlers for call button, accept/reject modal, and call controls",
+          "recommended": true
+        },
+        {
+          "id": "option_3",
+          "label": "Document that accessibility is out of scope for MVP, add to future roadmap",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - low priority given current user base",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-771",
+      "feature": "Call Lifecycle",
+      "category": "P-call-lifecycle",
+      "title": "Multiple Reconnection Timeouts Without Clear Rationale",
+      "severity": "low",
+      "location": "Section 4 - Edge Cases (#7, #8, #9), Section 4 - Error States (RECONNECT_TIMEOUT)",
+      "issue": "Documentation references different timeout values for different reconnection scenarios without explaining why they differ: \"Visitor page navigation: 5 min expiry\" (edge case #7), \"Agent page refresh: 10s grace period\" (edge case #8), \"Server restart: 30s to reconnect\" (edge case #9), \"RECONNECT_TIMEOUT: 30s\" (error states). The different durations for seemingly similar scenarios (page refresh vs server restart) could confuse developers or lead to inconsistent behavior expectations.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add explanatory notes in doc for why each timeout differs (e.g., visitor localStorage token is async vs agent WebSocket is sync)",
+        "Normalize to consistent timeout values where technically feasible",
+        "Create a \"Timeout Reference\" table consolidating all timeout values with rationale",
+        "Skip - developers can infer from context"
+      ],
+      "agent_recommendation": "Option 3 (timeout reference table) - consolidates all timing values in one place for easier maintenance",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add explanatory notes in doc for why each timeout differs (e.g., visitor localStorage token is async vs agent WebSocket is sync)",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Normalize to consistent timeout values where technically feasible",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Create a \"Timeout Reference\" table consolidating all timeout values with rationale",
+          "recommended": true
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - developers can infer from context",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-772",
+      "feature": "Call Lifecycle",
+      "category": "P-call-lifecycle",
+      "title": "Expected Call Volume Undefined for Capacity Planning",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions #2",
+      "issue": "Open Question #2 asks: \"What's the expected call volume? - In-memory Maps scale with server memory; may need Redis at scale for horizontal scaling.\" Without defined volume expectations or thresholds, there's no guidance on when to trigger scaling decisions or what \"at scale\" means numerically.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Define expected volume thresholds (e.g., \"current architecture supports ~500 concurrent calls per server\")",
+        "Add monitoring/alerting for concurrent call count approaching limits",
+        "Proactively implement Redis-backed state for horizontal scaling readiness",
+        "Skip - premature optimization, address when problems arise"
+      ],
+      "agent_recommendation": "Option 2 (add monitoring) - provides data for future decisions without premature optimization",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Define expected volume thresholds (e.g., \"current architecture supports ~500 concurrent calls per server\")",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Add monitoring/alerting for concurrent call count approaching limits",
+          "recommended": true
+        },
+        {
+          "id": "option_3",
+          "label": "Proactively implement Redis-backed state for horizontal scaling readiness",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - premature optimization, address when problems arise",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-773",
+      "feature": "Call Lifecycle",
+      "category": "P-call-lifecycle",
+      "title": "Graceful Shutdown Still Marked as Planned",
+      "severity": "medium",
+      "location": "Section 7 - First Principles Review, Future Enhancements table",
+      "issue": "Documentation shows: \"Graceful Shutdown | Drain pending calls before server restart (for planned deploys) | Server shutdown handler | 🔜 Planned\". During deployments, pending calls (visitors in ring state) could be dropped without notification if server doesn't drain cleanly. While client-side retry (Option E) mitigates for widget, there's still potential for poor UX during planned deploys.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement SIGTERM handler that waits for pending calls to resolve before shutdown",
+        "Implement SIGTERM handler that notifies pending callers with \"server maintenance\" message before forcing disconnect",
+        "Accept current behavior with client-side retry as sufficient mitigation",
+        "Skip - deploys are rare enough that impact is minimal"
+      ],
+      "agent_recommendation": "Option 2 (notify with maintenance message) - provides better UX than silent disconnect during planned maintenance",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement SIGTERM handler that waits for pending calls to resolve before shutdown",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Implement SIGTERM handler that notifies pending callers with \"server maintenance\" message before forcing disconnect",
+          "recommended": true
+        },
+        {
+          "id": "option_3",
+          "label": "Accept current behavior with client-side retry as sufficient mitigation",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - deploys are rare enough that impact is minimal",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-774",
+      "feature": "Call Lifecycle",
+      "category": "P-call-lifecycle",
+      "title": "Missing Scenario: Degraded Network Quality During Call",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases",
+      "issue": "Edge cases #12 and #13 cover complete disconnection scenarios (\"Agent disconnects during call\", \"Visitor disconnects during call\") but don't address degraded connection quality. WebRTC calls with high packet loss or latency could result in poor audio/video quality without triggering disconnect handling. Users may experience frozen video or choppy audio with no feedback on the issue.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add connection quality monitoring with visual indicators (e.g., \"Poor connection\" warning)",
+        "Document expected WebRTC behavior during degraded conditions and rely on browser defaults",
+        "Add automatic quality adaptation (lower resolution/bitrate) when quality degrades",
+        "Skip - WebRTC handles quality adaptation internally"
+      ],
+      "agent_recommendation": "Option 1 (quality indicators) - gives users context when experiencing issues, low implementation cost",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add connection quality monitoring with visual indicators (e.g., \"Poor connection\" warning)",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Document expected WebRTC behavior during degraded conditions and rely on browser defaults",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add automatic quality adaptation (lower resolution/bitrate) when quality degrades",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - WebRTC handles quality adaptation internally",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-775",
+      "feature": "Call Lifecycle",
+      "category": "P-call-lifecycle",
+      "title": "State Definition Table Incomplete for Agent States",
+      "severity": "low",
+      "location": "Section 2 - State Definitions table, Agent Status States diagram",
+      "issue": "The \"State Definitions\" table only documents visitor states (browsing, watching_simulation, call_requested, in_call). However, the \"Agent Status States During Call\" diagram shows additional states (away, idle, in_simulation, in_call) that are not defined in the table. This inconsistency could confuse developers trying to understand the complete state model.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add a separate \"Agent State Definitions\" table after the existing table",
+        "Combine both visitor and agent states into one comprehensive table with a \"Type\" column",
+        "Add a note clarifying that agent states are covered in the related RNA Timeout feature doc",
+        "Skip - the diagram is self-explanatory"
+      ],
+      "agent_recommendation": "Option 1 (separate agent table) - keeps visitor/agent concerns separate while documenting all states",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add a separate \"Agent State Definitions\" table after the existing table",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Combine both visitor and agent states into one comprehensive table with a \"Type\" column",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add a note clarifying that agent states are covered in the related RNA Timeout feature doc",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - the diagram is self-explanatory",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-776",
+      "feature": "Call Lifecycle",
+      "category": "P-call-lifecycle",
+      "title": "Code Reference Line Numbers May Become Stale",
+      "severity": "low",
+      "location": "Section 8 - Code References",
+      "issue": "Documentation includes specific line number references like \"279-380\" for CALL_REQUEST handler, \"687-775\" for CALL_ACCEPT handler, etc. These line numbers will become stale as the codebase evolves, leading to incorrect references and developer confusion when line numbers no longer match.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Use function/method name references instead of line numbers",
+        "Add a script to validate line references during doc updates",
+        "Use relative descriptions (e.g., \"search for CALL_REQUEST handler\") instead of exact lines",
+        "Skip - developers can search for function names anyway"
+      ],
+      "agent_recommendation": "Option 1 (function name references) - function names are stable identifiers that survive refactoring",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Use function/method name references instead of line numbers",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Add a script to validate line references during doc updates",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Use relative descriptions (e.g., \"search for CALL_REQUEST handler\") instead of exact lines",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - developers can search for function names anyway",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-777",
+      "feature": "Call Lifecycle",
+      "category": "P-call-lifecycle",
+      "title": "Missing Scenario: Browser/Tab Close During Call",
+      "severity": "low",
+      "location": "Section 4 - Edge Cases",
+      "issue": "Edge case #13 covers \"Visitor disconnects during call\" with trigger \"Network loss\", but doesn't explicitly address deliberate browser/tab close. While likely the same code path, developers may wonder: Does beforeunload fire? Is there a chance to show \"Leave call?\" confirmation? Is cleanup different from network loss?",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add explicit edge case for browser/tab close with confirmation dialog option",
+        "Add note to edge case #13 clarifying that browser close is handled identically to network disconnect",
+        "Implement beforeunload handler with \"You are in a call\" warning",
+        "Skip - behavior is implicitly covered by disconnect handling"
+      ],
+      "agent_recommendation": "Option 2 (clarifying note) - documents the behavior without adding new functionality",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add explicit edge case for browser/tab close with confirmation dialog option",
+          "recommended": false
+        },
+        {
+          "id": "option_2",
+          "label": "Add note to edge case #13 clarifying that browser close is handled identically to network disconnect",
+          "recommended": true
+        },
+        {
+          "id": "option_3",
+          "label": "Implement beforeunload handler with \"You are in a call\" warning",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - behavior is implicitly covered by disconnect handling",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-778",
+      "feature": "Call Lifecycle",
+      "category": "P-call-lifecycle",
+      "title": "Call Quality Metrics Not Tracked",
+      "severity": "medium",
+      "location": "Section 3 - Triggers & Events, Section 6 - Technical Concerns",
+      "issue": "Documentation covers call completion status in call_logs (pending, accepted, rejected, completed) but doesn't mention capturing call quality metrics (connection time, audio/video quality stats, packet loss, reconnection count). Without quality metrics, there's no visibility into whether calls are succeeding technically even when they complete normally.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Add WebRTC stats collection (getStats API) and log quality metrics to call_logs",
+        "Add quality metrics as a separate analytics table for detailed analysis",
+        "Implement a post-call quality rating prompt for subjective feedback",
+        "Skip - call completion is sufficient metric for now"
+      ],
+      "agent_recommendation": "Option 1 (WebRTC stats to call_logs) - provides objective quality data without new infrastructure",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Add WebRTC stats collection (getStats API) and log quality metrics to call_logs",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Add quality metrics as a separate analytics table for detailed analysis",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Implement a post-call quality rating prompt for subjective feedback",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - call completion is sufficient metric for now",
+          "recommended": false
         }
       ]
     }

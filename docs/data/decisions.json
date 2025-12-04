@@ -3,7 +3,28 @@
     {
       "finding_id": "F-001",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ Already covered by TKT-001 (Co-Browse Sensitive Data Sanitization). Marking resolved.",
+          "timestamp": "2025-12-04T19:30:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "⚠️ Data mismatch detected - decision label does not match finding. Skipped. Finding is about cache TTL, but decision was for sanitization. Please review manually.",
+          "timestamp": "2025-12-04T21:15:43.589Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 Closing thread - original decision was for wrong finding (data mismatch). F-001 (cache TTL) remains pending for future review.",
+          "timestamp": "2025-12-04T22:53:14.566Z"
+        },
+        {
+          "role": "system",
+          "text": "📋 Thread closed (duplicate/data mismatch). F-001 (cache TTL) not addressed by this decision.",
+          "timestamp": "2025-12-04T23:30:00.000Z"
+        }
+      ],
       "decision": {
         "option_id": "implement_strict",
         "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
@@ -14,7 +35,28 @@
     {
       "finding_id": "F-001",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ Already covered by TKT-001 (Co-Browse Sensitive Data Sanitization). Marking resolved.",
+          "timestamp": "2025-12-04T19:30:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "⚠️ Data mismatch detected - decision label does not match finding. Skipped. Finding is about cache TTL, but decision was for sanitization. Please review manually.",
+          "timestamp": "2025-12-04T21:15:43.589Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 Closing thread - original decision was for wrong finding (data mismatch). F-001 (cache TTL) remains pending for future review.",
+          "timestamp": "2025-12-04T22:53:14.566Z"
+        },
+        {
+          "role": "system",
+          "text": "📋 Thread closed (duplicate/data mismatch). F-001 (cache TTL) not addressed by this decision.",
+          "timestamp": "2025-12-04T23:30:00.000Z"
+        }
+      ],
       "decision": {
         "option_id": "implement_strict",
         "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
@@ -24,14 +66,26 @@
     },
     {
       "finding_id": "F-003",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-001 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.368Z"
+        }
+      ],
       "decision": null
     },
     {
       "finding_id": "F-003",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-001 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.368Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -57,6 +111,16 @@
           "role": "system",
           "text": "📖 TKT-055 created for co-browse loading state. Marking resolved.",
           "timestamp": "2025-12-04T12:00:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "✅ TKT-052 created for co-browse loading state. Easy fix, ~2 hours work.",
+          "timestamp": "2025-12-04T19:30:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "✅ Already ticketed as TKT-052. Thread resolved.",
+          "timestamp": "2025-12-04T21:15:43.615Z"
         }
       ],
       "decision": {
@@ -106,7 +170,13 @@
     {
       "finding_id": "F-007",
       "status": "resolved",
-      "messages": [],
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ Ticket TKT-053 created for iframe content handling. Marking resolved.",
+          "timestamp": "2025-12-04T21:26:31.410Z"
+        }
+      ],
       "decision": {
         "option_id": "implement_fix",
         "option_label": "For same-origin iframes, attempt recursive DOM capture. For cross-origin iframes, show clear visual indicator \"Embedded content - not visible to agent\" instead of blank space. Document limitation prominently in admin setup.",
@@ -116,7 +186,7 @@
     },
     {
       "finding_id": "F-008",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -132,6 +202,11 @@
           "role": "system",
           "text": "📖 Big payloads = 3 problems: (1) **Slower updates** - takes longer to send, so agent sees laggy screen updates. (2) **Higher bandwidth costs** - more data = more money for hosting. (3) **Mobile/slow connections struggle** - visitors on 3G or bad wifi get choppy experience. For canvas capture, each chart image might add 50-200KB. If page has 5 charts, that's potentially 1MB extra per update. **Trade-off:** Worth it if your customers use chart-heavy dashboards; skip if most sites are simple forms. Want to implement, skip, or make it opt-in per org?",
           "timestamp": "2025-12-04T12:00:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 Got it - skipping canvas capture for now. Can revisit if chart-heavy dashboards become common.",
+          "timestamp": "2025-12-04T19:30:00.000Z"
         }
       ],
       "decision": {
@@ -159,6 +234,16 @@
           "role": "system",
           "text": "📖 **Only cobrowse quality** - they're completely separate streams. Video call uses WebRTC (direct peer-to-peer video), while cobrowse sends DOM snapshots over WebSocket. They don't share bandwidth or compete with each other. So: Big DOM = laggy screen-sharing view, but video call stays crisp. The compression fix would only improve the cobrowse side. Want to proceed with implementing gzip compression for cobrowse?",
           "timestamp": "2025-12-04T12:00:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 **Only cobrowse quality** - they're completely separate streams. Video call uses WebRTC (direct peer-to-peer video), while cobrowse sends DOM snapshots over WebSocket. They don't share bandwidth or compete with each other. So: Big DOM = laggy screen-sharing view, but video call stays crisp. Want to proceed with implementing gzip compression for cobrowse?",
+          "timestamp": "2025-12-04T12:00:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "✅ Approved! Created TKT-051 for gzip compression on co-browse DOM snapshots. This will reduce payload size by ~70% and improve performance on slow connections.",
+          "timestamp": "2025-12-04T19:30:00.000Z"
         }
       ],
       "decision": {
@@ -204,8 +289,14 @@
     },
     {
       "finding_id": "F-024",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-011 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -283,7 +374,7 @@
     },
     {
       "finding_id": "F-021",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -294,6 +385,11 @@
           "role": "system",
           "text": "📖 **Call logs, not recordings.** This is about the dashboard table showing call history - who called, when, duration, outcome, etc. Currently capped at 500 rows. Recordings are stored separately in Supabase storage with their own retention (TKT-013 handles that). This finding is: admins can't see calls older than their most recent 500. Fix = add pagination so they can browse all history. Should we implement pagination for call logs?",
           "timestamp": "2025-12-04T12:00:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "✅ Already covered by TKT-034 (Call Logs Pagination for Performance). Marking resolved.",
+          "timestamp": "2025-12-04T23:45:00.000Z"
         }
       ],
       "decision": {
@@ -305,7 +401,7 @@
     },
     {
       "finding_id": "F-022",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -333,8 +429,14 @@
     },
     {
       "finding_id": "F-024",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-011 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -432,9 +534,14 @@
     },
     {
       "finding_id": "F-037",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix - acceptable risk",
+        "recommended": false,
+        "timestamp": "2025-12-04T19:23:12.449Z"
+      }
     },
     {
       "finding_id": "F-038",
@@ -577,7 +684,18 @@
     {
       "finding_id": "F-061",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ Already covered by TKT-002 (Complete Stripe Subscription Cancellation). Marking resolved.",
+          "timestamp": "2025-12-04T19:30:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "✅ Already ticketed as TKT-002. Thread resolved.",
+          "timestamp": "2025-12-04T21:15:43.616Z"
+        }
+      ],
       "decision": {
         "option_id": "combined",
         "option_label": "Combined ticket: Stripe Cancellation Not Implemented",
@@ -593,14 +711,26 @@
     },
     {
       "finding_id": "F-062",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-002 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
       "finding_id": "F-063",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-013 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -999,8 +1129,14 @@
     },
     {
       "finding_id": "F-128",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-014 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -1197,14 +1333,26 @@
     },
     {
       "finding_id": "F-161",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-015 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
       "finding_id": "F-162",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-016 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -1257,14 +1405,26 @@
     },
     {
       "finding_id": "F-171",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-017 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
       "finding_id": "F-172",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-024 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -1407,8 +1567,14 @@
     },
     {
       "finding_id": "F-196",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-018 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -1545,8 +1711,14 @@
     },
     {
       "finding_id": "F-219",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-019 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -1594,7 +1766,28 @@
     {
       "finding_id": "F-001",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ Already covered by TKT-001 (Co-Browse Sensitive Data Sanitization). Marking resolved.",
+          "timestamp": "2025-12-04T19:30:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "⚠️ Data mismatch detected - decision label does not match finding. Skipped. Finding is about cache TTL, but decision was for sanitization. Please review manually.",
+          "timestamp": "2025-12-04T21:15:43.589Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 Closing thread - original decision was for wrong finding (data mismatch). F-001 (cache TTL) remains pending for future review.",
+          "timestamp": "2025-12-04T22:53:14.566Z"
+        },
+        {
+          "role": "system",
+          "text": "📋 Thread closed (duplicate/data mismatch). F-001 (cache TTL) not addressed by this decision.",
+          "timestamp": "2025-12-04T23:30:00.000Z"
+        }
+      ],
       "decision": {
         "option_id": "implement_strict",
         "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
@@ -1692,8 +1885,14 @@
     },
     {
       "finding_id": "F-241",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-020 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -1758,14 +1957,26 @@
     },
     {
       "finding_id": "F-252",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-022 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
       "finding_id": "F-253",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-023 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -1949,14 +2160,26 @@
     },
     {
       "finding_id": "F-283",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-004 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
       "finding_id": "F-284",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-004 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -2043,8 +2266,14 @@
     },
     {
       "finding_id": "F-297",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-005 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -2177,14 +2406,26 @@
     },
     {
       "finding_id": "F-315",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-002 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.373Z"
+        }
+      ],
       "decision": null
     },
     {
       "finding_id": "F-316",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-003 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.373Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -2958,8 +3199,14 @@
     },
     {
       "finding_id": "F-024",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-011 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.372Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -3581,6 +3828,11 @@
           "role": "human",
           "text": "In the signup flow, I wanted people to be able to go through Upsell Flow, et cetera., before having to verify their email. So it's for conversions, but think through this, and give me a couple of options of what you propose.",
           "timestamp": "2025-12-04T05:45:16.202Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 Smart approach for conversions! Here are 3 options:\n\n**Option A: Delayed Verification (Recommended)**\n- Let user complete signup + upsell flow unverified\n- Show verification reminder in dashboard header\n- Block sensitive actions (inviting agents, billing) until verified\n- Auto-send verification email after 24hrs if not done\n\n**Option B: Soft Gate After Upsell**\n- Complete signup → upsell → THEN require email verification\n- User sees \"Almost there! Check email to activate your account\"\n- Dashboard access only after verification\n\n**Option C: Full Access, Later Lockout**\n- Full access for 7 days unverified\n- After 7 days, block access until verified\n- Risk: Some users never verify\n\n**My take:** Option A gives best of both worlds - conversions stay high, and you gate risky actions. Which direction?",
+          "timestamp": "2025-12-04T22:53:14.566Z"
         }
       ],
       "decision": {
@@ -3628,8 +3880,14 @@
     },
     {
       "finding_id": "F-523",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-007 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.373Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -4334,8 +4592,14 @@
     },
     {
       "finding_id": "F-631",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-006 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.374Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -4551,8 +4815,14 @@
     },
     {
       "finding_id": "F-655",
-      "status": "pending",
-      "messages": [],
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "system",
+          "text": "✅ TKT-001 created. Marking resolved.",
+          "timestamp": "2025-12-04T21:08:21.374Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -5037,6 +5307,11 @@
           "role": "system",
           "text": "✅ Yes, code works fine for paused users! The issue is just that the STATE DIAGRAM (a picture in the docs) forgot to show the \"paused\" box. The actual code handles paused correctly. **This is a docs-only issue.** Skip it unless you want perfect documentation.",
           "timestamp": "2025-12-04T06:35:17.260Z"
+        },
+        {
+          "role": "system",
+          "text": "✅ Code works correctly. This is a docs-only issue (state diagram missing paused state). Low priority. Marking resolved.",
+          "timestamp": "2025-12-04T21:16:38.606Z"
         }
       ],
       "decision": {
@@ -5246,6 +5521,197 @@
         "custom_note": "lets use maxmind. but also make sure we are ONLY running IP checking on pages were widget is present (agent available) so we arent wasting money",
         "timestamp": "2025-12-04T05:51:29.783Z"
       }
+    },
+    {
+      "finding_id": "F-745",
+      "status": "resolved",
+      "messages": [],
+      "decision": {
+        "option_id": "option_1",
+        "option_label": "Expand sanitization to include cc-number, tel, ssn, and autocomplete-sensitive fields in the documented fix",
+        "recommended": true,
+        "timestamp": "2025-12-04T21:33:33.594Z"
+      }
+    },
+    {
+      "finding_id": "F-749",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-750",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-751",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-752",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-753",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-754",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-755",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-756",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-757",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-758",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-759",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-760",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-761",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-762",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-763",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-764",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-765",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-766",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-767",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-768",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-769",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-770",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-771",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-772",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-773",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-774",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-775",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-776",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-777",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "F-778",
+      "status": "pending",
+      "messages": [],
+      "decision": null
     }
   ]
 }

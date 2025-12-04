@@ -6254,9 +6254,23 @@
 - **Suggested Fix:** Add SSL expiry alerts to all HTTPS monitors, or document why only Dashboard needs it (e.g., "Railway and Supabase manage their own certs").
 - **Human Decision:** ⏳ PENDING
 
+#### 13. Health Endpoint Response Format is Completely Wrong
+- **Category:** Logic Issue
+- **Severity:** Critical
+- **Location:** Section "Monitor 2: Signaling Server Health" and "Quick Reference - Health Check Response Format"
+- **Issue:** The documentation claims the health endpoint returns `{"status": "ok", ...}` and configures Monitor 2 with `Expected Response Body Contains: "ok"` and `JSON Path: $.status Expected Value: ok`. However, the actual `/health` endpoint in `apps/server/src/index.ts` returns `{"status": "healthy" | "unhealthy" | "degraded", ...}`. This is a fundamental documentation error. If monitoring is configured as documented, Monitor 2 will immediately show the service as DOWN because the response contains "healthy" not "ok", causing false positive alerts from day one.
+- **Options:**
+  1. Update documentation to reflect actual response format - change all references of `"status": "ok"` to `"status": "healthy"` and update monitor configuration to validate for "healthy"
+  2. Update the server code to return `"status": "ok"` for backwards compatibility - not recommended as it breaks the semantic meaning of health states
+  3. Add a legacy compatibility endpoint `/health-legacy` that returns the old format - unnecessary complexity
+  4. Skip - not worth fixing
+- **Recommendation:** Option 1 - Documentation must match actual behavior. The monitor validation should check for `$.status = "healthy"` or simply validate HTTP 200 response.
+- **Human Decision:** ⏳ PENDING
+- **Note:** *Added on 2025-12-04 during re-review - original review did not verify against codebase*
+
 ### Summary
-- **Total Findings:** 12
-- **Critical:** 1
+- **Total Findings:** 13
+- **Critical:** 2
 - **High:** 1
 - **Medium:** 5
 - **Low:** 5
@@ -6604,6 +6618,10 @@
 - **High:** 0
 - **Medium:** 6
 - **Low:** 7
+
+---
+
+## V-widget-lifecycle - Widget Lifecycle
 
 **Reviewed:** 2025-12-03
 **Doc File:** `docs/features/visitor/widget-lifecycle.md`
@@ -7077,3 +7095,538 @@ TEST APPEND Wed Dec  3 15:59:50 MST 2025
 - **High:** 3
 - **Medium:** 7
 - **Low:** 4
+
+---
+
+## A5 - Co-Browse Viewer
+
+**Reviewed:** 2025-12-04
+**Doc File:** `docs/features/agent/cobrowse-viewer.md`
+**Review Agent:** Review Agent 3
+
+### Findings
+
+#### 1. Password Fields Captured in DOM Snapshots
+- **Category:** Documented Issue
+- **Severity:** Critical
+- **Location:** Section 4 Edge Case #7, Section 6 Security, Section 7 Identified Issues, Section 10 Open Question #1
+- **Issue:** Documentation explicitly flags: "Password fields visible in DOM" with 🔴 High severity. The DOM snapshot includes form input values. While `<input type="password">` visually obscures the password, the `value` attribute is present in the serialized HTML. This is a privacy/security risk where agents could see visitor passwords.
+- **Options:**
+  1. Implement password sanitization as documented - add `input.setAttribute("value", "••••••••")` for all password fields before serialization
+  2. Remove value attributes entirely from password fields - `input.removeAttribute("value")`
+  3. Skip password field elements entirely from DOM snapshot
+  4. Skip - accept risk (not recommended for production)
+- **Recommendation:** Option 1 - Replace with masked value as documented, maintains visual context while protecting data
+- **Human Decision:** ⏳ PENDING
+
+#### 2. Sensitive Field Sanitization Incomplete
+- **Category:** Logic Issue
+- **Severity:** High
+- **Location:** Section 6 Security, "Security Gaps" subsection, "Recommended Mitigations" code block
+- **Issue:** The security section identifies multiple sensitive field types (credit cards, personal data, session tokens) but the recommended code fix only masks password inputs. The code comment mentions "Consider also masking: input[type="tel"], input[autocomplete="cc-number"], Elements with data-sensitive="true"" but this is just a comment, not implemented guidance. Credit card fields could expose full card numbers to agents.
+- **Options:**
+  1. Expand sanitization to include cc-number, tel, ssn, and autocomplete-sensitive fields in the documented fix
+  2. Create a configurable sanitization list per organization (allow admins to define sensitive selectors)
+  3. Document as known limitation and rely on customer-side sanitization via data-sensitive attribute
+  4. Skip - only mask passwords, accept risk for other fields
+- **Recommendation:** Option 1 - Include common sensitive field patterns in the standard sanitization; credit cards are too high risk to ignore
+- **Human Decision:** ⏳ PENDING
+
+#### 3. No Loading State Before First Snapshot
+- **Category:** UX Concern
+- **Severity:** Medium
+- **Location:** Section 5 UI/UX Review "Call starts" row, Section 7 Identified Issues
+- **Issue:** When agent answers call, Section 5 notes "Could show loading state" and Section 7 identifies: "No loading state - Agent sees stale/blank before first snapshot". The first DOM snapshot takes 2+ seconds to arrive. During this time, agent sees either blank space or placeholder with no indication that content is loading.
+- **Options:**
+  1. Add explicit "Loading visitor's screen..." message with spinner until first snapshot arrives
+  2. Show skeleton loader that matches expected viewport dimensions
+  3. Show last snapshot from previous call if same visitor (cached state)
+  4. Skip - placeholder message "Visitor's screen will appear here" is sufficient
+- **Recommendation:** Option 1 - Simple loading state sets correct expectation and confirms feature is working
+- **Human Decision:** ⏳ PENDING
+
+#### 4. Iframe Content Not Captured
+- **Category:** Documented Issue
+- **Severity:** Medium
+- **Location:** Section 4 Edge Case #4, Section 7 Identified Issues, Section 10 Open Question #3
+- **Issue:** Documentation notes: "Visitor has iframe → iframe not captured → ⚠️". Open Question #3 asks: "How should iframe content be handled?" Cross-origin iframes cannot be captured (CORS), same-origin could theoretically be captured but aren't. Embedded content like payment forms, maps, or videos in iframes appear as blank boxes to agents.
+- **Options:**
+  1. Implement recursive capture for same-origin iframes only, document cross-origin as unsupported
+  2. Capture iframe as placeholder with URL shown to agent ("Embedded content: https://...")
+  3. Attempt cross-origin capture where allowed, fall back to placeholder
+  4. Skip - document as known limitation, iframes remain blank
+- **Recommendation:** Option 2 - Showing the iframe URL gives agent context without complex implementation
+- **Human Decision:** ⏳ PENDING
+
+#### 5. Canvas Elements Appear Blank
+- **Category:** Documented Issue
+- **Severity:** Medium
+- **Location:** Section 4 Edge Case #5, Section 7 Identified Issues, Section 10 Open Question #4
+- **Issue:** Documentation shows: "Visitor has canvas → Canvas shows blank → ⚠️". Charts, graphs, and interactive visualizations using canvas are invisible to agents. Open Question #4 asks if canvas.toDataURL() should be used but notes it "Would add significant complexity and size."
+- **Options:**
+  1. Implement canvas.toDataURL() conversion before DOM serialization - convert canvas to inline image
+  2. Show placeholder for canvas elements with dimensions shown ("Chart area: 400x300px")
+  3. Make canvas capture optional/configurable per org (some sites are canvas-heavy)
+  4. Skip - document as known limitation, charts remain blank
+- **Recommendation:** Option 1 for simple canvases - toDataURL is straightforward and charts are high-value context for agents
+- **Human Decision:** ⏳ PENDING
+
+#### 6. No Visitor Privacy Toggle for Co-Browse
+- **Category:** Missing Scenario
+- **Severity:** Medium
+- **Location:** Section 10 Open Question #2
+- **Issue:** Open Question #2 states: "Should there be a 'co-browse disabled' option? Some visitors might prefer privacy during calls. No toggle currently exists - cobrowse is automatic." Visitors have no way to prevent their screen from being shared during a call. This could be a privacy concern or compliance issue (GDPR right to privacy, sensitive personal matters).
+- **Options:**
+  1. Add visitor-facing toggle in widget call UI: "Allow agent to see my screen" (default on)
+  2. Add org-level setting to disable co-browse entirely for compliance-sensitive orgs
+  3. Add visitor consent prompt before co-browse activates ("Allow screen sharing?")
+  4. Skip - keep automatic, document that visitors are informed via privacy policy
+- **Recommendation:** Option 1 - Give visitors control while keeping feature on by default for best UX
+- **Human Decision:** ⏳ PENDING
+
+#### 7. Large DOM Snapshots Not Compressed or Chunked
+- **Category:** Technical Debt
+- **Severity:** Medium
+- **Location:** Section 4 Edge Case #2, Section 6 Performance
+- **Issue:** Edge case #2 notes: "Large DOM (>1MB) → Sent as-is, may lag → ⚠️". Section 6 Performance lists "No compression" as Medium risk. Complex e-commerce or SaaS pages with many elements could cause latency spikes or socket buffer issues. No chunking, compression, or delta encoding is implemented.
+- **Options:**
+  1. Implement gzip compression on socket payloads before transmission
+  2. Implement delta encoding - only send changed DOM nodes after initial snapshot
+  3. Add DOM size limit with graceful degradation ("Page too complex for full view")
+  4. Skip - most pages are small enough, optimize later if needed
+- **Recommendation:** Option 1 - Compression is standard practice and relatively simple to add
+- **Human Decision:** ⏳ PENDING
+
+#### 8. Screen Reader Accessibility Gap
+- **Category:** UX Concern
+- **Severity:** Low
+- **Location:** Section 5 Accessibility table
+- **Issue:** Accessibility section shows: "Screen reader: ⚠️ Could add aria-label for viewer". The CobrowseViewer component has no ARIA attributes to describe the live view to screen reader users. While agent dashboard isn't primary accessibility target, blind agents using screen readers get no context about the viewer.
+- **Options:**
+  1. Add aria-label="Live view of visitor's screen" and aria-live="polite" for updates
+  2. Add descriptive text alternative that reads viewport dimensions and page title
+  3. Add full screen reader support with DOM content narration
+  4. Skip - view-only feature, screen reader support low priority
+- **Recommendation:** Option 1 - Minimal effort for basic accessibility compliance
+- **Human Decision:** ⏳ PENDING
+
+#### 9. Snapshot Interval Hardcoded
+- **Category:** Missing Scenario
+- **Severity:** Low
+- **Location:** Section 10 Open Question #5, Section 2 High-Level Flow
+- **Issue:** Open Question #5 asks: "Is 2-second snapshot interval optimal? Could be org-configurable in the future." Currently hardcoded. High-bandwidth orgs might want faster updates (1s), bandwidth-constrained environments might need slower (5s). No flexibility exists.
+- **Options:**
+  1. Make interval configurable per-org via admin settings (COBROWSE_SNAPSHOT_INTERVAL_MS)
+  2. Make interval adaptive based on DOM size and network conditions
+  3. Keep 2s default, add widget-level override via embed code parameter
+  4. Skip - 2s is reasonable for all use cases
+- **Recommendation:** Option 4 for now - premature optimization; revisit if customers report issues
+- **Human Decision:** ⏳ PENDING
+
+#### 10. MutationObserver "Significant Change" Filter Undefined
+- **Category:** Confusing User Story
+- **Severity:** Low
+- **Location:** Section 4 Edge Case #3, Section 6 Performance
+- **Issue:** Edge case #3 mentions: "Frequent DOM changes → MutationObserver triggers → ✅ Debouncing via significant change filter". Section 6 says "Significant change filter helps". But neither section defines what constitutes a "significant change". It's unclear if this filters by node count, attribute changes, text changes, or something else.
+- **Options:**
+  1. Document the specific algorithm used for significant change detection (e.g., "More than 10 node mutations or text content change")
+  2. Reference the specific code lines that implement the filter
+  3. Add configuration options for the filter threshold
+  4. Skip - implementation detail, not user-facing
+- **Recommendation:** Option 1 - Document the algorithm for developer clarity
+- **Human Decision:** ⏳ PENDING
+
+#### 11. Memory Accumulation with Repeated Iframe Writes
+- **Category:** Technical Debt
+- **Severity:** Low
+- **Location:** Section 6 Performance, "Memory in iframe" row
+- **Issue:** Performance section notes: "Memory in iframe: New iframe content each snapshot → 🟡 Medium risk → Could diff and patch". Writing full HTML to iframe document every 2 seconds may cause memory accumulation in long calls. Browser may not properly garbage collect replaced DOM trees.
+- **Options:**
+  1. Implement DOM diffing/patching instead of full replacement (virtual DOM approach)
+  2. Periodically recreate the iframe element to force garbage collection
+  3. Monitor memory usage and add warning if call exceeds threshold
+  4. Skip - browser handles this adequately, monitor in production
+- **Recommendation:** Option 4 - Monitor first before optimizing; may not be a real issue
+- **Human Decision:** ⏳ PENDING
+
+#### 12. Cross-Origin Resources May Fail Silently
+- **Category:** Technical Debt
+- **Severity:** Low
+- **Location:** Section 6 Security, "Cross-origin resources" row
+- **Issue:** Security section notes: "Cross-origin resources: Converted to absolute URLs → ✅ Safe → May fail for CORS-restricted resources". If visitor's page loads images or stylesheets from CORS-restricted CDNs, agent's view will show broken images or missing styles with no indication why. Agent sees degraded view without understanding the cause.
+- **Options:**
+  1. Show placeholder icon for failed resource loads ("Image failed to load")
+  2. Pre-fetch resources on server and serve from same origin
+  3. Add visual indicator when resources are blocked ("Some content may not display")
+  4. Skip - rare edge case, accept degraded view
+- **Recommendation:** Option 3 - Simple warning banner if any resources fail to load
+- **Human Decision:** ⏳ PENDING
+
+#### 13. Documentation Date Incorrect
+- **Category:** Inconsistency
+- **Severity:** Low
+- **Location:** End of document, footer line
+- **Issue:** Document footer states: "Last updated: 2024-12-03" but current date is December 2025. This is either a typo (should be 2025) or the document is almost a year old without updates.
+- **Options:**
+  1. Update date to 2025-12-03 (assuming typo)
+  2. Update date to current date when changes are made
+  3. Add automated date update on file save
+  4. Skip - cosmetic issue only
+- **Recommendation:** Option 1 - Fix the typo to maintain documentation credibility
+- **Human Decision:** ⏳ PENDING
+
+### Summary
+- **Total Findings:** 13
+- **Critical:** 1
+- **High:** 1
+- **Medium:** 5
+- **Low:** 6
+
+---
+
+## V5 - Co-Browse Sender (Supplementary Review)
+
+**Reviewed:** 2025-12-04
+**Doc File:** `docs/features/visitor/cobrowse-sender.md`
+**Review Agent:** Review Agent 10 (Code Verification Pass)
+**Note:** This is a supplementary review following code verification of the original 2025-12-03 review. Original 11 findings were verified as accurate.
+
+### Findings
+
+#### 1. Documentation Code Reference Line Numbers Incorrect
+- **Category:** Technical Debt
+- **Severity:** Low
+- **Location:** Section 8 - CODE REFERENCES, Widget integration row
+- **Issue:** Documentation states Widget.tsx integration is at "Lines 420-424" but code verification shows the `useCobrowse` hook invocation is actually at lines 450-454. The code reference is off by approximately 30 lines, likely due to code additions since documentation was written.
+- **Options:**
+  1. Update line reference to 450-454 and add note about lines being approximate
+  2. Remove line numbers entirely from code references (just reference file)
+  3. Add automated line number verification script to CI
+  4. Skip - line numbers drift naturally, readers can search for function names
+- **Recommendation:** Option 1 - Update to current lines 450-454; line numbers add value for quick navigation
+- **Human Decision:** ⏳ PENDING
+
+#### 2. Missing Server Rate Limit for cobrowse:selection Event
+- **Category:** Inconsistency
+- **Severity:** Low
+- **Location:** Section 3 - Server-Side Rate Limiting table; `apps/server/src/features/signaling/socket-rate-limit.ts`
+- **Issue:** Documentation Section 3 shows server-side rate limits for `cobrowse:snapshot`, `cobrowse:mouse`, and `cobrowse:scroll`, but not for `cobrowse:selection`. Code verification confirms `socket-rate-limit.ts` lines 36-38 only configure those three events. The `cobrowse:selection` event bypasses rate limiting entirely. While selection events are less frequent than mouse events, a malicious or buggy client could flood the server with selection events.
+- **Options:**
+  1. Add rate limit for cobrowse:selection (e.g., 30/minute - text selection is infrequent)
+  2. Document that selection is intentionally not rate-limited and why
+  3. Group selection under existing scroll rate limit (similar frequency pattern)
+  4. Skip - selection events are rare enough to not need limiting
+- **Recommendation:** Option 1 - Add conservative rate limit (30/min) for consistency and defense-in-depth
+- **Human Decision:** ⏳ PENDING
+
+#### 3. MutationObserver May Still Trigger Excessive Snapshots on Animated Pages
+- **Category:** Logic Issue
+- **Severity:** Low
+- **Location:** Section 3 - Throttling/Debouncing Strategy; `apps/widget/src/features/cobrowse/useCobrowse.ts` lines 251-279
+- **Issue:** Code verification shows the MutationObserver triggers `captureSnapshot()` immediately (no debounce) when it detects "significant" changes. The filter considers ANY `class` or `style` attribute change as significant (lines 260-265). On pages with CSS animations or JavaScript-driven class toggles, this can trigger dozens of snapshots per second, bypassing the 2-second interval protection. The snapshot has a change-detection check (line 101-104) but the DOM clone operation at line 42 still runs every time.
+- **Options:**
+  1. Add debounce/throttle to MutationObserver callback (e.g., 500ms)
+  2. Use more selective mutation filtering (ignore known animation classes)
+  3. Rate-limit calls to captureSnapshot() itself regardless of trigger source
+  4. Skip - the change-detection prevents duplicate sends, performance impact is minimal
+- **Recommendation:** Option 3 - Add internal throttle to captureSnapshot() (e.g., 1 snapshot per 500ms max) as defense against all rapid-fire triggers
+- **Human Decision:** ⏳ PENDING
+
+### Summary
+- **Total Findings:** 3
+- **Critical:** 0
+- **High:** 0
+- **Medium:** 0
+- **Low:** 3
+
+### Code Verification Notes
+The following original findings were verified through code inspection:
+- ✅ **Finding 1 (Password Fields):** Confirmed - `captureSnapshot()` at lines 37-122 has no password masking logic
+- ✅ **Finding 2 (No Visitor Awareness):** Confirmed - Widget.tsx has no screen-sharing indicator UI
+- ✅ **Finding 3 (No Payload Size):** Confirmed - No size check before `emit()` at line 118
+- ✅ **Finding 4-5 (Rate Limit Mismatch):** Confirmed - Client throttles differ from server rate limits
+- ✅ **Finding 6 (Socket Disconnect):** Confirmed - No local buffering implemented
+- ✅ **Finding 7 (No Opt-Out):** Confirmed - useCobrowse has no disable mechanism
+- ✅ **Finding 8 (Significant Changes):** Verified filtering logic at lines 255-267
+- ✅ **Constant Values:** COBROWSE_TIMING at constants.ts lines 40-72 matches documentation
+
+---
+
+## P5 - WebRTC Signaling
+
+**Reviewed:** 2025-12-04
+**Doc File:** `docs/features/platform/webrtc-signaling.md`
+**Review Agent:** Review Agent 8
+
+### Findings
+
+#### 1. State Diagram Shows Reconnecting State But No Reconnect Logic Exists
+- **Category:** Inconsistency
+- **Severity:** Medium
+- **Location:** Section 2 - State Machine vs Section 4 - Edge Cases #7 vs Section 7 - Identified Issues
+- **Issue:** The state diagram in Section 2 shows a clear transition path: `Disconnected → Reconnecting → Connected` with "ICE restart attempt" as the trigger. However, Edge Case #7 explicitly notes "Network drops mid-call" has "No explicit reconnect logic" marked with ⚠️, and Section 7 Identified Issues confirms "No explicit network recovery" as a Medium severity issue. The state machine promises behavior that is not implemented.
+- **Options:**
+  1. Implement ICE restart logic to match the state diagram - when `connectionState` becomes "disconnected", attempt `peerConnection.restartIce()` with timeout before transitioning to Failed
+  2. Remove the Reconnecting state from the diagram and update to: `Disconnected → Failed` directly after timeout
+  3. Add the Reconnecting state to code but only for visual feedback, not actual recovery attempt
+  4. Skip - acknowledge discrepancy in documentation as aspirational
+- **Recommendation:** Option 1 - Implement what the diagram promises; ICE restart is a standard WebRTC recovery mechanism
+- **Human Decision:** ⏳ PENDING
+
+#### 2. No Fallback Handling If ALL ICE Servers Fail
+- **Category:** Missing Scenario
+- **Severity:** Medium
+- **Location:** Section 10 - Open Question Q-P5-004
+- **Issue:** Q-P5-004 asks: "What happens if BOTH STUN servers and ALL TURN servers fail? Should there be a fallback to notify the user that video calling is unavailable?" The current ICE server array includes 6 servers, but if Metered.live has an outage and Google STUN is blocked (e.g., China), there's no graceful degradation. User would see generic connection error with no actionable guidance.
+- **Options:**
+  1. Add additional STUN/TURN server providers for redundancy (e.g., Twilio STUN, Xirsys TURN)
+  2. Detect when all candidates fail and show specific error: "Video calling is temporarily unavailable. Please try again later or contact support."
+  3. Add health check endpoint that tests ICE server availability before initiating calls
+  4. Skip - unlikely scenario, current error handling is sufficient
+- **Recommendation:** Option 2 - Specific error messaging improves UX when infrastructure fails; adding more servers (Option 1) is also worthwhile
+- **Human Decision:** ⏳ PENDING
+
+#### 3. No Explicit ICE Restart on Network Transitions
+- **Category:** Documented Issue
+- **Severity:** Medium
+- **Location:** Section 7 - Identified Issues row 2, Section 10 - Open Question Q-P5-001
+- **Issue:** Documentation explicitly flags: "No explicit network recovery - Mid-call network changes may not recover" with Medium severity. Q-P5-001 confirms: "connectionState === 'disconnected' is logged but not explicitly handled with ICE restart." When a user switches from WiFi to cellular mid-call (common mobile scenario), the connection may fail instead of seamlessly transitioning.
+- **Options:**
+  1. Implement `peerConnection.restartIce()` when `connectionState` transitions to "disconnected" with exponential backoff retry
+  2. Implement connection monitoring that detects network changes via `navigator.connection` and proactively restarts ICE
+  3. Show "Reconnecting..." UI during disconnected state with manual retry button if auto-recovery fails
+  4. Skip - most users don't switch networks mid-call
+- **Recommendation:** Option 1 - ICE restart is the standard WebRTC approach and straightforward to implement
+- **Human Decision:** ⏳ PENDING
+
+#### 4. TURN Credentials Exposed in Client Bundle
+- **Category:** Documented Issue
+- **Severity:** Low
+- **Location:** Section 6 - Technical Concerns - Security, Section 7 - Identified Issues row 1, Section 10 - Q-P5-003
+- **Issue:** Section 6 explicitly flags: "TURN credentials: Hardcoded in client code (visible in bundle) ⚠️" with mitigation "Metered.live credentials are per-domain restricted." Q-P5-003 asks about implementing "short-lived tokens via server-side credential vending." While domain restriction mitigates abuse risk, credentials visible in DevTools could be extracted and used if domain restriction is bypassed.
+- **Options:**
+  1. Implement server-side credential vending - dashboard/widget requests short-lived TURN credentials from server before initiating WebRTC
+  2. Rotate Metered.live credentials periodically (monthly) to limit exposure window
+  3. Add rate limiting on Metered.live dashboard to detect credential abuse
+  4. Skip - domain restriction is sufficient protection
+- **Recommendation:** Option 2 - Periodic rotation is low-effort security hygiene; Option 1 is better but higher implementation cost
+- **Human Decision:** ⏳ PENDING
+
+#### 5. ICE Server Configuration Duplicated Between Widget and Dashboard
+- **Category:** Documented Issue
+- **Severity:** Low
+- **Location:** Section 7 - Identified Issues row 3, Section 10 - Q-P5-002
+- **Issue:** Identified Issues notes: "Widget/dashboard ICE config duplicated - Maintenance burden, could drift." Q-P5-002 suggests centralizing in `@ghost-greeter/domain`. Currently, any ICE server changes require coordinated updates to both `apps/widget/src/features/webrtc/useWebRTC.ts` and `apps/dashboard/src/features/webrtc/use-webrtc.ts`. Drift could cause one party to fail while the other succeeds.
+- **Options:**
+  1. Extract `ICE_SERVERS` constant to `@ghost-greeter/domain` package and import in both apps
+  2. Fetch ICE configuration from server at runtime (allows dynamic updates without deploy)
+  3. Create shared `@ghost-greeter/webrtc-config` package for all WebRTC constants
+  4. Skip - configuration rarely changes, manual sync is acceptable
+- **Recommendation:** Option 1 - Minimal change, prevents drift, follows existing monorepo patterns
+- **Human Decision:** ⏳ PENDING
+
+#### 6. Connection State Feedback May Lag Behind Reality
+- **Category:** UX Concern
+- **Severity:** Low
+- **Location:** Section 7 - First Principles Review point 3, Section 5 - UI/UX Review "Connection lost" row
+- **Issue:** First Principles Review notes: "Connection state changes: May lag 1-2s behind reality." Section 5 UI/UX Review shows "Connection lost" row marked ⚠️ with "Status may not update immediately." Users may continue speaking into a dead connection without realizing it, or miss the first 1-2 seconds of restored connection.
+- **Options:**
+  1. Add more frequent connection health checks using `RTCPeerConnection.getStats()` to detect quality degradation before full disconnect
+  2. Show "Reconnecting..." indicator immediately when any ICE/connection state change is detected
+  3. Add audio/visual cue (brief sound or screen flash) when connection state changes
+  4. Skip - 1-2s lag is acceptable for most use cases
+- **Recommendation:** Option 2 - Immediate visual feedback sets correct user expectations
+- **Human Decision:** ⏳ PENDING
+
+#### 7. Connection Timeout Callback May Not Fire in All Error Paths
+- **Category:** Logic Issue
+- **Severity:** Low
+- **Location:** Section 7 - Identified Issues row 4
+- **Issue:** Identified Issues notes: "Connection timeout callback not always called - `onConnectionTimeout` prop but may not fire in all failure modes." The 30-second timeout (WEBRTC_CONNECTION_TIMEOUT = 30000) may not trigger if failure happens through non-timeout paths (e.g., immediate ICE failure, permission error). Callers relying on this callback for cleanup may have dangling state.
+- **Options:**
+  1. Ensure `onConnectionTimeout` fires for ALL terminal error states (rename to `onConnectionError`)
+  2. Add separate callbacks: `onConnectionTimeout`, `onConnectionFailed`, `onMediaError` for granular handling
+  3. Document which error paths trigger the callback and which don't
+  4. Skip - callers should use `isConnected` state for cleanup logic
+- **Recommendation:** Option 1 - Single unified error callback is simpler for callers; rename clarifies behavior
+- **Human Decision:** ⏳ PENDING
+
+#### 8. Server Restart Ends Active Calls Without Notification
+- **Category:** Documented Issue
+- **Severity:** Low
+- **Location:** Section 4 - Edge Cases #13
+- **Issue:** Edge Case #13 notes: "Server restart during call - Socket disconnects, call ends" with comment "Call reconnection is separate feature." When the signaling server restarts for deployment or crash recovery, active calls terminate immediately. Users see abrupt disconnection with no explanation that it was server-side.
+- **Options:**
+  1. Implement call reconnection feature that preserves WebRTC connection across socket reconnects
+  2. Show specific error message when socket disconnects server-side: "Server is restarting. Please wait..."
+  3. Add graceful shutdown that notifies connected clients before restart
+  4. Skip - server restarts are rare and brief; standard error handling is sufficient
+- **Recommendation:** Option 3 - Graceful shutdown is standard practice for production systems
+- **Human Decision:** ⏳ PENDING
+
+### Summary
+- **Total Findings:** 8
+- **Critical:** 0
+- **High:** 0
+- **Medium:** 3
+- **Low:** 5
+
+---
+
+## P-call-lifecycle - Call Lifecycle
+
+**Reviewed:** 2025-12-04
+**Doc File:** `docs/features/platform/call-lifecycle.md`
+**Review Agent:** Review Agent 6
+
+### Findings
+
+#### 1. callLogIds Map Not Persistent Across Server Restarts
+- **Category:** Documented Issue
+- **Severity:** Medium
+- **Location:** Section 6 - Technical Concerns, Issue 2
+- **Issue:** Documentation explicitly flags: "The mapping from requestId/callId to database call_logs.id is in-memory. On server restart: New calls won't link to old call_logs entries. This could cause orphaned database records." While the doc marks this as "Low" impact affecting only analytics, orphaned database records could accumulate over time and complicate debugging/auditing.
+- **Options:**
+  1. Query database by reconnect_token to relink callLogIds on reconnection - as suggested in doc's Identified Issues section
+  2. Store the mapping in Redis for persistence across restarts
+  3. Accept the current behavior and add a cleanup job for orphaned call_logs entries
+  4. Skip - analytics gaps are acceptable
+- **Recommendation:** Option 1 (query by reconnect_token) - minimal implementation change, no new infrastructure required
+- **Human Decision:** ⏳ PENDING
+
+#### 2. No Widget-Side Debounce on Call Button
+- **Category:** Documented Issue
+- **Severity:** Low
+- **Location:** Section 6 - Technical Concerns, Issue 3; Section 4 - Edge Case #18
+- **Issue:** Documentation states: "Looking at the widget code, there's no explicit debounce on the Call button. The server handles duplicate requests by cleaning up existing calls, but this could cause unnecessary server load and race conditions." Edge case #18 is marked with ⚠️: "Double-click on Call button | Rapid clicks | Server handles via existing call cleanup | ⚠️ | No widget-side debounce visible"
+- **Options:**
+  1. Add 1-second debounce on Call button click in widget
+  2. Disable button immediately on click, re-enable on state change
+  3. Use both debounce and disable for defense in depth
+  4. Skip - server already handles this gracefully
+- **Recommendation:** Option 2 (disable on click) - provides immediate visual feedback and prevents duplicates without arbitrary delay
+- **Human Decision:** ⏳ PENDING
+
+#### 3. Accessibility Not Verified for Call UI
+- **Category:** UX Concern
+- **Severity:** Medium
+- **Location:** Section 5 - UI/UX Review, Accessibility subsection
+- **Issue:** Three accessibility items are explicitly marked as unverified: "Keyboard navigation: ⚠️ Not verified", "Screen reader support: ⚠️ Not verified", "Color contrast: ⚠️ Not verified". Only loading states are confirmed working. The call UI is a critical user-facing feature; accessibility gaps could exclude users with disabilities.
+- **Options:**
+  1. Conduct accessibility audit of both widget and dashboard call UI components
+  2. Add ARIA labels and keyboard handlers for call button, accept/reject modal, and call controls
+  3. Document that accessibility is out of scope for MVP, add to future roadmap
+  4. Skip - low priority given current user base
+- **Recommendation:** Option 2 (add ARIA labels and keyboard handlers) - core accessibility can be added incrementally without full audit
+- **Human Decision:** ⏳ PENDING
+
+#### 4. Multiple Reconnection Timeouts Without Clear Rationale
+- **Category:** Confusing User Story
+- **Severity:** Low
+- **Location:** Section 4 - Edge Cases (#7, #8, #9), Section 4 - Error States (RECONNECT_TIMEOUT)
+- **Issue:** Documentation references different timeout values for different reconnection scenarios without explaining why they differ: "Visitor page navigation: 5 min expiry" (edge case #7), "Agent page refresh: 10s grace period" (edge case #8), "Server restart: 30s to reconnect" (edge case #9), "RECONNECT_TIMEOUT: 30s" (error states). The different durations for seemingly similar scenarios (page refresh vs server restart) could confuse developers or lead to inconsistent behavior expectations.
+- **Options:**
+  1. Add explanatory notes in doc for why each timeout differs (e.g., visitor localStorage token is async vs agent WebSocket is sync)
+  2. Normalize to consistent timeout values where technically feasible
+  3. Create a "Timeout Reference" table consolidating all timeout values with rationale
+  4. Skip - developers can infer from context
+- **Recommendation:** Option 3 (timeout reference table) - consolidates all timing values in one place for easier maintenance
+- **Human Decision:** ⏳ PENDING
+
+#### 5. Expected Call Volume Undefined for Capacity Planning
+- **Category:** Documented Issue
+- **Severity:** Medium
+- **Location:** Section 10 - Open Questions #2
+- **Issue:** Open Question #2 asks: "What's the expected call volume? - In-memory Maps scale with server memory; may need Redis at scale for horizontal scaling." Without defined volume expectations or thresholds, there's no guidance on when to trigger scaling decisions or what "at scale" means numerically.
+- **Options:**
+  1. Define expected volume thresholds (e.g., "current architecture supports ~500 concurrent calls per server")
+  2. Add monitoring/alerting for concurrent call count approaching limits
+  3. Proactively implement Redis-backed state for horizontal scaling readiness
+  4. Skip - premature optimization, address when problems arise
+- **Recommendation:** Option 2 (add monitoring) - provides data for future decisions without premature optimization
+- **Human Decision:** ⏳ PENDING
+
+#### 6. Graceful Shutdown Still Marked as Planned
+- **Category:** Documented Issue
+- **Severity:** Medium
+- **Location:** Section 7 - First Principles Review, Future Enhancements table
+- **Issue:** Documentation shows: "Graceful Shutdown | Drain pending calls before server restart (for planned deploys) | Server shutdown handler | 🔜 Planned". During deployments, pending calls (visitors in ring state) could be dropped without notification if server doesn't drain cleanly. While client-side retry (Option E) mitigates for widget, there's still potential for poor UX during planned deploys.
+- **Options:**
+  1. Implement SIGTERM handler that waits for pending calls to resolve before shutdown
+  2. Implement SIGTERM handler that notifies pending callers with "server maintenance" message before forcing disconnect
+  3. Accept current behavior with client-side retry as sufficient mitigation
+  4. Skip - deploys are rare enough that impact is minimal
+- **Recommendation:** Option 2 (notify with maintenance message) - provides better UX than silent disconnect during planned maintenance
+- **Human Decision:** ⏳ PENDING
+
+#### 7. Missing Scenario: Degraded Network Quality During Call
+- **Category:** Missing Scenario
+- **Severity:** Medium
+- **Location:** Section 4 - Edge Cases
+- **Issue:** Edge cases #12 and #13 cover complete disconnection scenarios ("Agent disconnects during call", "Visitor disconnects during call") but don't address degraded connection quality. WebRTC calls with high packet loss or latency could result in poor audio/video quality without triggering disconnect handling. Users may experience frozen video or choppy audio with no feedback on the issue.
+- **Options:**
+  1. Add connection quality monitoring with visual indicators (e.g., "Poor connection" warning)
+  2. Document expected WebRTC behavior during degraded conditions and rely on browser defaults
+  3. Add automatic quality adaptation (lower resolution/bitrate) when quality degrades
+  4. Skip - WebRTC handles quality adaptation internally
+- **Recommendation:** Option 1 (quality indicators) - gives users context when experiencing issues, low implementation cost
+- **Human Decision:** ⏳ PENDING
+
+#### 8. State Definition Table Incomplete for Agent States
+- **Category:** Inconsistency
+- **Severity:** Low
+- **Location:** Section 2 - State Definitions table, Agent Status States diagram
+- **Issue:** The "State Definitions" table only documents visitor states (browsing, watching_simulation, call_requested, in_call). However, the "Agent Status States During Call" diagram shows additional states (away, idle, in_simulation, in_call) that are not defined in the table. This inconsistency could confuse developers trying to understand the complete state model.
+- **Options:**
+  1. Add a separate "Agent State Definitions" table after the existing table
+  2. Combine both visitor and agent states into one comprehensive table with a "Type" column
+  3. Add a note clarifying that agent states are covered in the related RNA Timeout feature doc
+  4. Skip - the diagram is self-explanatory
+- **Recommendation:** Option 1 (separate agent table) - keeps visitor/agent concerns separate while documenting all states
+- **Human Decision:** ⏳ PENDING
+
+#### 9. Code Reference Line Numbers May Become Stale
+- **Category:** Technical Debt
+- **Severity:** Low
+- **Location:** Section 8 - Code References
+- **Issue:** Documentation includes specific line number references like "279-380" for CALL_REQUEST handler, "687-775" for CALL_ACCEPT handler, etc. These line numbers will become stale as the codebase evolves, leading to incorrect references and developer confusion when line numbers no longer match.
+- **Options:**
+  1. Use function/method name references instead of line numbers
+  2. Add a script to validate line references during doc updates
+  3. Use relative descriptions (e.g., "search for CALL_REQUEST handler") instead of exact lines
+  4. Skip - developers can search for function names anyway
+- **Recommendation:** Option 1 (function name references) - function names are stable identifiers that survive refactoring
+- **Human Decision:** ⏳ PENDING
+
+#### 10. Missing Scenario: Browser/Tab Close During Call
+- **Category:** Missing Scenario
+- **Severity:** Low
+- **Location:** Section 4 - Edge Cases
+- **Issue:** Edge case #13 covers "Visitor disconnects during call" with trigger "Network loss", but doesn't explicitly address deliberate browser/tab close. While likely the same code path, developers may wonder: Does beforeunload fire? Is there a chance to show "Leave call?" confirmation? Is cleanup different from network loss?
+- **Options:**
+  1. Add explicit edge case for browser/tab close with confirmation dialog option
+  2. Add note to edge case #13 clarifying that browser close is handled identically to network disconnect
+  3. Implement beforeunload handler with "You are in a call" warning
+  4. Skip - behavior is implicitly covered by disconnect handling
+- **Recommendation:** Option 2 (clarifying note) - documents the behavior without adding new functionality
+- **Human Decision:** ⏳ PENDING
+
+#### 11. Call Quality Metrics Not Tracked
+- **Category:** Missing Scenario
+- **Severity:** Medium
+- **Location:** Section 3 - Triggers & Events, Section 6 - Technical Concerns
+- **Issue:** Documentation covers call completion status in call_logs (pending, accepted, rejected, completed) but doesn't mention capturing call quality metrics (connection time, audio/video quality stats, packet loss, reconnection count). Without quality metrics, there's no visibility into whether calls are succeeding technically even when they complete normally.
+- **Options:**
+  1. Add WebRTC stats collection (getStats API) and log quality metrics to call_logs
+  2. Add quality metrics as a separate analytics table for detailed analysis
+  3. Implement a post-call quality rating prompt for subjective feedback
+  4. Skip - call completion is sufficient metric for now
+- **Recommendation:** Option 1 (WebRTC stats to call_logs) - provides objective quality data without new infrastructure
+- **Human Decision:** ⏳ PENDING
+
+### Summary
+- **Total Findings:** 11
+- **Critical:** 0
+- **High:** 0
+- **Medium:** 6
+- **Low:** 5

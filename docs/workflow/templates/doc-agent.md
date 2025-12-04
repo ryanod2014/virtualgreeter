@@ -59,10 +59,12 @@ Follow the exact format in `docs/workflow/DOC_AGENT_SOP.md`.
 
 ## When Done
 
-Append completion entry to `docs/DOC_TRACKER.md` with:
+Write completion entry to `docs/agent-output/doc-tracker/[FEATURE-ID]-[TIMESTAMP].md` with:
 - Status: COMPLETE
 - Doc File location
 - Count of scenarios documented
 - Count of edge cases documented
 - Timestamp
+
+The PM Dashboard automatically aggregates all doc agent completions.
 

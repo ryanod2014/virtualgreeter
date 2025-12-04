@@ -168,6 +168,25 @@ function main() {
     console.log(`   ↳ Auto-resolved ${autoResolved} option selections\n`);
   }
 
+  // Cleanup: Fix threads stuck in "in_discussion" when finding is already processed
+  let cleanedUp = 0;
+  for (const thread of decisions.threads) {
+    if (thread.status !== 'in_discussion') continue;
+    
+    const finding = findingsMap.get(thread.finding_id);
+    if (!finding) continue;
+    
+    // If finding is already ticketed or skipped, thread should be resolved
+    if (finding.status === 'ticketed' || finding.status === 'skipped') {
+      thread.status = 'resolved';
+      cleanedUp++;
+      console.log(`🧹 Cleaned up ${thread.finding_id}: finding already ${finding.status}, thread now resolved`);
+    }
+  }
+  if (cleanedUp > 0) {
+    writeJSON('decisions.json', decisions);
+  }
+
   let newTicketsCount = 0;
   let updatedFindingsCount = 0;
 
@@ -186,8 +205,8 @@ function main() {
       continue;
     }
 
-    // Skip if already has a ticket
-    if (finding.status === 'ticketed' || existingTicketSources.has(findingId)) {
+    // Skip if already has a ticket or was explicitly skipped
+    if (finding.status === 'ticketed' || finding.status === 'skipped' || existingTicketSources.has(findingId)) {
       continue;
     }
 
@@ -206,6 +225,24 @@ function main() {
       finding.status = 'skipped';
       updatedFindingsCount++;
       console.log(`⏭️  Skipped ${findingId}: ${thread.decision.option_label || 'No action needed'}`);
+      continue;
+    }
+
+    // Detect skip phrases in custom notes
+    const skipPhrases = ['skip', 'dont need', "don't need", 'no need', 'not needed', 'wont fix', "won't fix", 'already have ticket', 'already covered'];
+    if (thread.decision.custom_note) {
+      const note = thread.decision.custom_note.toLowerCase();
+      if (skipPhrases.some(phrase => note.includes(phrase))) {
+        finding.status = 'skipped';
+        updatedFindingsCount++;
+        console.log(`⏭️  Skipped ${findingId}: Custom note indicates skip/existing coverage`);
+        continue;
+      }
+    }
+
+    // Detect questions (not decisions) - don't create tickets for unanswered questions
+    if (thread.decision.custom_note?.trim().endsWith('?')) {
+      console.log(`❓ Skipped ${findingId}: Custom note is a question, not a decision`);
       continue;
     }
 

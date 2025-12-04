@@ -12,7 +12,8 @@
 | File | Purpose |
 |------|---------|
 | `docs/data/tickets.json` | All tickets with full details (source of truth) |
-| `docs/DEV_BLOCKED.md` | Blocked dev agents awaiting decisions |
+| `docs/data/findings.json` | Blocked dev agents (type: "blocker") awaiting decisions |
+| `docs/agent-output/completions/` | Dev agent completion reports (auto-aggregated) |
 | `docs/workflow/templates/ticket-schema.json` | Required ticket fields |
 | `docs/workflow/templates/dev-ticket.md` | Ticket creation template |
 | `docs/workflow/DEV_AGENT_SOP.md` | Dev agent instructions |
@@ -25,8 +26,13 @@ Execute these steps **in order** every PM session:
 
 ### Phase 1: Check Blocked Queue
 
+Blockers are now stored in `docs/data/findings.json` with `type: "blocker"`.
+
 ```bash
-cat docs/DEV_BLOCKED.md
+# Check for blockers in findings.json
+cat docs/data/findings.json | grep -A5 '"type": "blocker"'
+
+# Or use the dashboard at http://localhost:3456
 ```
 
 **For each blocked agent:**
@@ -50,7 +56,7 @@ Check for dev agent completion reports:
 
 ```bash
 ls docs/prompts/active/   # Active agents
-cat docs/agent-inbox/completions.md   # If using inbox pattern
+ls docs/agent-output/completions/  # Dev completion reports (auto-aggregated by dashboard)
 ```
 
 **For each COMPLETE status:**
@@ -462,6 +468,18 @@ After QA approval:
 mv docs/prompts/active/dev-agent-TKT-XXX*.md docs/prompts/archive/
 git add docs/prompts/
 git commit -m "docs: archive completed dev prompt TKT-XXX"
+```
+
+### Archive Agent Outputs
+
+After processing completions, archive or delete the per-agent output files:
+
+```bash
+# Archive processed completion reports
+mv docs/agent-output/completions/*.md docs/agent-output/archive/
+
+# Or delete if not needed for history
+rm docs/agent-output/completions/*.md
 ```
 
 ---

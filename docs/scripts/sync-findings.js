@@ -32,7 +32,8 @@ function parseReviewFindings(content) {
     const line = lines[i];
     
     // Match feature section header: ## A-cobrowse-viewer - Co-Browse Viewer
-    const featureMatch = line.match(/^## ([A-Za-z0-9-]+) - (.+)$/);
+    // Also supports underscores in section IDs (e.g., M-UPTIME_MONITORING)
+    const featureMatch = line.match(/^## ([A-Za-z0-9_-]+) - (.+)$/);
     if (featureMatch) {
       currentCategory = featureMatch[1];
       currentFeature = featureMatch[2];

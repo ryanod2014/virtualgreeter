@@ -78,6 +78,65 @@ function scanFeaturesDir(dir, basePath = '') {
   return features;
 }
 
+// Scan agent-output directories for per-agent files
+// This aggregates outputs from multiple agents running in parallel
+function scanAgentOutputs() {
+  const AGENT_OUTPUT_DIR = path.join(DOCS_DIR, 'agent-output');
+  const outputs = {
+    reviews: [],
+    completions: [],
+    blocked: [],
+    docTracker: []
+  };
+  
+  const subdirs = {
+    'reviews': 'reviews',
+    'completions': 'completions',
+    'blocked': 'blocked',
+    'doc-tracker': 'docTracker'
+  };
+  
+  for (const [dirName, outputKey] of Object.entries(subdirs)) {
+    const dirPath = path.join(AGENT_OUTPUT_DIR, dirName);
+    
+    try {
+      if (!fs.existsSync(dirPath)) continue;
+      
+      const files = fs.readdirSync(dirPath)
+        .filter(f => f.endsWith('.md') && f !== '.gitkeep' && f !== 'README.md');
+      
+      for (const file of files) {
+        const filePath = path.join(dirPath, file);
+        const stat = fs.statSync(filePath);
+        
+        try {
+          const content = fs.readFileSync(filePath, 'utf8');
+          outputs[outputKey].push({
+            fileName: file,
+            filePath: `docs/agent-output/${dirName}/${file}`,
+            content: content,
+            modifiedAt: stat.mtime.toISOString(),
+            // Extract ID from filename (e.g., "D-routing-rules-2025-12-04T1430.md" -> "D-routing-rules")
+            id: file.replace(/-\d{4}-\d{2}-\d{2}T\d+\.md$/, '').replace(/\.md$/, '')
+          });
+        } catch (e) {
+          console.error(`Error reading ${filePath}:`, e.message);
+        }
+      }
+      
+      // Sort by modification time (newest first)
+      outputs[outputKey].sort((a, b) => 
+        new Date(b.modifiedAt) - new Date(a.modifiedAt)
+      );
+      
+    } catch (e) {
+      console.error(`Error scanning ${dirPath}:`, e.message);
+    }
+  }
+  
+  return outputs;
+}
+
 // Handle API requests
 function handleAPI(req, res, body) {
   const url = req.url;
@@ -93,13 +152,23 @@ function handleAPI(req, res, body) {
       console.error('Error scanning features:', e.message);
     }
     
+    // Scan agent-output directories for per-agent files (auto-aggregation)
+    let agentOutputs = { reviews: [], completions: [], blocked: [], docTracker: [] };
+    try {
+      agentOutputs = scanAgentOutputs();
+    } catch (e) {
+      console.error('Error scanning agent outputs:', e.message);
+    }
+    
     const data = {
       findings: readJSON('findings.json'),
       decisions: readJSON('decisions.json'),
       tickets: readJSON('tickets.json'),
       summary: readJSON('findings-summary.json'),
       devStatus: readJSON('dev-status.json'),
-      featuresList
+      featuresList,
+      // Aggregated agent outputs (prevents race conditions with multiple agents)
+      agentOutputs
     };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));
@@ -265,6 +334,9 @@ server.listen(PORT, () => {
 ║   Features:                                            ║
 ║   • Auto-saves decisions (no copy/paste!)              ║
 ║   • Loads data from docs/data/*.json                   ║
+║   • Auto-aggregates agent outputs from:                ║
+║     docs/agent-output/{reviews,completions,blocked,    ║
+║     doc-tracker}/*.md                                  ║
 ║                                                        ║
 ║   Press Ctrl+C to stop                                 ║
 ║                                                        ║

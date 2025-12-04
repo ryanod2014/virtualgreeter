@@ -3,7 +3,7 @@
     "last_updated": "2025-12-04",
     "version": "2.0",
     "schema": "docs/workflow/templates/ticket-schema.json",
-    "total_tickets": 40
+    "total_tickets": 47
   },
   "tickets": [
     {
@@ -13,7 +13,7 @@
       "feature": "Co-Browse (Viewer + Sender)",
       "status": "ready",
       "difficulty": "medium",
-      "source": "Findings A-cobrowse-viewer #1, #2; V-cobrowse-sender #1",
+      "source": "Findings A-cobrowse-viewer #1, #2; V-cobrowse-sender #1 [F-227, F-003, F-228, F-655, F-745]",
       "issue": "Password fields, credit card numbers, and other sensitive data are captured in DOM snapshots and transmitted to agents during co-browse sessions. This exposes plaintext passwords, violates PCI compliance, and creates privacy risks.",
       "feature_docs": [
         "docs/features/agent/cobrowse-viewer.md",
@@ -66,7 +66,7 @@
       "feature": "Organization Settings, Cancel Subscription",
       "status": "ready",
       "difficulty": "medium",
-      "source": "Findings D-organization-settings #1, #2; B-cancel-subscription #1",
+      "source": "Findings D-organization-settings #1, #2; B-cancel-subscription #1 [F-061, F-062, F-117, F-118, F-315]",
       "issue": "When users cancel their subscription: 1) Code only sets plan='free' in Supabase, 2) Does NOT call Stripe API to cancel, 3) UI says 'access until end of billing period' but access is removed immediately. Customers may continue being charged by Stripe.",
       "feature_docs": [
         "docs/features/billing/cancel-subscription.md",
@@ -121,7 +121,7 @@
       "feature": "Cancel Subscription",
       "status": "ready",
       "difficulty": "easy",
-      "source": "Finding B-cancel-subscription #2",
+      "source": "Finding B-cancel-subscription #2 [F-316]",
       "issue": "Cancel modal warns that data will be 'permanently deleted' but actual behavior just downgrades to free - no data is deleted. This is misleading.",
       "feature_docs": [
         "docs/features/billing/cancel-subscription.md"
@@ -600,7 +600,7 @@
       "feature": "Login Flow / Authentication",
       "status": "ready",
       "difficulty": "easy",
-      "source": "Finding AUTH-login-flow #1",
+      "source": "Finding AUTH-login-flow #1 [F-631]",
       "issue": "Middleware code for protected routes has 'if (isProtectedPath && !user) { return }' but no redirect to login page. Unauthenticated users get blank/error page.",
       "feature_docs": [
         "docs/features/auth/login-flow.md"
@@ -647,7 +647,7 @@
       "feature": "Visitor Reassignment",
       "status": "ready",
       "difficulty": "medium",
-      "source": "Finding P-visitor-reassignment #1",
+      "source": "Finding P-visitor-reassignment #1 [F-171]",
       "issue": "When a visitor is reassigned, findBestAgent() is called WITHOUT the pool ID. A visitor from 'Sales Pool' could be reassigned to 'Support Pool' agent. This defeats pool-based routing.",
       "feature_docs": [
         "docs/features/platform/visitor-reassignment.md",
@@ -748,7 +748,7 @@
       "feature": "Agent Management (Invites)",
       "status": "ready",
       "difficulty": "medium",
-      "source": "Finding D4-agent-management #3",
+      "source": "Finding D4-agent-management #3 [F-024]",
       "issue": "If Resend API fails to send invite email, invite is still created in DB. Admin has no visibility. Invitee waits for email that never arrives.",
       "feature_docs": [
         "docs/features/admin/agent-management.md",
@@ -798,7 +798,7 @@
       "feature": "Organization Settings, Recording Retention",
       "status": "ready",
       "difficulty": "medium",
-      "source": "Finding D-organization-settings #3",
+      "source": "Finding D-organization-settings #3 [F-063]",
       "issue": "When admin reduces retention from 90→30 days, behavior is unclear. Should be retroactive (delete old recordings) with clear warning.",
       "feature_docs": [
         "docs/features/admin/organization-settings.md",
@@ -851,7 +851,7 @@
       "feature": "Recording Settings, Widget",
       "status": "ready",
       "difficulty": "medium",
-      "source": "Finding D-recording-settings #1",
+      "source": "Finding D-recording-settings #1 [F-128, F-669]",
       "issue": "Visitors are recorded with NO indication. No 'This call may be recorded' message. Compliance risk for GDPR, CCPA, two-party consent states.",
       "feature_docs": [
         "docs/features/admin/recording-settings.md",
@@ -903,7 +903,7 @@
       "feature": "Recordings, Storage",
       "status": "ready",
       "difficulty": "hard",
-      "source": "Finding A-agent-active-call #1",
+      "source": "Finding A-agent-active-call #1 [F-161]",
       "issue": "Recording uploads go to public Supabase bucket with predictable URL patterns. Anyone who guesses the pattern can access recordings without auth. HIPAA/GDPR compliance risk.",
       "feature_docs": [
         "docs/features/agent/video-recordings.md"
@@ -955,7 +955,7 @@
       "feature": "Agent Active Call, WebRTC",
       "status": "ready",
       "difficulty": "hard",
-      "source": "Finding A-agent-active-call #2",
+      "source": "Finding A-agent-active-call #2 [F-162]",
       "issue": "When WebRTC connection fails mid-call (network glitch, NAT timeout), agent must manually end and start new call. Customer may be lost.",
       "feature_docs": [
         "docs/features/agent/agent-active-call.md",
@@ -1009,7 +1009,7 @@
       "feature": "Transcription Service",
       "status": "ready",
       "difficulty": "medium",
-      "source": "Finding P-transcription-service #2",
+      "source": "Finding P-transcription-service #2 [F-196, F-317]",
       "issue": "When transcription fails (Deepgram error, timeout), there's no retry mechanism and no UI to manually retry. Failed transcriptions are stuck permanently.",
       "feature_docs": [
         "docs/features/platform/transcription-service.md"
@@ -1061,7 +1061,7 @@
       "feature": "Incoming Call",
       "status": "ready",
       "difficulty": "easy",
-      "source": "Finding A-incoming-call #1",
+      "source": "Finding A-incoming-call #1 [F-219, F-356]",
       "issue": "Incoming call modal shows hardcoded 30-second countdown, but RNA timeout fires at 15 seconds (org-configured). Agents think they have more time and get unexpectedly marked away.",
       "feature_docs": [
         "docs/features/agent/incoming-call.md",
@@ -1108,7 +1108,7 @@
       "feature": "Seat Management",
       "status": "ready",
       "difficulty": "easy",
-      "source": "Finding B-seat-management #1",
+      "source": "Finding B-seat-management #1 [F-252]",
       "issue": "UI caps seats at 50, but API has no validation. Direct API calls could set arbitrarily high seat counts, causing billing issues or system strain.",
       "feature_docs": [
         "docs/features/billing/seat-management.md"
@@ -1155,7 +1155,7 @@
       "feature": "Seat Management",
       "status": "ready",
       "difficulty": "medium",
-      "source": "Finding B-seat-management #2",
+      "source": "Finding B-seat-management #2 [F-253]",
       "issue": "Stripe is updated before DB for seat changes. If DB update fails after Stripe succeeds, customer is charged for seats not reflected in app. Inconsistent state.",
       "feature_docs": [
         "docs/features/billing/seat-management.md"
@@ -1204,7 +1204,7 @@
       "feature": "Visitor Call, Call Lifecycle",
       "status": "ready",
       "difficulty": "hard",
-      "source": "Finding P-visitor-reassignment #2",
+      "source": "Finding P-visitor-reassignment #2 [F-172]",
       "issue": "If visitor disconnects mid-call (browser crash, accidental close), call ends permanently. No way to rejoin. Different from TKT-016 (WebRTC) which handles network blips.",
       "feature_docs": [
         "docs/features/visitor/visitor-call.md",
@@ -1259,7 +1259,7 @@
       "feature": "Public Feedback",
       "status": "ready",
       "difficulty": "easy",
-      "source": "Finding V-public-feedback #1",
+      "source": "Finding V-public-feedback #1 [F-523]",
       "issue": "The 'Public Feedback' feature documentation describes it as 'Post-call feedback for visitors' but the actual feature is a UserVoice-style feature request voting system for authenticated dashboard users.",
       "feature_docs": [
         "docs/features/visitor/public-feedback.md"
@@ -1299,7 +1299,7 @@
       "feature": "Subscription Creation",
       "status": "ready",
       "difficulty": "easy",
-      "source": "Finding B-subscription-creation #2",
+      "source": "Finding B-subscription-creation #2 [F-241]",
       "issue": "When annual or 6-month price IDs aren't configured in environment, system silently falls back to monthly pricing. User selects annual, gets charged monthly rates - billing dispute risk.",
       "feature_docs": [
         "docs/features/billing/subscription-creation.md"
@@ -1344,7 +1344,7 @@
       "feature": "Agent Management",
       "status": "ready",
       "difficulty": "medium",
-      "source": "Finding D4-agent-management #1",
+      "source": "Finding D4-agent-management #1 [F-413]",
       "issue": "When admin removes an agent who's in an active call, the call continues. Creates confusing state - agent marked as 'removed' but still serving visitor.",
       "feature_docs": [
         "docs/features/admin/agent-management.md",
@@ -1393,7 +1393,7 @@
       "feature": "Uptime Monitoring",
       "status": "ready",
       "difficulty": "easy",
-      "source": "Finding M-UPTIME_MONITORING #1",
+      "source": "Finding M-UPTIME_MONITORING #1 [F-643]",
       "issue": "The uptime monitoring setup doc says to use Better Uptime's free tier (3-minute checks) but configures monitors with 1-minute checks (paid tier). Contradictory.",
       "feature_docs": [
         "docs/features/monitoring/UPTIME_MONITORING.md"
@@ -1793,6 +1793,327 @@
         "Manual: Send webhook with unknown status, verify cancelled result"
       ],
       "qa_notes": "Test with mock Stripe webhook containing unknown status."
+    },
+    {
+      "id": "TKT-051",
+      "title": "Add Gzip Compression for Co-Browse DOM Snapshots",
+      "priority": "medium",
+      "difficulty": "medium",
+      "feature": "Co-Browse Viewer",
+      "status": "ready",
+      "source": "Finding F-009",
+      "issue": "Large DOM snapshots (>1MB) are sent uncompressed over WebSocket, causing latency and lag in agent co-browse view on complex pages. Mobile/slow connections suffer most.",
+      "feature_docs": [
+        "docs/features/agent/cobrowse-viewer.md",
+        "docs/features/visitor/cobrowse-sender.md"
+      ],
+      "similar_code": [
+        "apps/widget/src/features/cobrowse/cobrowseSender.ts - existing snapshot transmission"
+      ],
+      "files_to_modify": [
+        "apps/widget/src/features/cobrowse/cobrowseSender.ts",
+        "apps/server/src/features/cobrowse/cobrowseHandler.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx"
+      ],
+      "out_of_scope": [
+        "Do NOT implement delta/diff encoding (separate ticket)",
+        "Do NOT modify canvas capture",
+        "Do NOT change snapshot frequency"
+      ],
+      "fix_required": [
+        "Add gzip compression to DOM snapshot before sending via WebSocket",
+        "Add decompression on server/viewer side",
+        "Add DOM size monitoring to log large payloads"
+      ],
+      "acceptance_criteria": [
+        "DOM snapshots are gzip compressed before transmission",
+        "Server correctly decompresses snapshots",
+        "Agent viewer displays decompressed content correctly",
+        "Payload size reduced by ~70% for typical pages",
+        "Large DOM (>500KB) logged for monitoring"
+      ],
+      "risks": [
+        "Compression adds CPU overhead - test on mobile devices",
+        "Browser compatibility for compression APIs",
+        "Ensure fallback for browsers without CompressionStream"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Load complex page, verify compressed payloads in Network tab"
+      ],
+      "qa_notes": "Test with data-heavy dashboards and chart-heavy pages. Compare payload sizes before/after."
+    },
+    {
+      "id": "TKT-052",
+      "title": "Add Loading State for Co-Browse Viewer",
+      "priority": "low",
+      "difficulty": "easy",
+      "feature": "Co-Browse Viewer",
+      "status": "ready",
+      "source": "Finding F-005",
+      "issue": "Agent sees blank or stale view with no indication that co-browse is initializing. Creates confusion about whether feature is working.",
+      "feature_docs": [
+        "docs/features/agent/cobrowse-viewer.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx - existing viewer component"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT modify snapshot transmission",
+        "Do NOT add reconnection logic"
+      ],
+      "fix_required": [
+        "Add 'Loading visitor's screen...' placeholder with spinner while waiting for first snapshot",
+        "Show 'Updating...' indicator during subsequent refreshes"
+      ],
+      "acceptance_criteria": [
+        "Loading spinner shows while waiting for first snapshot",
+        "Spinner includes 'Loading visitor's screen...' text",
+        "After first snapshot, subtle 'Updating...' indicator on refreshes",
+        "No flicker or blank states"
+      ],
+      "risks": [
+        "Simple UI change - low risk"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Start co-browse, verify loading state displays"
+      ],
+      "qa_notes": "Test on slow connections to verify loading state is visible."
+    },
+    {
+      "id": "TKT-053",
+      "title": "Handle Iframe Content in Co-Browse",
+      "priority": "medium",
+      "difficulty": "medium",
+      "feature": "Co-Browse Viewer",
+      "status": "ready",
+      "source": "Finding F-007",
+      "issue": "Embedded iframe content (payment forms, embedded apps, third-party widgets) appears as empty boxes in agent view. Cross-origin iframes cannot be captured, same-origin iframes are not being recursively captured.",
+      "feature_docs": [
+        "docs/features/agent/cobrowse-viewer.md",
+        "docs/features/visitor/cobrowse-sender.md"
+      ],
+      "similar_code": [
+        "apps/widget/src/features/cobrowse/domSerializer.ts - existing DOM capture logic"
+      ],
+      "files_to_modify": [
+        "apps/widget/src/features/cobrowse/domSerializer.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx"
+      ],
+      "out_of_scope": [
+        "Do NOT attempt to capture cross-origin iframe content (browser security prevents this)",
+        "Do NOT modify CobrowseViewer display logic"
+      ],
+      "fix_required": [
+        "For same-origin iframes, recursively capture iframe document content",
+        "For cross-origin iframes, show placeholder: \"Embedded content - not visible to agent\"",
+        "Add visual indicator styling for iframe placeholders"
+      ],
+      "acceptance_criteria": [
+        "Same-origin iframe content is visible in agent view",
+        "Cross-origin iframes show clear \"Embedded content - not visible\" placeholder",
+        "Placeholder is styled to be visible but non-intrusive",
+        "No errors when encountering iframes in DOM capture"
+      ],
+      "risks": [
+        "Recursive capture may increase payload size for iframe-heavy pages",
+        "Some same-origin iframes may still fail due to CSP restrictions"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Test with page containing same-origin iframe, verify content visible"
+      ],
+      "qa_notes": "Test with payment forms (cross-origin), embedded docs (same-origin), and YouTube embeds (cross-origin)."
+    },
+    {
+      "id": "TKT-054",
+      "title": "Move CSV Export to Web Worker",
+      "priority": "medium",
+      "difficulty": "medium",
+      "feature": "Call Logs",
+      "status": "ready",
+      "source": "Finding F-029",
+      "issue": "CSV generation happens client-side and blocks the UI thread. Large exports (1000+ rows) may freeze the browser and show \"page unresponsive\" warnings.",
+      "feature_docs": [
+        "docs/features/admin/call-logs.md"
+      ],
+      "similar_code": [],
+      "files_to_modify": [
+        "apps/dashboard/src/features/call-logs/exportCSV.ts",
+        "apps/dashboard/src/features/call-logs/csvWorker.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/features/call-logs/CallLogsTable.tsx"
+      ],
+      "out_of_scope": [
+        "Do NOT change CSV format or columns",
+        "Do NOT modify call logs data fetching"
+      ],
+      "fix_required": [
+        "Create Web Worker for CSV generation",
+        "Move row formatting logic to worker",
+        "Show progress indicator during export",
+        "Handle worker errors gracefully"
+      ],
+      "acceptance_criteria": [
+        "Export button remains responsive during CSV generation",
+        "Progress indicator shows export status",
+        "Large exports (5000+ rows) complete without UI freeze",
+        "Error handling shows user-friendly message if export fails"
+      ],
+      "risks": [
+        "Worker bundling may require vite/webpack config changes",
+        "Progress tracking adds complexity"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Export 1000+ rows, verify no UI freeze"
+      ],
+      "qa_notes": "Test with org that has many call logs. Verify export completes and download starts."
+    },
+    {
+      "id": "TKT-059",
+      "title": "Cancelled Calls Have No Audit Trail",
+      "priority": "medium",
+      "feature": "Call Logs",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding F-025",
+      "issue": "When a visitor cancels during ring, the call record is deleted entirely. This prevents admins from understanding visitor behavior patterns (e.g., how often do visitors cancel while waiting?). The deletion leaves no audit trail for debugging or analytics.",
+      "fix_required": [
+        "Custom response",
+        "Note: yah these call should still be logged but logged as \"canceled\""
+      ],
+      "files": [],
+      "risk_notes": [],
+      "acceptance_criteria": [
+        "Issue described in F-025 is resolved",
+        "Change is tested and verified"
+      ]
+    },
+    {
+      "id": "TKT-060",
+      "title": "Platform Admin Route Protection Only \"Assumed\"",
+      "priority": "high",
+      "feature": "Funnel Analytics",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding F-368",
+      "issue": "The security section states \"Platform admin only (route protection assumed)\" without verification. This is a critical analytics dashboard containing sensitive conversion and revenue data. Route protection should be explicitly verified, not assumed.",
+      "fix_required": [
+        "Custom response",
+        "Note: option 1"
+      ],
+      "files": [],
+      "risk_notes": [],
+      "acceptance_criteria": [
+        "Issue described in F-368 is resolved",
+        "Change is tested and verified"
+      ]
+    },
+    {
+      "id": "TKT-061",
+      "title": "Missing Incident Response Runbook",
+      "priority": "high",
+      "feature": "External Uptime Monitoring Setup",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding F-647",
+      "issue": "The document covers how to set up monitoring and receive alerts, but provides no guidance on what to do when an alert fires. There is no incident response runbook linking to debugging steps, rollback procedures, or escalation paths beyond \"call this number\". When a 3 AM alert wakes someone up, they need actionable next steps.",
+      "fix_required": [
+        "Custom response",
+        "Note: sure create a simple 1 pager"
+      ],
+      "files": [],
+      "risk_notes": [],
+      "acceptance_criteria": [
+        "Issue described in F-647 is resolved",
+        "Change is tested and verified"
+      ]
+    },
+    {
+      "id": "TKT-062",
+      "title": "ip-api.com Rate Limit Risk at Scale",
+      "priority": "high",
+      "feature": "Blocklist Settings",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding F-033",
+      "issue": "The geolocation service uses ip-api.com free tier which has a 45 requests/minute limit. Documentation flags this as a concern but no mitigation plan is documented. At scale (45+ unique visitors per minute), geolocation will fail and all visitors will be allowed through (fail-safe), bypassing blocklist entirely.",
+      "fix_required": [
+        "Custom response",
+        "Note: lets use maxmind. but also make sure we are ONLY running IP checking on pages were widget is present (agent available) so we arent wasting money"
+      ],
+      "files": [],
+      "risk_notes": [],
+      "acceptance_criteria": [
+        "Issue described in F-033 is resolved",
+        "Change is tested and verified"
+      ]
+    },
+    {
+      "id": "TKT-063",
+      "title": "5-Minute Cache TTL Trade-off Not Quantified",
+      "priority": "low",
+      "feature": "Decision Legend",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding F-001",
+      "issue": "Documentation asks \"Is 5-minute cache TTL optimal? Trade-off between freshness and DB load could be tuned.\" However, there's no data on actual query volume or cache hit rates to inform this decision. The 5-minute value appears arbitrary.",
+      "fix_required": [
+        "Implement strict sanitization (mask ALL sensitive fields)"
+      ],
+      "files": [],
+      "risk_notes": [],
+      "acceptance_criteria": [
+        "Issue described in F-001 is resolved",
+        "Change is tested and verified"
+      ]
+    },
+    {
+      "id": "TKT-064",
+      "title": "URL Filter is Client-Side Only",
+      "priority": "medium",
+      "feature": "Call Logs",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding F-022",
+      "issue": "Documentation states \"URL filter is client-side | Can't search >500 calls by URL\". The URL filter only works on already-fetched data, meaning users cannot reliably search for calls by URL across their full history.",
+      "fix_required": [
+        "Custom response",
+        "Note: explain this to me"
+      ],
+      "files": [],
+      "risk_notes": [],
+      "acceptance_criteria": [
+        "Issue described in F-022 is resolved",
+        "Change is tested and verified"
+      ]
     }
   ]
 }

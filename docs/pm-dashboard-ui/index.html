@@ -2939,11 +2939,26 @@
                 // Calculate review status per feature from findings
                 // "Reviewed" means review agent ran on this feature (findings exist)
                 // "Triaged" shows how many findings have been processed
-                const getFeatureReviewStatus = (featureName) => {
-                  const featureFindings = findings.filter(f => 
-                    f.feature?.toLowerCase().includes(featureName.toLowerCase()) ||
-                    featureName.toLowerCase().includes(f.feature?.toLowerCase().split(' ')[0] || '')
-                  );
+                const normalize = (str) => (str || '').toLowerCase().replace(/[-\s]/g, '');
+                
+                const getFeatureReviewStatus = (feature) => {
+                  const normalizedName = normalize(feature.name);
+                  const fileName = feature.fileName?.replace('.md', '') || '';
+                  const normalizedFileName = normalize(fileName);
+                  
+                  const featureFindings = findings.filter(finding => {
+                    const normalizedFeature = normalize(finding.feature);
+                    const normalizedCategory = normalize(finding.category);
+                    
+                    // Match by normalized feature name
+                    if (normalizedFeature.includes(normalizedName) || normalizedName.includes(normalizedFeature)) return true;
+                    if (normalizedFeature.includes(normalizedFileName) || normalizedFileName.includes(normalizedFeature)) return true;
+                    
+                    // Match by category (e.g., "A-cobrowse-viewer" matches "cobrowse-viewer.md")
+                    if (normalizedCategory.includes(normalizedFileName) || normalizedFileName.includes(normalizedCategory)) return true;
+                    
+                    return false;
+                  });
                   const triaged = featureFindings.filter(f => f.status === 'ticketed' || f.status === 'skipped').length;
                   const total = featureFindings.length;
                   const reviewed = total > 0; // If findings exist, it was reviewed
@@ -2979,7 +2994,7 @@
                     </div>
                     <div style={{ display: 'grid', gap: '8px' }}>
                       {categoryFeatures.map(feature => {
-                        const reviewStatus = getFeatureReviewStatus(feature.name);
+                        const reviewStatus = getFeatureReviewStatus(feature);
                         return (
                           <div 
                             key={feature.docPath} 
@@ -3370,13 +3385,35 @@
       
       const unreviewedFeatures = useMemo(() => {
         // Features that are documented but have no findings (review agent hasn't run)
+        // Helper: normalize strings for comparison (strip hyphens, spaces, lowercase)
+        const normalize = (str) => (str || '').toLowerCase().replace(/[-\s]/g, '');
+        
         return (featuresList || []).filter(f => {
           if (!f.docPath) return false; // Must be documented first
-          // Check if any findings exist for this feature
-          const hasFindings = findings.some(finding => 
-            finding.feature?.toLowerCase().includes(f.name.toLowerCase()) ||
-            finding.doc?.toLowerCase().includes(f.name.toLowerCase())
-          );
+          const normalizedName = normalize(f.name);
+          const fileName = f.fileName?.replace('.md', '') || '';
+          const normalizedFileName = normalize(fileName);
+          
+          // Check if any findings exist for this feature using multiple matching strategies:
+          // 1. Normalized feature name contains normalized file name (or vice versa)
+          // 2. Category field matches the file path pattern
+          // 3. Original substring match as fallback
+          const hasFindings = findings.some(finding => {
+            const normalizedFeature = normalize(finding.feature);
+            const normalizedCategory = normalize(finding.category);
+            
+            // Match by normalized feature name
+            if (normalizedFeature.includes(normalizedName) || normalizedName.includes(normalizedFeature)) return true;
+            if (normalizedFeature.includes(normalizedFileName) || normalizedFileName.includes(normalizedFeature)) return true;
+            
+            // Match by category (e.g., "A-cobrowse-viewer" matches "cobrowse-viewer.md")
+            if (normalizedCategory.includes(normalizedFileName) || normalizedFileName.includes(normalizedCategory)) return true;
+            
+            // Match by doc field
+            if (finding.doc && normalize(finding.doc).includes(normalizedName)) return true;
+            
+            return false;
+          });
           return !hasFindings;
         });
       }, [featuresList, findings]);
@@ -3507,22 +3544,52 @@
       const pmCommand = {
         label: 'Process Pipeline',
         description: 'Respond to questions & create tickets',
-        command: `You are a PM agent. Read decisions.json and findings.json.
+        command: `You are a PM agent. 
 
-TWO TASKS:
+**FIRST: Read and understand all existing tickets**
+- Read tickets.json completely before processing any findings
+- Understand what each ticket covers, its scope, and what findings it addresses
+- Keep this context in mind when evaluating new findings
 
-1) RESPOND TO QUESTIONS (threads with decision.option_id = "custom"):
+Read decisions.json and findings.json.
+
+THREE TASKS:
+
+1) RESPOND TO QUESTIONS (threads with decision.option_id = "custom" AND last message is human):
    - Read the PM's question from the last human message
    - Read the finding context (issue, options, suggested_fix)  
    - Add your response as a new message: { role: "system", text: "[your answer]", timestamp: now }
    - Keep answers concise and actionable with clear options
 
-2) CREATE TICKETS (threads with decision.option_id != "custom" AND status != "resolved"):
-   - Create ticket in tickets.json following docs/workflow/templates/ticket-schema.json
-   - Update finding status to "ticketed" in findings.json
-   - Update thread status to "resolved" in decisions.json
+2) CREATE TICKETS & RESOLVE THREADS (threads with decision != null AND status != "resolved"):
+   
+   **BEFORE CREATING ANY TICKET:**
+   - Compare the finding against ALL existing tickets you've read
+   - Ask: Is this already covered? Should this be merged into an existing ticket?
+   - If duplicate or overlap found:
+     - Add system message: "This appears covered by TKT-XXX: [title]. Link to existing, merge, or create new?"
+     - **DO NOT resolve the thread** - keep status as "in_discussion"
+     - **STOP processing this finding** - wait for PM response in next cycle
+   - To link (after PM confirms): Set finding.status = "ticketed", finding.ticket_id = "TKT-XXX" (no new ticket)
+   
+   **SKIP THESE (don't create tickets):**
+   - Skip phrases in custom_note: "skip", "dont need", "already have ticket", "already covered"
+   - Questions ending in "?" - these need answers first, not tickets
+   - "skip" or "won't fix" decisions
+   
+   **CREATE TICKETS FOR:**
+   - Clear "implement" decisions with NO existing coverage after manual review
+   - Set finding.status = "ticketed", finding.ticket_id = "TKT-XXX"
+   
+   **ALWAYS:**
+   - Set thread.status = "resolved" in decisions.json for ALL processed items
+   - Ensure finding.status is NEVER left as "pending" for resolved threads
 
-Report: X questions answered, Y tickets created, Z items skipped/already done.`
+3) SYNC CHECK (run after all updates):
+   - Run: node docs/scripts/process-decisions.js
+   - This catches any inconsistencies between files
+
+Report: X questions answered, Y tickets created, Z items linked to existing, W items skipped.`
       };
       
       const DOC_REVIEW_COMMANDS = {

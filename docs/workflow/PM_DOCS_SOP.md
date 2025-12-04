@@ -80,11 +80,30 @@ Human then refreshes dashboard and sees PM response in the conversation thread.
 
 ```
 You are the PM. Read docs/data/decisions.json and:
-1. For each "resolved" finding, create ticket in tickets.json
+1. For each finding with a decision (decision.option_id exists AND != "custom"), create ticket in tickets.json
 2. For any needing clarification, add follow-up questions to decisions.json
-3. Update findings.json status to "ticketed"
-4. Run: node docs/scripts/generate-pm-dashboard.js
+3. Update findings.json status to "ticketed" or "skipped" for each processed finding
+4. Update decisions.json thread status to "resolved" for each processed thread  ← CRITICAL!
+5. Run: node docs/scripts/process-decisions.js  ← ALWAYS RUN THIS AT THE END
 ```
+
+> ⚠️ **Common Bug:** PM agents often forget steps 3-4. The dashboard checks BOTH:
+> - `thread.status === "resolved"` in decisions.json
+> - `finding.status === "ticketed" OR "skipped"` in findings.json
+> 
+> If either is missing, items will still show as "pending". **Always run the sync script!**
+
+### Quick Fix If Dashboard Shows Wrong Count
+
+If dashboard shows items "to process" that should be done:
+```bash
+node docs/scripts/process-decisions.js
+```
+This script:
+- Syncs decisions.json → findings.json → tickets.json
+- Creates missing tickets for resolved findings
+- Marks skipped items properly
+- Fixes any inconsistencies between files
 
 ---
 
@@ -116,11 +135,10 @@ For reference, the original JSON + Markdown workflow:
 ### Mode 2: Review Sprint
 1. Create review-agent prompts for documented features
 2. Output launch commands for parallel execution
-3. **🔴 SYNC CHECK: Cross-verify findings vs tracker** (agents may write findings but fail to update tracker)
-4. Collect findings from `REVIEW_FINDINGS.md`
-5. **⚠️ Ask which priority level to process** (Critical, High, etc.)
-6. Present findings for selected priority with questions
-7. Wait for human answers
+3. Dashboard auto-aggregates agent outputs from `docs/agent-output/reviews/`
+4. **⚠️ Ask which priority level to process** (Critical, High, etc.)
+5. Present findings for selected priority with questions
+6. Wait for human answers
 8. Create tickets for answered findings only
 9. Keep remaining findings as `⏳ PENDING` for future sessions
 10. Human reviews tickets async before dev sprint (approve/reject/prioritize)
@@ -145,7 +163,7 @@ git status
 **1.2 Read Current State**
 ```bash
 cat docs/FEATURE_INVENTORY.md   # What needs documenting
-cat docs/DOC_TRACKER.md         # What's already done
+ls docs/agent-output/doc-tracker/  # Recent doc completions (auto-aggregated)
 ls docs/prompts/active/         # What prompts exist
 ```
 
@@ -194,7 +212,7 @@ Output ALL commands grouped by category:
 
 **3.1 Check Progress**
 ```bash
-cat docs/DOC_TRACKER.md | head -50   # Recent completions
+ls -la docs/agent-output/doc-tracker/  # Agent completion reports (auto-aggregated by dashboard)
 find docs/features -name "*.md" -mmin -60  # Docs created in last hour
 git status                            # Uncommitted changes
 ```
@@ -220,7 +238,7 @@ git push
 
 **1.1 Check Current State**
 ```bash
-cat docs/REVIEW_FINDINGS.md     # Existing findings
+ls docs/agent-output/reviews/   # Agent review outputs (auto-aggregated by dashboard)
 cat docs/TICKET_BACKLOG.md      # Existing tickets
 ls docs/prompts/active/         # Active prompts
 ```
@@ -269,26 +287,22 @@ git push
 
 > 🔴 **CRITICAL:** Run this EVERY time before proceeding. Agents sometimes write findings but fail to update the tracker.
 
-**2.5.0 Cross-Check Findings vs Tracker**
+**2.5.0 Check Agent Outputs**
+
+Agent outputs are now written to per-agent files in `docs/agent-output/reviews/` and auto-aggregated by the dashboard.
 
 ```bash
-# Count features with findings in REVIEW_FINDINGS.md
-echo "Features with findings:"
-grep "^## [A-Z].*- " docs/REVIEW_FINDINGS.md | grep -v "How This" | grep -v "Decision" | grep -v "^## Findings" | wc -l
+# Count review agent outputs
+echo "Review outputs:"
+ls docs/agent-output/reviews/*.md 2>/dev/null | wc -l
 
-# Count features marked ✅ in REVIEW_TRACKER.md  
-echo "Features marked reviewed:"
-grep "✅" docs/REVIEW_TRACKER.md | grep -v "Legend" | wc -l
+# List recent review outputs
+ls -la docs/agent-output/reviews/
 ```
 
-**If counts don't match:**
-1. List features with findings: `grep "^## [A-Z]" docs/REVIEW_FINDINGS.md`
-2. Compare to tracker marks: `grep "✅" docs/REVIEW_TRACKER.md`
-3. Update REVIEW_TRACKER.md for any missing ✅ marks
-4. Update Quick Stats table to match
-5. Update PM_DASHBOARD.md with correct counts
+The dashboard auto-aggregates all per-agent outputs. No manual sync needed.
 
-> ⚠️ **DO NOT PROCEED** until these counts match. This prevents the "phantom agent" problem where agents completed but weren't tracked.
+> ℹ️ **Per-Agent Files:** Each review agent writes to its own file (e.g., `D-routing-rules-2025-12-04T1430.md`). This prevents race conditions when multiple agents run simultaneously.
 
 ---
 
@@ -298,8 +312,8 @@ grep "✅" docs/REVIEW_TRACKER.md | grep -v "Legend" | wc -l
 
 **2.6.1 Wait for Agents to Complete**
 ```bash
-cat docs/REVIEW_FINDINGS.md | tail -100   # Check new findings
-grep -c "^#### [0-9]" docs/REVIEW_FINDINGS.md  # Count findings
+ls docs/agent-output/reviews/   # Check for new agent outputs
+# Or open dashboard at http://localhost:3456 - it auto-aggregates
 ```
 
 **2.6.2 Summarize Findings for Human**
@@ -611,9 +625,8 @@ git push
 |------|----------|-------------|
 | `docs/PM_DASHBOARD.md` | ✅ Update | ✅ Update |
 | `docs/FEATURE_INVENTORY.md` | ✅ Read | ✅ Read |
-| `docs/DOC_TRACKER.md` | ✅ Read/Write | ✅ Read |
-| `docs/REVIEW_TRACKER.md` | - | ✅ Read/Write |
-| `docs/REVIEW_FINDINGS.md` | - | ✅ Read/Write |
+| `docs/agent-output/doc-tracker/` | ✅ Read (auto-aggregated) | - |
+| `docs/agent-output/reviews/` | - | ✅ Read (auto-aggregated) |
 | `docs/TICKET_BACKLOG.md` | - | ✅ Write |
 | `docs/workflow/templates/doc-agent.md` | ✅ Use | - |
 | `docs/workflow/templates/review-agent.md` | - | ✅ Use |

@@ -175,10 +175,14 @@ git push origin [branch-name]
 
 ### 6.2 Write Completion Report
 
-Add to your final message:
+**IMPORTANT:** Write your completion report to a per-agent file to prevent conflicts with other dev agents.
+
+**File path:** `docs/agent-output/completions/[TICKET-ID]-[TIMESTAMP].md`
+
+Example: `docs/agent-output/completions/TKT-001-2025-12-04T1430.md`
 
 ```markdown
-## Completion Report: TKT-XXX
+# Completion Report: TKT-XXX
 
 ### Summary
 [1-2 sentences: what this change does]
@@ -217,6 +221,8 @@ Add to your final message:
 ### Notes
 [Anything unusual, decisions made, edge cases handled]
 ```
+
+The PM Dashboard automatically aggregates all dev agent completions.
 
 ---
 
