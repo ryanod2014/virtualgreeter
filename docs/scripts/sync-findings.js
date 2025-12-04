@@ -19,6 +19,18 @@ const DECISIONS_JSON_PATH = path.join(__dirname, '../data/decisions.json');
 
 // Option templates based on finding patterns
 const OPTION_TEMPLATES = {
+  // Cancellation-specific (check BEFORE billing since it's more specific)
+  cancellation: {
+    patterns: ['cancellation', 'cancel subscription', 'not actually cancel', 'stripe cancel', 'cancel stripe'],
+    options: [
+      { id: 'cancel_immediate', label: 'Implement actual Stripe cancellation (immediate)', recommended: true },
+      { id: 'cancel_period_end', label: 'Cancel at end of billing period (grace period)' },
+      { id: 'cancel_with_feedback', label: 'Cancel with feedback collection before' },
+      { id: 'cancel_refund', label: 'Cancel + prorated refund' },
+      { id: 'custom', label: 'Need different approach...' }
+    ]
+  },
+
   // Security-related findings
   security: {
     patterns: ['password', 'sensitive', 'credit card', 'token', 'pci', 'gdpr', 'privacy', 'encrypt', 'sanitize', 'mask'],

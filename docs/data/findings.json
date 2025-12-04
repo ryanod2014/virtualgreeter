@@ -10,8 +10,8 @@
     "high": 48,
     "medium": 315,
     "low": 364,
-    "pending": 714,
-    "ticketed": 28,
+    "pending": 713,
+    "ticketed": 29,
     "rejected": 0
   },
   "findings": [
@@ -890,21 +890,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -2187,21 +2187,21 @@
       "ticket_id": "TKT-002",
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -2229,21 +2229,21 @@
       "ticket_id": "TKT-002",
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -4288,21 +4288,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -4345,21 +4345,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -18074,21 +18074,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -18346,21 +18346,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -19314,21 +19314,21 @@
       "ticket_id": "TKT-002",
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -20055,21 +20055,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -20091,21 +20091,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -20163,21 +20163,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -20199,21 +20199,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -20235,21 +20235,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -20271,21 +20271,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -20568,21 +20568,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -20906,21 +20906,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -20942,25 +20942,25 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "implement_strict",
-          "label": "Implement strict sanitization (mask ALL sensitive fields)",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "implement_configurable",
-          "label": "Make sanitization configurable per-org"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "allowlist",
-          "label": "Use allowlist approach (opt-in capture only)"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "blocklist",
-          "label": "Use blocklist approach (opt-out of capture)"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
-          "id": "skip",
-          "label": "Skip - not applicable to our use case"
+          "id": "custom",
+          "label": "Need different approach..."
         }
       ],
       "combinable_with": null
@@ -21464,21 +21464,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -21500,25 +21500,25 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "implement_now",
-          "label": "Implement optimization now (before scale issues)",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "implement_later",
-          "label": "Add to backlog - not urgent yet"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "monitor_first",
-          "label": "Add monitoring first, then decide"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "configurable",
-          "label": "Make thresholds configurable"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
-          "id": "skip",
-          "label": "Skip - acceptable trade-off"
+          "id": "custom",
+          "label": "Need different approach..."
         }
       ],
       "combinable_with": null
@@ -21536,21 +21536,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -21572,21 +21572,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -21640,21 +21640,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -21811,25 +21811,25 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "implement_strict",
-          "label": "Implement strict sanitization (mask ALL sensitive fields)",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "implement_configurable",
-          "label": "Make sanitization configurable per-org"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "allowlist",
-          "label": "Use allowlist approach (opt-in capture only)"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "blocklist",
-          "label": "Use blocklist approach (opt-out of capture)"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
-          "id": "skip",
-          "label": "Skip - not applicable to our use case"
+          "id": "custom",
+          "label": "Need different approach..."
         }
       ],
       "combinable_with": null
@@ -21847,21 +21847,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -22154,25 +22154,25 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "implement_now",
-          "label": "Implement optimization now (before scale issues)",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "implement_later",
-          "label": "Add to backlog - not urgent yet"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "monitor_first",
-          "label": "Add monitoring first, then decide"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "configurable",
-          "label": "Make thresholds configurable"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
-          "id": "skip",
-          "label": "Skip - acceptable trade-off"
+          "id": "custom",
+          "label": "Need different approach..."
         }
       ],
       "combinable_with": null
@@ -22190,21 +22190,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -27800,21 +27800,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -27836,21 +27836,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -27904,21 +27904,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
@@ -31424,21 +31424,21 @@
       "ticket_id": null,
       "options": [
         {
-          "id": "strict_block",
-          "label": "Block access immediately on payment failure",
+          "id": "cancel_immediate",
+          "label": "Implement actual Stripe cancellation (immediate)",
           "recommended": true
         },
         {
-          "id": "grace_period",
-          "label": "Allow grace period before blocking"
+          "id": "cancel_period_end",
+          "label": "Cancel at end of billing period (grace period)"
         },
         {
-          "id": "soft_warning",
-          "label": "Show warning but allow continued access"
+          "id": "cancel_with_feedback",
+          "label": "Cancel with feedback collection before"
         },
         {
-          "id": "admin_only",
-          "label": "Notify admin only, no user-facing changes"
+          "id": "cancel_refund",
+          "label": "Cancel + prorated refund"
         },
         {
           "id": "custom",
