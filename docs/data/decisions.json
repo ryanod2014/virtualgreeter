@@ -1,0 +1,112 @@
+{
+  "meta": {
+    "last_updated": "2025-12-04",
+    "format_version": "1.0"
+  },
+  "threads": [
+    {
+      "finding_id": "F-001",
+      "status": "resolved",
+      "messages": [
+        { "role": "system", "text": "Should we mask ALL password fields or only specific patterns?", "timestamp": "2025-12-03T10:00:00Z" },
+        { "role": "human", "text": "Yes, mask all password fields", "timestamp": "2025-12-03T10:05:00Z" },
+        { "role": "system", "text": "Should this be combined with credit card masking (F-002)?", "timestamp": "2025-12-03T10:05:01Z" },
+        { "role": "human", "text": "Yes, create one ticket for all sensitive data sanitization", "timestamp": "2025-12-03T10:10:00Z" }
+      ],
+      "decision": {
+        "action": "create_ticket",
+        "combine_with": ["F-002"],
+        "priority": "critical",
+        "ticket_id": "TKT-001"
+      }
+    },
+    {
+      "finding_id": "F-002",
+      "status": "resolved",
+      "messages": [
+        { "role": "system", "text": "Combined with F-001 per your decision", "timestamp": "2025-12-03T10:10:01Z" }
+      ],
+      "decision": {
+        "action": "combined",
+        "combined_into": "F-001",
+        "ticket_id": "TKT-001"
+      }
+    },
+    {
+      "finding_id": "F-003",
+      "status": "resolved",
+      "messages": [
+        { "role": "system", "text": "Should visitors have a per-call toggle, or is org-level disable enough?", "timestamp": "2025-12-03T10:15:00Z" },
+        { "role": "human", "text": "Org-level setting is enough for now", "timestamp": "2025-12-03T10:20:00Z" }
+      ],
+      "decision": {
+        "action": "create_ticket",
+        "priority": "high",
+        "ticket_id": "TKT-009"
+      }
+    },
+    {
+      "finding_id": "F-021",
+      "status": "pending",
+      "messages": []
+    },
+    {
+      "finding_id": "F-022",
+      "status": "pending",
+      "messages": []
+    },
+    {
+      "finding_id": "F-023",
+      "status": "pending",
+      "messages": []
+    },
+    {
+      "finding_id": "F-024",
+      "status": "resolved",
+      "messages": [
+        { "role": "system", "text": "Should failed invites auto-retry or require manual resend?", "timestamp": "2025-12-03T11:00:00Z" },
+        { "role": "human", "text": "Auto-retry with manual fallback", "timestamp": "2025-12-03T11:05:00Z" }
+      ],
+      "decision": {
+        "action": "create_ticket",
+        "priority": "high",
+        "ticket_id": "TKT-011"
+      }
+    },
+    {
+      "finding_id": "F-025",
+      "status": "resolved",
+      "messages": [
+        { "role": "system", "text": "What's the budget for a paid geolocation service?", "timestamp": "2025-12-03T11:10:00Z" },
+        { "role": "human", "text": "Research MaxMind pricing before starting", "timestamp": "2025-12-03T11:15:00Z" }
+      ],
+      "decision": {
+        "action": "create_ticket",
+        "priority": "high",
+        "notes": "Pre-work: research MaxMind pricing",
+        "ticket_id": "TKT-012"
+      }
+    },
+    {
+      "finding_id": "F-030",
+      "status": "pending",
+      "messages": []
+    },
+    {
+      "finding_id": "F-031",
+      "status": "pending",
+      "messages": []
+    },
+    {
+      "finding_id": "F-032",
+      "status": "pending",
+      "messages": []
+    },
+    {
+      "finding_id": "F-040",
+      "status": "pending",
+      "messages": []
+    }
+  ]
+}
+

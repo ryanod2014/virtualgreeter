@@ -1,17 +1,85 @@
 # PM Documentation Workflow
 
 > **Purpose:** PM workflow for documentation sprints AND review sprints.
-> **Dashboard:** `docs/PM_DASHBOARD.md` - Human's single view of entire pipeline (auto-generated)
-> **Data Files:** `docs/data/tickets.json` and `docs/data/findings-summary.json`
+> **🆕 Interactive Dashboard:** `docs/pm-dashboard-ui/index.html` - Answer questions, resolve findings, generate tickets
 > **Launch Commands:**
 > - **Doc Mode:** `You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md`
 > - **Review Mode:** `You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md - Review Mode`
 
 ---
 
-## Data-Driven Workflow
+## 🆕 Interactive Dashboard Workflow (Recommended)
 
-The PM workflow now uses **structured JSON data** for accuracy:
+The **React Dashboard** lets you answer questions and resolve findings through a UI instead of chat.
+
+### How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         YOUR WORKFLOW                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+1. OPEN DASHBOARD (browser)
+   └── Visit: docs/pm-dashboard-ui/index.html (or start local server)
+   └── Shows: Pending findings with questions to answer
+
+2. ANSWER QUESTIONS (in dashboard)
+   └── Click Yes/No or type custom answers
+   └── Answers saved to localStorage
+   └── Back-and-forth conversation per finding
+
+3. MARK RESOLVED (when done with a finding)
+   └── Click "Mark Resolved & Create Ticket"
+   └── Finding moves to Resolved tab
+
+4. GET PM COMMAND (click button in dashboard)
+   └── Copy the decisions.json export
+   └── Paste into docs/data/decisions.json
+   └── Copy the PM command
+
+5. PASTE INTO CURSOR (new chat)
+   └── PM agent reads decisions.json
+   └── Creates tickets for resolved findings
+   └── May add follow-up questions
+
+6. REFRESH DASHBOARD
+   └── Shows new tickets created
+   └── If PM has questions, they appear in thread
+```
+
+### Data Files
+
+| File | Purpose |
+|------|---------|
+| `docs/data/findings.json` | Findings with questions from review agents |
+| `docs/data/decisions.json` | Conversation threads + human decisions |
+| `docs/data/tickets.json` | All tickets with full details |
+| `docs/pm-dashboard-ui/index.html` | Interactive React dashboard |
+
+### Quick Start
+
+```bash
+# Start local server
+cd docs/pm-dashboard-ui && python3 -m http.server 8765
+
+# Open http://localhost:8765 in browser
+```
+
+### PM Agent Command (after answering in dashboard)
+
+```
+You are the PM. Read docs/data/decisions.json and:
+1. For each "resolved" finding, create ticket in tickets.json
+2. For any needing clarification, add follow-up questions to decisions.json
+3. Update findings.json status to "ticketed"
+4. Run: node docs/scripts/generate-pm-dashboard.js
+```
+
+---
+
+## Legacy Data-Driven Workflow
+
+For reference, the original JSON + Markdown workflow:
 
 | File | Purpose |
 |------|---------|
@@ -24,13 +92,6 @@ The PM workflow now uses **structured JSON data** for accuracy:
 1. Edit `docs/data/tickets.json`
 2. Run `node docs/scripts/generate-docs.js`
 3. Dashboard and backlog are regenerated with accurate counts
-
-**Visual Dashboard:**
-- Open `docs/pm-dashboard-ui/index.html` in browser for interactive view
-- To regenerate: `node docs/scripts/generate-pm-dashboard.js`
-- Features: Pipeline overview, ticket grid with filters, detailed ticket modals
-
-**The PM workflow (questions, decisions, ticket creation) remains exactly the same.**
 
 ---
 

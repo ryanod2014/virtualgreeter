@@ -1,0 +1,183 @@
+{
+  "meta": {
+    "last_updated": "2025-12-04",
+    "total_findings": 742,
+    "format_version": "2.0"
+  },
+  "findings": [
+    {
+      "id": "F-001",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "Password Fields Captured in DOM Snapshots",
+      "severity": "critical",
+      "issue": "Password field values are captured in DOM snapshots and transmitted to agents. The value attribute may be present in the serialized DOM.",
+      "suggested_fix": "Sanitize password inputs by replacing values with mask characters (••••••••) before serialization.",
+      "questions": [
+        "Should we mask ALL password fields or only specific patterns?",
+        "Should this be combined with credit card masking (F-002)?"
+      ],
+      "status": "ticketed",
+      "ticket_id": "TKT-001"
+    },
+    {
+      "id": "F-002",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "Credit Card and Sensitive Data Also Captured",
+      "severity": "critical",
+      "issue": "Credit card fields, personal data, and session tokens visible on page are captured in DOM snapshots. PCI compliance and privacy risk.",
+      "suggested_fix": "Extend sanitization to mask input[type='tel'], input[autocomplete='cc-number'], and elements with data-sensitive='true'.",
+      "questions": [
+        "Should we use allowlist (opt-in for capture) or blocklist (opt-out) approach?",
+        "What other field types should be auto-masked?"
+      ],
+      "status": "ticketed",
+      "ticket_id": "TKT-001"
+    },
+    {
+      "id": "F-003",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "No Visitor Opt-Out for Co-Browse",
+      "severity": "high",
+      "issue": "Visitors have no control over screen sharing during calls. Co-browse is automatic with no toggle. May violate privacy expectations or GDPR.",
+      "suggested_fix": "Add organization-level setting to enable/disable co-browse feature entirely.",
+      "questions": [
+        "Should visitors have a per-call toggle, or is org-level disable enough?",
+        "Should co-browse be opt-in or opt-out by default?"
+      ],
+      "status": "ticketed",
+      "ticket_id": "TKT-009"
+    },
+    {
+      "id": "F-021",
+      "feature": "Call Logs",
+      "category": "D-call-logs",
+      "title": "No Server-Side Pagination for Historical Data",
+      "severity": "high",
+      "issue": "All call logs are fetched client-side. For orgs with 10k+ calls, this will cause performance issues and slow page loads.",
+      "suggested_fix": "Implement server-side pagination with cursor-based navigation. Limit initial fetch to 100 records.",
+      "questions": [
+        "What's the expected max call volume per org?",
+        "Should we add date-range filters to limit data fetched?"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "F-022",
+      "feature": "Call Logs",
+      "category": "D-call-logs",
+      "title": "Missing Data Retention Policy Enforcement",
+      "severity": "high",
+      "issue": "Data retention is documented but not enforced. Orgs can set 30-day retention but recordings/logs persist indefinitely.",
+      "suggested_fix": "Implement scheduled job to delete data older than org's retention setting. Add clear warning when reducing retention.",
+      "questions": [
+        "Should deletion be immediate when retention is reduced, or have a grace period?",
+        "Should we notify users before scheduled deletions?"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "F-023",
+      "feature": "Call Logs",
+      "category": "D-call-logs",
+      "title": "Cancelled Calls Have No Audit Trail",
+      "severity": "medium",
+      "issue": "When a call is cancelled before connecting, no record is kept. This loses data for analytics and troubleshooting.",
+      "suggested_fix": "Log cancelled calls with reason code (timeout, visitor left, agent declined, etc.).",
+      "questions": [
+        "Is this actually needed for analytics?",
+        "Should cancelled calls count toward agent metrics?"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "F-024",
+      "feature": "Agent Management",
+      "category": "D4-agent-management",
+      "title": "Email Send Failure Is Silent",
+      "severity": "high",
+      "issue": "If Resend API fails to send invite email, invite is created in DB but failure is only logged to console. Admin has no visibility.",
+      "suggested_fix": "Implement retry mechanism with admin notification on failure. Add 'Resend Invite' button.",
+      "questions": [
+        "Should failed invites auto-retry or require manual resend?",
+        "How many retry attempts before marking as failed?"
+      ],
+      "status": "ticketed",
+      "ticket_id": "TKT-011"
+    },
+    {
+      "id": "F-025",
+      "feature": "Blocklist Settings",
+      "category": "D-blocklist-settings",
+      "title": "ip-api.com Rate Limit Risk at Scale",
+      "severity": "high",
+      "issue": "Geolocation uses ip-api.com free tier (45 req/min). At scale, this fails and ALL visitors are allowed through, bypassing blocklist.",
+      "suggested_fix": "Migrate to MaxMind GeoIP or implement IP lookup caching to reduce API calls.",
+      "questions": [
+        "What's the budget for a paid geolocation service?",
+        "Should we cache IP lookups to reduce API calls?"
+      ],
+      "status": "ticketed",
+      "ticket_id": "TKT-012"
+    },
+    {
+      "id": "F-030",
+      "feature": "Recording Settings",
+      "category": "D-recording-settings",
+      "title": "No Recording Consent Indicator for Visitors",
+      "severity": "high",
+      "issue": "Visitors are recorded with NO indication. No 'This call may be recorded' message. Compliance risk for GDPR, CCPA, two-party consent states.",
+      "suggested_fix": "Add visible recording indicator after call connects. Show in same location as 'Live' badge.",
+      "questions": [
+        "Should the indicator be text-based or just an icon?",
+        "Should visitors be able to decline recording?"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "F-031",
+      "feature": "Recordings Storage",
+      "category": "A-agent-active-call",
+      "title": "Recording URLs Are Publicly Guessable",
+      "severity": "high",
+      "issue": "Recordings in public Supabase bucket with predictable URL patterns. Anyone who guesses the pattern can access recordings. HIPAA/GDPR risk.",
+      "suggested_fix": "Move to private bucket. Generate signed URLs with expiration. Add randomized UUIDs to paths.",
+      "questions": [
+        "What should the signed URL expiration be? (1 hour suggested)",
+        "Do we need to migrate existing recordings?"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "F-032",
+      "feature": "WebRTC Calls",
+      "category": "A-agent-active-call",
+      "title": "No ICE Restart on Connection Failure",
+      "severity": "high",
+      "issue": "When WebRTC connection fails mid-call (network glitch, NAT timeout), agent must manually end and start new call. Customer may be lost.",
+      "suggested_fix": "Implement ICE restart with automatic retry before showing failure state.",
+      "questions": [
+        "How many auto-retry attempts before giving up?",
+        "Should we show 'Reconnecting...' status to both parties?"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "F-040",
+      "feature": "Incoming Call",
+      "category": "A-incoming-call",
+      "title": "Countdown Timer Mismatch with RNA Timeout",
+      "severity": "high",
+      "issue": "Incoming call modal shows hardcoded 30-second countdown, but RNA timeout fires at 15 seconds (org-configured). Agents get unexpectedly marked away.",
+      "suggested_fix": "Fetch org's actual RNA timeout value and use it for the countdown display.",
+      "questions": [
+        "Is the RNA timeout configurable per-org in the settings UI?",
+        "Should we show a warning when less than 5 seconds remain?"
+      ],
+      "status": "pending"
+    }
+  ]
+}
+
