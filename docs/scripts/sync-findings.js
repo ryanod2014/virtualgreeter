@@ -102,9 +102,20 @@ const OPTION_TEMPLATES = {
     ]
   },
   
-  // WebRTC/Real-time findings
+  // Documentation/Config issues - CHECK THIS FIRST (before realtime)
+  documentation: {
+    patterns: ['contradiction', 'mismatch', 'docs say', 'documentation says', 'frequency', 'uptime', 'monitoring', 'free tier'],
+    options: [
+      { id: 'fix_docs', label: 'Fix the documentation to match reality', recommended: true },
+      { id: 'fix_code', label: 'Fix the code/config to match docs' },
+      { id: 'clarify_both', label: 'Update both docs and code for clarity' },
+      { id: 'skip', label: 'Skip - not a real issue' }
+    ]
+  },
+  
+  // WebRTC/Real-time findings - more specific patterns
   realtime: {
-    patterns: ['webrtc', 'ice', 'connection', 'reconnect', 'socket', 'realtime', 'call', 'signaling'],
+    patterns: ['webrtc', 'ice restart', 'ice candidate', 'peer connection', 'rtc', 'media stream'],
     options: [
       { id: 'auto_reconnect', label: 'Implement auto-reconnect with retry', recommended: true },
       { id: 'manual_reconnect', label: 'Add manual "Reconnect" button' },
@@ -318,6 +329,7 @@ function loadExistingDecisions() {
 
 function mergeWithExistingFindings(newFindings) {
   // Load existing findings to preserve status and ticket_id
+  // NOTE: We do NOT preserve options - they should be regenerated
   try {
     if (fs.existsSync(FINDINGS_JSON_PATH)) {
       const existing = JSON.parse(fs.readFileSync(FINDINGS_JSON_PATH, 'utf8'));
@@ -329,7 +341,7 @@ function mergeWithExistingFindings(newFindings) {
         existingMap.set(key, f);
       }
       
-      // Merge status from existing
+      // Merge status from existing (but NOT options - regenerate those)
       for (const f of newFindings) {
         const key = `${f.feature}|${f.title}`;
         const existingFinding = existingMap.get(key);
@@ -337,6 +349,7 @@ function mergeWithExistingFindings(newFindings) {
           f.status = existingFinding.status || f.status;
           f.ticket_id = existingFinding.ticket_id || f.ticket_id;
           f.id = existingFinding.id || f.id; // Preserve IDs
+          // Options are regenerated fresh each time
         }
       }
     }
