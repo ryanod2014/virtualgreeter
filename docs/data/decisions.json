@@ -698,14 +698,9 @@
     },
     {
       "finding_id": "F-117",
-      "status": "resolved",
+      "status": "pending",
       "messages": [],
-      "decision": {
-        "option_id": "strict_block",
-        "option_label": "Block access immediately on payment failure",
-        "recommended": true,
-        "timestamp": "2025-12-04T01:06:06.594Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-118",
