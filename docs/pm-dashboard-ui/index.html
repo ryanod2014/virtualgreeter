@@ -441,18 +441,30 @@
                       }}
                     />
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                      <button className="btn btn-primary btn-sm" onClick={handleCustomSubmit}>Send</button>
+                      <button className="btn btn-primary btn-sm" onClick={handleCustomSubmit}>💬 Send to PM</button>
                       <button className="btn btn-secondary btn-sm" onClick={() => setShowCustom(false)}>Cancel</button>
                     </div>
                   </div>
                 )}
 
-                {/* Resolve Button */}
-                {hasDecision && (
+                {/* Resolve Button - only show for actual decisions, not questions */}
+                {hasDecision && thread?.decision?.option_id !== 'custom' && (
                   <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
                     <button className="btn btn-success" onClick={() => onResolve(finding.id)}>
                       ✓ Confirm & Create Ticket
                     </button>
+                  </div>
+                )}
+                
+                {/* For custom responses (questions), show waiting state */}
+                {hasDecision && thread?.decision?.option_id === 'custom' && (
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)', padding: '12px', background: 'rgba(99,102,241,0.1)', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--accent-bright)' }}>
+                      💬 Question sent! PM will respond in this thread.
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Tell PM in Cursor: "check my answers" → then refresh this page
+                    </div>
                   </div>
                 )}
               </>
