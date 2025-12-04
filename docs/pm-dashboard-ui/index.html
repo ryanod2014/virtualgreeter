@@ -55,15 +55,21 @@
     .fade-in { animation: fadeIn 0.3s ease; }
     .slide-up { animation: slideUp 0.4s ease; }
 
+    /* Nav */
+    .nav { display: flex; gap: 4px; background: var(--bg-surface); padding: 6px; border-radius: 12px; border: 1px solid var(--border); }
+    .nav-item { padding: 12px 20px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: 8px; font-size: 14px; font-weight: 600; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+    .nav-item:hover { color: var(--text-secondary); background: var(--bg-elevated); }
+    .nav-item.active { background: var(--accent-bg); color: var(--accent-bright); }
+
     /* Tabs */
-    .tabs { display: flex; gap: 4px; background: var(--bg-surface); padding: 4px; border-radius: 12px; border: 1px solid var(--border); }
-    .tab { padding: 10px 20px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+    .tabs { display: flex; gap: 4px; background: var(--bg-surface); padding: 4px; border-radius: 10px; border: 1px solid var(--border); width: fit-content; }
+    .tab { padding: 8px 16px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 500; transition: all 0.2s; }
     .tab:hover { color: var(--text-secondary); }
     .tab.active { background: var(--accent-bg); color: var(--accent-bright); }
-    .tab .count { margin-left: 6px; padding: 2px 8px; background: var(--bg-elevated); border-radius: 10px; font-size: 12px; }
+    .tab .count { margin-left: 6px; padding: 2px 6px; background: var(--bg-elevated); border-radius: 8px; font-size: 11px; }
 
     /* Cards */
-    .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 12px; }
+    .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
     .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
     
     /* Badges */
@@ -75,39 +81,64 @@
     .badge-pending { color: var(--accent-bright); background: var(--accent-bg); }
     .badge-resolved { color: var(--success); background: rgba(16,185,129,0.12); }
 
+    /* Pipeline Card */
+    .pipeline-card { flex: 1; min-width: 160px; }
+    .pipeline-card .inner { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; height: 100%; position: relative; overflow: hidden; }
+    .pipeline-card.complete .inner::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--success); }
+    .pipeline-card .icon { font-size: 18px; margin-right: 8px; }
+    .pipeline-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 600; }
+    .pipeline-card .value { font-size: 36px; font-weight: 800; font-family: 'IBM Plex Mono', monospace; margin: 12px 0; }
+    .pipeline-card .value span { font-size: 20px; color: var(--text-muted); }
+    .pipeline-card .subtitle { font-size: 12px; color: var(--text-muted); }
+    .pipeline-card .bar { height: 4px; background: var(--bg-elevated); border-radius: 2px; margin: 12px 0 8px; overflow: hidden; }
+    .pipeline-card .bar-fill { height: 100%; background: var(--gradient-hero); transition: width 0.5s ease; }
+    .pipeline-card.complete .bar-fill { background: var(--success); }
+
     /* Thread */
     .thread { background: var(--bg-elevated); border-radius: 8px; padding: 16px; margin-top: 12px; }
     .message { padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; max-width: 85%; }
     .message-system { background: var(--bg-surface); border: 1px solid var(--border); margin-right: auto; }
     .message-human { background: var(--accent-bg); border: 1px solid rgba(99,102,241,0.3); margin-left: auto; text-align: right; }
-    .message-pm { background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.3); margin-right: auto; }
 
     /* Inputs */
     .input-group { display: flex; gap: 8px; margin-top: 12px; }
-    .input { flex: 1; padding: 12px 16px; background: var(--bg-base); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 14px; font-family: inherit; }
+    .input { flex: 1; padding: 10px 14px; background: var(--bg-base); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 14px; font-family: inherit; }
     .input:focus { outline: none; border-color: var(--accent); }
-    .btn { padding: 12px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn { padding: 10px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
     .btn-primary { background: var(--accent); color: white; }
     .btn-primary:hover { background: var(--accent-bright); }
     .btn-secondary { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
     .btn-success { background: var(--success); color: white; }
-    .btn-sm { padding: 8px 14px; font-size: 13px; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
 
     /* Quick answers */
     .quick-answers { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
     .quick-btn { padding: 6px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); font-size: 13px; cursor: pointer; transition: all 0.2s; }
     .quick-btn:hover { border-color: var(--accent); color: var(--accent-bright); }
 
-    /* Command box */
-    .command-box { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 16px; }
-    .command-box pre { background: var(--bg-base); padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.6; }
-    .command-box .copy-btn { position: absolute; top: 8px; right: 8px; }
+    /* Ticket Grid */
+    .ticket-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .ticket-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; cursor: pointer; transition: all 0.2s; border-left: 3px solid var(--border); }
+    .ticket-card:hover { background: var(--bg-elevated); }
+    .ticket-card.priority-critical { border-left-color: var(--critical); }
+    .ticket-card.priority-high { border-left-color: var(--high); }
+    .ticket-card.priority-medium { border-left-color: var(--medium); }
+    .ticket-card.priority-low { border-left-color: var(--low); }
+
+    /* Command Box */
+    .command-box { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 16px; position: relative; }
+    .command-box pre { background: var(--bg-base); padding: 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0; }
+    .command-box .copy-btn { position: absolute; top: 24px; right: 24px; }
 
     /* Modal */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 40px; }
-    .modal { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; max-width: 700px; width: 100%; max-height: 80vh; overflow: auto; }
-    .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 40px; backdrop-filter: blur(4px); }
+    .modal { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; max-width: 800px; width: 100%; max-height: 85vh; overflow: auto; }
+    .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: var(--bg-surface); z-index: 10; }
     .modal-body { padding: 24px; }
+
+    /* Section */
+    .section { margin-bottom: 32px; }
+    .section-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; margin-bottom: 16px; }
   </style>
 </head>
 <body>
@@ -116,140 +147,53 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    // ================= EMBEDDED DATA =================
-    // In production, this would be loaded from JSON files
-    
-    const FINDINGS_DATA = {
-      "findings": [
-        {
-          "id": "F-001",
-          "feature": "Co-Browse Viewer",
-          "title": "Password Fields Captured in DOM Snapshots",
-          "severity": "critical",
-          "issue": "Password field values are captured in DOM snapshots and transmitted to agents.",
-          "suggested_fix": "Sanitize password inputs by replacing values with mask characters.",
-          "questions": [
-            "Should we mask ALL password fields or only specific patterns?",
-            "Should this be combined with credit card masking (F-002)?"
-          ],
-          "status": "ticketed",
-          "ticket_id": "TKT-001"
-        },
-        {
-          "id": "F-002",
-          "feature": "Co-Browse Viewer",
-          "title": "Credit Card and Sensitive Data Also Captured",
-          "severity": "critical",
-          "issue": "Credit card fields, personal data, and session tokens visible on page are captured.",
-          "suggested_fix": "Extend sanitization to mask sensitive input types.",
-          "questions": [
-            "Should we use allowlist or blocklist approach?",
-            "What other field types should be auto-masked?"
-          ],
-          "status": "ticketed",
-          "ticket_id": "TKT-001"
-        },
-        {
-          "id": "F-021",
-          "feature": "Call Logs",
-          "title": "No Server-Side Pagination for Historical Data",
-          "severity": "high",
-          "issue": "All call logs are fetched client-side. For orgs with 10k+ calls, this causes performance issues.",
-          "suggested_fix": "Implement server-side pagination with cursor-based navigation.",
-          "questions": [
-            "What's the expected max call volume per org?",
-            "Should we add date-range filters to limit data fetched?"
-          ],
-          "status": "pending"
-        },
-        {
-          "id": "F-022",
-          "feature": "Call Logs",
-          "title": "Missing Data Retention Policy Enforcement",
-          "severity": "high",
-          "issue": "Data retention is documented but not enforced. Recordings persist indefinitely.",
-          "suggested_fix": "Implement scheduled job to delete data older than org's retention setting.",
-          "questions": [
-            "Should deletion be immediate when retention is reduced, or have a grace period?",
-            "Should we notify users before scheduled deletions?"
-          ],
-          "status": "pending"
-        },
-        {
-          "id": "F-023",
-          "feature": "Call Logs",
-          "title": "Cancelled Calls Have No Audit Trail",
-          "severity": "medium",
-          "issue": "When a call is cancelled before connecting, no record is kept.",
-          "suggested_fix": "Log cancelled calls with reason code.",
-          "questions": [
-            "Is this actually needed for analytics?",
-            "Should cancelled calls count toward agent metrics?"
-          ],
-          "status": "pending"
-        },
-        {
-          "id": "F-030",
-          "feature": "Recording Settings",
-          "title": "No Recording Consent Indicator for Visitors",
-          "severity": "high",
-          "issue": "Visitors are recorded with NO indication. Compliance risk for GDPR, CCPA.",
-          "suggested_fix": "Add visible recording indicator after call connects.",
-          "questions": [
-            "Should the indicator be text-based or just an icon?",
-            "Should visitors be able to decline recording?"
-          ],
-          "status": "pending"
-        },
-        {
-          "id": "F-031",
-          "feature": "Recordings Storage",
-          "title": "Recording URLs Are Publicly Guessable",
-          "severity": "high",
-          "issue": "Recordings in public bucket with predictable URLs. HIPAA/GDPR risk.",
-          "suggested_fix": "Move to private bucket with signed URLs.",
-          "questions": [
-            "What should the signed URL expiration be? (1 hour suggested)",
-            "Do we need to migrate existing recordings?"
-          ],
-          "status": "pending"
-        },
-        {
-          "id": "F-032",
-          "feature": "WebRTC Calls",
-          "title": "No ICE Restart on Connection Failure",
-          "severity": "high",
-          "issue": "When WebRTC fails mid-call, agent must manually end and restart. Customer lost.",
-          "suggested_fix": "Implement ICE restart with automatic retry.",
-          "questions": [
-            "How many auto-retry attempts before giving up?",
-            "Should we show 'Reconnecting...' status to both parties?"
-          ],
-          "status": "pending"
-        },
-        {
-          "id": "F-040",
-          "feature": "Incoming Call",
-          "title": "Countdown Timer Mismatch with RNA Timeout",
-          "severity": "high",
-          "issue": "Incoming call shows 30-second countdown but RNA timeout fires at 15 seconds.",
-          "suggested_fix": "Fetch org's actual RNA timeout for countdown display.",
-          "questions": [
-            "Is the RNA timeout configurable per-org in settings UI?",
-            "Should we show a warning when less than 5 seconds remain?"
-          ],
-          "status": "pending"
-        }
-      ]
+    // ================= DATA =================
+    const FINDINGS_SUMMARY = {
+      "meta": { "total_features": 61, "reviewed_features": 61, "total_findings": 742 },
+      "by_priority": {
+        "critical": { "total": 15, "answered": 15, "tickets_created": 7, "pending": 0 },
+        "high": { "total": 48, "answered": 20, "tickets_created": 12, "pending": 28 },
+        "medium": { "total": 315, "answered": 2, "tickets_created": 2, "pending": 313 },
+        "low": { "total": 364, "answered": 2, "tickets_created": 2, "pending": 362 }
+      }
     };
 
-    const TICKETS_DATA = {
-      "meta": { "total_tickets": 23 },
-      "tickets": [
-        { "id": "TKT-001", "title": "Co-Browse Sensitive Data Sanitization", "priority": "critical", "status": "ready" },
-        { "id": "TKT-002", "title": "Complete Stripe Subscription Cancellation", "priority": "critical", "status": "ready" },
-        { "id": "TKT-009", "title": "Org-Level Co-Browse Disable Setting", "priority": "high", "status": "ready" }
-      ]
+    const TICKETS_DATA = [
+      { id: "TKT-001", title: "Co-Browse Sensitive Data Sanitization", priority: "critical", feature: "Co-Browse", status: "ready", difficulty: "medium", files: ["domSerializer.ts", "cobrowseSender.ts", "CobrowseViewer.tsx"], acceptance_criteria: ["Password masked", "CC masked", "data-sensitive masked", "Unit tests"], risk_notes: ["Regex too aggressive", "Bypass risk"], issue: "Password fields and credit card numbers are captured in DOM snapshots." },
+      { id: "TKT-002", title: "Complete Stripe Subscription Cancellation", priority: "critical", feature: "Billing", status: "ready", difficulty: "medium", files: ["settings/actions.ts", "stripe.ts", "webhooks/stripe.ts"], acceptance_criteria: ["Stripe API called", "Access until period end", "Webhook handler"], issue: "Cancellation only updates DB, doesn't call Stripe API." },
+      { id: "TKT-003", title: "Update Cancellation Data Deletion Copy", priority: "critical", feature: "Billing", status: "ready", difficulty: "easy", files: ["CancelModal.tsx"], acceptance_criteria: ["Updated copy", "No immediate deletion mention"], issue: "Modal says 'permanently deleted' but data isn't actually deleted." },
+      { id: "TKT-004", title: "Complete Pause Subscription with Stripe", priority: "critical", feature: "Billing", status: "ready", difficulty: "hard", files: ["settings/actions.ts", "stripe.ts", "webhooks/stripe.ts", "scheduler/"], acceptance_criteria: ["Stripe pause", "Auto-resume", "Widget disabled"], issue: "Pause updates DB but doesn't stop Stripe billing." },
+      { id: "TKT-005", title: "Payment Failure Blocking + Retry UI", priority: "critical", feature: "Billing", status: "ready", difficulty: "hard", files: ["PaymentBlocker.tsx", "layout.tsx", "webhooks/stripe.ts", "email.ts"], acceptance_criteria: ["past_due status", "Block modal", "Email notification", "Agents offline"], issue: "No feedback when payment fails - account keeps working." },
+      { id: "TKT-006", title: "Fix Middleware Redirect", priority: "critical", feature: "Auth", status: "ready", difficulty: "easy", files: ["middleware.ts"], acceptance_criteria: ["Redirect to /login", "No loops"], issue: "Protected routes return blank instead of redirecting." },
+      { id: "TKT-017", title: "Enforce Pool Routing on Reassignment", priority: "critical", feature: "Routing", status: "ready", difficulty: "medium", files: ["reassignVisitors.ts", "agentSelection.ts"], acceptance_criteria: ["Pool ID passed", "Stay in pool"], issue: "Reassignment ignores pool - crosses pool boundaries." },
+      { id: "TKT-009", title: "Org-Level Co-Browse Disable", priority: "high", feature: "Co-Browse", status: "ready", difficulty: "medium", files: ["settings/page.tsx", "settings/actions.ts", "cobrowseSender.ts"], acceptance_criteria: ["Settings toggle", "Disable works"], issue: "No way to disable co-browse for GDPR." },
+      { id: "TKT-011", title: "Email Invite Retry Mechanism", priority: "high", feature: "Agent Mgmt", status: "ready", difficulty: "medium", files: ["agents/actions.ts", "email.ts"], acceptance_criteria: ["Auto-retry", "Status visible", "Resend button"], issue: "Email failures are silent - invites stuck." },
+      { id: "TKT-012", title: "Migrate Geolocation to MaxMind", priority: "high", feature: "Blocklist", status: "ready", difficulty: "medium", files: ["geolocation.ts", "checkVisitor.ts"], acceptance_criteria: ["MaxMind API", "Rate limit OK"], issue: "ip-api.com rate limit fails at scale." },
+    ];
+
+    const FINDINGS_DATA = [
+      { id: "F-021", feature: "Call Logs", title: "No Server-Side Pagination", severity: "high", issue: "All call logs fetched client-side. 10k+ calls = slow.", suggested_fix: "Server-side pagination with cursor.", questions: ["What's max call volume per org?", "Add date-range filters?"], status: "pending" },
+      { id: "F-022", feature: "Call Logs", title: "Missing Data Retention Enforcement", severity: "high", issue: "Retention documented but not enforced.", suggested_fix: "Scheduled deletion job.", questions: ["Immediate or grace period?", "Notify before deletion?"], status: "pending" },
+      { id: "F-023", feature: "Call Logs", title: "Cancelled Calls No Audit Trail", severity: "medium", issue: "Cancelled calls have no record.", suggested_fix: "Log with reason code.", questions: ["Needed for analytics?", "Count toward metrics?"], status: "pending" },
+      { id: "F-030", feature: "Recording", title: "No Recording Consent Indicator", severity: "high", issue: "No indication visitors are recorded.", suggested_fix: "Add indicator after connect.", questions: ["Text or icon?", "Can visitors decline?"], status: "pending" },
+      { id: "F-031", feature: "Recording", title: "Recording URLs Publicly Guessable", severity: "high", issue: "Public bucket, predictable URLs.", suggested_fix: "Private bucket + signed URLs.", questions: ["Expiration time?", "Migrate existing?"], status: "pending" },
+      { id: "F-032", feature: "WebRTC", title: "No ICE Restart on Failure", severity: "high", issue: "Connection fails = lost customer.", suggested_fix: "Auto ICE restart.", questions: ["How many retries?", "Show reconnecting status?"], status: "pending" },
+      { id: "F-040", feature: "Incoming Call", title: "Countdown Mismatch with RNA", severity: "high", issue: "Shows 30s but RNA fires at 15s.", suggested_fix: "Use org's actual timeout.", questions: ["Is timeout configurable?", "Show warning at 5s?"], status: "pending" },
+    ];
+
+    const AGENT_PROMPTS = {
+      doc: {
+        template: "You are a Doc Agent. Read docs/workflow/DOC_AGENT_SOP.md then execute: docs/prompts/active/doc-agent-{ID}.md",
+        description: "Creates feature documentation from source code"
+      },
+      review: {
+        template: "You are a Review Agent. Read docs/workflow/REVIEW_AGENT_SOP.md then execute: docs/prompts/active/review-agent-{ID}.md",
+        description: "Reviews documentation and reports findings"
+      },
+      pm: {
+        template: "You are the PM. Read docs/data/decisions.json and:\n1. For each 'resolved' finding, create ticket in tickets.json\n2. For 'in_discussion' findings, add follow-up questions\n3. Update findings.json status to 'ticketed'\n4. Run: node docs/scripts/generate-pm-dashboard.js",
+        description: "Processes decisions and creates tickets"
+      }
     };
 
     // ================= COMPONENTS =================
@@ -258,181 +202,360 @@
       return <span className={`badge badge-${type}`}>{children}</span>;
     }
 
-    function FindingCard({ finding, thread, onAnswer, onResolve }) {
-      const [answer, setAnswer] = useState('');
-      const isResolved = thread?.status === 'resolved';
-      const currentQuestionIndex = thread?.messages?.filter(m => m.role === 'human').length || 0;
-      const currentQuestion = finding.questions[currentQuestionIndex];
-      const hasMoreQuestions = currentQuestionIndex < finding.questions.length;
-
-      const handleSend = () => {
-        if (!answer.trim()) return;
-        onAnswer(finding.id, answer);
-        setAnswer('');
-      };
-
-      const handleQuickAnswer = (text) => {
-        onAnswer(finding.id, text);
-      };
-
+    function PipelineCard({ icon, label, current, total, subtitle, complete }) {
+      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
       return (
-        <div className="card slide-up">
-          <div className="card-header">
-            <div>
-              <code style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{finding.id}</code>
-              <h3 style={{ fontSize: '16px', fontWeight: 600, marginTop: '4px' }}>{finding.title}</h3>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>{finding.feature}</div>
+        <div className={`pipeline-card ${complete ? 'complete' : ''}`}>
+          <div className="inner">
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+              <span className="icon">{icon}</span>
+              <span className="label">{label}</span>
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <Badge type={finding.severity}>{finding.severity}</Badge>
-              <Badge type={isResolved ? 'resolved' : 'pending'}>
-                {isResolved ? '✓ Resolved' : 'Pending'}
-              </Badge>
+            <div className="value" style={{ color: complete ? 'var(--success)' : 'var(--text-primary)' }}>
+              {current}<span>/{total}</span>
             </div>
-          </div>
-
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-            {finding.issue}
-          </p>
-
-          <div style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
-            <strong>Suggested Fix:</strong> {finding.suggested_fix}
-          </div>
-
-          {/* Thread */}
-          <div className="thread">
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-              Conversation
-            </div>
-
-            {/* Show all messages */}
-            {thread?.messages?.map((msg, i) => (
-              <div key={i} className={`message message-${msg.role}`}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                  {msg.role === 'system' ? '🤖 Question' : msg.role === 'human' ? '👤 You' : '🎯 PM'}
-                </div>
-                {msg.text}
-              </div>
-            ))}
-
-            {/* Show current question if not all answered */}
-            {!isResolved && hasMoreQuestions && (
-              <>
-                <div className="message message-system">
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>🤖 Question</div>
-                  {currentQuestion}
-                </div>
-
-                <div className="quick-answers">
-                  <button className="quick-btn" onClick={() => handleQuickAnswer('Yes')}>Yes</button>
-                  <button className="quick-btn" onClick={() => handleQuickAnswer('No')}>No</button>
-                  <button className="quick-btn" onClick={() => handleQuickAnswer('Skip for now')}>Skip</button>
-                </div>
-
-                <div className="input-group">
-                  <input 
-                    className="input" 
-                    placeholder="Type your answer..." 
-                    value={answer}
-                    onChange={e => setAnswer(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSend()}
-                  />
-                  <button className="btn btn-primary" onClick={handleSend}>Send</button>
-                </div>
-              </>
-            )}
-
-            {/* All questions answered - show resolve button */}
-            {!isResolved && !hasMoreQuestions && thread?.messages?.length > 0 && (
-              <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
-                <button className="btn btn-success" onClick={() => onResolve(finding.id)}>
-                  ✓ Mark Resolved & Create Ticket
-                </button>
-                <button className="btn btn-secondary" onClick={() => onAnswer(finding.id, '[Request: Need more info]')}>
-                  Need More Discussion
-                </button>
-              </div>
-            )}
-
-            {/* Already resolved */}
-            {isResolved && thread.decision && (
-              <div style={{ marginTop: '12px', padding: '12px', background: 'rgba(16,185,129,0.1)', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--success)', fontWeight: 600 }}>
-                  ✓ Resolved → {thread.decision.ticket_id || 'Ticket created'}
-                </div>
-              </div>
-            )}
+            <div className="bar"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
+            <div className="subtitle">{subtitle}</div>
           </div>
         </div>
       );
     }
 
-    function CommandModal({ decisions, onClose }) {
-      const [copied, setCopied] = useState(false);
-      
-      const pmCommand = `You are the PM. Read docs/data/decisions.json and:
-1. For each "resolved" finding, verify a ticket exists in tickets.json
-2. For any "in_discussion" findings, add your follow-up questions
-3. Update findings.json status to "ticketed" for completed items
-4. Run: node docs/scripts/generate-pm-dashboard.js`;
+    function TicketCard({ ticket, onClick }) {
+      return (
+        <div className={`ticket-card priority-${ticket.priority}`} onClick={onClick}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{ticket.id}</code>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <Badge type={ticket.priority}>{ticket.priority}</Badge>
+              <Badge type={ticket.difficulty === 'easy' ? 'low' : ticket.difficulty === 'hard' ? 'critical' : 'medium'}>{ticket.difficulty}</Badge>
+            </div>
+          </div>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>{ticket.title}</h3>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>{ticket.feature}</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>📁 {ticket.files.length} files • ✓ {ticket.acceptance_criteria.length} criteria</div>
+        </div>
+      );
+    }
 
-      const decisionsJson = JSON.stringify(decisions, null, 2);
-
-      const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      };
-
+    function TicketModal({ ticket, onClose }) {
+      if (!ticket) return null;
       return (
         <div className="modal-overlay" onClick={onClose}>
           <div className="modal fade-in" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 style={{ fontSize: '18px', fontWeight: 600 }}>📋 Next Steps</h2>
+              <div>
+                <code style={{ color: 'var(--text-muted)' }}>{ticket.id}</code>
+                <h2 style={{ fontSize: '18px', fontWeight: 600, marginTop: '4px' }}>{ticket.title}</h2>
+              </div>
               <button className="btn btn-sm btn-secondary" onClick={onClose}>×</button>
             </div>
             <div className="modal-body">
-              <div style={{ marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  Step 1: Save decisions.json
-                </h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                  Copy this and paste into <code>docs/data/decisions.json</code>:
-                </p>
-                <div style={{ position: 'relative' }}>
-                  <pre style={{ background: 'var(--bg-elevated)', padding: '16px', borderRadius: '8px', fontSize: '11px', maxHeight: '200px', overflow: 'auto' }}>
-                    {decisionsJson}
-                  </pre>
-                  <button 
-                    className="btn btn-sm btn-primary" 
-                    style={{ position: 'absolute', top: '8px', right: '8px' }}
-                    onClick={() => copyToClipboard(decisionsJson)}
-                  >
-                    {copied ? '✓ Copied!' : 'Copy JSON'}
-                  </button>
+              <div className="section">
+                <div className="section-title">Issue</div>
+                <p style={{ color: 'var(--text-secondary)' }}>{ticket.issue}</p>
+              </div>
+              <div className="section">
+                <div className="section-title">Files to Edit</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {ticket.files.map((f, i) => <code key={i} style={{ padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: '6px', fontSize: '12px', color: 'var(--accent-bright)' }}>{f}</code>)}
                 </div>
               </div>
+              <div className="section">
+                <div className="section-title">Acceptance Criteria</div>
+                {ticket.acceptance_criteria.map((c, i) => (
+                  <div key={i} style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '6px', marginBottom: '6px', fontSize: '13px' }}>☐ {c}</div>
+                ))}
+              </div>
+              {ticket.risk_notes && (
+                <div style={{ padding: '16px', background: 'var(--critical-bg)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--critical)', fontWeight: 600, marginBottom: '8px' }}>⚠️ Risk Notes</div>
+                  {ticket.risk_notes.map((n, i) => <div key={i} style={{ fontSize: '13px', marginBottom: '4px' }}>• {n}</div>)}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
 
-              <div>
-                <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  Step 2: Paste into Cursor (PM Agent)
-                </h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                  Open a new Cursor chat and paste:
-                </p>
-                <div style={{ position: 'relative' }}>
-                  <pre style={{ background: 'var(--bg-elevated)', padding: '16px', borderRadius: '8px', fontSize: '12px', whiteSpace: 'pre-wrap' }}>
-                    {pmCommand}
-                  </pre>
-                  <button 
-                    className="btn btn-sm btn-primary" 
-                    style={{ position: 'absolute', top: '8px', right: '8px' }}
-                    onClick={() => copyToClipboard(pmCommand)}
-                  >
-                    Copy Command
-                  </button>
-                </div>
+    function FindingCard({ finding, thread, onAnswer, onResolve }) {
+      const [answer, setAnswer] = useState('');
+      const isResolved = thread?.status === 'resolved';
+      const currentQIndex = thread?.messages?.filter(m => m.role === 'human').length || 0;
+      const currentQ = finding.questions[currentQIndex];
+      const hasMore = currentQIndex < finding.questions.length;
+
+      const handleSend = () => { if (answer.trim()) { onAnswer(finding.id, answer); setAnswer(''); } };
+      const handleQuick = (text) => onAnswer(finding.id, text);
+
+      return (
+        <div className="card slide-up" style={{ marginBottom: '12px' }}>
+          <div className="card-header">
+            <div>
+              <code style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{finding.id}</code>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, marginTop: '4px' }}>{finding.title}</h3>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{finding.feature}</div>
+            </div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <Badge type={finding.severity}>{finding.severity}</Badge>
+              <Badge type={isResolved ? 'resolved' : 'pending'}>{isResolved ? '✓ Resolved' : 'Pending'}</Badge>
+            </div>
+          </div>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>{finding.issue}</p>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '6px' }}>
+            <strong>Fix:</strong> {finding.suggested_fix}
+          </div>
+          <div className="thread">
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Conversation</div>
+            {thread?.messages?.map((msg, i) => (
+              <div key={i} className={`message message-${msg.role}`}>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>{msg.role === 'system' ? '🤖 Question' : '👤 You'}</div>
+                {msg.text}
               </div>
+            ))}
+            {!isResolved && hasMore && (
+              <>
+                <div className="message message-system">
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>🤖 Question</div>
+                  {currentQ}
+                </div>
+                <div className="quick-answers">
+                  <button className="quick-btn" onClick={() => handleQuick('Yes')}>Yes</button>
+                  <button className="quick-btn" onClick={() => handleQuick('No')}>No</button>
+                  <button className="quick-btn" onClick={() => handleQuick('Skip')}>Skip</button>
+                </div>
+                <div className="input-group">
+                  <input className="input" placeholder="Type answer..." value={answer} onChange={e => setAnswer(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} />
+                  <button className="btn btn-primary" onClick={handleSend}>Send</button>
+                </div>
+              </>
+            )}
+            {!isResolved && !hasMore && thread?.messages?.length > 0 && (
+              <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                <button className="btn btn-success" onClick={() => onResolve(finding.id)}>✓ Mark Resolved</button>
+                <button className="btn btn-secondary" onClick={() => handleQuick('[Need more info]')}>More Discussion</button>
+              </div>
+            )}
+            {isResolved && <div style={{ marginTop: '10px', padding: '10px', background: 'rgba(16,185,129,0.1)', borderRadius: '6px', fontSize: '12px', color: 'var(--success)' }}>✓ Resolved</div>}
+          </div>
+        </div>
+      );
+    }
+
+    function CommandBox({ label, command, description }) {
+      const [copied, setCopied] = useState(false);
+      const copy = () => { navigator.clipboard.writeText(command); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+      return (
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>{label}</div>
+          {description && <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>{description}</div>}
+          <div className="command-box">
+            <pre>{command}</pre>
+            <button className="btn btn-sm btn-primary copy-btn" onClick={copy}>{copied ? '✓ Copied!' : 'Copy'}</button>
+          </div>
+        </div>
+      );
+    }
+
+    // ================= VIEWS =================
+
+    function PipelineView() {
+      const s = FINDINGS_SUMMARY;
+      const totalAnswered = Object.values(s.by_priority).reduce((sum, p) => sum + p.answered, 0);
+      const totalPending = Object.values(s.by_priority).reduce((sum, p) => sum + p.pending, 0);
+      const ticketCount = TICKETS_DATA.length;
+
+      return (
+        <div className="fade-in">
+          <div className="section">
+            <div className="section-title">Pipeline Status</div>
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              <PipelineCard icon="📝" label="Documented" current={s.meta.total_features} total={s.meta.total_features} subtitle="Features documented" complete={true} />
+              <PipelineCard icon="🔍" label="Reviewed" current={s.meta.reviewed_features} total={s.meta.total_features} subtitle="Features reviewed" complete={true} />
+              <PipelineCard icon="📋" label="Triaged" current={totalAnswered} total={s.meta.total_findings} subtitle={`${totalPending} pending`} complete={totalPending === 0} />
+              <PipelineCard icon="🎫" label="Ticketed" current={ticketCount} total={ticketCount} subtitle="Ready for dev" complete={true} />
+              <PipelineCard icon="🔨" label="In Progress" current={0} total={ticketCount} subtitle="Being developed" complete={false} />
+            </div>
+          </div>
+
+          <div className="section">
+            <div className="section-title">Findings by Priority</div>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              {Object.entries(s.by_priority).map(([p, data]) => (
+                <div key={p} className="card" style={{ flex: 1, minWidth: '140px', textAlign: 'center', padding: '16px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>{p}</div>
+                  <div style={{ fontSize: '28px', fontWeight: 700, color: p === 'critical' ? 'var(--critical)' : p === 'high' ? 'var(--high)' : p === 'medium' ? 'var(--medium)' : 'var(--low)' }}>{data.total}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{data.pending} pending</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="section">
+            <div className="section-title">Quick Actions</div>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <div className="card" style={{ flex: 1, padding: '16px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>📋 Triage Findings</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Answer questions for {totalPending} pending findings</div>
+                <button className="btn btn-primary btn-sm">Go to Triage →</button>
+              </div>
+              <div className="card" style={{ flex: 1, padding: '16px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>🚀 Launch Agents</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Get commands for doc/review agents</div>
+                <button className="btn btn-secondary btn-sm">Go to Agents →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function TriageView() {
+      const [tab, setTab] = useState('pending');
+      const [decisions, setDecisions] = useState(() => {
+        const saved = localStorage.getItem('pm-decisions-v2');
+        if (saved) return JSON.parse(saved);
+        return { threads: FINDINGS_DATA.map(f => ({ finding_id: f.id, status: 'pending', messages: [], decision: null })) };
+      });
+
+      useEffect(() => { localStorage.setItem('pm-decisions-v2', JSON.stringify(decisions)); }, [decisions]);
+
+      const getThread = (id) => decisions.threads.find(t => t.finding_id === id);
+      
+      const handleAnswer = (id, answer) => {
+        setDecisions(prev => ({
+          ...prev,
+          threads: prev.threads.map(t => {
+            if (t.finding_id !== id) return t;
+            const finding = FINDINGS_DATA.find(f => f.id === id);
+            const qIdx = t.messages.filter(m => m.role === 'human').length;
+            const q = finding.questions[qIdx];
+            return {
+              ...t,
+              status: 'in_discussion',
+              messages: [
+                ...t.messages,
+                ...(t.messages.length === 0 || t.messages[t.messages.length - 1].role === 'human' ? [{ role: 'system', text: q, timestamp: new Date().toISOString() }] : []),
+                { role: 'human', text: answer, timestamp: new Date().toISOString() }
+              ]
+            };
+          })
+        }));
+      };
+
+      const handleResolve = (id) => {
+        setDecisions(prev => ({
+          ...prev,
+          threads: prev.threads.map(t => t.finding_id === id ? { ...t, status: 'resolved', decision: { action: 'create_ticket' } } : t)
+        }));
+      };
+
+      const stats = useMemo(() => {
+        const pending = decisions.threads.filter(t => t.status === 'pending').length;
+        const inDiscussion = decisions.threads.filter(t => t.status === 'in_discussion').length;
+        const resolved = decisions.threads.filter(t => t.status === 'resolved').length;
+        return { pending, inDiscussion, resolved };
+      }, [decisions]);
+
+      const filtered = FINDINGS_DATA.filter(f => {
+        const t = getThread(f.id);
+        if (tab === 'pending') return t?.status === 'pending';
+        if (tab === 'in_discussion') return t?.status === 'in_discussion';
+        return t?.status === 'resolved';
+      });
+
+      return (
+        <div className="fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div className="tabs">
+              <button className={`tab ${tab === 'pending' ? 'active' : ''}`} onClick={() => setTab('pending')}>📋 Pending <span className="count">{stats.pending}</span></button>
+              <button className={`tab ${tab === 'in_discussion' ? 'active' : ''}`} onClick={() => setTab('in_discussion')}>💬 In Discussion <span className="count">{stats.inDiscussion}</span></button>
+              <button className={`tab ${tab === 'resolved' ? 'active' : ''}`} onClick={() => setTab('resolved')}>✓ Resolved <span className="count">{stats.resolved}</span></button>
+            </div>
+            <button className="btn btn-primary" onClick={() => {
+              const json = JSON.stringify(decisions, null, 2);
+              navigator.clipboard.writeText(json);
+              alert('Decisions JSON copied! Paste into docs/data/decisions.json');
+            }}>📋 Export Decisions</button>
+          </div>
+          {filtered.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>{tab === 'pending' ? '🎉' : '📋'}</div>
+              <div style={{ color: 'var(--text-muted)' }}>{tab === 'pending' ? 'All findings answered!' : 'No items'}</div>
+            </div>
+          ) : (
+            filtered.map(f => <FindingCard key={f.id} finding={f} thread={getThread(f.id)} onAnswer={handleAnswer} onResolve={handleResolve} />)
+          )}
+        </div>
+      );
+    }
+
+    function TicketsView() {
+      const [filter, setFilter] = useState('all');
+      const [selectedTicket, setSelectedTicket] = useState(null);
+
+      const stats = useMemo(() => {
+        const byP = { critical: 0, high: 0, medium: 0, low: 0 };
+        TICKETS_DATA.forEach(t => byP[t.priority]++);
+        return byP;
+      }, []);
+
+      const filtered = filter === 'all' ? TICKETS_DATA : TICKETS_DATA.filter(t => t.priority === filter);
+
+      return (
+        <div className="fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div className="tabs">
+              <button className={`tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All <span className="count">{TICKETS_DATA.length}</span></button>
+              <button className={`tab ${filter === 'critical' ? 'active' : ''}`} onClick={() => setFilter('critical')}>🔴 Critical <span className="count">{stats.critical}</span></button>
+              <button className={`tab ${filter === 'high' ? 'active' : ''}`} onClick={() => setFilter('high')}>🟠 High <span className="count">{stats.high}</span></button>
+              <button className={`tab ${filter === 'medium' ? 'active' : ''}`} onClick={() => setFilter('medium')}>🟡 Medium <span className="count">{stats.medium}</span></button>
+              <button className={`tab ${filter === 'low' ? 'active' : ''}`} onClick={() => setFilter('low')}>🟢 Low <span className="count">{stats.low}</span></button>
+            </div>
+          </div>
+          <div className="ticket-grid">
+            {filtered.map(t => <TicketCard key={t.id} ticket={t} onClick={() => setSelectedTicket(t)} />)}
+          </div>
+          {selectedTicket && <TicketModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}
+        </div>
+      );
+    }
+
+    function AgentsView() {
+      return (
+        <div className="fade-in">
+          <div className="section">
+            <div className="section-title">Launch PM Agent</div>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>After answering questions in Triage, run the PM agent to create tickets.</p>
+            <CommandBox label="PM Agent" command={AGENT_PROMPTS.pm.template} description={AGENT_PROMPTS.pm.description} />
+          </div>
+
+          <div className="section">
+            <div className="section-title">Launch Doc Agents</div>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>Create documentation for undocumented features. Replace {'{ID}'} with feature ID.</p>
+            <CommandBox label="Doc Agent Template" command={AGENT_PROMPTS.doc.template} description={AGENT_PROMPTS.doc.description} />
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+              Example IDs: D1 (Org Settings), B1 (Subscription), A1 (Agent Dashboard), V1 (Visitor Widget)
+            </div>
+          </div>
+
+          <div className="section">
+            <div className="section-title">Launch Review Agents</div>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>Review documented features and report findings. Replace {'{ID}'} with feature ID.</p>
+            <CommandBox label="Review Agent Template" command={AGENT_PROMPTS.review.template} description={AGENT_PROMPTS.review.description} />
+          </div>
+
+          <div className="section">
+            <div className="section-title">Workflow Reference</div>
+            <div className="card" style={{ padding: '16px' }}>
+              <pre style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', margin: 0 }}>
+{`1. DOC AGENTS → Create feature documentation
+2. REVIEW AGENTS → Find issues in documentation
+3. PM TRIAGE → Answer questions in this dashboard
+4. PM AGENT → Create tickets from resolved findings
+5. DEV AGENTS → Implement ticket fixes`}
+              </pre>
             </div>
           </div>
         </div>
@@ -442,169 +565,31 @@
     // ================= MAIN APP =================
 
     function App() {
-      const [tab, setTab] = useState('pending');
-      const [showCommand, setShowCommand] = useState(false);
-      
-      // Initialize decisions from localStorage or defaults
-      const [decisions, setDecisions] = useState(() => {
-        const saved = localStorage.getItem('pm-decisions');
-        if (saved) return JSON.parse(saved);
-        
-        // Default threads based on findings
-        return {
-          threads: FINDINGS_DATA.findings.map(f => ({
-            finding_id: f.id,
-            status: f.status === 'ticketed' ? 'resolved' : 'pending',
-            messages: [],
-            decision: f.status === 'ticketed' ? { ticket_id: f.ticket_id } : null
-          }))
-        };
-      });
-
-      // Save to localStorage on change
-      useEffect(() => {
-        localStorage.setItem('pm-decisions', JSON.stringify(decisions));
-      }, [decisions]);
-
-      const getThread = (findingId) => {
-        return decisions.threads.find(t => t.finding_id === findingId);
-      };
-
-      const handleAnswer = (findingId, answer) => {
-        setDecisions(prev => {
-          const newThreads = prev.threads.map(t => {
-            if (t.finding_id !== findingId) return t;
-            
-            const finding = FINDINGS_DATA.findings.find(f => f.id === findingId);
-            const questionIndex = t.messages.filter(m => m.role === 'human').length;
-            const question = finding.questions[questionIndex];
-            
-            return {
-              ...t,
-              status: 'in_discussion',
-              messages: [
-                ...t.messages,
-                ...(t.messages.length === 0 || t.messages[t.messages.length - 1].role === 'human' 
-                  ? [{ role: 'system', text: question, timestamp: new Date().toISOString() }] 
-                  : []),
-                { role: 'human', text: answer, timestamp: new Date().toISOString() }
-              ]
-            };
-          });
-          return { ...prev, threads: newThreads };
-        });
-      };
-
-      const handleResolve = (findingId) => {
-        setDecisions(prev => ({
-          ...prev,
-          threads: prev.threads.map(t => 
-            t.finding_id === findingId 
-              ? { ...t, status: 'resolved', decision: { action: 'create_ticket', timestamp: new Date().toISOString() } }
-              : t
-          )
-        }));
-      };
-
-      // Stats
-      const stats = useMemo(() => {
-        const pending = decisions.threads.filter(t => t.status === 'pending').length;
-        const inDiscussion = decisions.threads.filter(t => t.status === 'in_discussion').length;
-        const resolved = decisions.threads.filter(t => t.status === 'resolved').length;
-        return { pending, inDiscussion, resolved, total: decisions.threads.length };
-      }, [decisions]);
-
-      // Filter findings by tab
-      const filteredFindings = useMemo(() => {
-        return FINDINGS_DATA.findings.filter(f => {
-          const thread = getThread(f.id);
-          if (tab === 'pending') return thread?.status === 'pending';
-          if (tab === 'in_discussion') return thread?.status === 'in_discussion';
-          if (tab === 'resolved') return thread?.status === 'resolved';
-          return true;
-        });
-      }, [tab, decisions]);
+      const [view, setView] = useState('pipeline');
 
       return (
-        <div style={{ minHeight: '100vh', padding: '40px 48px' }}>
+        <div style={{ minHeight: '100vh' }}>
           {/* Header */}
-          <header style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <header style={{ padding: '24px 40px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 800, background: 'var(--gradient-hero)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                PM Dashboard
-              </h1>
-              <p style={{ color: 'var(--text-muted)', marginTop: '4px' }}>
-                Answer questions • Resolve findings • Generate tickets
-              </p>
+              <h1 style={{ fontSize: '24px', fontWeight: 800, background: 'var(--gradient-hero)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PM Dashboard</h1>
+              <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Digital Greeter • {new Date().toLocaleDateString()}</p>
             </div>
-            <button className="btn btn-primary" onClick={() => setShowCommand(true)}>
-              📋 Get PM Command
-            </button>
+            <div className="nav">
+              <button className={`nav-item ${view === 'pipeline' ? 'active' : ''}`} onClick={() => setView('pipeline')}>📊 Pipeline</button>
+              <button className={`nav-item ${view === 'triage' ? 'active' : ''}`} onClick={() => setView('triage')}>📋 Triage</button>
+              <button className={`nav-item ${view === 'tickets' ? 'active' : ''}`} onClick={() => setView('tickets')}>🎫 Tickets</button>
+              <button className={`nav-item ${view === 'agents' ? 'active' : ''}`} onClick={() => setView('agents')}>🚀 Agents</button>
+            </div>
           </header>
 
-          {/* Stats */}
-          <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
-            <div className="card" style={{ flex: 1, textAlign: 'center', padding: '16px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--accent-bright)' }}>{stats.pending}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Pending</div>
-            </div>
-            <div className="card" style={{ flex: 1, textAlign: 'center', padding: '16px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--high)' }}>{stats.inDiscussion}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>In Discussion</div>
-            </div>
-            <div className="card" style={{ flex: 1, textAlign: 'center', padding: '16px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--success)' }}>{stats.resolved}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Resolved</div>
-            </div>
-            <div className="card" style={{ flex: 1, textAlign: 'center', padding: '16px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 700 }}>{TICKETS_DATA.meta.total_tickets}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Tickets</div>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="tabs" style={{ marginBottom: '24px', width: 'fit-content' }}>
-            <button className={`tab ${tab === 'pending' ? 'active' : ''}`} onClick={() => setTab('pending')}>
-              📋 Pending <span className="count">{stats.pending}</span>
-            </button>
-            <button className={`tab ${tab === 'in_discussion' ? 'active' : ''}`} onClick={() => setTab('in_discussion')}>
-              💬 In Discussion <span className="count">{stats.inDiscussion}</span>
-            </button>
-            <button className={`tab ${tab === 'resolved' ? 'active' : ''}`} onClick={() => setTab('resolved')}>
-              ✓ Resolved <span className="count">{stats.resolved}</span>
-            </button>
-          </div>
-
-          {/* Findings */}
-          <div>
-            {filteredFindings.length === 0 ? (
-              <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>
-                  {tab === 'pending' ? '🎉' : tab === 'in_discussion' ? '💤' : '📋'}
-                </div>
-                <div style={{ color: 'var(--text-muted)' }}>
-                  {tab === 'pending' ? 'All findings answered!' : 
-                   tab === 'in_discussion' ? 'No ongoing discussions' :
-                   'No resolved findings yet'}
-                </div>
-              </div>
-            ) : (
-              filteredFindings.map(finding => (
-                <FindingCard 
-                  key={finding.id}
-                  finding={finding}
-                  thread={getThread(finding.id)}
-                  onAnswer={handleAnswer}
-                  onResolve={handleResolve}
-                />
-              ))
-            )}
-          </div>
-
-          {/* Command Modal */}
-          {showCommand && (
-            <CommandModal decisions={decisions} onClose={() => setShowCommand(false)} />
-          )}
+          {/* Main Content */}
+          <main style={{ padding: '32px 40px' }}>
+            {view === 'pipeline' && <PipelineView />}
+            {view === 'triage' && <TriageView />}
+            {view === 'tickets' && <TicketsView />}
+            {view === 'agents' && <AgentsView />}
+          </main>
         </div>
       );
     }
