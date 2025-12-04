@@ -777,9 +777,6 @@
         "Update Monitor 2 (Signaling Server) to 3-minute frequency",
         "Update documentation to reflect 3-minute check frequency"
       ],
-      "files_to_edit": [
-        "docs/features/auth/uptime-monitoring.md"
-      ],
       "risk_notes": [
         "Slightly slower alerting (3 min vs 1 min)",
         "Documentation-only change if monitors not yet created"
@@ -788,6 +785,9 @@
         "Both monitors use 3-minute frequency",
         "Documentation matches actual config",
         "Stays within free tier limits"
+      ],
+      "files": [
+        "docs/features/auth/uptime-monitoring.md"
       ]
     }
   ]

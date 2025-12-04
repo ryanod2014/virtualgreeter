@@ -234,7 +234,7 @@
           </div>
           <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>{ticket.title}</h3>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>{ticket.feature}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>📁 {ticket.files.length} files • ✓ {ticket.acceptance_criteria.length} criteria</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>📁 {(ticket.files || []).length} files • ✓ {(ticket.acceptance_criteria || []).length} criteria</div>
         </div>
       );
     }
@@ -259,12 +259,12 @@
               <div className="section">
                 <div className="section-title">Files to Edit</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {ticket.files.map((f, i) => <code key={i} style={{ padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: '6px', fontSize: '12px', color: 'var(--accent-bright)' }}>{f}</code>)}
+                  {(ticket.files || []).map((f, i) => <code key={i} style={{ padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: '6px', fontSize: '12px', color: 'var(--accent-bright)' }}>{f}</code>)}
                 </div>
               </div>
               <div className="section">
                 <div className="section-title">Acceptance Criteria</div>
-                {ticket.acceptance_criteria.map((c, i) => (
+                {(ticket.acceptance_criteria || []).map((c, i) => (
                   <div key={i} style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '6px', marginBottom: '6px', fontSize: '13px' }}>☐ {c}</div>
                 ))}
               </div>
