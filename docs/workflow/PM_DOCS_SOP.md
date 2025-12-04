@@ -25,6 +25,11 @@ The PM workflow now uses **structured JSON data** for accuracy:
 2. Run `node docs/scripts/generate-docs.js`
 3. Dashboard and backlog are regenerated with accurate counts
 
+**Visual Dashboard:**
+- Open `docs/pm-dashboard-ui/index.html` in browser for interactive view
+- To regenerate: `node docs/scripts/generate-pm-dashboard.js`
+- Features: Pipeline overview, ticket grid with filters, detailed ticket modals
+
 **The PM workflow (questions, decisions, ticket creation) remains exactly the same.**
 
 ---

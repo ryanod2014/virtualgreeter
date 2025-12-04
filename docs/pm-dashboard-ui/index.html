@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PM Dashboard • Digital Greeter</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #050508;
+      --bg-surface: #0c0c12;
+      --bg-elevated: #141420;
+      --bg-hover: #1c1c2a;
+      --text-primary: #f4f4f8;
+      --text-secondary: #9090a8;
+      --text-muted: #5a5a70;
+      --border: #252538;
+      --border-subtle: #1a1a28;
+      --critical: #ef4444;
+      --critical-bg: rgba(239,68,68,0.12);
+      --high: #f97316;
+      --high-bg: rgba(249,115,22,0.12);
+      --medium: #eab308;
+      --medium-bg: rgba(234,179,8,0.12);
+      --low: #22c55e;
+      --low-bg: rgba(34,197,94,0.12);
+      --accent: #6366f1;
+      --accent-bright: #818cf8;
+      --accent-bg: rgba(99,102,241,0.12);
+      --success: #10b981;
+      --gradient-hero: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+      --gradient-subtle: linear-gradient(180deg, rgba(99,102,241,0.08) 0%, transparent 100%);
+      --shadow-lg: 0 25px 50px -12px rgba(0,0,0,0.5);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    code, .mono { font-family: 'IBM Plex Mono', monospace; }
+
+    ::selection {
+      background: var(--accent);
+      color: white;
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    
+    .fade-up { animation: fadeUp 0.5s ease-out forwards; opacity: 0; }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    .delay-4 { animation-delay: 0.4s; }
+    .delay-5 { animation-delay: 0.5s; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // ================= DATA =================
+    const TICKETS_DATA = {
+  "meta": {
+    "last_updated": "2025-12-03",
+    "version": "1.0",
+    "total_tickets": 23
+  },
+  "tickets": [
+    {
+      "id": "TKT-001",
+      "title": "Co-Browse Sensitive Data Sanitization",
+      "priority": "critical",
+      "feature": "Co-Browse (Viewer + Sender)",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "high",
+      "source": "Findings A-cobrowse-viewer #1, #2; V-cobrowse-sender #1",
+      "issue": "Password fields, credit card numbers, and other sensitive data are captured in DOM snapshots and transmitted to agents during co-browse sessions. This exposes plaintext passwords, violates PCI compliance, and creates privacy risks.",
+      "fix_required": [
+        "Mask password fields with ••••••••",
+        "Mask credit card inputs (input[autocomplete='cc-number'], input[type='tel'])",
+        "Mask elements with data-sensitive='true' attribute"
+      ],
+      "files": [
+        "apps/widget/src/features/cobrowse/domSerializer.ts",
+        "apps/widget/src/features/cobrowse/cobrowseSender.ts",
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx"
+      ],
+      "risk_notes": [
+        "If sanitization regex is too aggressive, may mask non-sensitive content",
+        "If sanitization is bypassed, sensitive data leaks to agents",
+        "Must test with various form structures (React forms, vanilla HTML, etc.)"
+      ],
+      "acceptance_criteria": [
+        "Password input values show as •••••••• in agent viewer",
+        "Credit card fields show as masked",
+        "Elements with data-sensitive attribute are masked",
+        "Regular form fields still work correctly",
+        "Unit tests cover sanitization logic"
+      ]
+    },
+    {
+      "id": "TKT-002",
+      "title": "Complete Stripe Subscription Cancellation",
+      "priority": "critical",
+      "feature": "Organization Settings, Cancel Subscription",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "high",
+      "source": "Findings D-organization-settings #1, #2; B-cancel-subscription #1",
+      "issue": "When users cancel their subscription: 1) Code only sets plan='free' in Supabase, 2) Does NOT call Stripe API to cancel, 3) UI says 'access until end of billing period' but access is removed immediately. Customers may continue being charged by Stripe.",
+      "fix_required": [
+        "Call stripe.subscriptions.update({ cancel_at_period_end: true }) when user cancels",
+        "Keep access active until current_period_end from Stripe",
+        "Add webhook handler for customer.subscription.deleted to finalize downgrade"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "apps/dashboard/src/lib/stripe.ts",
+        "apps/server/src/features/webhooks/stripe.ts",
+        "packages/domain/src/database.types.ts"
+      ],
+      "risk_notes": [
+        "If Stripe call fails but DB updates, subscription cancelled locally but still billed",
+        "Need idempotency - user might click cancel multiple times",
+        "Webhook must be verified to prevent spoofing",
+        "Test with Stripe test mode before production"
+      ],
+      "acceptance_criteria": [
+        "Clicking 'Cancel' calls Stripe API with cancel_at_period_end: true",
+        "User retains access until their paid period ends",
+        "After period ends, plan automatically becomes 'free'",
+        "Stripe dashboard shows subscription as 'canceling'",
+        "Webhook properly handles the final cancellation event"
+      ]
+    },
+    {
+      "id": "TKT-003",
+      "title": "Update Cancellation Data Deletion Copy",
+      "priority": "critical",
+      "feature": "Cancel Subscription",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "medium",
+      "source": "Finding B-cancel-subscription #2",
+      "issue": "Cancel modal warns that data will be 'permanently deleted' but actual behavior just downgrades to free - no data is deleted. This is misleading.",
+      "fix_required": [
+        "Update copy to: 'Your data will be retained for 30 days after cancellation, then may be permanently deleted.'"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx"
+      ],
+      "risk_notes": [
+        "Copy change only - low risk",
+        "Should match any terms of service language",
+        "Consider adding actual 30-day cleanup job later (separate ticket)"
+      ],
+      "acceptance_criteria": [
+        "Cancel modal shows updated retention language",
+        "No mention of 'immediate' deletion",
+        "Copy reviewed by stakeholder"
+      ]
+    },
+    {
+      "id": "TKT-004",
+      "title": "Complete Pause Subscription with Stripe Integration",
+      "priority": "critical",
+      "feature": "Pause Subscription",
+      "status": "ready",
+      "difficulty": "hard",
+      "complexity": "high",
+      "risk": "high",
+      "source": "Findings B-pause-subscription #1, #2",
+      "issue": "1) pauseAccount() updates DB but does NOT pause billing in Stripe - customers still charged. 2) No auto-resume when pause_ends_at is reached - subscriptions stay paused forever.",
+      "fix_required": [
+        "Implement Stripe subscription.pause_collection when pausing",
+        "Implement scheduled job to auto-resume when pause period ends",
+        "Add webhook handler for pause/resume events"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "apps/dashboard/src/lib/stripe.ts",
+        "apps/server/src/features/webhooks/stripe.ts",
+        "apps/server/src/features/scheduler/",
+        "supabase/migrations/"
+      ],
+      "risk_notes": [
+        "Stripe pause behavior varies by plan type - test thoroughly",
+        "Auto-resume job must be reliable - missed resume = extended pause",
+        "Race condition possible if user manually resumes while job runs",
+        "Need to handle case where payment fails on resume"
+      ],
+      "acceptance_criteria": [
+        "Pausing account stops Stripe billing",
+        "Resuming account restarts Stripe billing",
+        "Auto-resume triggers at pause_ends_at timestamp",
+        "User receives notification before auto-resume",
+        "Failed payment on resume is handled gracefully",
+        "Widget disabled for paused orgs - visitors see 'temporarily unavailable'",
+        "All agents forced to 'offline' status when org pauses"
+      ]
+    },
+    {
+      "id": "TKT-005",
+      "title": "Payment Failure Blocking + Retry UI",
+      "priority": "critical",
+      "feature": "Payment Failure",
+      "status": "ready",
+      "difficulty": "hard",
+      "complexity": "high",
+      "risk": "high",
+      "source": "Finding B-payment-failure #2",
+      "issue": "When payment fails, users get ZERO feedback: No dashboard notification, No email, No popup, Account continues working as if nothing happened.",
+      "fix_required": [
+        "Add past_due status to TypeScript types",
+        "Create full-screen payment retry modal that blocks app usage",
+        "Add Stripe webhook handler for invoice.payment_failed",
+        "Email notification on payment failure",
+        "Block all dashboard access for admin + agents until resolved",
+        "Force all agents to 'offline' status"
+      ],
+      "files": [
+        "packages/domain/src/database.types.ts",
+        "apps/dashboard/src/components/PaymentBlocker.tsx",
+        "apps/dashboard/src/app/(dashboard)/layout.tsx",
+        "apps/server/src/features/webhooks/stripe.ts",
+        "apps/server/src/lib/email.ts",
+        "apps/dashboard/src/lib/stripe.ts",
+        "apps/server/src/features/agents/agentStatus.ts"
+      ],
+      "risk_notes": [
+        "Blocking too aggressively could frustrate users with temporary card issues",
+        "Need grace period logic (e.g., 3 days before full block)",
+        "Retry flow must handle all Stripe error types",
+        "Must unblock immediately once payment succeeds",
+        "In-progress calls should complete, but no new calls allowed"
+      ],
+      "acceptance_criteria": [
+        "Payment failure triggers past_due status in database",
+        "Full-screen modal appears blocking dashboard access",
+        "Modal includes 'Update Payment Method' button (admin only)",
+        "Agents see read-only modal explaining billing issue - directs them to contact admin",
+        "Email sent to admin on payment failure",
+        "Successful payment immediately unblocks account",
+        "All agents forced to 'offline' status - widget won't show them as available",
+        "Visitors see no available agents (widget shows 'no agents available' or hides)"
+      ]
+    },
+    {
+      "id": "TKT-006",
+      "title": "Fix Middleware Redirect for Unauthenticated Users",
+      "priority": "critical",
+      "feature": "Login Flow / Authentication",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "medium",
+      "source": "Finding AUTH-login-flow #1",
+      "issue": "Middleware code for protected routes has 'if (isProtectedPath && !user) { return }' but no redirect to login page. Unauthenticated users get blank/error page.",
+      "fix_required": [
+        "Complete the redirect logic: if (isProtectedPath && !user) { return NextResponse.redirect(new URL('/login', request.url)) }"
+      ],
+      "files": [
+        "apps/dashboard/middleware.ts"
+      ],
+      "risk_notes": [
+        "Must preserve any existing redirect logic (e.g., callback URLs)",
+        "Test that authenticated users are NOT affected",
+        "Ensure redirect doesn't create infinite loop if /login is misconfigured"
+      ],
+      "acceptance_criteria": [
+        "Visiting /dashboard while logged out redirects to /login",
+        "Visiting any protected path while logged out redirects to /login",
+        "Logged-in users can access protected paths normally",
+        "No redirect loops"
+      ]
+    },
+    {
+      "id": "TKT-017",
+      "title": "Enforce Pool Routing on Visitor Reassignment",
+      "priority": "critical",
+      "feature": "Visitor Reassignment",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "high",
+      "source": "Finding P-visitor-reassignment #1",
+      "issue": "When a visitor is reassigned, findBestAgent() is called WITHOUT the pool ID. A visitor from 'Sales Pool' could be reassigned to 'Support Pool' agent. This defeats pool-based routing.",
+      "fix_required": [
+        "Pass pool ID to findBestAgent() during reassignment",
+        "Visitor should only be reassigned to agents in the same pool"
+      ],
+      "files": [
+        "apps/server/src/features/reassignment/reassignVisitors.ts",
+        "apps/server/src/lib/agentSelection.ts",
+        "apps/server/src/features/calls/callRequest.ts"
+      ],
+      "risk_notes": [
+        "If pool has no available agents, need fallback behavior (queue? error? any-pool?)",
+        "Must test with multi-pool organizations",
+        "Race condition possible if agent goes unavailable mid-reassignment"
+      ],
+      "acceptance_criteria": [
+        "Reassigned visitor stays in original pool",
+        "If no agents in pool, appropriate fallback behavior",
+        "Pool routing rules are logged for debugging",
+        "Unit tests cover pool-aware reassignment"
+      ]
+    },
+    {
+      "id": "TKT-009",
+      "title": "Org-Level Co-Browse Disable Setting",
+      "priority": "high",
+      "feature": "Co-Browse, Organization Settings",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "low",
+      "source": "Finding A-cobrowse-viewer #3",
+      "issue": "Visitors have no control over screen sharing during calls. Co-browse is automatic with no opt-out. May violate privacy expectations or GDPR.",
+      "fix_required": [
+        "Add organization-level setting to enable/disable co-browse feature entirely"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/settings/page.tsx",
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "supabase/migrations/",
+        "apps/widget/src/features/cobrowse/cobrowseSender.ts",
+        "apps/server/src/lib/organization.ts"
+      ],
+      "risk_notes": [
+        "Default should be true (enabled) to maintain current behavior",
+        "Need to handle mid-call disable gracefully"
+      ],
+      "acceptance_criteria": [
+        "Org settings shows 'Enable Co-Browse' toggle",
+        "When disabled, co-browse does not initialize for visitors",
+        "Existing orgs default to enabled",
+        "Setting change takes effect on next call (not mid-call)"
+      ]
+    },
+    {
+      "id": "TKT-011",
+      "title": "Email Invite Retry Mechanism",
+      "priority": "high",
+      "feature": "Agent Management (Invites)",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding D4-agent-management #3",
+      "issue": "If Resend API fails to send invite email, invite is still created in DB. Admin has no visibility. Invitee waits for email that never arrives.",
+      "fix_required": [
+        "Implement retry mechanism with admin notification on failure"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/agents/actions.ts",
+        "apps/dashboard/src/lib/email.ts",
+        "apps/dashboard/src/app/(dashboard)/agents/page.tsx"
+      ],
+      "risk_notes": [
+        "Don't retry infinitely - cap at 3 attempts",
+        "If all retries fail, show clear error to admin",
+        "Consider adding 'Resend Invite' button for failed invites"
+      ],
+      "acceptance_criteria": [
+        "Failed email triggers automatic retry (up to 3 attempts)",
+        "Admin sees status of invite (sent/pending/failed)",
+        "After all retries fail, admin gets clear notification",
+        "'Resend Invite' button available for failed invites"
+      ]
+    },
+    {
+      "id": "TKT-012",
+      "title": "Migrate Geolocation to MaxMind",
+      "priority": "high",
+      "feature": "Blocklist Settings, Geolocation",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding D-blocklist-settings #1",
+      "issue": "Geolocation uses ip-api.com free tier (45 req/min limit). At scale, geolocation fails and ALL visitors allowed through, bypassing blocklist.",
+      "fix_required": [
+        "Migrate to MaxMind GeoIP service for higher rate limits and reliability"
+      ],
+      "files": [
+        "apps/server/src/lib/geolocation.ts",
+        "apps/server/env.example",
+        "apps/server/src/features/blocklist/checkVisitor.ts"
+      ],
+      "risk_notes": [
+        "COST CONSIDERATION: MaxMind pricing needs review before starting",
+        "Need to understand pricing tiers and expected usage",
+        "Consider caching IP lookups to reduce API calls",
+        "Keep ip-api as fallback during migration?"
+      ],
+      "acceptance_criteria": [
+        "Geolocation uses MaxMind API",
+        "Rate limit is sufficient for expected traffic",
+        "Fallback behavior documented if MaxMind fails",
+        "Costs are within budget"
+      ]
+    },
+    {
+      "id": "TKT-013",
+      "title": "Retention Policy Retroactive Deletion Warning",
+      "priority": "high",
+      "feature": "Organization Settings, Recording Retention",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "high",
+      "source": "Finding D-organization-settings #3",
+      "issue": "When admin reduces retention from 90→30 days, behavior is unclear. Should be retroactive (delete old recordings) with clear warning.",
+      "fix_required": [
+        "Implement retroactive deletion when retention is reduced",
+        "Show popup warning with count of recordings that will be deleted",
+        "Require confirmation before applying"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "apps/dashboard/src/app/(dashboard)/settings/RetentionWarningModal.tsx",
+        "apps/dashboard/src/app/(dashboard)/settings/page.tsx",
+        "apps/server/src/features/recordings/deleteOldRecordings.ts"
+      ],
+      "risk_notes": [
+        "Deletion is IRREVERSIBLE - must have clear confirmation",
+        "Count affected recordings before showing warning",
+        "Log all deletions for audit trail",
+        "Consider adding 'scheduled deletion' with grace period"
+      ],
+      "acceptance_criteria": [
+        "Reducing retention triggers confirmation modal",
+        "Modal shows exact count of recordings to be deleted",
+        "User must type 'DELETE' or similar to confirm",
+        "Deletions are logged for audit",
+        "Recordings older than new retention are deleted"
+      ]
+    },
+    {
+      "id": "TKT-014",
+      "title": "Recording Consent Indicator for Visitors",
+      "priority": "high",
+      "feature": "Recording Settings, Widget",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "low",
+      "source": "Finding D-recording-settings #1",
+      "issue": "Visitors are recorded with NO indication. No 'This call may be recorded' message. Compliance risk for GDPR, CCPA, two-party consent states.",
+      "fix_required": [
+        "Add visible recording indicator that appears AFTER both parties are connected",
+        "Show in same location where 'Live' badge appeared during preview loop"
+      ],
+      "files": [
+        "apps/widget/src/features/call/CallUI.tsx",
+        "apps/widget/src/features/call/RecordingBadge.tsx",
+        "apps/server/src/features/calls/callStart.ts",
+        "apps/widget/src/styles.css"
+      ],
+      "risk_notes": [
+        "Badge should be visible but not intrusive",
+        "Only show when recording is actually enabled for the org"
+      ],
+      "acceptance_criteria": [
+        "'Recording' indicator appears after call connects",
+        "Indicator is in same location as 'Live' badge was",
+        "Only shows when org has recording enabled"
+      ]
+    },
+    {
+      "id": "TKT-015",
+      "title": "Secure Recording URLs with Signed Access",
+      "priority": "high",
+      "feature": "Recordings, Storage",
+      "status": "ready",
+      "difficulty": "hard",
+      "complexity": "high",
+      "risk": "high",
+      "source": "Finding A-agent-active-call #1",
+      "issue": "Recording uploads go to public Supabase bucket with predictable URL patterns. Anyone who guesses the pattern can access recordings without auth. HIPAA/GDPR compliance risk.",
+      "fix_required": [
+        "Move recordings to private bucket",
+        "Generate signed URLs with expiration for access",
+        "Add randomized UUIDs to paths"
+      ],
+      "files": [
+        "supabase/",
+        "apps/dashboard/src/features/recordings/RecordingPlayer.tsx",
+        "apps/server/src/features/recordings/uploadRecording.ts",
+        "apps/server/src/features/recordings/getRecordingUrl.ts",
+        "apps/dashboard/src/lib/supabase.ts"
+      ],
+      "risk_notes": [
+        "Existing recordings need migration to private bucket",
+        "Signed URLs should expire (e.g., 1 hour)",
+        "Must handle URL refresh for long viewing sessions",
+        "Test download functionality still works"
+      ],
+      "acceptance_criteria": [
+        "New recordings go to private bucket",
+        "Recording URLs are signed with 1-hour expiration",
+        "URLs contain randomized UUIDs (not predictable)",
+        "Existing recordings migrated to private bucket",
+        "Playback works with signed URLs"
+      ]
+    },
+    {
+      "id": "TKT-016",
+      "title": "WebRTC ICE Restart on Connection Failure",
+      "priority": "high",
+      "feature": "Agent Active Call, WebRTC",
+      "status": "ready",
+      "difficulty": "hard",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding A-agent-active-call #2",
+      "issue": "When WebRTC connection fails mid-call (network glitch, NAT timeout), agent must manually end and start new call. Customer may be lost.",
+      "fix_required": [
+        "Implement ICE restart mechanism with automatic retry before showing failure state"
+      ],
+      "files": [
+        "apps/dashboard/src/features/call/useWebRTC.ts",
+        "apps/widget/src/features/call/useWebRTC.ts",
+        "apps/server/src/features/signaling/handleIceRestart.ts"
+      ],
+      "risk_notes": [
+        "ICE restart has browser-specific quirks",
+        "Set max retry attempts (3) before giving up",
+        "Log all reconnection attempts for debugging",
+        "May need to handle TURN server failover"
+      ],
+      "acceptance_criteria": [
+        "ICE failure triggers automatic restart attempt",
+        "Up to 3 restart attempts before showing error",
+        "User sees 'Reconnecting...' status during attempts",
+        "If all attempts fail, graceful error message",
+        "Reconnection events logged for debugging"
+      ]
+    },
+    {
+      "id": "TKT-018",
+      "title": "Transcription Auto-Retry with Manual Fallback",
+      "priority": "high",
+      "feature": "Transcription Service",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "low",
+      "source": "Finding P-transcription-service #2",
+      "issue": "When transcription fails (Deepgram error, timeout), there's no retry mechanism and no UI to manually retry. Failed transcriptions are stuck permanently.",
+      "fix_required": [
+        "Auto-retry failed transcriptions (3 attempts with exponential backoff)",
+        "Add 'Retry Transcription' button for calls where all retries failed",
+        "Log retry attempts for debugging"
+      ],
+      "files": [
+        "apps/server/src/features/transcription/processTranscription.ts",
+        "apps/dashboard/src/features/call-logs/CallLogRow.tsx",
+        "apps/dashboard/src/app/api/transcription/retry/route.ts",
+        "apps/server/src/lib/queue.ts"
+      ],
+      "risk_notes": [
+        "Exponential backoff: 1s, 4s, 16s delays",
+        "Max 3 attempts before marking permanently failed",
+        "Don't retry if error is 'audio too short' or similar non-retriable errors"
+      ],
+      "acceptance_criteria": [
+        "Failed transcription auto-retries up to 3 times",
+        "Retry button appears for permanently failed transcriptions",
+        "Retry attempts are logged with error details",
+        "Non-retriable errors skip retry logic"
+      ]
+    },
+    {
+      "id": "TKT-019",
+      "title": "Sync Incoming Call Countdown with RNA Timeout",
+      "priority": "high",
+      "feature": "Incoming Call",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "low",
+      "source": "Finding A-incoming-call #1",
+      "issue": "Incoming call modal shows hardcoded 30-second countdown, but RNA timeout fires at 15 seconds (org-configured). Agents think they have more time and get unexpectedly marked away.",
+      "fix_required": [
+        "Fetch org's actual RNA timeout value and use it for the countdown display"
+      ],
+      "files": [
+        "apps/dashboard/src/features/incoming-call/incoming-call-modal.tsx",
+        "apps/server/src/features/calls/callRequest.ts"
+      ],
+      "risk_notes": [
+        "Simple fix - just syncing UI with existing server value",
+        "Test with various org timeout settings (15s, 25s, 30s)"
+      ],
+      "acceptance_criteria": [
+        "Countdown matches org's RNA timeout setting",
+        "Countdown and RNA timeout fire at the same moment",
+        "Works correctly for different org configurations"
+      ]
+    },
+    {
+      "id": "TKT-022",
+      "title": "Enforce Seat Limit in API",
+      "priority": "high",
+      "feature": "Seat Management",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "low",
+      "source": "Finding B-seat-management #1",
+      "issue": "UI caps seats at 50, but API has no validation. Direct API calls could set arbitrarily high seat counts, causing billing issues or system strain.",
+      "fix_required": [
+        "Add server-side validation to enforce maximum seat limit in API endpoints"
+      ],
+      "files": [
+        "apps/dashboard/src/app/api/billing/seats/route.ts",
+        "apps/dashboard/src/app/api/billing/update-settings/route.ts"
+      ],
+      "risk_notes": [
+        "Consider making limit configurable per plan (50 for standard, higher for enterprise)",
+        "Return clear error message when limit exceeded"
+      ],
+      "acceptance_criteria": [
+        "API rejects seat count > 50 (or plan limit)",
+        "Clear error message returned to client",
+        "Existing orgs over limit are grandfathered (don't break them)"
+      ]
+    },
+    {
+      "id": "TKT-023",
+      "title": "Atomic Stripe-DB Updates for Seat Changes",
+      "priority": "high",
+      "feature": "Seat Management",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding B-seat-management #2",
+      "issue": "Stripe is updated before DB for seat changes. If DB update fails after Stripe succeeds, customer is charged for seats not reflected in app. Inconsistent state.",
+      "fix_required": [
+        "Implement compensating transaction pattern",
+        "If DB update fails, rollback Stripe change",
+        "Add monitoring for any failures"
+      ],
+      "files": [
+        "apps/dashboard/src/app/api/billing/seats/route.ts",
+        "apps/dashboard/src/lib/stripe.ts",
+        "apps/server/src/lib/monitoring.ts"
+      ],
+      "risk_notes": [
+        "Rollback window is small - Stripe change is immediate",
+        "Log all rollback attempts for audit",
+        "Consider optimistic locking pattern"
+      ],
+      "acceptance_criteria": [
+        "DB failure triggers Stripe rollback",
+        "Rollback failures are alerted to ops team",
+        "Successful flow unchanged",
+        "Audit log captures all seat change attempts"
+      ]
+    },
+    {
+      "id": "TKT-024",
+      "title": "Visitor Call Reconnection Window",
+      "priority": "high",
+      "feature": "Visitor Call, Call Lifecycle",
+      "status": "ready",
+      "difficulty": "hard",
+      "complexity": "high",
+      "risk": "medium",
+      "source": "Finding P-visitor-reassignment #2",
+      "issue": "If visitor disconnects mid-call (browser crash, accidental close), call ends permanently. No way to rejoin. Different from TKT-016 (WebRTC) which handles network blips.",
+      "fix_required": [
+        "Add reconnection window allowing visitor to rejoin same call within 60 seconds of disconnect"
+      ],
+      "files": [
+        "apps/server/src/features/calls/callLifecycle.ts",
+        "apps/widget/src/features/call/useCallSession.ts",
+        "apps/widget/src/features/call/RejoinPrompt.tsx",
+        "apps/server/src/features/signaling/handleRejoin.ts",
+        "apps/dashboard/src/features/call/useActiveCall.ts"
+      ],
+      "risk_notes": [
+        "Session token must be stored locally (localStorage) to survive page reload",
+        "Agent should see 'Visitor reconnecting...' status",
+        "After 60 seconds, call truly ends",
+        "Consider what happens if agent ends call during reconnection window"
+      ],
+      "acceptance_criteria": [
+        "Visitor who crashes browser can rejoin within 60 seconds",
+        "Agent sees 'Visitor disconnected - waiting for reconnection' status",
+        "After 60 seconds, call ends normally",
+        "Rejoin continues from same call state (not new call)"
+      ]
+    },
+    {
+      "id": "TKT-007",
+      "title": "Fix Public Feedback Feature Documentation",
+      "priority": "medium",
+      "feature": "Public Feedback",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "low",
+      "source": "Finding V-public-feedback #1",
+      "issue": "The 'Public Feedback' feature documentation describes it as 'Post-call feedback for visitors' but the actual feature is a UserVoice-style feature request voting system for authenticated dashboard users.",
+      "fix_required": [
+        "Rename to 'Feature Request Voting & Bug Reporting' or similar",
+        "Update description to explain it's for authenticated dashboard users",
+        "Clarify that 'public' means cross-organization visibility, not anonymous access"
+      ],
+      "files": [
+        "docs/features/feedback/public-feedback.md"
+      ],
+      "risk_notes": [
+        "Documentation only - no production risk",
+        "May need to update any UI that references this feature name"
+      ],
+      "acceptance_criteria": [
+        "Feature doc accurately describes the voting/feedback system",
+        "No mention of 'visitors' or 'post-call'",
+        "Clear that authentication is required"
+      ]
+    },
+    {
+      "id": "TKT-020",
+      "title": "Price ID Missing Should Error Not Fallback",
+      "priority": "medium",
+      "feature": "Subscription Creation",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "low",
+      "source": "Finding B-subscription-creation #2",
+      "issue": "When annual or 6-month price IDs aren't configured in environment, system silently falls back to monthly pricing. User selects annual, gets charged monthly rates - billing dispute risk.",
+      "fix_required": [
+        "Make missing price ID a hard error that blocks subscription creation with user-visible message"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(auth)/paywall/page.tsx",
+        "apps/dashboard/src/lib/stripe.ts"
+      ],
+      "risk_notes": [
+        "This should never happen in production if deployment is correct",
+        "But defensive coding prevents silent failures",
+        "Consider startup-time validation of all required price IDs"
+      ],
+      "acceptance_criteria": [
+        "Missing price ID throws visible error (not console warning)",
+        "Billing options not shown if price ID missing",
+        "Clear error message directs admin to fix configuration"
+      ]
+    },
+    {
+      "id": "TKT-010",
+      "title": "Graceful Call End on Agent Removal",
+      "priority": "low",
+      "feature": "Agent Management",
+      "status": "ready",
+      "difficulty": "medium",
+      "complexity": "medium",
+      "risk": "medium",
+      "source": "Finding D4-agent-management #1",
+      "issue": "When admin removes an agent who's in an active call, the call continues. Creates confusing state - agent marked as 'removed' but still serving visitor.",
+      "fix_required": [
+        "Emit call:end event when removing an agent who is in in_call status",
+        "Show graceful message to visitor"
+      ],
+      "files": [
+        "apps/dashboard/src/app/(dashboard)/agents/actions.ts",
+        "apps/server/src/features/agents/removeAgent.ts",
+        "apps/widget/src/features/call/CallUI.tsx"
+      ],
+      "risk_notes": [
+        "Visitor should see friendly message, not abrupt disconnect",
+        "Consider giving agent a few seconds warning before removal takes effect",
+        "Log the forced call end for audit"
+      ],
+      "acceptance_criteria": [
+        "Removing in-call agent triggers graceful call end",
+        "Visitor sees 'Agent has ended the call' message",
+        "Call is properly logged/ended in database",
+        "If agent not in call, removal proceeds normally"
+      ]
+    },
+    {
+      "id": "TKT-008",
+      "title": "Fix Uptime Monitoring Doc - Use Free Tier Settings",
+      "priority": "low",
+      "feature": "Uptime Monitoring",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "low",
+      "source": "Finding M-UPTIME_MONITORING #1",
+      "issue": "The uptime monitoring setup doc says to use Better Uptime's free tier (3-minute checks) but configures monitors with 1-minute checks (paid tier). Contradictory.",
+      "fix_required": [
+        "Update monitor configurations to use 3-minute check frequency to stay on free tier"
+      ],
+      "files": [
+        "docs/features/monitoring/UPTIME_MONITORING.md"
+      ],
+      "risk_notes": [
+        "Documentation only - no production risk",
+        "3-minute checks are still adequate for most uptime monitoring needs"
+      ],
+      "acceptance_criteria": [
+        "All monitor configs show 3-minute check frequency",
+        "Doc clearly states this is the free tier limit",
+        "No contradictions between tier description and config"
+      ]
+    }
+  ]
+};
+
+    const FINDINGS_DATA = {
+  "meta": {
+    "last_updated": "2025-12-03",
+    "total_features": 61,
+    "reviewed_features": 61,
+    "total_findings": 742
+  },
+  "by_priority": {
+    "critical": { "total": 15, "answered": 15, "tickets_created": 7, "pending": 0 },
+    "high": { "total": 48, "answered": 20, "tickets_created": 12, "pending": 28 },
+    "medium": { "total": 315, "answered": 2, "tickets_created": 2, "pending": 313 },
+    "low": { "total": 364, "answered": 2, "tickets_created": 2, "pending": 362 }
+  },
+  "by_category": {
+    "admin": { "total": 12, "reviewed": 12 },
+    "agent": { "total": 10, "reviewed": 10 },
+    "visitor": { "total": 7, "reviewed": 7 },
+    "platform": { "total": 7, "reviewed": 7 },
+    "superadmin": { "total": 6, "reviewed": 6 },
+    "billing": { "total": 6, "reviewed": 6 },
+    "auth": { "total": 4, "reviewed": 4 },
+    "api": { "total": 3, "reviewed": 3 },
+    "stats": { "total": 3, "reviewed": 3 },
+    "monitoring": { "total": 2, "reviewed": 2 },
+    "feedback": { "total": 1, "reviewed": 1 }
+  }
+};
+
+    // ================= COMPONENTS =================
+    
+    function Badge({ color, bg, children }) {
+      return (
+        <span style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          padding: '4px 10px',
+          borderRadius: '6px',
+          fontSize: '11px',
+          fontWeight: 600,
+          letterSpacing: '0.3px',
+          color: color,
+          background: bg || `${color}15`,
+          border: `1px solid ${color}25`,
+          textTransform: 'uppercase'
+        }}>{children}</span>
+      );
+    }
+
+    function PipelineCard({ title, current, total, subtitle, icon, isComplete, delay }) {
+      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+      return (
+        <div className={`fade-up delay-${delay}`} style={{ flex: 1, minWidth: '180px' }}>
+          <div style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: '16px',
+            padding: '24px',
+            height: '100%',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {isComplete && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '3px',
+                background: 'var(--success)'
+              }} />
+            )}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              marginBottom: '16px',
+              color: 'var(--text-secondary)'
+            }}>
+              <span style={{ fontSize: '18px' }}>{icon}</span>
+              <span style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>{title}</span>
+            </div>
+            <div style={{ 
+              fontSize: '40px', 
+              fontWeight: 800,
+              marginBottom: '8px',
+              fontFamily: 'IBM Plex Mono',
+              color: isComplete ? 'var(--success)' : 'var(--text-primary)'
+            }}>
+              {current}<span style={{ color: 'var(--text-muted)', fontSize: '24px' }}>/{total}</span>
+            </div>
+            <div style={{
+              height: '4px',
+              background: 'var(--bg-elevated)',
+              borderRadius: '2px',
+              overflow: 'hidden',
+              marginBottom: '12px'
+            }}>
+              <div style={{
+                height: '100%',
+                width: `${pct}%`,
+                background: isComplete ? 'var(--success)' : 'var(--gradient-hero)',
+                transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+              }} />
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{subtitle}</div>
+          </div>
+        </div>
+      );
+    }
+
+    function StatBox({ label, value, color, small }) {
+      return (
+        <div style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
+          borderRadius: '12px',
+          padding: small ? '16px' : '20px',
+          textAlign: 'center',
+          flex: 1
+        }}>
+          <div style={{ 
+            fontSize: '11px', 
+            color: 'var(--text-muted)', 
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+            marginBottom: '8px'
+          }}>{label}</div>
+          <div style={{ 
+            fontSize: small ? '28px' : '36px', 
+            fontWeight: 800,
+            fontFamily: 'IBM Plex Mono',
+            color: color || 'var(--text-primary)'
+          }}>{value}</div>
+        </div>
+      );
+    }
+
+    function TicketCard({ ticket, onClick }) {
+      const priorityColors = {
+        critical: { color: 'var(--critical)', bg: 'var(--critical-bg)' },
+        high: { color: 'var(--high)', bg: 'var(--high-bg)' },
+        medium: { color: 'var(--medium)', bg: 'var(--medium-bg)' },
+        low: { color: 'var(--low)', bg: 'var(--low-bg)' }
+      };
+      const difficultyColors = {
+        easy: 'var(--low)',
+        medium: 'var(--medium)',
+        hard: 'var(--critical)'
+      };
+      const p = priorityColors[ticket.priority];
+      
+      return (
+        <div 
+          onClick={onClick}
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '20px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            borderLeft: `3px solid ${p.color}`
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'var(--bg-elevated)';
+            e.currentTarget.style.borderColor = p.color;
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'var(--bg-surface)';
+            e.currentTarget.style.borderColor = 'var(--border)';
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+            <code style={{ fontSize: '12px', color: p.color }}>{ticket.id}</code>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <Badge color={p.color}>{ticket.priority}</Badge>
+              <Badge color={difficultyColors[ticket.difficulty]}>{ticket.difficulty}</Badge>
+            </div>
+          </div>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '8px', lineHeight: 1.4 }}>{ticket.title}</h3>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>{ticket.feature}</div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ 
+              fontSize: '12px', 
+              color: 'var(--text-secondary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              📁 {ticket.files.length} files
+            </span>
+            <span style={{ 
+              fontSize: '12px', 
+              color: 'var(--text-secondary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              ✓ {ticket.acceptance_criteria.length} criteria
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    function TicketModal({ ticket, onClose }) {
+      if (!ticket) return null;
+      
+      const priorityColors = {
+        critical: 'var(--critical)',
+        high: 'var(--high)',
+        medium: 'var(--medium)',
+        low: 'var(--low)'
+      };
+      const p = priorityColors[ticket.priority];
+      
+      return (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '40px',
+            backdropFilter: 'blur(4px)',
+            animation: 'fadeIn 0.2s ease'
+          }}
+          onClick={onClose}
+        >
+          <div 
+            style={{
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
+              borderRadius: '20px',
+              maxWidth: '800px',
+              width: '100%',
+              maxHeight: '85vh',
+              overflow: 'auto',
+              animation: 'scaleIn 0.25s ease'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '24px 28px',
+              borderBottom: '1px solid var(--border)',
+              position: 'sticky',
+              top: 0,
+              background: 'var(--bg-surface)',
+              zIndex: 10
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <code style={{ fontSize: '14px', color: p }}>{ticket.id}</code>
+                  <h2 style={{ fontSize: '22px', fontWeight: 700, marginTop: '8px', marginBottom: '12px' }}>{ticket.title}</h2>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <Badge color={p}>{ticket.priority}</Badge>
+                    <Badge color="var(--text-secondary)">{ticket.difficulty}</Badge>
+                    <Badge color="var(--accent)">{ticket.feature}</Badge>
+                  </div>
+                </div>
+                <button 
+                  onClick={onClose}
+                  style={{
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    width: '36px',
+                    height: '36px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: 'var(--text-secondary)',
+                    fontSize: '18px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
+                >×</button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '28px' }}>
+              <Section title="Issue">
+                <p style={{ color: 'var(--text-primary)', lineHeight: 1.7 }}>{ticket.issue}</p>
+              </Section>
+
+              <Section title="Fix Required">
+                <ul style={{ paddingLeft: '20px' }}>
+                  {ticket.fix_required.map((fix, i) => (
+                    <li key={i} style={{ color: 'var(--text-primary)', marginBottom: '6px', lineHeight: 1.6 }}>{fix}</li>
+                  ))}
+                </ul>
+              </Section>
+
+              <Section title="Files to Edit">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {ticket.files.map((file, i) => (
+                    <code key={i} style={{
+                      padding: '8px 12px',
+                      background: 'var(--bg-elevated)',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      color: 'var(--accent-bright)',
+                      border: '1px solid var(--border)'
+                    }}>{file}</code>
+                  ))}
+                </div>
+              </Section>
+
+              <Section title="Acceptance Criteria">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {ticket.acceptance_criteria.map((c, i) => (
+                    <div key={i} style={{ 
+                      display: 'flex', 
+                      alignItems: 'flex-start', 
+                      gap: '10px',
+                      padding: '12px 14px',
+                      background: 'var(--bg-elevated)',
+                      borderRadius: '8px'
+                    }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>☐</span>
+                      <span style={{ color: 'var(--text-primary)', lineHeight: 1.5 }}>{c}</span>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+
+              {ticket.risk_notes && ticket.risk_notes.length > 0 && (
+                <div style={{ 
+                  marginTop: '24px',
+                  padding: '20px', 
+                  background: 'var(--critical-bg)', 
+                  borderRadius: '12px',
+                  border: '1px solid rgba(239,68,68,0.2)'
+                }}>
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: 'var(--critical)', 
+                    fontWeight: 600, 
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>⚠️ Risk Notes</div>
+                  <ul style={{ paddingLeft: '20px' }}>
+                    {ticket.risk_notes.map((note, i) => (
+                      <li key={i} style={{ color: 'var(--text-primary)', marginBottom: '6px', lineHeight: 1.6 }}>{note}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function Section({ title, children }) {
+      return (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ 
+            fontSize: '11px', 
+            color: 'var(--text-muted)', 
+            textTransform: 'uppercase',
+            letterSpacing: '1.5px',
+            marginBottom: '12px',
+            fontWeight: 600
+          }}>{title}</div>
+          {children}
+        </div>
+      );
+    }
+
+    function FilterButton({ active, onClick, children, color }) {
+      return (
+        <button
+          onClick={onClick}
+          style={{
+            padding: '10px 16px',
+            borderRadius: '8px',
+            border: 'none',
+            background: active ? (color ? `${color}20` : 'var(--accent-bg)') : 'transparent',
+            color: active ? (color || 'var(--accent-bright)') : 'var(--text-muted)',
+            cursor: 'pointer',
+            fontSize: '13px',
+            fontWeight: 500,
+            transition: 'all 0.15s ease',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >{children}</button>
+      );
+    }
+
+    // ================= MAIN APP =================
+    
+    function App() {
+      const [selectedTicket, setSelectedTicket] = useState(null);
+      const [priorityFilter, setPriorityFilter] = useState('all');
+      const [view, setView] = useState('board'); // 'board' | 'list'
+
+      const tickets = TICKETS_DATA.tickets;
+      const findings = FINDINGS_DATA;
+
+      const stats = useMemo(() => {
+        const byPriority = { critical: 0, high: 0, medium: 0, low: 0 };
+        tickets.forEach(t => byPriority[t.priority]++);
+        return { byPriority, total: tickets.length };
+      }, []);
+
+      const filteredTickets = useMemo(() => {
+        if (priorityFilter === 'all') return tickets;
+        return tickets.filter(t => t.priority === priorityFilter);
+      }, [priorityFilter]);
+
+      const totalAnswered = Object.values(findings.by_priority).reduce((s, p) => s + p.answered, 0);
+      const totalPending = Object.values(findings.by_priority).reduce((s, p) => s + p.pending, 0);
+
+      return (
+        <div style={{ minHeight: '100vh', background: 'var(--gradient-subtle)' }}>
+          {/* Header */}
+          <header style={{
+            padding: '32px 48px',
+            borderBottom: '1px solid var(--border-subtle)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div className="fade-up">
+              <h1 style={{
+                fontSize: '28px',
+                fontWeight: 800,
+                background: 'var(--gradient-hero)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '-0.5px'
+              }}>PM Dashboard</h1>
+              <p style={{ color: 'var(--text-muted)', marginTop: '4px', fontSize: '14px' }}>
+                Digital Greeter • {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </p>
+            </div>
+            <div className="fade-up delay-1" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{ 
+                padding: '8px 16px', 
+                background: 'var(--bg-surface)', 
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                fontSize: '13px'
+              }}>
+                <span style={{ color: 'var(--text-muted)' }}>Tickets: </span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{stats.total}</span>
+              </div>
+              <div style={{ 
+                padding: '8px 16px', 
+                background: 'var(--critical-bg)', 
+                borderRadius: '8px',
+                border: '1px solid rgba(239,68,68,0.2)',
+                fontSize: '13px'
+              }}>
+                <span style={{ color: 'var(--critical)' }}>{totalPending} pending findings</span>
+              </div>
+            </div>
+          </header>
+
+          <main style={{ padding: '40px 48px' }}>
+            {/* Pipeline */}
+            <section style={{ marginBottom: '48px' }}>
+              <h2 style={{ 
+                fontSize: '13px', 
+                color: 'var(--text-muted)', 
+                textTransform: 'uppercase',
+                letterSpacing: '2px',
+                marginBottom: '20px',
+                fontWeight: 600
+              }}>Pipeline Status</h2>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                <PipelineCard 
+                  title="Documented" 
+                  icon="📝"
+                  current={findings.meta.total_features} 
+                  total={findings.meta.total_features}
+                  subtitle="Features documented"
+                  isComplete={true}
+                  delay={1}
+                />
+                <PipelineCard 
+                  title="Reviewed" 
+                  icon="🔍"
+                  current={findings.meta.reviewed_features} 
+                  total={findings.meta.total_features}
+                  subtitle="Features reviewed"
+                  isComplete={true}
+                  delay={2}
+                />
+                <PipelineCard 
+                  title="Triaged" 
+                  icon="📋"
+                  current={totalAnswered} 
+                  total={findings.meta.total_findings}
+                  subtitle={`${totalPending} pending`}
+                  isComplete={totalPending === 0}
+                  delay={3}
+                />
+                <PipelineCard 
+                  title="Ticketed" 
+                  icon="🎫"
+                  current={stats.total} 
+                  total={stats.total}
+                  subtitle="Ready for dev"
+                  isComplete={true}
+                  delay={4}
+                />
+                <PipelineCard 
+                  title="In Progress" 
+                  icon="🔨"
+                  current={0} 
+                  total={stats.total}
+                  subtitle="Being developed"
+                  isComplete={false}
+                  delay={5}
+                />
+              </div>
+            </section>
+
+            {/* Stats Grid */}
+            <section className="fade-up delay-3" style={{ marginBottom: '48px' }}>
+              <h2 style={{ 
+                fontSize: '13px', 
+                color: 'var(--text-muted)', 
+                textTransform: 'uppercase',
+                letterSpacing: '2px',
+                marginBottom: '20px',
+                fontWeight: 600
+              }}>Tickets by Priority</h2>
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                <StatBox label="Critical" value={stats.byPriority.critical} color="var(--critical)" />
+                <StatBox label="High" value={stats.byPriority.high} color="var(--high)" />
+                <StatBox label="Medium" value={stats.byPriority.medium} color="var(--medium)" />
+                <StatBox label="Low" value={stats.byPriority.low} color="var(--low)" />
+                <StatBox label="Total" value={stats.total} />
+              </div>
+            </section>
+
+            {/* Tickets */}
+            <section className="fade-up delay-4">
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: '20px'
+              }}>
+                <h2 style={{ 
+                  fontSize: '13px', 
+                  color: 'var(--text-muted)', 
+                  textTransform: 'uppercase',
+                  letterSpacing: '2px',
+                  fontWeight: 600
+                }}>Tickets ({filteredTickets.length})</h2>
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '4px',
+                  background: 'var(--bg-surface)',
+                  padding: '4px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border)'
+                }}>
+                  <FilterButton active={priorityFilter === 'all'} onClick={() => setPriorityFilter('all')}>All</FilterButton>
+                  <FilterButton active={priorityFilter === 'critical'} onClick={() => setPriorityFilter('critical')} color="var(--critical)">🔴 Critical</FilterButton>
+                  <FilterButton active={priorityFilter === 'high'} onClick={() => setPriorityFilter('high')} color="var(--high)">🟠 High</FilterButton>
+                  <FilterButton active={priorityFilter === 'medium'} onClick={() => setPriorityFilter('medium')} color="var(--medium)">🟡 Medium</FilterButton>
+                  <FilterButton active={priorityFilter === 'low'} onClick={() => setPriorityFilter('low')} color="var(--low)">🟢 Low</FilterButton>
+                </div>
+              </div>
+
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+                gap: '16px'
+              }}>
+                {filteredTickets.map(ticket => (
+                  <TicketCard 
+                    key={ticket.id} 
+                    ticket={ticket} 
+                    onClick={() => setSelectedTicket(ticket)}
+                  />
+                ))}
+              </div>
+            </section>
+          </main>
+
+          {/* Modal */}
+          {selectedTicket && (
+            <TicketModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
