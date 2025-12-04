@@ -559,7 +559,7 @@
       );
     }
 
-    function TriageView({ serverMode, onSave, findingsData }) {
+    function TriageView({ serverMode, onSave, findingsData, serverDecisions }) {
       const [severityFilter, setSeverityFilter] = useState('critical');
       const [statusFilter, setStatusFilter] = useState('all');
       const [saveStatus, setSaveStatus] = useState(null);
@@ -573,6 +573,35 @@
         if (saved) return JSON.parse(saved);
         return { threads: [] };
       });
+
+      // Merge server decisions (PM responses) into local state
+      useEffect(() => {
+        if (serverDecisions?.threads) {
+          setDecisions(prev => {
+            const merged = { ...prev };
+            const localThreadMap = new Map(prev.threads.map(t => [t.finding_id, t]));
+            
+            for (const serverThread of serverDecisions.threads) {
+              const localThread = localThreadMap.get(serverThread.finding_id);
+              if (localThread) {
+                // Merge PM messages (role: system) from server into local
+                const localMsgTexts = new Set((localThread.messages || []).map(m => m.text));
+                const pmMessages = (serverThread.messages || []).filter(m => m.role === 'system');
+                
+                for (const pmMsg of pmMessages) {
+                  if (!localMsgTexts.has(pmMsg.text)) {
+                    localThread.messages = localThread.messages || [];
+                    localThread.messages.push(pmMsg);
+                    localThread.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                  }
+                }
+              }
+            }
+            
+            return merged;
+          });
+        }
+      }, [serverDecisions]);
 
       // Initialize threads for new findings
       useEffect(() => {
@@ -976,6 +1005,7 @@
       const [view, setView] = useState('pipeline');
       const [serverMode, setServerMode] = useState(false);
       const [findings, setFindings] = useState([]);
+      const [serverDecisions, setServerDecisions] = useState(null);
       const [loading, setLoading] = useState(true);
 
       // Check if server is running and load data
@@ -994,6 +1024,9 @@
               setFindings(data.findings.findings);
               // Update embedded data for other views
               FINDINGS_DATA = data.findings.findings;
+            }
+            if (data.decisions) {
+              setServerDecisions(data.decisions);
             }
             setLoading(false);
           })
@@ -1053,7 +1086,7 @@
             ) : (
               <>
                 {view === 'pipeline' && <PipelineView />}
-                {view === 'triage' && <TriageView serverMode={serverMode} onSave={saveDecisions} findingsData={findings} />}
+                {view === 'triage' && <TriageView serverMode={serverMode} onSave={saveDecisions} findingsData={findings} serverDecisions={serverDecisions} />}
                 {view === 'tickets' && <TicketsView />}
                 {view === 'agents' && <AgentsView />}
               </>
