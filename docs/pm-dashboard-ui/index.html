@@ -319,10 +319,20 @@
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.6' }}>{finding.issue}</p>
           
           {/* Suggested Fix */}
-          <div style={{ fontSize: '12px', padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: '8px', marginBottom: '12px', borderLeft: '3px solid var(--accent)' }}>
-            <span style={{ color: 'var(--accent-bright)', fontWeight: 600 }}>💡 Suggested Fix:</span>
-            <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{finding.suggested_fix}</span>
-          </div>
+          {finding.suggested_fix && (
+            <div style={{ fontSize: '12px', padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: '8px', marginBottom: '12px', borderLeft: '3px solid var(--accent)' }}>
+              <span style={{ color: 'var(--accent-bright)', fontWeight: 600 }}>💡 Suggested Fix:</span>
+              <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{finding.suggested_fix}</span>
+            </div>
+          )}
+          
+          {/* Agent Recommendation */}
+          {finding.agent_recommendation && (
+            <div style={{ fontSize: '12px', padding: '12px 14px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', marginBottom: '12px', borderLeft: '3px solid var(--success)' }}>
+              <span style={{ color: 'var(--success)', fontWeight: 600 }}>⭐ Agent Recommendation:</span>
+              <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{finding.agent_recommendation}</span>
+            </div>
+          )}
 
           {/* Combinable Findings Alert */}
           {combinable && combinable.length > 0 && (

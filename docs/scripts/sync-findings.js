@@ -203,27 +203,46 @@ function parseReviewFindings(content) {
         location: '',
         issue: '',
         suggested_fix: '',
+        agent_options: [],      // Options provided by review agent
+        agent_recommendation: '', // Agent's recommended option
         status: 'pending',
         ticket_id: null
       };
       
       // Parse finding details
       i++;
+      let parsingOptions = false;
       while (i < lines.length && !lines[i].match(/^#{1,4}\s/) && lines[i] !== '---') {
         const detailLine = lines[i].trim();
         
         if (detailLine.startsWith('- **Category:**')) {
+          parsingOptions = false;
           // Skip - we use our own categorization
         } else if (detailLine.startsWith('- **Severity:**')) {
+          parsingOptions = false;
           const sev = detailLine.replace('- **Severity:**', '').trim().toLowerCase();
           finding.severity = sev;
         } else if (detailLine.startsWith('- **Location:**')) {
+          parsingOptions = false;
           finding.location = detailLine.replace('- **Location:**', '').trim();
         } else if (detailLine.startsWith('- **Issue:**')) {
+          parsingOptions = false;
           finding.issue = detailLine.replace('- **Issue:**', '').trim();
         } else if (detailLine.startsWith('- **Suggested Fix:**')) {
+          parsingOptions = false;
           finding.suggested_fix = detailLine.replace('- **Suggested Fix:**', '').trim();
+        } else if (detailLine.startsWith('- **Options:**')) {
+          parsingOptions = true;
+          // Options follow on subsequent lines
+        } else if (parsingOptions && detailLine.match(/^\d+\.\s+/)) {
+          // Parse numbered option: "1. Option text here"
+          const optionText = detailLine.replace(/^\d+\.\s+/, '').trim();
+          finding.agent_options.push(optionText);
+        } else if (detailLine.startsWith('- **Recommendation:**')) {
+          parsingOptions = false;
+          finding.agent_recommendation = detailLine.replace('- **Recommendation:**', '').trim();
         } else if (detailLine.startsWith('- **Human Decision:**')) {
+          parsingOptions = false;
           const decision = detailLine.replace('- **Human Decision:**', '').trim();
           if (decision.includes('APPROVED') || decision.includes('TICKETED') || decision.includes('📋')) {
             finding.status = 'ticketed';
@@ -237,11 +256,14 @@ function parseReviewFindings(content) {
           } else if (decision.includes('MODIFIED') || decision.includes('🔄')) {
             finding.status = 'modified';
           }
+        } else if (parsingOptions) {
+          // Continue parsing if we're in options mode but line doesn't match pattern
+          // (might be continuation or different format)
         }
         i++;
       }
       
-      // Generate options based on finding content
+      // Use agent options if provided, otherwise generate fallback options
       finding.options = generateOptions(finding);
       
       // Check for combinable findings
@@ -258,22 +280,39 @@ function parseReviewFindings(content) {
 }
 
 function generateOptions(finding) {
-  const text = `${finding.title} ${finding.issue} ${finding.suggested_fix}`.toLowerCase();
-  
-  // Find matching template
-  for (const [key, template] of Object.entries(OPTION_TEMPLATES)) {
-    if (key === 'default') continue;
-    
-    for (const pattern of template.patterns) {
-      if (text.includes(pattern.toLowerCase())) {
-        // Clone options and customize based on finding
-        return customizeOptions(template.options, finding);
-      }
-    }
+  // PRIORITY 1: Use options from review agent if provided
+  if (finding.agent_options && finding.agent_options.length > 0) {
+    return finding.agent_options.map((optText, idx) => {
+      // Check if this is the recommended option
+      const isRecommended = finding.agent_recommendation && 
+        (finding.agent_recommendation.toLowerCase().includes(`option ${idx + 1}`) ||
+         finding.agent_recommendation.toLowerCase().includes(optText.toLowerCase().substring(0, 20)));
+      
+      return {
+        id: `agent_opt_${idx + 1}`,
+        label: optText,
+        recommended: isRecommended
+      };
+    });
   }
   
-  // Use default options
-  return customizeOptions(OPTION_TEMPLATES.default.options, finding);
+  // PRIORITY 2: If only suggested_fix exists (old format), show it as single option
+  if (finding.suggested_fix && finding.suggested_fix.length > 0) {
+    return [
+      { id: 'implement', label: `Implement: ${finding.suggested_fix.substring(0, 100)}${finding.suggested_fix.length > 100 ? '...' : ''}`, recommended: true },
+      { id: 'modify', label: 'Implement with modifications...' },
+      { id: 'defer', label: 'Add to backlog - not urgent' },
+      { id: 'skip', label: 'Skip - not worth fixing' }
+    ];
+  }
+  
+  // PRIORITY 3: Generic fallback (should rarely happen)
+  return [
+    { id: 'implement', label: 'Implement suggested fix', recommended: true },
+    { id: 'modify', label: 'Implement with modifications...' },
+    { id: 'defer', label: 'Add to backlog - not urgent' },
+    { id: 'skip', label: 'Skip - not applicable' }
+  ];
 }
 
 function customizeOptions(baseOptions, finding) {

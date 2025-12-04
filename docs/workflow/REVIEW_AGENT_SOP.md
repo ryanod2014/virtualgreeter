@@ -68,7 +68,12 @@ Append your findings to `docs/REVIEW_FINDINGS.md` using this EXACT format:
 - **Severity:** [Critical | High | Medium | Low]
 - **Location:** [Section name or line reference]
 - **Issue:** [Clear description of what's wrong]
-- **Suggested Fix:** [Optional - your recommendation]
+- **Options:**
+  1. [First option - be specific]
+  2. [Second option - alternative approach]
+  3. [Third option - if applicable]
+  4. Skip - not worth fixing
+- **Recommendation:** [Which option you recommend and why - one sentence]
 - **Human Decision:** ⏳ PENDING
 
 #### 2. [Next Finding]
@@ -131,7 +136,12 @@ After updating both files, you're done. The PM will review findings and present 
 - **Severity:** High
 - **Location:** Section 6 - Edge Cases, "RNA Timeout" row
 - **Issue:** Documentation says "agent is marked unavailable after timeout" but doesn't specify if this is automatic or requires admin action. The state diagram shows automatic transition but the text implies manual.
-- **Suggested Fix:** Clarify: "Agent is automatically marked unavailable after 30s RNA timeout. No admin action required."
+- **Options:**
+  1. Make it automatic - agent auto-marked unavailable after 30s, no admin action
+  2. Make it manual - require admin to mark agent unavailable after timeout
+  3. Make it configurable - org setting to choose automatic vs manual
+  4. Skip - ambiguity is acceptable, document both interpretations
+- **Recommendation:** Option 1 (automatic) - matches state diagram and is better UX for admins
 - **Human Decision:** ⏳ PENDING
 ```
 
@@ -145,5 +155,7 @@ Before finishing, verify:
 - [ ] Reported ALL findings (even minor ones)
 - [ ] Used exact format above
 - [ ] Each finding has Category, Severity, Location, Issue
+- [ ] Each finding has 2-4 Options for the human to choose from
+- [ ] Each finding has a Recommendation (your suggested option + brief reason)
 - [ ] Appended to REVIEW_FINDINGS.md (not replaced)
 - [ ] Updated REVIEW_TRACKER.md (marked ✅, added date, added finding count)
