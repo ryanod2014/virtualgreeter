@@ -3355,12 +3355,31 @@
     // ================= LAUNCH VIEW =================
     // All agent commands in one place
 
-    function LaunchView({ tickets, devStatus, onSaveDevStatus, findings, serverDecisions }) {
+    function LaunchView({ tickets, devStatus, onSaveDevStatus, findings, serverDecisions, featuresList }) {
       const [copied, setCopied] = useState(null);
       const [expandedSection, setExpandedSection] = useState('dev');
       const [expandedTicket, setExpandedTicket] = useState(null);
       const [launchNotes, setLaunchNotes] = useState({});
       const [savedNotes, setSavedNotes] = useState({});
+      
+      // Calculate undocumented and unreviewed features
+      const undocumentedFeatures = useMemo(() => {
+        // Features without docPath or with empty docPath are undocumented
+        return (featuresList || []).filter(f => !f.docPath || f.docPath === '');
+      }, [featuresList]);
+      
+      const unreviewedFeatures = useMemo(() => {
+        // Features that are documented but have no findings (review agent hasn't run)
+        return (featuresList || []).filter(f => {
+          if (!f.docPath) return false; // Must be documented first
+          // Check if any findings exist for this feature
+          const hasFindings = findings.some(finding => 
+            finding.feature?.toLowerCase().includes(f.name.toLowerCase()) ||
+            finding.doc?.toLowerCase().includes(f.name.toLowerCase())
+          );
+          return !hasFindings;
+        });
+      }, [featuresList, findings]);
       
       // Ticket calculations
       const readyTickets = tickets.filter(t => t.status === 'ready');
@@ -3963,8 +3982,8 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
             )}
           </div>
 
-          {/* Doc/Review Agents Section */}
-          <div className="section">
+          {/* Doc Agents Section */}
+          <div className="section" style={{ marginBottom: '32px' }}>
             <div 
               className="section-title" 
               style={{ 
@@ -3978,37 +3997,186 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ color: 'var(--accent-bright)' }}><Icons.file /></span>
-                <span style={{ fontWeight: 600 }}>Doc & Review Agents</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Documentation sprints</span>
+                <span style={{ fontWeight: 600 }}>Doc Agents</span>
+                {undocumentedFeatures.length > 0 ? (
+                  <span style={{ padding: '3px 10px', background: 'var(--accent)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                    {undocumentedFeatures.length} pending
+                  </span>
+                ) : (
+                  <span style={{ padding: '3px 10px', background: 'var(--bg-elevated)', color: 'var(--text-muted)', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                    All done
+                  </span>
+                )}
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Document features</span>
               </div>
               <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'doc' ? '▼' : '▶'}</span>
             </div>
             
             {expandedSection === 'doc' && (
-              <div style={{ display: 'grid', gap: '12px' }}>
-                {Object.values(DOC_REVIEW_COMMANDS).map((cmd, i) => (
-                  <div key={i} className="card" style={{ padding: '16px 20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '15px', fontWeight: 600 }}>{cmd.label}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{cmd.description}</div>
-                      </div>
+              <div className="fade-in">
+                {undocumentedFeatures.length === 0 ? (
+                  <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    <div style={{ marginBottom: '8px' }}><Icons.checkCircle /></div>
+                    <div>All features are documented</div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Copy All Header */}
+                    <div style={{ 
+                      padding: '12px 16px', 
+                      background: 'rgba(59,130,246,0.1)', 
+                      borderRadius: '8px', 
+                      marginBottom: '12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        {undocumentedFeatures.length} features need documentation
+                      </span>
                       <button 
-                        className={`btn btn-sm ${copied === cmd.label ? 'btn-success' : 'btn-primary'}`}
+                        className={`btn btn-sm ${copied === 'all-doc' ? 'btn-success' : 'btn-primary'}`}
                         onClick={() => {
-                          navigator.clipboard.writeText(cmd.command);
-                          setCopied(cmd.label);
+                          const commands = undocumentedFeatures.map((f, i) => 
+                            `# Doc Agent ${i + 1}: ${f.name}\nYou are a Doc Agent. Document the feature: ${f.name}\nRead: docs/workflow/DOC_AGENT_SOP.md`
+                          ).join('\n\n---\n\n');
+                          navigator.clipboard.writeText(commands);
+                          setCopied('all-doc');
                           setTimeout(() => setCopied(null), 2000);
                         }}
                       >
-                        {copied === cmd.label ? 'Copied!' : 'Copy'}
+                        {copied === 'all-doc' ? 'Copied All!' : `Copy All ${undocumentedFeatures.length}`}
                       </button>
                     </div>
-                    <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
-                      <code style={{ fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-word' }}>{cmd.command}</code>
+                    
+                    {/* Feature List */}
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      {undocumentedFeatures.map((feature, idx) => (
+                        <div key={feature.name} className="card" style={{ padding: '12px 16px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>#{idx + 1}</span>
+                              <span style={{ fontSize: '14px', fontWeight: 500 }}>{feature.name}</span>
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '2px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{feature.category}</span>
+                            </div>
+                            <button 
+                              className={`btn btn-sm ${copied === `doc-${feature.name}` ? 'btn-success' : 'btn-secondary'}`}
+                              onClick={() => {
+                                const cmd = `You are a Doc Agent. Document the feature: ${feature.name}\nRead: docs/workflow/DOC_AGENT_SOP.md`;
+                                navigator.clipboard.writeText(cmd);
+                                setCopied(`doc-${feature.name}`);
+                                setTimeout(() => setCopied(null), 2000);
+                              }}
+                            >
+                              {copied === `doc-${feature.name}` ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Review Agents Section */}
+          <div className="section">
+            <div 
+              className="section-title" 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                marginBottom: expandedSection === 'review' ? '16px' : '0'
+              }}
+              onClick={() => setExpandedSection(expandedSection === 'review' ? null : 'review')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: 'var(--accent-bright)' }}><Icons.checkCircle /></span>
+                <span style={{ fontWeight: 600 }}>Review Agents</span>
+                {unreviewedFeatures.length > 0 ? (
+                  <span style={{ padding: '3px 10px', background: 'var(--accent)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                    {unreviewedFeatures.length} pending
+                  </span>
+                ) : (
+                  <span style={{ padding: '3px 10px', background: 'var(--bg-elevated)', color: 'var(--text-muted)', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                    All done
+                  </span>
+                )}
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Review documented features</span>
+              </div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'review' ? '▼' : '▶'}</span>
+            </div>
+            
+            {expandedSection === 'review' && (
+              <div className="fade-in">
+                {unreviewedFeatures.length === 0 ? (
+                  <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    <div style={{ marginBottom: '8px' }}><Icons.checkCircle /></div>
+                    <div>All documented features have been reviewed</div>
                   </div>
-                ))}
+                ) : (
+                  <>
+                    {/* Copy All Header */}
+                    <div style={{ 
+                      padding: '12px 16px', 
+                      background: 'rgba(59,130,246,0.1)', 
+                      borderRadius: '8px', 
+                      marginBottom: '12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        {unreviewedFeatures.length} features need review
+                      </span>
+                      <button 
+                        className={`btn btn-sm ${copied === 'all-review' ? 'btn-success' : 'btn-primary'}`}
+                        onClick={() => {
+                          const commands = unreviewedFeatures.map((f, i) => 
+                            `# Review Agent ${i + 1}: ${f.name}\nYou are a Review Agent. Review the feature: ${f.name}\nRead: docs/workflow/REVIEW_AGENT_SOP.md\nDoc: ${f.docPath}`
+                          ).join('\n\n---\n\n');
+                          navigator.clipboard.writeText(commands);
+                          setCopied('all-review');
+                          setTimeout(() => setCopied(null), 2000);
+                        }}
+                      >
+                        {copied === 'all-review' ? 'Copied All!' : `Copy All ${unreviewedFeatures.length}`}
+                      </button>
+                    </div>
+                    
+                    {/* Feature List */}
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      {unreviewedFeatures.map((feature, idx) => (
+                        <div key={feature.name} className="card" style={{ padding: '12px 16px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>#{idx + 1}</span>
+                                <span style={{ fontSize: '14px', fontWeight: 500 }}>{feature.name}</span>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '2px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{feature.category}</span>
+                              </div>
+                              <code style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>{feature.docPath}</code>
+                            </div>
+                            <button 
+                              className={`btn btn-sm ${copied === `review-${feature.name}` ? 'btn-success' : 'btn-secondary'}`}
+                              onClick={() => {
+                                const cmd = `You are a Review Agent. Review the feature: ${feature.name}\nRead: docs/workflow/REVIEW_AGENT_SOP.md\nDoc: ${feature.docPath}`;
+                                navigator.clipboard.writeText(cmd);
+                                setCopied(`review-${feature.name}`);
+                                setTimeout(() => setCopied(null), 2000);
+                              }}
+                            >
+                              {copied === `review-${feature.name}` ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -4175,6 +4343,7 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
                   onSaveDevStatus={saveDevStatus}
                   findings={findings}
                   serverDecisions={serverDecisions}
+                  featuresList={featuresList}
                 />}
               </>
             )}
