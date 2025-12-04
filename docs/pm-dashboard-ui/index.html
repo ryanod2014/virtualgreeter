@@ -880,23 +880,25 @@
       );
     }
 
-    function TicketsView() {
+    function TicketsView({ ticketsData }) {
       const [filter, setFilter] = useState('all');
       const [selectedTicket, setSelectedTicket] = useState(null);
+      
+      const tickets = ticketsData || [];
 
       const stats = useMemo(() => {
         const byP = { critical: 0, high: 0, medium: 0, low: 0 };
-        TICKETS_DATA.forEach(t => byP[t.priority]++);
+        tickets.forEach(t => byP[t.priority]++);
         return byP;
-      }, []);
+      }, [tickets]);
 
-      const filtered = filter === 'all' ? TICKETS_DATA : TICKETS_DATA.filter(t => t.priority === filter);
+      const filtered = filter === 'all' ? tickets : tickets.filter(t => t.priority === filter);
 
       return (
         <div className="fade-in">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div className="tabs">
-              <button className={`tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All <span className="count">{TICKETS_DATA.length}</span></button>
+              <button className={`tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All <span className="count">{tickets.length}</span></button>
               <button className={`tab ${filter === 'critical' ? 'active' : ''}`} onClick={() => setFilter('critical')}>🔴 Critical <span className="count">{stats.critical}</span></button>
               <button className={`tab ${filter === 'high' ? 'active' : ''}`} onClick={() => setFilter('high')}>🟠 High <span className="count">{stats.high}</span></button>
               <button className={`tab ${filter === 'medium' ? 'active' : ''}`} onClick={() => setFilter('medium')}>🟡 Medium <span className="count">{stats.medium}</span></button>
@@ -1005,6 +1007,7 @@
       const [view, setView] = useState('pipeline');
       const [serverMode, setServerMode] = useState(false);
       const [findings, setFindings] = useState([]);
+      const [tickets, setTickets] = useState([]);
       const [serverDecisions, setServerDecisions] = useState(null);
       const [loading, setLoading] = useState(true);
 
@@ -1022,11 +1025,13 @@
           .then(data => {
             if (data.findings?.findings) {
               setFindings(data.findings.findings);
-              // Update embedded data for other views
               FINDINGS_DATA = data.findings.findings;
             }
             if (data.decisions) {
               setServerDecisions(data.decisions);
+            }
+            if (data.tickets?.tickets) {
+              setTickets(data.tickets.tickets);
             }
             setLoading(false);
           })
@@ -1087,7 +1092,7 @@
               <>
                 {view === 'pipeline' && <PipelineView />}
                 {view === 'triage' && <TriageView serverMode={serverMode} onSave={saveDecisions} findingsData={findings} serverDecisions={serverDecisions} />}
-                {view === 'tickets' && <TicketsView />}
+                {view === 'tickets' && <TicketsView ticketsData={tickets} />}
                 {view === 'agents' && <AgentsView />}
               </>
             )}
