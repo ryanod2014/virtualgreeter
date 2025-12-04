@@ -442,13 +442,13 @@
       color: var(--text-primary);
     }
     .btn-success { 
-      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
       color: white;
-      box-shadow: 0 2px 12px rgba(34,197,94,0.3);
+      box-shadow: 0 2px 12px rgba(59,130,246,0.3);
     }
     .btn-success:hover { 
-      background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
-      box-shadow: 0 4px 20px rgba(34,197,94,0.4);
+      background: linear-gradient(135deg, var(--accent-bright) 0%, var(--accent) 100%);
+      box-shadow: 0 4px 20px rgba(59,130,246,0.4);
       transform: translateY(-1px);
     }
     .btn-sm { padding: 8px 14px; font-size: 12px; }
@@ -982,9 +982,9 @@
                   <div className="suggested-action">
                     <div className="suggested-action-label"><Icons.sparkle /> Suggested</div>
                     <div className="suggested-action-text">{recommendedOption.label}</div>
-                    <div className="suggested-action-buttons">
+                    <div className="suggested-action-buttons" style={{ alignItems: 'center' }}>
                       <button 
-                        className="btn btn-success"
+                        className="btn btn-primary"
                         onClick={() => {
                           onSelectOption(finding.id, recommendedOption);
                           setTimeout(() => onResolve(finding.id), 50);
@@ -994,9 +994,9 @@
                         <Icons.check /> Accept & Create Ticket
                       </button>
                       <button 
-                        className="btn btn-secondary"
+                        className="btn btn-sm"
                         onClick={() => onSkip(finding.id, 'Won\'t fix - acceptable risk')}
-                        style={{ background: 'transparent', border: '1px dashed var(--border)' }}
+                        style={{ background: 'transparent', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}
                       >
                         Skip
                       </button>
@@ -1052,31 +1052,37 @@
                 {hasDecision && thread?.decision?.option_id !== 'custom' && (
                   <div style={{ 
                     padding: '14px 16px', 
-                    background: 'rgba(16,185,129,0.1)', 
-                    border: '1px solid var(--success)',
+                    background: 'rgba(59,130,246,0.08)', 
+                    border: '1px solid rgba(59,130,246,0.3)',
                     borderRadius: '10px', 
                     marginBottom: '12px' 
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                      <span style={{ color: 'var(--success)' }}><Icons.check /></span>
-                      <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{thread?.decision?.option_label}</span>
-                    </div>
-                    {thread?.decision?.custom_note && (
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', paddingLeft: '24px' }}>
-                        Note: {thread.decision.custom_note}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                          <span style={{ color: 'var(--accent-bright)' }}><Icons.check /></span>
+                          <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{thread?.decision?.option_label}</span>
+                        </div>
+                        {thread?.decision?.custom_note && (
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', paddingLeft: '24px' }}>
+                            Note: {thread.decision.custom_note}
+                          </div>
+                        )}
                       </div>
-                    )}
-                    <div style={{ display: 'flex', gap: '8px', paddingLeft: '24px' }}>
-                      <button className="btn btn-success btn-sm" onClick={() => onResolve(finding.id)}>
-                        Create Ticket
-                      </button>
-                      <button 
-                        className="btn btn-sm" 
-                        onClick={() => onSkip(finding.id, 'Won\'t fix')}
-                        style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none' }}
-                      >
-                        Cancel
-                      </button>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <span 
+                          onClick={() => onResolve(finding.id)}
+                          style={{ color: 'var(--accent-bright)', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                        >
+                          Create Ticket
+                        </span>
+                        <span 
+                          onClick={() => onSkip(finding.id, 'Won\'t fix')}
+                          style={{ color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer' }}
+                        >
+                          Skip
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1097,7 +1103,7 @@
                     placeholder="Type a question or your decision..."
                     style={{ width: '100%', marginBottom: '8px' }}
                   />
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button 
                       className="btn btn-primary btn-sm"
                       onClick={handleCustomSubmit}
@@ -1107,7 +1113,7 @@
                       <Icons.chat /> Ask Question
                     </button>
                     <button 
-                      className="btn btn-success btn-sm"
+                      className="btn btn-primary btn-sm"
                       onClick={() => {
                         if (customInput.trim()) {
                           onCustomResponse(finding.id, customInput);
@@ -1119,6 +1125,13 @@
                       style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
                     >
                       <Icons.ticket /> Create Ticket
+                    </button>
+                    <button 
+                      className="btn btn-sm" 
+                      onClick={() => onSkip(finding.id, 'Won\'t fix')}
+                      style={{ background: 'transparent', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}
+                    >
+                      Skip
                     </button>
                   </div>
                 </div>
@@ -1670,11 +1683,11 @@
                   className={`tab ${severityFilter === 'convos' ? 'active' : ''}`} 
                   onClick={() => { setSeverityFilter('convos'); setPage(0); }}
                   style={{ 
-                    background: severityFilter === 'convos' ? 'rgba(249,115,22,0.15)' : undefined,
-                    borderColor: severityFilter === 'convos' ? 'var(--high)' : undefined
+                    background: severityFilter === 'convos' ? 'rgba(59,130,246,0.15)' : undefined,
+                    borderColor: severityFilter === 'convos' ? 'var(--accent)' : undefined
                   }}
                 >
-                  <Icons.chat /> Convos <span className="count" style={{ background: 'var(--high)', color: 'white' }}>{stats.openConvos}</span>
+                  <Icons.chat /> Convos <span className="count" style={{ background: 'var(--accent)', color: 'white' }}>{stats.openConvos}</span>
                 </button>
               )}
               {/* Blockers Tab - only show if there are blockers */}
@@ -1720,25 +1733,13 @@
                 <Icons.check /> Done <span className="count">{stats.done}</span>
               </button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {serverMode ? (
-                <div style={{ 
-                  fontSize: '12px', 
-                  padding: '6px 12px', 
-                  borderRadius: '6px',
-                  background: saveStatus === 'saved' ? 'rgba(16,185,129,0.15)' : saveStatus === 'saving' ? 'rgba(99,102,241,0.15)' : saveStatus === 'error' ? 'rgba(239,68,68,0.15)' : 'transparent',
-                  color: saveStatus === 'saved' ? 'var(--success)' : saveStatus === 'saving' ? 'var(--accent-bright)' : saveStatus === 'error' ? 'var(--critical)' : 'var(--text-muted)'
-                }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.save /> {saveStatus === 'saved' ? 'Auto-saved' : saveStatus === 'saving' ? 'Saving...' : saveStatus === 'error' ? 'Save failed' : 'Auto-save enabled'}</span>
-                </div>
-              ) : (
-                <button className="btn btn-primary btn-sm" onClick={() => {
-                  const json = JSON.stringify(decisions, null, 2);
-                  navigator.clipboard.writeText(json);
-                  alert('Decisions JSON copied!\n\nTip: Run "node docs/pm-dashboard-ui/server.js" for auto-save!');
-                }}><Icons.export /> Export</button>
-              )}
-            </div>
+            {!serverMode && (
+              <button className="btn btn-primary btn-sm" onClick={() => {
+                const json = JSON.stringify(decisions, null, 2);
+                navigator.clipboard.writeText(json);
+                alert('Decisions JSON copied!\n\nTip: Run "node docs/pm-dashboard-ui/server.js" for auto-save!');
+              }}><Icons.export /> Export</button>
+            )}
           </div>
 
           {/* Findings List */}
@@ -1774,12 +1775,6 @@
                 
                 return (
                   <React.Fragment key={f.id}>
-                    {showOpenConvoHeader && (
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--high)', marginBottom: '12px', marginTop: idx > 0 ? '20px' : '0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Icons.chat /> <span>Open Conversations</span>
-                        <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-muted)' }}>Agent responded, pick an option</span>
-                      </div>
-                    )}
                     {showRegularHeader && (
                       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', marginTop: idx > 0 ? '20px' : '0', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Icons.file /> All Findings
@@ -1912,14 +1907,14 @@
             <div className="card" style={{ padding: '20px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--success)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>1</div>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>1</div>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: '14px' }}>Doc Sprint</div>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>PM generates batch of doc-agent commands → You paste each into separate Cursor chats → They run in parallel</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--success)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>2</div>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>2</div>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: '14px' }}>Review Sprint</div>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>PM generates batch of review-agent commands → Agents find issues → Findings written to REVIEW_FINDINGS.md</div>
@@ -3656,7 +3651,7 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
                 <span style={{ fontSize: '18px' }}>🔨</span>
                 <span style={{ fontWeight: 600 }}>Dev Agents</span>
                 {nextBatch.length > 0 && (
-                  <span style={{ padding: '3px 10px', background: 'var(--success)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                  <span style={{ padding: '3px 10px', background: 'var(--accent)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
                     {nextBatch.length} ready
                   </span>
                 )}
@@ -4057,8 +4052,8 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Digital Greeter • {new Date().toLocaleDateString()}</span>
                 {serverMode && (
-                  <span style={{ fontSize: '11px', padding: '4px 10px', background: 'rgba(34,197,94,0.15)', color: 'var(--success)', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(8px)' }}>
-                    <StatusDot color="var(--success)" /> Server Connected
+                  <span style={{ fontSize: '11px', padding: '4px 10px', background: 'rgba(59,130,246,0.15)', color: 'var(--accent-bright)', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '6px', backdropFilter: 'blur(8px)' }}>
+                    <StatusDot color="var(--accent)" /> Server Connected
                   </span>
                 )}
                 {!serverMode && !loading && (
@@ -4095,7 +4090,7 @@ Report: X questions answered, Y tickets created, Z items skipped/already done.`
               <button className={`nav-item ${view === 'launch' ? 'active' : ''}`} onClick={() => setView('launch')}>
                 <Icons.launch /> Launch
                 {tickets.filter(t => t.status === 'ready').length > 0 && (
-                  <span style={{ marginLeft: '6px', padding: '2px 6px', background: 'var(--success)', color: 'white', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>
+                  <span style={{ marginLeft: '6px', padding: '2px 6px', background: 'var(--accent)', color: 'white', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>
                     {tickets.filter(t => t.status === 'ready').length}
                   </span>
                 )}
