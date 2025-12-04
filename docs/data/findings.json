@@ -44066,7 +44066,7 @@
       "issue": "The document states under \"Better Uptime Free Tier\" that the free tier offers \"3-minute check frequency\", but Monitor 1 (Dashboard) and Monitor 2 (Signaling Server) are both configured with \"Check Frequency: 1 minute\". This is a direct contradiction - either these monitors will fail to create on the free tier, or the setup will unexpectedly incur costs.",
       "suggested_fix": "Either update all monitors to 3-minute frequency to stay within free tier, or clarify that 1-minute checks require the $20/mo upgrade and update Cost Analysis section accordingly.",
       "status": "ticketed",
-      "ticket_id": "TKT-025",
+      "ticket_id": "TKT-008",
       "options": [
         {
           "id": "fix_docs",
