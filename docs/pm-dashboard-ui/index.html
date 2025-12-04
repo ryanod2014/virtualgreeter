@@ -285,7 +285,7 @@
       const [showCustom, setShowCustom] = useState(false);
       const isResolved = thread?.status === 'resolved';
       const hasDecision = thread?.decision?.option_id;
-      const options = finding.options || [];
+      const options = (finding.options || []).slice().sort((a, b) => (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0));
       const recommendedOption = options.find(o => o.recommended);
 
       const handleCustomSubmit = () => {
@@ -316,22 +316,6 @@
 
           {/* Issue */}
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.6' }}>{finding.issue}</p>
-          
-          {/* Suggested Fix */}
-          {finding.suggested_fix && (
-            <div style={{ fontSize: '12px', padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: '8px', marginBottom: '12px', borderLeft: '3px solid var(--accent)' }}>
-              <span style={{ color: 'var(--accent-bright)', fontWeight: 600 }}>💡 Suggested Fix:</span>
-              <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{finding.suggested_fix}</span>
-            </div>
-          )}
-          
-          {/* Agent Recommendation */}
-          {finding.agent_recommendation && (
-            <div style={{ fontSize: '12px', padding: '12px 14px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', marginBottom: '12px', borderLeft: '3px solid var(--success)' }}>
-              <span style={{ color: 'var(--success)', fontWeight: 600 }}>⭐ Agent Recommendation:</span>
-              <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{finding.agent_recommendation}</span>
-            </div>
-          )}
 
           {/* Decision Area */}
           <div style={{ background: 'var(--bg-elevated)', borderRadius: '10px', padding: '16px', marginTop: '8px' }}>

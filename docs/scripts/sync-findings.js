@@ -138,16 +138,32 @@ function parseReviewFindings(content) {
 }
 
 function generateOptions(finding) {
-  // ALWAYS use suggested_fix as the primary option
-  const suggestedFix = finding.suggested_fix || '';
-  const issue = finding.issue || '';
-  const title = finding.title || 'this issue';
-  const context = `${title} ${issue} ${suggestedFix}`.toLowerCase();
+  // Use agent_options if available - these are the actual specific options from the review
+  if (finding.agent_options && finding.agent_options.length > 0) {
+    // Determine which option is recommended based on agent_recommendation
+    const recommendation = (finding.agent_recommendation || '').toLowerCase();
+    
+    return finding.agent_options.map((label, idx) => {
+      const optionNum = idx + 1;
+      // Check if this option is recommended (e.g., "Option 1" or matches the label)
+      const isRecommended = recommendation.includes(`option ${optionNum}`) || 
+                           recommendation.includes(`option${optionNum}`) ||
+                           (idx === 0 && !recommendation.includes('option'));
+      
+      return {
+        id: `option_${optionNum}`,
+        label: label,
+        recommended: isRecommended
+      };
+    });
+  }
   
-  // Create Option 1 from the actual suggested fix (truncate if too long)
+  // Fallback: generate from suggested_fix if no agent_options
+  const suggestedFix = finding.suggested_fix || '';
+  const title = finding.title || 'this issue';
+  
   let option1 = suggestedFix;
   if (option1.length > 100) {
-    // Find natural break point
     const breakPoints = ['. ', ', ', ' - ', ' and '];
     for (const bp of breakPoints) {
       const idx = option1.indexOf(bp);
@@ -165,55 +181,10 @@ function generateOptions(finding) {
     option1 = `Fix: ${title}`;
   }
   
-  // Generate context-specific alternatives
-  let option2 = 'Implement minimal version first, iterate later';
-  let option3 = 'Add to backlog - not blocking';
-  let option4 = 'Skip - acceptable as-is';
-  
-  // Customize alternatives based on issue domain
-  if (context.includes('security') || context.includes('sensitive') || context.includes('password') || context.includes('sanitiz')) {
-    option2 = 'Add audit logging, fix in security sprint';
-    option3 = 'Add to security backlog (needs review)';
-    option4 = 'Skip - security risk acceptable';
-  } else if (context.includes('cancel')) {
-    option2 = 'Cancel at end of billing period instead';
-    option3 = 'Add to billing fixes backlog';
-    option4 = 'Skip - current flow is acceptable';
-  } else if (context.includes('billing') || context.includes('payment') || context.includes('subscription')) {
-    option2 = 'Add billing safeguards and monitoring first';
-    option3 = 'Add to billing fixes backlog';
-    option4 = 'Skip - billing impact acceptable';
-  } else if (context.includes('call') || context.includes('webrtc') || context.includes('video') || context.includes('agent')) {
-    option2 = 'Add warning/confirmation before action';
-    option3 = 'Add to call handling backlog';
-    option4 = 'Skip - edge case acceptable';
-  } else if (context.includes('error') || context.includes('fail') || context.includes('crash')) {
-    option2 = 'Add silent error handling (log only)';
-    option3 = 'Add to error handling sprint';
-    option4 = 'Skip - rare edge case';
-  } else if (context.includes('notification') || context.includes('email') || context.includes('alert')) {
-    option2 = 'In-app notification only (skip email)';
-    option3 = 'Add to notifications backlog';
-    option4 = 'Skip - users will figure it out';
-  } else if (context.includes('performance') || context.includes('slow') || context.includes('cache')) {
-    option2 = 'Add monitoring first, optimize if needed';
-    option3 = 'Add to performance backlog';
-    option4 = 'Skip - performance acceptable';
-  } else if (context.includes('ui') || context.includes('ux') || context.includes('button') || context.includes('display')) {
-    option2 = 'Implement simpler UI version first';
-    option3 = 'Add to UX improvements backlog';
-    option4 = 'Skip - current UX acceptable';
-  } else if (context.includes('state') || context.includes('status') || context.includes('sync') || context.includes('inconsistent')) {
-    option2 = 'Add state validation on read (defensive)';
-    option3 = 'Add to state management backlog';
-    option4 = 'Skip - state inconsistency is rare';
-  }
-  
   return [
     { id: 'implement_fix', label: option1, recommended: true },
-    { id: 'alternative', label: option2 },
-    { id: 'defer', label: option3 },
-    { id: 'skip', label: option4 }
+    { id: 'defer', label: 'Add to backlog', recommended: false },
+    { id: 'skip', label: 'Skip - acceptable as-is', recommended: false }
   ];
 }
 

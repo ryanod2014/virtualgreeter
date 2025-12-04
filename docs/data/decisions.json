@@ -4480,9 +4480,14 @@
     },
     {
       "finding_id": "F-002",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Implement the documented recommendation: sanitize password inputs by replacing values with mask c...",
+        "recommended": true,
+        "timestamp": "2025-12-04T03:03:59.976Z"
+      }
     },
     {
       "finding_id": "F-004",
@@ -4492,9 +4497,14 @@
     },
     {
       "finding_id": "F-227",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Implement the sanitization code already proposed in the documentation to mask password inputs bef...",
+        "recommended": true,
+        "timestamp": "2025-12-04T03:04:40.027Z"
+      }
     }
   ]
 }

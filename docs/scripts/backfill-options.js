@@ -50,53 +50,8 @@ function generateOptionsForFinding(finding) {
   // Clean up the primary option
   primaryOption = primaryOption.replace(/^(Add|Implement|Create|Use|Enable|Emit|Show|Display|Update)\s+/i, (match) => match);
   
-  // Generate alternative based on context
-  let alternativeOption = 'Implement minimal version first, iterate later';
-  let deferOption = 'Add to backlog - not blocking';
-  let skipOption = 'Skip - acceptable as-is';
-  
-  // Customize alternatives based on issue type
-  if (context.includes('security') || context.includes('sensitive') || context.includes('password') || context.includes('token')) {
-    alternativeOption = 'Add audit logging first, fix in security sprint';
-    deferOption = 'Add to security backlog (requires review)';
-    skipOption = 'Skip - security risk is acceptable';
-  } else if (context.includes('billing') || context.includes('payment') || context.includes('subscription') || context.includes('charge')) {
-    alternativeOption = 'Add billing safeguards and monitoring first';
-    deferOption = 'Add to billing fixes backlog';
-    skipOption = 'Skip - billing impact is acceptable';
-  } else if (context.includes('cancel')) {
-    alternativeOption = 'Cancel at end of billing period instead';
-    deferOption = 'Add cancellation fix to backlog';
-    skipOption = 'Skip - current cancellation flow is acceptable';
-  } else if (context.includes('call') || context.includes('webrtc') || context.includes('video')) {
-    alternativeOption = 'Add warning/confirmation before action';
-    deferOption = 'Add to call handling backlog';
-    skipOption = 'Skip - edge case acceptable';
-  } else if (context.includes('notification') || context.includes('email') || context.includes('alert')) {
-    alternativeOption = 'Add in-app notification only (skip email)';
-    deferOption = 'Add to notifications backlog';
-    skipOption = 'Skip - users will figure it out';
-  } else if (context.includes('error') || context.includes('fail') || context.includes('crash')) {
-    alternativeOption = 'Add silent error handling (log only)';
-    deferOption = 'Add to error handling sprint';
-    skipOption = 'Skip - rare edge case';
-  } else if (context.includes('performance') || context.includes('slow') || context.includes('cache')) {
-    alternativeOption = 'Add monitoring first, optimize if needed';
-    deferOption = 'Add to performance backlog';
-    skipOption = 'Skip - performance is acceptable';
-  } else if (context.includes('documentation') || context.includes('docs') || context.includes('unclear')) {
-    alternativeOption = 'Add inline code comments instead';
-    deferOption = 'Add to documentation backlog';
-    skipOption = 'Skip - docs are clear enough';
-  } else if (context.includes('ui') || context.includes('ux') || context.includes('button') || context.includes('display')) {
-    alternativeOption = 'Implement simpler UI version first';
-    deferOption = 'Add to UX improvements backlog';
-    skipOption = 'Skip - current UX is acceptable';
-  } else if (context.includes('state') || context.includes('status') || context.includes('sync')) {
-    alternativeOption = 'Add state validation on read (defensive)';
-    deferOption = 'Add to state management backlog';
-    skipOption = 'Skip - state inconsistency is rare';
-  }
+  // Simple fallback options - no domain-specific generic garbage
+  // The agent should provide specific options during review
   
   // If no suggested fix, use title-based option
   if (!suggestedFix || suggestedFix.length < 10) {
@@ -106,9 +61,8 @@ function generateOptionsForFinding(finding) {
   return {
     options: [
       primaryOption,
-      alternativeOption,
-      deferOption,
-      skipOption
+      'Add to backlog',
+      'Skip - acceptable as-is'
     ],
     recommendation: 'Option 1 - implement the suggested fix'
   };
