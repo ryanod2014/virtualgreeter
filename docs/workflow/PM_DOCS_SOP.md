@@ -402,7 +402,28 @@ Before creating tickets, apply any:
 - Ticket combinations
 - Immediate rejections
 
-**3.2 Create Tickets for Approved Findings**
+**3.2 🔴 CHECK FOR DUPLICATES (MANDATORY)**
+
+Before creating ANY ticket, search for existing tickets with similar issues:
+
+```bash
+# Search tickets for keywords from the finding
+grep -i "keyword1\|keyword2\|keyword3" docs/data/tickets.json
+```
+
+**If similar ticket exists:**
+1. Do NOT create a new ticket
+2. Link the finding to the existing ticket ID
+3. Tell human: "F-XXX is the same issue as TKT-YYY - linking to existing ticket"
+
+**Example duplicate patterns:**
+- Same feature + same fix = duplicate
+- Different finding IDs but same root cause = duplicate  
+- Same error message or behavior = duplicate
+
+> ⚠️ Review agents may report the same issue from different docs/features. Always check before creating!
+
+**3.3 Create Tickets for Approved Findings**
 
 > ℹ️ **Workflow:** PM creates tickets based on human's answers. Human reviews tickets async before dev sprint.
 
@@ -714,3 +735,9 @@ A: WRONG! You must write your response to `decisions.json` so it appears in the 
 
 **Q: How do I see what questions human asked in the dashboard?**
 A: Run: `grep -B5 -A15 '"status": "in_discussion"' docs/data/decisions.json` - this shows threads with pending conversations.
+
+**Q: I created a duplicate ticket by accident**
+A: Delete the duplicate from tickets.json, update the finding to point to the correct ticket_id. Always run duplicate check (Phase 3.2) before creating tickets!
+
+**Q: How do I check for duplicate tickets before creating?**
+A: Run: `grep -i "keyword" docs/data/tickets.json` with keywords from the finding. If a similar ticket exists, link to it instead of creating a new one.
