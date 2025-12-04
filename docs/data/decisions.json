@@ -36,8 +36,13 @@
     },
     {
       "finding_id": "F-005",
-      "status": "pending",
+      "status": "in_discussion",
       "messages": [
+        {
+          "role": "human",
+          "text": "explain this to me like im a 3rd graader so i can make a better deciision",
+          "timestamp": "2025-12-04T04:11:05.336Z"
+        },
         {
           "role": "system",
           "text": "📖 3rd grade explanation: When an agent starts looking at what the visitor sees on their screen, there's a moment where nothing shows up yet - like waiting for a TV to turn on. Right now the agent just sees a blank space and doesn't know if it's working or broken. The fix: Show a 'Loading...' spinner so they know it's coming. **Decision?** (1) Add the loading spinner, (2) Skip - agents can figure it out.",
@@ -47,14 +52,29 @@
           "role": "system",
           "text": "📖 **Your call:** This is about showing a spinner when co-browse starts loading. Without it, agents stare at a blank screen for 1-2 seconds. **Options:** (1) Add loading spinner = better UX, ~2 hours work. (2) Skip = works fine, just no visual feedback. Low priority either way.",
           "timestamp": "2025-12-04T06:16:36.536Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 TKT-055 created for co-browse loading state. Marking resolved.",
+          "timestamp": "2025-12-04T12:00:00.000Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Add \"Loading visitor's screen...\" placeholder with spinner while waiting for first snapshot. Show skeleton UI or previous snapshot with \"Updating...\" indicator during subsequent refreshes.",
+        "recommended": true,
+        "timestamp": "2025-12-04T10:35:10.637Z"
+      }
     },
     {
       "finding_id": "F-006",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "explain this to me simpler no acromnyms",
+          "timestamp": "2025-12-04T04:11:33.688Z"
+        },
         {
           "role": "system",
           "text": "📖 Simple explanation: Blind users use special software that reads the screen out loud. Our co-browse viewer (where agents see the visitor's screen) doesn't have labels for this software to read. So blind agents can't use it. The fix: Add invisible labels that the reading software can find. **Decision?** (1) Add the labels for blind users, (2) Skip - we don't need to support blind agents.",
@@ -64,38 +84,79 @@
           "role": "system",
           "text": "📖 **Your call:** This is about making co-browse usable for blind agents. Very few users would benefit. **My take:** Skip unless you have blind users or legal requirements (ADA compliance for government clients). Most startups skip this early on.",
           "timestamp": "2025-12-04T06:16:36.536Z"
+        },
+        {
+          "role": "human",
+          "text": "dont need to cator to blinid people",
+          "timestamp": "2025-12-04T10:35:35.838Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 Got it - skipping screen reader accessibility for now. Marking as resolved (won't fix).",
+          "timestamp": "2025-12-04T12:00:00.000Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "dont need to cator to blinid people",
+        "timestamp": "2025-12-04T10:35:35.838Z"
+      }
     },
     {
       "finding_id": "F-007",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [],
       "decision": {
-        "option_id": "combined",
-        "option_label": "Combined ticket: Stripe Cancellation Not Implemented",
-        "combined_with": [
-          "F-007"
-        ],
-        "combined_titles": [
-          "Iframe Content Not Captured"
-        ],
-        "timestamp": "2025-12-04T01:00:19.817Z",
-        "is_primary": false
+        "option_id": "implement_fix",
+        "option_label": "For same-origin iframes, attempt recursive DOM capture. For cross-origin iframes, show clear visual indicator \"Embedded content - not visible to agent\" instead of blank space. Document limitation prominently in admin setup.",
+        "recommended": true,
+        "timestamp": "2025-12-04T06:53:36.330Z"
       }
     },
     {
       "finding_id": "F-008",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "whats downside of the payload size being big?",
+          "timestamp": "2025-12-04T06:38:18.133Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 Big payloads = 3 problems: (1) **Slower updates** - takes longer to send, so agent sees laggy screen updates. (2) **Higher bandwidth costs** - more data = more money for hosting. (3) **Mobile/slow connections struggle** - visitors on 3G or bad wifi get choppy experience. For canvas capture, each chart image might add 50-200KB. If page has 5 charts, that's potentially 1MB extra per update. **Trade-off:** Worth it if your customers use chart-heavy dashboards; skip if most sites are simple forms. Want to implement, skip, or make it opt-in per org?",
+          "timestamp": "2025-12-04T12:00:00.000Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "whats downside of the payload size being big?",
+        "timestamp": "2025-12-04T06:38:18.133Z"
+      }
     },
     {
       "finding_id": "F-009",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "will this affec the agents video quality or only the cobrowse quality?",
+          "timestamp": "2025-12-04T06:39:06.115Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 **Only cobrowse quality** - they're completely separate streams. Video call uses WebRTC (direct peer-to-peer video), while cobrowse sends DOM snapshots over WebSocket. They don't share bandwidth or compete with each other. So: Big DOM = laggy screen-sharing view, but video call stays crisp. The compression fix would only improve the cobrowse side. Want to proceed with implementing gzip compression for cobrowse?",
+          "timestamp": "2025-12-04T12:00:00.000Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "will this affec the agents video quality or only the cobrowse quality?",
+        "timestamp": "2025-12-04T06:39:06.115Z"
+      }
     },
     {
       "finding_id": "F-010",
@@ -111,15 +172,25 @@
     },
     {
       "finding_id": "F-413",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Emit `call:end` event when removing an agent who is `in_call` status",
+        "recommended": true,
+        "timestamp": "2025-12-04T03:13:52.161Z"
+      }
     },
     {
       "finding_id": "F-414",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Add a \"Reactivate\" option for inactive agents in the UI, OR modify invite logic to check `is_active` status and allow re-invitation for deactivated users.",
+        "recommended": true,
+        "timestamp": "2025-12-04T06:39:33.986Z"
+      }
     },
     {
       "finding_id": "F-024",
@@ -129,21 +200,53 @@
     },
     {
       "finding_id": "F-419",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "human",
+          "text": "we dont need to account or blind people",
+          "timestamp": "2025-12-04T06:40:14.980Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "we dont need to account or blind people",
+        "timestamp": "2025-12-04T06:40:14.981Z"
+      }
     },
     {
       "finding_id": "F-016",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "iff when you remove a user it deletes their agent data, then adding them again would be the same as the first time they were added no?\n\nand maybe if that old users data still exists (grace period) it just reactivates them",
+          "timestamp": "2025-12-04T06:43:13.340Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 Good thinking! Yes, that's exactly how we should design it: (1) **Soft delete** - removal just sets `is_active=false`, keeps their call history, performance data, etc. (2) **Re-invite detects existing record** - if email matches an inactive agent in same org, show 'Reactivate' instead of sending new invite. (3) **Grace period optional** - could auto-delete after 90 days if you want to clean up truly gone employees. This matches the existing TKT-052 (Agent Reactivation Flow). Should I mark this as covered by that ticket, or do you want changes to the approach?",
+          "timestamp": "2025-12-04T12:00:00.000Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "iff when you remove a user it deletes their agent data, then adding them again would be the same as the first time they were added no?\n\nand maybe if that old users data still exists (grace period) it just reactivates them",
+        "timestamp": "2025-12-04T06:43:13.340Z"
+      }
     },
     {
       "finding_id": "F-017",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Consider queuing billing updates for retry, or allow invite creation with \"billing_pending\" flag that syncs when Stripe recovers.",
+        "recommended": true,
+        "timestamp": "2025-12-04T06:43:36.866Z"
+      }
     },
     {
       "finding_id": "F-018",
@@ -165,15 +268,47 @@
     },
     {
       "finding_id": "F-021",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "what data is this ffor? call recordings?",
+          "timestamp": "2025-12-04T09:12:39.884Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 **Call logs, not recordings.** This is about the dashboard table showing call history - who called, when, duration, outcome, etc. Currently capped at 500 rows. Recordings are stored separately in Supabase storage with their own retention (TKT-013 handles that). This finding is: admins can't see calls older than their most recent 500. Fix = add pagination so they can browse all history. Should we implement pagination for call logs?",
+          "timestamp": "2025-12-04T12:00:00.000Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "what data is this ffor? call recordings?",
+        "timestamp": "2025-12-04T09:12:39.884Z"
+      }
     },
     {
       "finding_id": "F-022",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "explain this to me",
+          "timestamp": "2025-12-04T09:30:34.433Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 **Simple version:** You can filter call logs by URL (like 'show me all calls from /pricing page'). But this filter only searches the 500 calls already loaded - it can't find older calls. So if someone asks 'how many calls came from /pricing last year?', the filter won't find them. **Fix:** Move filtering to the database so it searches ALL calls, not just the loaded ones. Usually implemented together with F-021 (pagination). Want to add this to the pagination ticket or handle separately?",
+          "timestamp": "2025-12-04T12:00:00.000Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "explain this to me",
+        "timestamp": "2025-12-04T09:30:34.433Z"
+      }
     },
     {
       "finding_id": "F-023",
@@ -752,15 +887,25 @@
     },
     {
       "finding_id": "F-117",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "strict_block",
+        "option_label": "Block access immediately on payment failure",
+        "recommended": true,
+        "timestamp": "2025-12-04T01:06:06.594Z"
+      }
     },
     {
       "finding_id": "F-118",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Either (a) implement actual grace period until billing period end",
+        "recommended": true,
+        "timestamp": "2025-12-04T03:14:34.561Z"
+      }
     },
     {
       "finding_id": "F-119",
@@ -1418,14 +1563,19 @@
         "option_id": "implement_strict",
         "option_label": "Implement strict sanitization (mask ALL sensitive fields)",
         "recommended": true,
-        "timestamp": "2025-12-04T00:55:20.187Z"
+        "timestamp": "2025-12-04T00:55:20.186Z"
       }
     },
     {
       "finding_id": "F-228",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Extend sanitization to include credit card inputs",
+        "recommended": true,
+        "timestamp": "2025-12-04T03:14:39.780Z"
+      }
     },
     {
       "finding_id": "F-229",
@@ -1495,9 +1645,14 @@
     },
     {
       "finding_id": "F-240",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Skip - billing impact acceptable",
+        "recommended": false,
+        "timestamp": "2025-12-04T03:55:53.556Z"
+      }
     },
     {
       "finding_id": "F-241",
@@ -1621,9 +1776,14 @@
     },
     {
       "finding_id": "F-261",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Skip - billing impact acceptable",
+        "recommended": false,
+        "timestamp": "2025-12-04T03:54:31.707Z"
+      }
     },
     {
       "finding_id": "F-262",
@@ -1765,9 +1925,14 @@
     },
     {
       "finding_id": "F-285",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Add `subscription_status` check in VISITOR_JOIN handler to reject/hide widget for paused organiza...",
+        "recommended": true,
+        "timestamp": "2025-12-04T03:55:22.156Z"
+      }
     },
     {
       "finding_id": "F-286",
@@ -1831,9 +1996,14 @@
     },
     {
       "finding_id": "F-296",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Update `packages/domain/src/database.types.ts` line 39 to: `export type SubscriptionStatus = \"active\" | \"paused\" | \"cancelled\" | \"trialing\" | \"past_due\";`",
+        "recommended": true,
+        "timestamp": "2025-12-04T04:36:32.723Z"
+      }
     },
     {
       "finding_id": "F-297",
@@ -1843,14 +2013,24 @@
     },
     {
       "finding_id": "F-298",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Add Stripe Customer Portal integration or implement custom payment method update flow in dashboard settings.",
+        "recommended": true,
+        "timestamp": "2025-12-04T04:36:53.356Z"
+      }
     },
     {
       "finding_id": "F-299",
-      "status": "pending",
+      "status": "in_discussion",
       "messages": [
+        {
+          "role": "human",
+          "text": "if invoice fails they should have permanent modul popup to fiix payment method so it shouldnt be possible to add seats. and we created a ticket for this payment modul. so add this requirement to it that you cant exit it until payment method is fixed",
+          "timestamp": "2025-12-04T04:38:32.073Z"
+        },
         {
           "role": "system",
           "text": "✅ Got it! Adding to existing ticket: When invoice fails, show a BLOCKING modal that cannot be dismissed until payment method is fixed. This prevents adding seats or taking any action while payment is broken. I'll add this requirement to TKT-005 (Payment Failure Blocking + Retry UI).",
@@ -1862,7 +2042,12 @@
           "timestamp": "2025-12-04T06:16:36.536Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "if invoice fails they should have permanent modul popup to fiix payment method so it shouldnt be possible to add seats. and we created a ticket for this payment modul. so add this requirement to it that you cant exit it until payment method is fixed",
+        "timestamp": "2025-12-04T04:38:32.073Z"
+      }
     },
     {
       "finding_id": "F-300",
@@ -1968,8 +2153,13 @@
     },
     {
       "finding_id": "F-317",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "we should honor the grace period",
+          "timestamp": "2025-12-04T04:39:34.226Z"
+        },
         {
           "role": "system",
           "text": "✅ Confirmed! You want to honor the grace period. I'll mark this as resolved and create a ticket. The fix: Track subscription_ends_at date, schedule the actual plan downgrade for that date, and let users keep access until their paid period ends. Refreshing the dashboard should show a Confirm button now.",
@@ -1986,7 +2176,12 @@
           "timestamp": "2025-12-04T06:16:36.536Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "we should honor the grace period",
+        "timestamp": "2025-12-04T04:39:34.226Z"
+      }
     },
     {
       "finding_id": "F-318",
@@ -2056,9 +2251,14 @@
     },
     {
       "finding_id": "F-329",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Show error toast when org toggle fails and ensure UI reflects actual state. Consider optimistic UI with rollback + error notification.",
+        "recommended": true,
+        "timestamp": "2025-12-04T05:23:44.651Z"
+      }
     },
     {
       "finding_id": "F-330",
@@ -2140,8 +2340,13 @@
     },
     {
       "finding_id": "F-343",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "skip this we dont need it",
+          "timestamp": "2025-12-04T04:40:49.789Z"
+        },
         {
           "role": "system",
           "text": "✅ Marked as SKIP - keyboard navigation for cancellations dashboard is not needed.",
@@ -2158,12 +2363,22 @@
           "timestamp": "2025-12-04T06:16:36.536Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix - acceptable risk",
+        "recommended": false,
+        "timestamp": "2025-12-04T06:51:58.998Z"
+      }
     },
     {
       "finding_id": "F-344",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "we dont need to cater to blind people",
+          "timestamp": "2025-12-04T04:41:25.539Z"
+        },
         {
           "role": "system",
           "text": "✅ Marked as SKIP - screen reader accessibility is not a priority for this feature.",
@@ -2180,7 +2395,12 @@
           "timestamp": "2025-12-04T06:16:36.536Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix - acceptable risk",
+        "recommended": false,
+        "timestamp": "2025-12-04T06:52:03.216Z"
+      }
     },
     {
       "finding_id": "F-345",
@@ -2250,8 +2470,13 @@
     },
     {
       "finding_id": "F-356",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "yah this is pretty criitical because some orgs will have 10s of thousands of call logs. so do  whatever is best practice",
+          "timestamp": "2025-12-04T04:42:12.189Z"
+        },
         {
           "role": "system",
           "text": "✅ Confirmed as CRITICAL. With orgs having 10s of thousands of call logs, we'll implement: (1) Server-side pagination with limit/offset, (2) Infinite scroll or Load More button, (3) React-virtual for client-side list virtualization. Creating a high-priority ticket.",
@@ -2268,7 +2493,12 @@
           "timestamp": "2025-12-04T06:16:36.536Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "yah this is pretty criitical because some orgs will have 10s of thousands of call logs. so do  whatever is best practice",
+        "timestamp": "2025-12-04T04:42:12.190Z"
+      }
     },
     {
       "finding_id": "F-357",
@@ -2332,18 +2562,33 @@
     },
     {
       "finding_id": "F-367",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Implement landing page tracking on the marketing site to capture the true top-of-funnel metrics and calculate accurate drop-off between landing and signup.",
+        "recommended": true,
+        "timestamp": "2025-12-04T04:42:21.137Z"
+      }
     },
     {
       "finding_id": "F-368",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "explain this to me like im dumb",
+          "timestamp": "2025-12-04T04:42:55.770Z"
+        },
         {
           "role": "system",
           "text": "📖 Simple explanation: The Funnel Analytics page shows how many visitors sign up, how many pay, etc. Right now the docs say 'only platform admins can see this' but nobody actually CHECKED if the protection works. Someone could potentially guess the URL and see your conversion data. The fix: Actually verify the security code exists and works. **Decision?** (1) Fix it - verify the protection, (2) Skip - accept the risk.",
           "timestamp": "2025-12-04T05:29:28.232Z"
+        },
+        {
+          "role": "human",
+          "text": "option 1",
+          "timestamp": "2025-12-04T05:42:22.554Z"
         },
         {
           "role": "system",
@@ -2351,7 +2596,12 @@
           "timestamp": "2025-12-04T05:48:24.576Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "option 1",
+        "timestamp": "2025-12-04T05:42:22.554Z"
+      }
     },
     {
       "finding_id": "F-369",
@@ -2415,9 +2665,14 @@
     },
     {
       "finding_id": "F-379",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Verify and document the middleware/auth guard that restricts `/platform/*` routes to platform admins only. If missing, implement it immediately.",
+        "recommended": true,
+        "timestamp": "2025-12-04T05:43:14.967Z"
+      }
     },
     {
       "finding_id": "F-380",
@@ -2487,9 +2742,14 @@
     },
     {
       "finding_id": "F-391",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Add confirmation modal before pool deletion. Modal should clearly state what will be deleted (pool name, X routing rules, X agent assignments).",
+        "recommended": true,
+        "timestamp": "2025-12-04T05:44:01.586Z"
+      }
     },
     {
       "finding_id": "F-392",
@@ -2499,15 +2759,30 @@
     },
     {
       "finding_id": "F-393",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "explain this to me more simply",
+          "timestamp": "2025-12-04T05:44:29.919Z"
+        },
         {
           "role": "system",
           "text": "📖 Simple explanation: When an admin changes pool settings (like adding/removing agents), sometimes the save doesn't work - but there's no error message. The admin thinks it saved, but it didn't. They walk away, and the change is lost. The fix: Show a little popup saying 'Saved!' or 'Error - try again' so you always know if it worked. **Decision?** (1) Add save/error notifications, (2) Skip - admins can check manually.",
           "timestamp": "2025-12-04T05:48:19.189Z"
+        },
+        {
+          "role": "human",
+          "text": "add save/error notifications",
+          "timestamp": "2025-12-04T05:53:38.700Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "add save/error notifications",
+        "timestamp": "2025-12-04T05:53:38.700Z"
+      }
     },
     {
       "finding_id": "F-394",
@@ -2625,15 +2900,25 @@
     },
     {
       "finding_id": "F-413",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Emit `call:end` event when removing an agent who is `in_call` status",
+        "recommended": true,
+        "timestamp": "2025-12-04T03:13:52.161Z"
+      }
     },
     {
       "finding_id": "F-414",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Add a \"Reactivate\" option for inactive agents in the UI, OR modify invite logic to check `is_active` status and allow re-invitation for deactivated users.",
+        "recommended": true,
+        "timestamp": "2025-12-04T06:39:33.986Z"
+      }
     },
     {
       "finding_id": "F-024",
@@ -2661,9 +2946,20 @@
     },
     {
       "finding_id": "F-419",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "human",
+          "text": "we dont need to account or blind people",
+          "timestamp": "2025-12-04T06:40:14.981Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "we dont need to account or blind people",
+        "timestamp": "2025-12-04T06:40:14.981Z"
+      }
     },
     {
       "finding_id": "F-420",
@@ -3243,9 +3539,20 @@
     },
     {
       "finding_id": "F-516",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "human",
+          "text": "In the signup flow, I wanted people to be able to go through Upsell Flow, et cetera., before having to verify their email. So it's for conversions, but think through this, and give me a couple of options of what you propose.",
+          "timestamp": "2025-12-04T05:45:16.202Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "In the signup flow, I wanted people to be able to go through Upsell Flow, et cetera., before having to verify their email. So it's for conversions, but think through this, and give me a couple of options of what you propose.",
+        "timestamp": "2025-12-04T05:45:16.202Z"
+      }
     },
     {
       "finding_id": "F-517",
@@ -3291,21 +3598,36 @@
     },
     {
       "finding_id": "F-524",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Implement notifications for status changes, especially `completed` and `declined`. These are the outcomes users most want to know about.",
+        "recommended": true,
+        "timestamp": "2025-12-04T05:45:48.383Z"
+      }
     },
     {
       "finding_id": "F-525",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "explain what happens right now if i change nothinig",
+          "timestamp": "2025-12-04T05:46:47.534Z"
+        },
         {
           "role": "system",
           "text": "📖 **What happens now if you change nothing:** When voting fails or items fail to load, users see an empty list or nothing happens when they click vote. No error message. They might think the app is broken or keep clicking. **Fix = show toast errors (~1 hour). Skip = users figure it out eventually.**",
           "timestamp": "2025-12-04T06:16:36.536Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix - acceptable risk",
+        "recommended": false,
+        "timestamp": "2025-12-04T06:18:38.341Z"
+      }
     },
     {
       "finding_id": "F-526",
@@ -3423,9 +3745,20 @@
     },
     {
       "finding_id": "F-545",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "human",
+          "text": "exclude them - they didnt answer",
+          "timestamp": "2025-12-04T05:47:33.083Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "exclude them - they didnt answer",
+        "timestamp": "2025-12-04T05:47:33.083Z"
+      }
     },
     {
       "finding_id": "F-546",
@@ -3567,9 +3900,14 @@
     },
     {
       "finding_id": "F-569",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Add role check before seat removal: only call billing seats API if the revoked invite had `role = 'agent'`. Document this conditional logic explicitly.",
+        "recommended": true,
+        "timestamp": "2025-12-04T05:55:48.439Z"
+      }
     },
     {
       "finding_id": "F-570",
@@ -3639,9 +3977,14 @@
     },
     {
       "finding_id": "F-581",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Verify Supabase behavior regarding session invalidation on password change. If sessions persist, implement explicit invalidation of all other sessions when password is reset using Supabase session management APIs.",
+        "recommended": true,
+        "timestamp": "2025-12-04T05:56:47.031Z"
+      }
     },
     {
       "finding_id": "F-582",
@@ -3879,15 +4222,25 @@
     },
     {
       "finding_id": "F-621",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "i think i already have a ticket for this. check or me",
+          "timestamp": "2025-12-04T05:57:17.184Z"
+        },
         {
           "role": "system",
           "text": "✅ You already have this! **TKT-014: Recording Consent Indicator for Visitors**. Marking as resolved and linking.",
           "timestamp": "2025-12-04T06:16:36.536Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "i think i already have a ticket for this. check or me",
+        "timestamp": "2025-12-04T05:57:17.184Z"
+      }
     },
     {
       "finding_id": "F-622",
@@ -3951,15 +4304,25 @@
     },
     {
       "finding_id": "F-632",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "giive me real world example of how and when this could happen",
+          "timestamp": "2025-12-04T05:58:06.069Z"
+        },
         {
           "role": "system",
           "text": "📖 **Real-world example:** User signs up with Google → Supabase creates auth.users row → Your trigger to create profile row FAILS (DB timeout, bug, etc) → User is \"logged in\" but has no profile → They hit /dashboard → Query for profile returns null → Redirect logic breaks → User stuck on blank page or infinite redirect loop. **Fix:** Add fallback to create profile on-demand if missing. ~30 min fix.",
           "timestamp": "2025-12-04T06:16:36.536Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Add defensive check after role query: if no profile row found, either create one with default role, show an error message, or redirect to a recovery flow. Consider RPC or trigger to ensure profile creation on signup.",
+        "recommended": true,
+        "timestamp": "2025-12-04T06:19:09.668Z"
+      }
     },
     {
       "finding_id": "F-633",
@@ -4023,12 +4386,22 @@
     },
     {
       "finding_id": "F-643",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "I dont understand",
+          "timestamp": "2025-12-04T01:06:45.578Z"
+        },
         {
           "role": "system",
           "text": "**Let me clarify:** This is about Better Uptime monitoring config. The docs say free tier = 3-min checks, but monitors are set to 1-min. Either monitors fail to create OR you get charged $20/mo unexpectedly. **Options:** (1) Change to 3-min = stay free, (2) Keep 1-min = pay $20/mo, (3) Skip = this is just a docs issue, not code. What would you like to do?",
           "timestamp": "2025-12-04T01:15:14.012Z"
+        },
+        {
+          "role": "human",
+          "text": "(1) Change to 3-min = stay free,",
+          "timestamp": "2025-12-04T01:22:23.063Z"
         },
         {
           "role": "system",
@@ -4041,7 +4414,12 @@
           "timestamp": "2025-12-04T06:16:36.536Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "(1) Change to 3-min = stay free,",
+        "timestamp": "2025-12-04T01:22:23.063Z"
+      }
     },
     {
       "finding_id": "F-644",
@@ -4063,15 +4441,30 @@
     },
     {
       "finding_id": "F-647",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "im the only dev so how should we thinik about this",
+          "timestamp": "2025-12-04T05:59:07.072Z"
+        },
         {
           "role": "system",
           "text": "📖 **Solo dev perspective:** An incident runbook matters LESS when you are the only one who knows the system. But it matters MORE if: (1) You are asleep when alerts fire, (2) You forget how to fix things under pressure, (3) You ever want to hire or take vacation. **My take:** Create a simple 1-pager with common issues + fixes. Takes 30 min, saves hours later. Or skip - you know your system.",
           "timestamp": "2025-12-04T06:16:36.536Z"
+        },
+        {
+          "role": "human",
+          "text": "sure create a simple 1 pager",
+          "timestamp": "2025-12-04T06:19:56.655Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "sure create a simple 1 pager",
+        "timestamp": "2025-12-04T06:19:56.655Z"
+      }
     },
     {
       "finding_id": "F-648",
@@ -4201,15 +4594,25 @@
     },
     {
       "finding_id": "F-669",
-      "status": "pending",
+      "status": "in_discussion",
       "messages": [
+        {
+          "role": "human",
+          "text": "i think i already have a ticket for thiis",
+          "timestamp": "2025-12-04T06:20:16.540Z"
+        },
         {
           "role": "system",
           "text": "✅ Yep! You have **TKT-014: Recording Consent Indicator for Visitors**. Already covered. Marking as resolved.",
           "timestamp": "2025-12-04T06:25:06.083Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "i think i already have a ticket for thiis",
+        "timestamp": "2025-12-04T06:20:16.540Z"
+      }
     },
     {
       "finding_id": "F-670",
@@ -4447,9 +4850,14 @@
     },
     {
       "finding_id": "F-709",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Implement URL refresh mechanism that generates new signed URLs on demand. Store recording references (not signed URLs) in database and sign on access.",
+        "recommended": true,
+        "timestamp": "2025-12-04T06:20:30.851Z"
+      }
     },
     {
       "finding_id": "F-710",
@@ -4567,12 +4975,22 @@
     },
     {
       "finding_id": "F-729",
-      "status": "pending",
+      "status": "in_discussion",
       "messages": [
+        {
+          "role": "human",
+          "text": "simplifffy and explain it to me like im dumb",
+          "timestamp": "2025-12-04T06:22:00.802Z"
+        },
         {
           "role": "system",
           "text": "📖 **Simple version:** Your code has a list of account states: active, cancelled, past_due, AND paused. But the diagram showing how accounts move between states forgot to include \"paused\". So if someone asks \"what happens when an account is paused?\" the diagram has no answer. **Fix:** Add paused to the diagram. **Skip:** It's just docs, code works fine.",
           "timestamp": "2025-12-04T06:25:06.083Z"
+        },
+        {
+          "role": "human",
+          "text": "so code works ffiine for paused users?",
+          "timestamp": "2025-12-04T06:33:20.391Z"
         },
         {
           "role": "system",
@@ -4580,12 +4998,22 @@
           "timestamp": "2025-12-04T06:35:17.260Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "so code works ffiine for paused users?",
+        "timestamp": "2025-12-04T06:33:20.391Z"
+      }
     },
     {
       "finding_id": "F-730",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "when would this happen?\n",
+          "timestamp": "2025-12-04T06:22:45.068Z"
+        },
         {
           "role": "system",
           "text": "📖 **When this happens:** Stripe adds a new subscription status you don't know about (they've done this before - added \"paused\" in 2020). Your code sees status=\"something_new\", doesn't recognize it, defaults to \"active\". User gets FREE ACCESS when they shouldn't. **Real risk?** Low - Stripe rarely adds statuses. **Fix:** Default to \"cancelled\" instead (fail-safe). Takes 5 min.",
@@ -4596,20 +5024,30 @@
         "option_id": "implement_fix",
         "option_label": "Default unknown statuses to \"past_due\" or a new \"unknown\" status that restricts access while logging for investigation. Active should only be set for explicitly known good statuses.",
         "recommended": true,
-        "timestamp": "2025-12-04T09:34:26.203Z"
+        "timestamp": "2025-12-04T06:52:40.614Z"
       }
     },
     {
       "finding_id": "F-731",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "dont we have a thiing that says \"X of Y prepaid seasts used\" and then a link to billing settings?",
+          "timestamp": "2025-12-04T06:23:59.034Z"
+        },
         {
           "role": "system",
           "text": "📖 **You're right!** If you already show \"X of Y prepaid seats used\" with a billing link, users CAN see the math. **The finding is about expectations:** User removes teammate → expects bill to go DOWN → it doesn't (prepaid). Your UI explains it, but some users won't read. **Options:** (1) Skip - UI already explains it. (2) Add tooltip/confirmation when removing: \"This frees a seat but won't reduce your bill until renewal.\"",
           "timestamp": "2025-12-04T06:25:06.083Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix - acceptable risk",
+        "recommended": false,
+        "timestamp": "2025-12-04T06:32:47.968Z"
+      }
     },
     {
       "finding_id": "F-732",
@@ -4678,27 +5116,58 @@
       "decision": null
     },
     {
-      "finding_id": "F-227",
-      "status": "pending",
+      "finding_id": "F-002",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Implement the documented recommendation: sanitize password inputs by replacing values with mask c...",
+        "recommended": true,
+        "timestamp": "2025-12-04T03:03:59.976Z"
+      }
     },
     {
       "finding_id": "F-004",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "user cant opt out and arent aware of it - ik it seems off but that is correct",
+          "timestamp": "2025-12-04T03:13:41.879Z"
+        },
         {
           "role": "system",
           "text": "✅ Acknowledged: Co-browse opt-out is intentionally not available to visitors. This is confirmed as the desired behavior. Finding closed - no ticket needed. Note: Org-level disable toggle is available via TKT-009 for organizations that want to disable co-browse entirely.",
           "timestamp": "2025-12-04T04:00:00.000Z"
         }
       ],
-      "decision": null
+      "decision": {
+        "option_id": "option_4",
+        "option_label": "Skip - documentation is acceptable",
+        "recommended": false,
+        "timestamp": "2025-12-04T04:09:00.451Z"
+      }
+    },
+    {
+      "finding_id": "F-227",
+      "status": "resolved",
+      "messages": [],
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Implement the sanitization code already proposed in the documentation to mask password inputs bef...",
+        "recommended": true,
+        "timestamp": "2025-12-04T03:04:40.027Z"
+      }
     },
     {
       "finding_id": "F-033",
-      "status": "pending",
+      "status": "resolved",
       "messages": [
+        {
+          "role": "human",
+          "text": "need mitigation plan so we have no rate limits - we will have a lot of visitiors across orgs. also need to understand pricing",
+          "timestamp": "2025-12-04T04:09:59.687Z"
+        },
         {
           "role": "system",
           "text": "📖 Rate limit info: ip-api.com free tier = 45 lookups per minute. At scale, we'd hit this fast. **Options:** (1) MaxMind GeoIP - --.10/1000 lookups, one-time DB download option is free but less accurate. (2) ip-api.com Pro - cd /Users/ryanodonnell/projects/Digital_greeter && node docs/scripts/pm-respond.js F-033 \"📖 Rate limit info: ip-api.com free tier = 45 lookups per minute. At scale, we'd hit this fast. **Options:** (1) MaxMind GeoIP - $0.10/1000 lookups, one-time DB download option is free but less accurate. (2) ip-api.com Pro - $15/mo for 150k lookups. (3) Cloudflare - Free with their CDN (you're already using it?). **What matters:** If we hit rate limit, ALL visitors bypass the blocklist (fail-open). **Decision?** Pick a fallback strategy or let me know traffic expectations.\"5/mo for 150k lookups. (3) Cloudflare - Free with their CDN (you're already using it?). **What matters:** If we hit rate limit, ALL visitors bypass the blocklist (fail-open). **Decision?** Pick a fallback strategy or let me know traffic expectations.",
@@ -4710,9 +5179,19 @@
           "timestamp": "2025-12-04T05:29:47.659Z"
         },
         {
+          "role": "human",
+          "text": "this is a crucial feature give me pros and cons of each service",
+          "timestamp": "2025-12-04T05:40:24.169Z"
+        },
+        {
           "role": "system",
           "text": "📖 Pros/Cons breakdown:\n\n**(1) MaxMind GeoIP**\n✅ Pros: Industry standard, very accurate, no rate limits (local DB), one-time setup\n❌ Cons: $0.10/1000 API lookups OR download DB monthly (250MB), requires server-side code changes\n\n**(2) ip-api.com Pro**\n✅ Pros: Already integrated, simple upgrade, good accuracy\n❌ Cons: $15/mo ongoing, still has 150k/mo limit, external dependency\n\n**(3) Cloudflare**\n✅ Pros: FREE if you're on Cloudflare, automatic via CF-IPCountry header, no code changes\n❌ Cons: Only works if traffic goes through Cloudflare, less granular (country only, no city)\n\n**My recommendation:** If you're already using Cloudflare CDN, option 3 is a no-brainer - it's free and instant. Otherwise, MaxMind is the most reliable for scale.\n\n**What's your CDN setup?**",
           "timestamp": "2025-12-04T05:49:48.436Z"
+        },
+        {
+          "role": "human",
+          "text": "lets use maxmind. but also make sure we are ONLY running IP checking on pages were widget is present (agent available) so we arent wasting money",
+          "timestamp": "2025-12-04T05:51:29.783Z"
         },
         {
           "role": "system",
@@ -4720,13 +5199,12 @@
           "timestamp": "2025-12-04T06:35:17.260Z"
         }
       ],
-      "decision": null
-    },
-    {
-      "finding_id": "F-227",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "lets use maxmind. but also make sure we are ONLY running IP checking on pages were widget is present (agent available) so we arent wasting money",
+        "timestamp": "2025-12-04T05:51:29.783Z"
+      }
     }
   ]
 }
