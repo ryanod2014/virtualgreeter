@@ -411,15 +411,30 @@
       );
     }
 
-    function TriageView() {
+    function TriageView({ serverMode, onSave }) {
       const [tab, setTab] = useState('pending');
+      const [saveStatus, setSaveStatus] = useState(null); // null, 'saving', 'saved', 'error'
       const [decisions, setDecisions] = useState(() => {
         const saved = localStorage.getItem('pm-decisions-v2');
         if (saved) return JSON.parse(saved);
         return { threads: FINDINGS_DATA.map(f => ({ finding_id: f.id, status: 'pending', messages: [], decision: null })) };
       });
 
-      useEffect(() => { localStorage.setItem('pm-decisions-v2', JSON.stringify(decisions)); }, [decisions]);
+      // Auto-save when decisions change
+      useEffect(() => {
+        localStorage.setItem('pm-decisions-v2', JSON.stringify(decisions));
+        
+        // If server mode, also save to file
+        if (serverMode && onSave) {
+          setSaveStatus('saving');
+          onSave(decisions).then(() => {
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus(null), 2000);
+          }).catch(() => {
+            setSaveStatus('error');
+          });
+        }
+      }, [decisions, serverMode, onSave]);
 
       const getThread = (id) => decisions.threads.find(t => t.finding_id === id);
       
@@ -473,11 +488,25 @@
               <button className={`tab ${tab === 'in_discussion' ? 'active' : ''}`} onClick={() => setTab('in_discussion')}>💬 In Discussion <span className="count">{stats.inDiscussion}</span></button>
               <button className={`tab ${tab === 'resolved' ? 'active' : ''}`} onClick={() => setTab('resolved')}>✓ Resolved <span className="count">{stats.resolved}</span></button>
             </div>
-            <button className="btn btn-primary" onClick={() => {
-              const json = JSON.stringify(decisions, null, 2);
-              navigator.clipboard.writeText(json);
-              alert('Decisions JSON copied! Paste into docs/data/decisions.json');
-            }}>📋 Export Decisions</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {serverMode ? (
+                <div style={{ 
+                  fontSize: '12px', 
+                  padding: '6px 12px', 
+                  borderRadius: '6px',
+                  background: saveStatus === 'saved' ? 'rgba(16,185,129,0.15)' : saveStatus === 'saving' ? 'rgba(99,102,241,0.15)' : saveStatus === 'error' ? 'rgba(239,68,68,0.15)' : 'transparent',
+                  color: saveStatus === 'saved' ? 'var(--success)' : saveStatus === 'saving' ? 'var(--accent-bright)' : saveStatus === 'error' ? 'var(--critical)' : 'var(--text-muted)'
+                }}>
+                  {saveStatus === 'saved' ? '✓ Auto-saved' : saveStatus === 'saving' ? '⟳ Saving...' : saveStatus === 'error' ? '✗ Save failed' : '💾 Auto-save enabled'}
+                </div>
+              ) : (
+                <button className="btn btn-primary" onClick={() => {
+                  const json = JSON.stringify(decisions, null, 2);
+                  navigator.clipboard.writeText(json);
+                  alert('Decisions JSON copied! Paste into docs/data/decisions.json\n\nTip: Run "node docs/pm-dashboard-ui/server.js" for auto-save!');
+                }}>📋 Export Decisions</button>
+              )}
+            </div>
           </div>
           {filtered.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
@@ -566,6 +595,24 @@
 
     function App() {
       const [view, setView] = useState('pipeline');
+      const [serverMode, setServerMode] = useState(false);
+
+      // Check if server is running on mount
+      useEffect(() => {
+        fetch('/api/data')
+          .then(res => res.ok ? setServerMode(true) : setServerMode(false))
+          .catch(() => setServerMode(false));
+      }, []);
+
+      // Save decisions to server
+      const saveDecisions = async (decisions) => {
+        const res = await fetch('/api/decisions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(decisions)
+        });
+        if (!res.ok) throw new Error('Save failed');
+      };
 
       return (
         <div style={{ minHeight: '100vh' }}>
@@ -573,7 +620,14 @@
           <header style={{ padding: '24px 40px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h1 style={{ fontSize: '24px', fontWeight: 800, background: 'var(--gradient-hero)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PM Dashboard</h1>
-              <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Digital Greeter • {new Date().toLocaleDateString()}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Digital Greeter • {new Date().toLocaleDateString()}</span>
+                {serverMode && (
+                  <span style={{ fontSize: '11px', padding: '2px 8px', background: 'rgba(16,185,129,0.15)', color: 'var(--success)', borderRadius: '4px' }}>
+                    🟢 Server Connected
+                  </span>
+                )}
+              </div>
             </div>
             <div className="nav">
               <button className={`nav-item ${view === 'pipeline' ? 'active' : ''}`} onClick={() => setView('pipeline')}>📊 Pipeline</button>
@@ -586,7 +640,7 @@
           {/* Main Content */}
           <main style={{ padding: '32px 40px' }}>
             {view === 'pipeline' && <PipelineView />}
-            {view === 'triage' && <TriageView />}
+            {view === 'triage' && <TriageView serverMode={serverMode} onSave={saveDecisions} />}
             {view === 'tickets' && <TicketsView />}
             {view === 'agents' && <AgentsView />}
           </main>
