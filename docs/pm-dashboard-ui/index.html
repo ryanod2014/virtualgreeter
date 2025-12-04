@@ -94,11 +94,106 @@
     .pipeline-card .bar-fill { height: 100%; background: var(--gradient-hero); transition: width 0.5s ease; }
     .pipeline-card.complete .bar-fill { background: var(--success); }
 
-    /* Thread */
-    .thread { background: var(--bg-elevated); border-radius: 8px; padding: 16px; margin-top: 12px; }
-    .message { padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; max-width: 85%; }
-    .message-system { background: var(--bg-surface); border: 1px solid var(--border); margin-right: auto; }
-    .message-human { background: var(--accent-bg); border: 1px solid rgba(99,102,241,0.3); margin-left: auto; text-align: right; }
+    /* Thread - Chat bubble style */
+    .thread { background: var(--bg-elevated); border-radius: 12px; padding: 16px; margin-top: 12px; }
+    .message { padding: 12px 16px; margin-bottom: 8px; max-width: 80%; position: relative; }
+    .message-system { 
+      background: var(--bg-surface); 
+      margin-right: auto; 
+      border-radius: 4px 18px 18px 18px;
+    }
+    .message-human { 
+      background: var(--accent); 
+      color: white;
+      margin-left: auto; 
+      border-radius: 18px 4px 18px 18px;
+    }
+    
+    /* Suggested action card */
+    .suggested-action {
+      background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(99,102,241,0.05) 100%);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 12px 0;
+    }
+    .suggested-action-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent-bright);
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .suggested-action-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      margin-bottom: 14px;
+    }
+    .suggested-action-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    /* Quick reply input - always visible */
+    .quick-reply {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      align-items: flex-end;
+    }
+    .quick-reply-input {
+      flex: 1;
+      padding: 12px 16px;
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      min-height: 44px;
+      max-height: 120px;
+      transition: border-color 0.2s;
+    }
+    .quick-reply-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .quick-reply-input::placeholder {
+      color: var(--text-muted);
+    }
+    .quick-reply-send {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .quick-reply-send:hover {
+      background: var(--accent-bright);
+      transform: scale(1.05);
+    }
+    .quick-reply-send:disabled {
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    /* Details/Summary for "other options" */
+    details summary::-webkit-details-marker { display: none; }
+    details[open] summary span:first-child { transform: rotate(90deg); display: inline-block; }
+    details summary:hover { color: var(--text-secondary); }
 
     /* Inputs */
     .input-group { display: flex; gap: 8px; margin-top: 12px; }
@@ -427,142 +522,193 @@
             </div>
           )}
 
-          {/* Decision Area */}
-          <div style={{ background: 'var(--bg-elevated)', borderRadius: '10px', padding: '16px', marginTop: '8px' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
-              {isResolved ? '✓ Decision Made' : 'Choose Action'}
-            </div>
-
-            {/* Show conversation if any */}
+          {/* Decision Area - Simplified Chat-Style */}
+          <div style={{ background: 'var(--bg-elevated)', borderRadius: '12px', padding: '16px', marginTop: '8px' }}>
+            
+            {/* Conversation Thread - Chat bubbles */}
             {thread?.messages?.length > 0 && (
               <div style={{ marginBottom: '16px' }}>
-                {thread.messages.map((msg, i) => (
-                  <div key={i} className={`message message-${msg.role}`} style={{ marginBottom: '10px', padding: '12px', background: msg.role === 'system' ? 'var(--bg-elevated)' : 'var(--accent-bg)', borderRadius: '8px', borderLeft: msg.role === 'system' ? '3px solid var(--accent)' : '3px solid var(--success)' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>{msg.role === 'system' ? '📚 PM' : '👤 You'}</div>
-                    <div style={{ fontSize: '13px', lineHeight: 1.6 }}>{formatMessage(msg.text)}</div>
-                  </div>
-                ))}
+                {thread.messages.map((msg, i, arr) => {
+                  const isLastPmMessage = msg.role === 'system' && i === arr.length - 1;
+                  return (
+                    <div key={i} style={{ marginBottom: '10px' }}>
+                      <div className={`message message-${msg.role}`}>
+                        {msg.role === 'system' && (
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 500 }}>PM</div>
+                        )}
+                        <div style={{ fontSize: '14px', lineHeight: 1.6 }}>{formatMessage(msg.text)}</div>
+                      </div>
+                      {/* Create Ticket button on last PM message */}
+                      {isLastPmMessage && !isResolved && (
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '8px', marginLeft: '0' }}>
+                          <button 
+                            className="btn btn-success btn-sm"
+                            onClick={() => onResolve(finding.id)}
+                          >
+                            ✓ Create Ticket
+                          </button>
+                          <button 
+                            className="btn btn-sm"
+                            onClick={() => onSkip(finding.id, 'Won\'t fix')}
+                            style={{ background: 'transparent', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}
+                          >
+                            Skip
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
             {!isResolved && (
               <>
-                {/* Option Buttons */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-                  {options.map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => onSelectOption(finding.id, opt)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px 16px',
-                        background: hasDecision && thread?.decision?.option_id === opt.id ? 'var(--accent-bg)' : 'var(--bg-surface)',
-                        border: opt.recommended ? '2px solid var(--accent)' : '1px solid var(--border)',
-                        borderRadius: '8px',
-                        color: 'var(--text-primary)',
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseOver={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                      onMouseOut={e => e.currentTarget.style.background = hasDecision && thread?.decision?.option_id === opt.id ? 'var(--accent-bg)' : 'var(--bg-surface)'}
-                    >
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {hasDecision && thread?.decision?.option_id === opt.id ? '✓' : '○'}
-                        <span>{opt.label}</span>
-                      </span>
-                      {opt.recommended && (
-                        <span style={{ fontSize: '10px', padding: '3px 8px', background: 'var(--accent)', color: 'white', borderRadius: '4px', fontWeight: 600 }}>
-                          RECOMMENDED
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Custom Response */}
-                {!showCustom ? (
-                  <button 
-                    onClick={() => setShowCustom(true)}
-                    style={{ fontSize: '12px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}
-                  >
-                    {hasDecision && thread?.decision?.option_id !== 'custom' 
-                      ? '📝 Add a note to your decision...'
-                      : '💬 Need a different option? Add custom response...'}
-                  </button>
-                ) : (
-                  <div style={{ marginTop: '8px' }}>
-                    <textarea
-                      value={customInput}
-                      onChange={e => setCustomInput(e.target.value)}
-                      placeholder={hasDecision && thread?.decision?.option_id !== 'custom'
-                        ? "Add a note explaining your decision (e.g., 'we should honor the grace period')..."
-                        : "Describe your preferred approach or ask a question..."}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        background: 'var(--bg-base)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '6px',
-                        color: 'var(--text-primary)',
-                        fontSize: '13px',
-                        fontFamily: 'inherit',
-                        resize: 'vertical',
-                        minHeight: '60px'
-                      }}
-                    />
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                      <button className="btn btn-primary btn-sm" onClick={handleCustomSubmit}>
-                        {hasDecision && thread?.decision?.option_id !== 'custom' ? '📝 Add Note' : '💬 Send Question to PM'}
+                {/* Suggested Action - The recommended option gets prime real estate */}
+                {recommendedOption && !hasDecision && (
+                  <div className="suggested-action">
+                    <div className="suggested-action-label">✨ Suggested</div>
+                    <div className="suggested-action-text">{recommendedOption.label}</div>
+                    <div className="suggested-action-buttons">
+                      <button 
+                        className="btn btn-success"
+                        onClick={() => {
+                          onSelectOption(finding.id, recommendedOption);
+                          setTimeout(() => onResolve(finding.id), 50);
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        ✓ Accept & Create Ticket
                       </button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => setShowCustom(false)}>Cancel</button>
+                      <button 
+                        className="btn btn-secondary"
+                        onClick={() => onSkip(finding.id, 'Won\'t fix - acceptable risk')}
+                        style={{ background: 'transparent', border: '1px dashed var(--border)' }}
+                      >
+                        Skip
+                      </button>
                     </div>
                   </div>
                 )}
 
-                {/* Resolve Button - only show for actual decisions, not questions */}
+                {/* Other options - collapsed by default */}
+                {options.filter(o => !o.recommended).length > 0 && !hasDecision && (
+                  <details style={{ marginTop: '8px' }}>
+                    <summary style={{ 
+                      fontSize: '12px', 
+                      color: 'var(--text-muted)', 
+                      cursor: 'pointer',
+                      padding: '8px 0',
+                      listStyle: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <span style={{ fontSize: '10px' }}>▶</span> Other options ({options.filter(o => !o.recommended).length})
+                    </summary>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px', paddingLeft: '16px' }}>
+                      {options.filter(o => !o.recommended).map(opt => (
+                        <button
+                          key={opt.id}
+                          onClick={() => {
+                            onSelectOption(finding.id, opt);
+                            setTimeout(() => onResolve(finding.id), 50);
+                          }}
+                          style={{
+                            padding: '10px 14px',
+                            background: 'var(--bg-surface)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '8px',
+                            color: 'var(--text-secondary)',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.15s'
+                          }}
+                          onMouseOver={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                          onMouseOut={e => { e.currentTarget.style.background = 'var(--bg-surface)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {/* Decision made but not yet confirmed - show what was selected */}
                 {hasDecision && thread?.decision?.option_id !== 'custom' && (
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ 
+                    padding: '14px 16px', 
+                    background: 'rgba(16,185,129,0.1)', 
+                    border: '1px solid var(--success)',
+                    borderRadius: '10px', 
+                    marginBottom: '12px' 
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                      <span style={{ color: 'var(--success)', fontSize: '16px' }}>✓</span>
+                      <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{thread?.decision?.option_label}</span>
+                    </div>
                     {thread?.decision?.custom_note && (
-                      <div style={{ marginBottom: '10px', padding: '8px 12px', background: 'var(--bg-surface)', borderRadius: '6px', fontSize: '12px' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>📝 Note:</span>
-                        <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{thread.decision.custom_note}</span>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', paddingLeft: '24px' }}>
+                        Note: {thread.decision.custom_note}
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <button className="btn btn-success" onClick={() => onResolve(finding.id)}>
-                        ✓ Confirm & Create Ticket
+                    <div style={{ display: 'flex', gap: '8px', paddingLeft: '24px' }}>
+                      <button className="btn btn-success btn-sm" onClick={() => onResolve(finding.id)}>
+                        Create Ticket
                       </button>
-                      <button className="btn btn-secondary" onClick={() => onSkip(finding.id, 'Won\'t fix - acceptable risk')}>
-                        ✕ Skip / Won't Fix
+                      <button 
+                        className="btn btn-sm" 
+                        onClick={() => onSkip(finding.id, 'Won\'t fix')}
+                        style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none' }}
+                      >
+                        Cancel
                       </button>
                     </div>
                   </div>
                 )}
-                
-                {/* For custom responses - show option to resolve OR wait for PM */}
-                {hasDecision && thread?.decision?.option_id === 'custom' && (
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-                    <div style={{ padding: '12px', background: 'var(--bg-surface)', borderRadius: '6px', marginBottom: '10px' }}>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Your response:</div>
-                      <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{thread.decision.custom_note}</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <button className="btn btn-success" onClick={() => onResolve(finding.id)}>
-                        ✓ This is my decision - Create Ticket
-                      </button>
-                      <button className="btn btn-secondary" onClick={() => onSkip(finding.id, 'Won\'t fix - acceptable risk')}>
-                        ✕ Skip / Won't Fix
-                      </button>
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                      💡 Click "Create Ticket" if this is your final decision, or "Skip" if no action needed.
-                    </div>
+
+                {/* Always-visible reply input with two submit options */}
+                <div style={{ marginTop: '12px' }}>
+                  <input
+                    type="text"
+                    className="quick-reply-input"
+                    value={customInput}
+                    onChange={e => setCustomInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey && customInput.trim()) {
+                        e.preventDefault();
+                        handleCustomSubmit();
+                      }
+                    }}
+                    placeholder="Type a question or your decision..."
+                    style={{ width: '100%', marginBottom: '8px' }}
+                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      className="btn btn-primary btn-sm"
+                      onClick={handleCustomSubmit}
+                      disabled={!customInput.trim()}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      💬 Ask Question
+                    </button>
+                    <button 
+                      className="btn btn-success btn-sm"
+                      onClick={() => {
+                        if (customInput.trim()) {
+                          onCustomResponse(finding.id, customInput);
+                          setCustomInput('');
+                          setTimeout(() => onResolve(finding.id), 100);
+                        }
+                      }}
+                      disabled={!customInput.trim()}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      ✓ Create Ticket
+                    </button>
                   </div>
-                )}
+                </div>
               </>
             )}
 
@@ -675,6 +821,7 @@
       const [saveStatus, setSaveStatus] = useState(null);
       const [page, setPage] = useState(0);
       const PAGE_SIZE = 10;
+      const isLocalUpdate = React.useRef(false); // Track if we triggered the update
       
       const findings = findingsData || [];
 
@@ -685,30 +832,54 @@
       });
 
       // Merge server decisions (PM responses) into local state
+      // Skip if we triggered this update ourselves to prevent infinite loop
       useEffect(() => {
+        if (isLocalUpdate.current) {
+          isLocalUpdate.current = false;
+          return;
+        }
         if (serverDecisions?.threads) {
           setDecisions(prev => {
-            const merged = { ...prev };
             const localThreadMap = new Map(prev.threads.map(t => [t.finding_id, t]));
+            let hasChanges = false;
             
+            // Create new threads array with merged data
+            const newThreads = prev.threads.map(localThread => {
+              const serverThread = serverDecisions.threads.find(t => t.finding_id === localThread.finding_id);
+              if (!serverThread) return localThread;
+              
+              // Check if we need to merge anything
+              const localMsgTexts = new Set((localThread.messages || []).map(m => m.text));
+              const pmMessages = (serverThread.messages || []).filter(m => m.role === 'system');
+              const newMessages = pmMessages.filter(m => !localMsgTexts.has(m.text));
+              
+              const needsDecision = !localThread.decision && serverThread.decision;
+              const needsStatus = localThread.status === 'pending' && serverThread.status !== 'pending';
+              
+              if (newMessages.length === 0 && !needsDecision && !needsStatus) {
+                return localThread; // No changes needed
+              }
+              
+              hasChanges = true;
+              // Create new thread with merged data
+              return {
+                ...localThread,
+                messages: [...(localThread.messages || []), ...newMessages].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)),
+                decision: needsDecision ? serverThread.decision : localThread.decision,
+                status: needsStatus ? serverThread.status : localThread.status
+              };
+            });
+            
+            // Add threads that only exist on server
             for (const serverThread of serverDecisions.threads) {
-              const localThread = localThreadMap.get(serverThread.finding_id);
-              if (localThread) {
-                // Merge PM messages (role: system) from server into local
-                const localMsgTexts = new Set((localThread.messages || []).map(m => m.text));
-                const pmMessages = (serverThread.messages || []).filter(m => m.role === 'system');
-                
-                for (const pmMsg of pmMessages) {
-                  if (!localMsgTexts.has(pmMsg.text)) {
-                    localThread.messages = localThread.messages || [];
-                    localThread.messages.push(pmMsg);
-                    localThread.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                  }
-                }
+              if (!localThreadMap.has(serverThread.finding_id)) {
+                newThreads.push({ ...serverThread });
+                hasChanges = true;
               }
             }
             
-            return merged;
+            if (!hasChanges) return prev; // No changes, don't trigger re-render
+            return { ...prev, threads: newThreads };
           });
         }
       }, [serverDecisions]);
@@ -732,7 +903,9 @@
         localStorage.setItem('pm-decisions-v3', JSON.stringify(decisions));
         
         // Update parent state so other views (like Launch) see the changes
+        // Set flag to prevent merge useEffect from re-triggering
         if (onDecisionsChange) {
+          isLocalUpdate.current = true;
           onDecisionsChange(decisions);
         }
         
@@ -919,8 +1092,30 @@
         
         const done = ticketed + skipped + resolved;
         const totalPending = Object.values(bySeverity).reduce((sum, n) => sum + n, 0);
-        return { bySeverity, answeredBySeverity, ticketed, skipped, answered, resolved, done, blockers, totalPending };
-      }, [findings, decisions]);
+        
+        // Count open conversations using decisions (merged state that works for rendering)
+        let openConvos = 0;
+        if (decisions?.threads) {
+          findings.forEach(f => {
+            if (f.type === 'blocker' || f.status === 'ticketed' || f.status === 'skipped') return;
+            const thread = decisions.threads.find(t => t.finding_id === f.id);
+            if (!thread) return;
+            
+            const isEffResolved = thread.status === 'resolved' || 
+              (thread.decision && thread.decision.option_id && thread.decision.option_id !== 'custom') ||
+              (thread.messages || []).some(m => m.role === 'system' && 
+                (m.text?.includes('Decision confirmed') || m.text?.includes('Marking resolved') || m.text?.includes('Ticket TKT-')));
+            if (isEffResolved) return;
+            
+            const msgs = thread.messages || [];
+            const lastMsg = msgs[msgs.length - 1];
+            const hasOpenConvo = thread.decision?.option_id === 'custom' && lastMsg?.role === 'system';
+            if (hasOpenConvo) openConvos++;
+          });
+        }
+        
+        return { bySeverity, answeredBySeverity, ticketed, skipped, answered, resolved, done, blockers, totalPending, openConvos };
+      }, [findings, decisions, serverDecisions]);
 
       // Filter findings - by blockers, severity, ticketed, or answered
       const filtered = useMemo(() => {
@@ -928,7 +1123,8 @@
         const isEffectivelyResolved = (f) => {
           const thread = getThread(f.id);
           if (thread?.status === 'resolved') return true;
-          if (thread?.decision && thread.decision.option_id) return true;
+          // Only consider resolved if has a FINAL decision (not custom, which means in-progress discussion)
+          if (thread?.decision && thread.decision.option_id && thread.decision.option_id !== 'custom') return true;
           const msgs = thread?.messages || [];
           return msgs.some(m => 
             m.role === 'system' && 
@@ -936,12 +1132,41 @@
           );
         };
         
-        // All filter - show all pending findings (not ticketed, not skipped, not resolved)
+        // All filter - show all pending findings, sorted by: open convos first, then severity
         if (severityFilter === 'all') {
-          return findings.filter(f => {
+          const pending = findings.filter(f => {
             if (f.type === 'blocker') return false; // Blockers shown separately
             if (f.status === 'ticketed' || f.status === 'skipped') return false;
             return !isEffectivelyResolved(f);
+          });
+          
+          // Sort: open convos first (has messages with system response to custom decision), then by severity
+          const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+          
+          // Try serverDecisions first, fall back to decisions (merged local state)
+          const getAnyThread = (id) => {
+            return serverDecisions?.threads?.find(t => t.finding_id === id) 
+                || decisions?.threads?.find(t => t.finding_id === id);
+          };
+          
+          return pending.sort((a, b) => {
+            const threadA = getAnyThread(a.id);
+            const threadB = getAnyThread(b.id);
+            const msgsA = threadA?.messages || [];
+            const msgsB = threadB?.messages || [];
+            const lastMsgA = msgsA[msgsA.length - 1];
+            const lastMsgB = msgsB[msgsB.length - 1];
+            
+            // Check if has open convo (custom decision with system response waiting for PM)
+            const hasOpenConvoA = threadA?.decision?.option_id === 'custom' && lastMsgA?.role === 'system';
+            const hasOpenConvoB = threadB?.decision?.option_id === 'custom' && lastMsgB?.role === 'system';
+            
+            // Open convos first
+            if (hasOpenConvoA && !hasOpenConvoB) return -1;
+            if (!hasOpenConvoA && hasOpenConvoB) return 1;
+            
+            // Then by severity
+            return (severityOrder[a.severity] || 4) - (severityOrder[b.severity] || 4);
           });
         }
         
@@ -953,6 +1178,29 @@
             return !isEffectivelyResolved(f);
           });
         }
+        
+        // Open Convos filter - show items with custom decision and system response
+        if (severityFilter === 'convos') {
+          // Try both serverDecisions and decisions to maximize chances of finding threads
+          const getAnyThread = (id) => {
+            return serverDecisions?.threads?.find(t => t.finding_id === id) 
+                || decisions?.threads?.find(t => t.finding_id === id);
+          };
+          
+          return findings.filter(f => {
+            if (f.type === 'blocker') return false;
+            if (f.status === 'ticketed' || f.status === 'skipped') return false;
+            if (isEffectivelyResolved(f)) return false;
+            
+            const thread = getAnyThread(f.id);
+            if (!thread) return false;
+            
+            const msgs = thread.messages || [];
+            const lastMsg = msgs[msgs.length - 1];
+            return thread.decision?.option_id === 'custom' && lastMsg?.role === 'system';
+          });
+        }
+        
         if (severityFilter === 'ticketed') {
           return findings.filter(f => f.status === 'ticketed');
         }
@@ -981,7 +1229,7 @@
           if (isEffectivelyResolved(f)) return false;
           return f.severity === severityFilter;
         });
-      }, [findings, severityFilter, decisions]);
+      }, [findings, severityFilter, decisions, serverDecisions]);
 
       // Paginated
       const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -1003,6 +1251,19 @@
               <button className={`tab ${severityFilter === 'all' ? 'active' : ''}`} onClick={() => { setSeverityFilter('all'); setPage(0); }}>
                 All <span className="count">{stats.totalPending}</span>
               </button>
+              {/* Open Convos Tab - only show if there are open convos */}
+              {stats.openConvos > 0 && (
+                <button 
+                  className={`tab ${severityFilter === 'convos' ? 'active' : ''}`} 
+                  onClick={() => { setSeverityFilter('convos'); setPage(0); }}
+                  style={{ 
+                    background: severityFilter === 'convos' ? 'rgba(249,115,22,0.15)' : undefined,
+                    borderColor: severityFilter === 'convos' ? 'var(--high)' : undefined
+                  }}
+                >
+                  💬 Convos <span className="count" style={{ background: 'var(--high)', color: 'white' }}>{stats.openConvos}</span>
+                </button>
+              )}
               {/* Blockers Tab - only show if there are blockers */}
               {stats.blockers > 0 && (
                 <button 
@@ -1078,20 +1339,51 @@
           ) : (
             <>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter === 'done' ? 'completed' : severityFilter === 'answered' ? 'answered' : severityFilter} findings
+                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter === 'done' ? 'completed' : severityFilter === 'answered' ? 'answered' : severityFilter === 'all' ? '' : severityFilter} findings
+                {severityFilter === 'all' && stats.openConvos > 0 && page === 0 && ' (open conversations first)'}
               </div>
-              {paginated.map(f => (
-                <FindingCard 
-                  key={f.id} 
-                  finding={f} 
-                  thread={getThread(f.id)} 
-                  onSelectOption={handleSelectOption}
-                  onCustomResponse={handleCustomResponse}
-                  onResolve={handleResolve}
-                  onSkip={handleSkip}
-                  onCombine={handleCombine}
-                />
-              ))}
+              {paginated.map((f, idx) => {
+                // Check if this is an open convo item (using getThread which uses decisions state)
+                const thread = getThread(f.id);
+                const msgs = thread?.messages || [];
+                const lastMsg = msgs[msgs.length - 1];
+                const isOpenConvo = thread?.decision?.option_id === 'custom' && lastMsg?.role === 'system';
+                
+                // Show section header for first open convo and first regular item
+                const prevF = paginated[idx - 1];
+                const prevThread = prevF ? getThread(prevF.id) : null;
+                const prevMsgs = prevThread?.messages || [];
+                const prevLastMsg = prevMsgs[prevMsgs.length - 1];
+                const prevIsOpenConvo = prevThread?.decision?.option_id === 'custom' && prevLastMsg?.role === 'system';
+                
+                const showOpenConvoHeader = severityFilter === 'all' && isOpenConvo && idx === 0;
+                const showRegularHeader = severityFilter === 'all' && !isOpenConvo && (idx === 0 || prevIsOpenConvo);
+                
+                return (
+                  <React.Fragment key={f.id}>
+                    {showOpenConvoHeader && (
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--high)', marginBottom: '12px', marginTop: idx > 0 ? '20px' : '0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>💬 Open Conversations</span>
+                        <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-muted)' }}>Agent responded, pick an option</span>
+                      </div>
+                    )}
+                    {showRegularHeader && (
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', marginTop: idx > 0 ? '20px' : '0' }}>
+                        📋 All Findings
+                      </div>
+                    )}
+                    <FindingCard 
+                      finding={f} 
+                      thread={getThread(f.id)} 
+                      onSelectOption={handleSelectOption}
+                      onCustomResponse={handleCustomResponse}
+                      onResolve={handleResolve}
+                      onSkip={handleSkip}
+                      onCombine={handleCombine}
+                    />
+                  </React.Fragment>
+                );
+              })}
               
               {/* Pagination */}
               {totalPages > 1 && (
@@ -2757,12 +3049,13 @@
       
       // Count pipeline items by category
       const pipelineStats = useMemo(() => {
-        if (!serverDecisions?.threads) return { pendingResponses: [], pendingTickets: [] };
+        if (!serverDecisions?.threads) return { pendingResponses: [], awaitingDecision: [], pendingTickets: [] };
         
         const getThread = (id) => serverDecisions.threads.find(t => t.finding_id === id);
         
-        const pendingResponses = []; // PM asked a question, waiting for response
-        const pendingTickets = [];   // PM made decision, ready for ticket creation
+        const pendingResponses = [];  // PM asked a question, last msg is human → waiting for agent
+        const awaitingDecision = [];  // Agent responded, last msg is system → waiting for PM decision
+        const pendingTickets = [];    // PM made final decision → ready for ticket creation
         
         findings.forEach(f => {
           const thread = getThread(f.id);
@@ -2775,6 +3068,7 @@
           const hasCustomDecision = thread.decision && thread.decision.option_id === 'custom';
           const hasNonCustomDecision = thread.decision && thread.decision.option_id && thread.decision.option_id !== 'custom';
           const msgs = thread.messages || [];
+          const lastMsg = msgs[msgs.length - 1];
           const hasResolutionMsg = msgs.some(m => 
             m.role === 'system' && 
             (m.text?.includes('Decision confirmed') || m.text?.includes('Marking resolved') || m.text?.includes('Ticket TKT-'))
@@ -2783,9 +3077,16 @@
           // Skip if already fully resolved
           if (hasResolutionMsg) return;
           
-          // Custom decision = PM asked a question, waiting for response
+          // Custom decision with conversation
           if (hasCustomDecision && !isResolved) {
-            pendingResponses.push({ ...f, thread, isBlocker: f.type === 'blocker' });
+            // Check last message to determine who's waiting
+            if (lastMsg?.role === 'human' || msgs.length === 0) {
+              // Last message from PM (or no messages yet) → waiting for agent response
+              pendingResponses.push({ ...f, thread, isBlocker: f.type === 'blocker' });
+            } else {
+              // Last message from system → agent responded, waiting for PM decision
+              awaitingDecision.push({ ...f, thread, isBlocker: f.type === 'blocker' });
+            }
           }
           // Non-custom decision or resolved = ready for ticket creation
           else if (isResolved || hasNonCustomDecision) {
@@ -2793,16 +3094,31 @@
           }
         });
         
-        return { pendingResponses, pendingTickets };
+        return { pendingResponses, awaitingDecision, pendingTickets };
       }, [findings, serverDecisions]);
       
-      const totalToProcess = pipelineStats.pendingResponses.length + pipelineStats.pendingTickets.length;
+      const totalToProcess = pipelineStats.pendingResponses.length + pipelineStats.awaitingDecision.length + pipelineStats.pendingTickets.length;
       
       // PM Command - unified
       const pmCommand = {
         label: 'Process Pipeline',
-        description: 'Create tickets from answered findings & mark resolved',
-        command: 'You are a PM agent. Read docs/workflow/PM_DEV_SOP.md. Read decisions.json and findings.json. For each finding with a PM decision: (1) if decision is to fix → create ticket in tickets.json following the schema in docs/workflow/templates/ticket-schema.json, (2) update finding status to "ticketed" or "skipped", (3) update thread status to "resolved" in decisions.json. Report: tickets created, items skipped, items already processed.'
+        description: 'Respond to questions & create tickets',
+        command: `You are a PM agent. Read decisions.json and findings.json.
+
+TWO TASKS:
+
+1) RESPOND TO QUESTIONS (threads with decision.option_id = "custom"):
+   - Read the PM's question from the last human message
+   - Read the finding context (issue, options, suggested_fix)  
+   - Add your response as a new message: { role: "system", text: "📖 [your answer]", timestamp: now }
+   - Keep answers concise and actionable with clear options
+
+2) CREATE TICKETS (threads with decision.option_id != "custom" AND status != "resolved"):
+   - Create ticket in tickets.json following docs/workflow/templates/ticket-schema.json
+   - Update finding status to "ticketed" in findings.json
+   - Update thread status to "resolved" in decisions.json
+
+Report: X questions answered, Y tickets created, Z items skipped/already done.`
       };
       
       const DOC_REVIEW_COMMANDS = {
@@ -2854,34 +3170,33 @@
             {expandedSection === 'pm' && (
               <div style={{ display: 'grid', gap: '16px' }}>
                 {/* Stats breakdown */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                   <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
                     <div style={{ fontSize: '28px', fontWeight: 700, color: pipelineStats.pendingResponses.length > 0 ? 'var(--medium)' : 'var(--text-muted)' }}>
                       {pipelineStats.pendingResponses.length}
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>💬 Pending Responses</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>💬 Need Response</div>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      PM asked questions, awaiting answers
+                      You asked, agent will answer
                     </div>
-                    {pipelineStats.pendingResponses.filter(f => f.isBlocker).length > 0 && (
-                      <div style={{ fontSize: '10px', color: 'var(--critical)', marginTop: '4px' }}>
-                        🚨 {pipelineStats.pendingResponses.filter(f => f.isBlocker).length} blocker{pipelineStats.pendingResponses.filter(f => f.isBlocker).length !== 1 ? 's' : ''}
-                      </div>
-                    )}
+                  </div>
+                  <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '28px', fontWeight: 700, color: pipelineStats.awaitingDecision.length > 0 ? 'var(--high)' : 'var(--text-muted)' }}>
+                      {pipelineStats.awaitingDecision.length}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>⏳ Awaiting Your Decision</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Agent responded, pick an option
+                    </div>
                   </div>
                   <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
                     <div style={{ fontSize: '28px', fontWeight: 700, color: pipelineStats.pendingTickets.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
                       {pipelineStats.pendingTickets.length}
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🎫 Pending Ticket Creation</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🎫 Ready for Tickets</div>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      Decisions made, ready for tickets
+                      Decision made, create tickets
                     </div>
-                    {pipelineStats.pendingTickets.filter(f => f.isBlocker).length > 0 && (
-                      <div style={{ fontSize: '10px', color: 'var(--critical)', marginTop: '4px' }}>
-                        🚨 {pipelineStats.pendingTickets.filter(f => f.isBlocker).length} continuation ticket{pipelineStats.pendingTickets.filter(f => f.isBlocker).length !== 1 ? 's' : ''}
-                      </div>
-                    )}
                   </div>
                 </div>
                 
