@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 /**
- * Backfill Options Script
+ * Backfill Options Script v2
  * 
- * Reads REVIEW_FINDINGS.md and adds Options + Recommendation to findings
- * that don't have them, based on analyzing the issue content.
+ * Generates CONTEXT-SPECIFIC options based on the actual suggested_fix,
+ * not generic templates.
+ * 
+ * Option 1 = Implement the suggested fix (truncated to fit)
+ * Option 2 = Alternative approach
+ * Option 3 = Defer/backlog
+ * Option 4 = Skip
  * 
  * Usage: node docs/scripts/backfill-options.js
  */
@@ -13,193 +18,100 @@ const path = require('path');
 
 const REVIEW_FINDINGS_PATH = path.join(__dirname, '../REVIEW_FINDINGS.md');
 
-// Smart option generators based on issue patterns
-const OPTION_GENERATORS = {
-  // Implementation missing / TODO
-  missing_implementation: {
-    patterns: [/not implemented/i, /TODO/i, /missing/i, /doesn't exist/i, /no .* implemented/i],
-    generate: (finding) => ({
-      options: [
-        `Implement ${finding.title.toLowerCase()}`,
-        'Implement minimal version first, iterate later',
-        'Add to backlog - not blocking',
-        'Skip - not needed for MVP'
-      ],
-      recommendation: 'Option 1 - implement the feature as documented'
-    })
-  },
-
-  // Mismatch / inconsistency
-  mismatch: {
-    patterns: [/mismatch/i, /inconsistent/i, /doesn't match/i, /contradicts/i, /but.*says/i],
-    generate: (finding) => ({
-      options: [
-        'Fix the code to match documentation',
-        'Fix the documentation to match code',
-        'Update both for clarity',
-        'Skip - acceptable inconsistency'
-      ],
-      recommendation: 'Option 1 - code should match documented behavior'
-    })
-  },
-
-  // Security / sensitive data
-  security: {
-    patterns: [/sensitive/i, /password/i, /credit card/i, /sanitiz/i, /security/i, /token/i, /pci/i],
-    generate: (finding) => ({
-      options: [
-        'Implement strict sanitization (mask all sensitive fields)',
-        'Make sanitization configurable per-org',
-        'Use allowlist approach (explicit opt-in)',
-        'Skip - not applicable to our use case'
-      ],
-      recommendation: 'Option 1 - security should be strict by default'
-    })
-  },
-
-  // Accessibility / UX
-  accessibility: {
-    patterns: [/accessibility/i, /screen reader/i, /aria/i, /wcag/i, /a11y/i],
-    generate: (finding) => ({
-      options: [
-        'Implement full accessibility support',
-        'Add basic accessibility (ARIA labels only)',
-        'Add to accessibility backlog',
-        'Skip - edge case not worth effort'
-      ],
-      recommendation: 'Option 2 - basic accessibility is minimum requirement'
-    })
-  },
-
-  // Error handling / edge cases
-  error_handling: {
-    patterns: [/error/i, /edge case/i, /fails/i, /crash/i, /undefined/i, /null/i],
-    generate: (finding) => ({
-      options: [
-        'Add proper error handling with user feedback',
-        'Add silent error handling (log only)',
-        'Add to error handling sprint',
-        'Skip - rare edge case'
-      ],
-      recommendation: 'Option 1 - users should see meaningful errors'
-    })
-  },
-
-  // Performance / optimization
-  performance: {
-    patterns: [/slow/i, /performance/i, /optimize/i, /cache/i, /latency/i, /timeout/i],
-    generate: (finding) => ({
-      options: [
-        'Implement optimization now',
-        'Add monitoring first, optimize if needed',
-        'Add to performance backlog',
-        'Skip - acceptable performance'
-      ],
-      recommendation: 'Option 2 - measure before optimizing'
-    })
-  },
-
-  // Billing / subscription
-  billing: {
-    patterns: [/billing/i, /subscription/i, /payment/i, /charge/i, /invoice/i],
-    generate: (finding) => ({
-      options: [
-        'Fix billing logic immediately (revenue impact)',
-        'Add billing safeguards and alerts',
-        'Document current behavior, fix later',
-        'Skip - acceptable risk'
-      ],
-      recommendation: 'Option 1 - billing bugs are high priority'
-    })
-  },
-
-  // Cancellation specific
-  cancellation: {
-    patterns: [/cancel/i, /unsubscribe/i],
-    generate: (finding) => ({
-      options: [
-        'Implement proper cancellation flow',
-        'Cancel at end of billing period (grace period)',
-        'Add cancellation confirmation step',
-        'Skip - current behavior acceptable'
-      ],
-      recommendation: 'Option 1 - cancellation should work as users expect'
-    })
-  },
-
-  // Pause subscription
-  pause: {
-    patterns: [/pause/i, /resume/i, /suspend/i],
-    generate: (finding) => ({
-      options: [
-        'Implement proper pause/resume behavior',
-        'Disable features during pause (strict)',
-        'Show warnings but allow access (soft)',
-        'Skip - pause feature not critical'
-      ],
-      recommendation: 'Option 1 - pause should fully stop service'
-    })
-  },
-
-  // Documentation issues
-  documentation: {
-    patterns: [/documentation/i, /docs say/i, /unclear/i, /ambiguous/i, /confusing/i],
-    generate: (finding) => ({
-      options: [
-        'Clarify documentation with specific behavior',
-        'Add code comments explaining the logic',
-        'Create FAQ entry for this scenario',
-        'Skip - documentation is acceptable'
-      ],
-      recommendation: 'Option 1 - clear docs prevent future confusion'
-    })
-  },
-
-  // Notification / email
-  notification: {
-    patterns: [/notification/i, /email/i, /alert/i, /notify/i],
-    generate: (finding) => ({
-      options: [
-        'Implement notification system',
-        'Add email notifications only',
-        'Add in-app notifications only',
-        'Skip - notifications not critical'
-      ],
-      recommendation: 'Option 1 - users need to be informed of important events'
-    })
-  },
-
-  // Default fallback
-  default: {
-    patterns: [],
-    generate: (finding) => ({
-      options: [
-        `Implement fix: ${finding.suggested_fix.substring(0, 60)}...`,
-        'Implement with modifications',
-        'Add to backlog - not urgent',
-        'Skip - not applicable'
-      ],
-      recommendation: 'Option 1 - implement the suggested fix'
-    })
-  }
-};
-
+/**
+ * Generate smart options based on the finding's content
+ */
 function generateOptionsForFinding(finding) {
-  const text = `${finding.title} ${finding.issue} ${finding.suggested_fix}`.toLowerCase();
+  const title = finding.title || 'this issue';
+  const suggestedFix = finding.suggested_fix || '';
+  const issue = finding.issue || '';
+  const context = `${title} ${issue} ${suggestedFix}`.toLowerCase();
   
-  // Find matching generator
-  for (const [name, generator] of Object.entries(OPTION_GENERATORS)) {
-    if (name === 'default') continue;
-    
-    for (const pattern of generator.patterns) {
-      if (pattern.test(text)) {
-        return generator.generate(finding);
+  // Extract the core action from suggested fix
+  let primaryOption = suggestedFix;
+  
+  // Truncate if too long (keep it actionable)
+  if (primaryOption.length > 80) {
+    // Try to find a natural break point
+    const breakPoints = ['. ', ', ', ' - ', ' and '];
+    for (const bp of breakPoints) {
+      const idx = primaryOption.indexOf(bp);
+      if (idx > 30 && idx < 80) {
+        primaryOption = primaryOption.substring(0, idx);
+        break;
       }
+    }
+    // If still too long, just truncate
+    if (primaryOption.length > 80) {
+      primaryOption = primaryOption.substring(0, 77) + '...';
     }
   }
   
-  // Fallback to default
-  return OPTION_GENERATORS.default.generate(finding);
+  // Clean up the primary option
+  primaryOption = primaryOption.replace(/^(Add|Implement|Create|Use|Enable|Emit|Show|Display|Update)\s+/i, (match) => match);
+  
+  // Generate alternative based on context
+  let alternativeOption = 'Implement minimal version first, iterate later';
+  let deferOption = 'Add to backlog - not blocking';
+  let skipOption = 'Skip - acceptable as-is';
+  
+  // Customize alternatives based on issue type
+  if (context.includes('security') || context.includes('sensitive') || context.includes('password') || context.includes('token')) {
+    alternativeOption = 'Add audit logging first, fix in security sprint';
+    deferOption = 'Add to security backlog (requires review)';
+    skipOption = 'Skip - security risk is acceptable';
+  } else if (context.includes('billing') || context.includes('payment') || context.includes('subscription') || context.includes('charge')) {
+    alternativeOption = 'Add billing safeguards and monitoring first';
+    deferOption = 'Add to billing fixes backlog';
+    skipOption = 'Skip - billing impact is acceptable';
+  } else if (context.includes('cancel')) {
+    alternativeOption = 'Cancel at end of billing period instead';
+    deferOption = 'Add cancellation fix to backlog';
+    skipOption = 'Skip - current cancellation flow is acceptable';
+  } else if (context.includes('call') || context.includes('webrtc') || context.includes('video')) {
+    alternativeOption = 'Add warning/confirmation before action';
+    deferOption = 'Add to call handling backlog';
+    skipOption = 'Skip - edge case acceptable';
+  } else if (context.includes('notification') || context.includes('email') || context.includes('alert')) {
+    alternativeOption = 'Add in-app notification only (skip email)';
+    deferOption = 'Add to notifications backlog';
+    skipOption = 'Skip - users will figure it out';
+  } else if (context.includes('error') || context.includes('fail') || context.includes('crash')) {
+    alternativeOption = 'Add silent error handling (log only)';
+    deferOption = 'Add to error handling sprint';
+    skipOption = 'Skip - rare edge case';
+  } else if (context.includes('performance') || context.includes('slow') || context.includes('cache')) {
+    alternativeOption = 'Add monitoring first, optimize if needed';
+    deferOption = 'Add to performance backlog';
+    skipOption = 'Skip - performance is acceptable';
+  } else if (context.includes('documentation') || context.includes('docs') || context.includes('unclear')) {
+    alternativeOption = 'Add inline code comments instead';
+    deferOption = 'Add to documentation backlog';
+    skipOption = 'Skip - docs are clear enough';
+  } else if (context.includes('ui') || context.includes('ux') || context.includes('button') || context.includes('display')) {
+    alternativeOption = 'Implement simpler UI version first';
+    deferOption = 'Add to UX improvements backlog';
+    skipOption = 'Skip - current UX is acceptable';
+  } else if (context.includes('state') || context.includes('status') || context.includes('sync')) {
+    alternativeOption = 'Add state validation on read (defensive)';
+    deferOption = 'Add to state management backlog';
+    skipOption = 'Skip - state inconsistency is rare';
+  }
+  
+  // If no suggested fix, use title-based option
+  if (!suggestedFix || suggestedFix.length < 10) {
+    primaryOption = `Fix: ${title}`;
+  }
+  
+  return {
+    options: [
+      primaryOption,
+      alternativeOption,
+      deferOption,
+      skipOption
+    ],
+    recommendation: 'Option 1 - implement the suggested fix'
+  };
 }
 
 function parseFinding(lines, startIndex) {
@@ -219,7 +131,7 @@ function parseFinding(lines, startIndex) {
   }
   
   let i = startIndex + 1;
-  while (i < lines.length && !lines[i].match(/^#{1,4}\s/) && lines[i] !== '---') {
+  while (i < lines.length && lines[i] && !lines[i].match(/^#{1,4}\s/) && lines[i] !== '---') {
     const line = lines[i].trim();
     
     if (line.startsWith('- **Issue:**')) {
@@ -264,7 +176,7 @@ function insertOptionsIntoFinding(lines, finding, options) {
   // Insert after the Suggested Fix line
   lines.splice(insertAfterLine + 1, 0, ...optionsText);
   
-  return optionsText.length; // Return number of lines inserted
+  return optionsText.length;
 }
 
 function main() {
@@ -286,6 +198,12 @@ function main() {
   }
   
   console.log(`   Found ${findings.length} findings without options`);
+  
+  if (findings.length === 0) {
+    console.log('✅ All findings already have options!');
+    console.log('\n🔧 To re-generate options, remove - **Options:** lines from REVIEW_FINDINGS.md');
+    return;
+  }
   
   // Second pass: insert options from END to START (so indices don't shift)
   let processed = 0;
@@ -311,4 +229,3 @@ function main() {
 }
 
 main();
-

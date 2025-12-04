@@ -17,146 +17,7 @@ const REVIEW_FINDINGS_PATH = path.join(__dirname, '../REVIEW_FINDINGS.md');
 const FINDINGS_JSON_PATH = path.join(__dirname, '../data/findings.json');
 const DECISIONS_JSON_PATH = path.join(__dirname, '../data/decisions.json');
 
-// Option templates based on finding patterns
-const OPTION_TEMPLATES = {
-  // Cancellation-specific (check BEFORE billing since it's more specific)
-  cancellation: {
-    patterns: ['cancellation', 'cancel subscription', 'not actually cancel', 'stripe cancel', 'cancel stripe'],
-    options: [
-      { id: 'cancel_immediate', label: 'Implement actual Stripe cancellation (immediate)', recommended: true },
-      { id: 'cancel_period_end', label: 'Cancel at end of billing period (grace period)' },
-      { id: 'cancel_with_feedback', label: 'Cancel with feedback collection before' },
-      { id: 'cancel_refund', label: 'Cancel + prorated refund' },
-      { id: 'custom', label: 'Need different approach...' }
-    ]
-  },
-
-  // Security-related findings
-  security: {
-    patterns: ['password', 'sensitive', 'credit card', 'token', 'pci', 'gdpr', 'privacy', 'encrypt', 'sanitize', 'mask'],
-    options: [
-      { id: 'implement_strict', label: 'Implement strict sanitization (mask ALL sensitive fields)', recommended: true },
-      { id: 'implement_configurable', label: 'Make sanitization configurable per-org' },
-      { id: 'allowlist', label: 'Use allowlist approach (opt-in capture only)' },
-      { id: 'blocklist', label: 'Use blocklist approach (opt-out of capture)' },
-      { id: 'skip', label: 'Skip - not applicable to our use case' }
-    ]
-  },
-  
-  // Performance-related findings
-  performance: {
-    patterns: ['latency', 'slow', 'performance', 'pagination', 'cache', 'bandwidth', 'memory', 'compress', 'large'],
-    options: [
-      { id: 'implement_now', label: 'Implement optimization now (before scale issues)', recommended: true },
-      { id: 'implement_later', label: 'Add to backlog - not urgent yet' },
-      { id: 'monitor_first', label: 'Add monitoring first, then decide' },
-      { id: 'configurable', label: 'Make thresholds configurable' },
-      { id: 'skip', label: 'Skip - acceptable trade-off' }
-    ]
-  },
-  
-  // Billing/Subscription findings
-  billing: {
-    patterns: ['billing', 'subscription', 'payment', 'invoice', 'stripe', 'cancel', 'pause', 'trial', 'plan'],
-    options: [
-      { id: 'strict_block', label: 'Block access immediately on payment failure', recommended: true },
-      { id: 'grace_period', label: 'Allow grace period before blocking' },
-      { id: 'soft_warning', label: 'Show warning but allow continued access' },
-      { id: 'admin_only', label: 'Notify admin only, no user-facing changes' },
-      { id: 'custom', label: 'Need different approach...' }
-    ]
-  },
-  
-  // Compliance/Legal findings
-  compliance: {
-    patterns: ['compliance', 'consent', 'gdpr', 'ccpa', 'hipaa', 'regulation', 'legal', 'two-party', 'recording'],
-    options: [
-      { id: 'full_compliance', label: 'Implement full compliance (consent + indicator)', recommended: true },
-      { id: 'indicator_only', label: 'Add indicator only (assume implied consent)' },
-      { id: 'org_configurable', label: 'Make compliance settings per-org configurable' },
-      { id: 'defer', label: 'Defer - needs legal review first' },
-      { id: 'skip', label: 'Skip - not required for our jurisdictions' }
-    ]
-  },
-  
-  // UX/Accessibility findings
-  ux: {
-    patterns: ['loading', 'spinner', 'accessibility', 'aria', 'screen reader', 'wcag', 'ux', 'user experience', 'indicator'],
-    options: [
-      { id: 'implement', label: 'Implement UX improvement' },
-      { id: 'implement_minimal', label: 'Implement minimal version', recommended: true },
-      { id: 'defer', label: 'Add to UX backlog - not critical path' },
-      { id: 'skip', label: 'Skip - edge case not worth effort' }
-    ]
-  },
-  
-  // Data retention findings
-  retention: {
-    patterns: ['retention', 'delete', 'cleanup', 'archive', 'expire', 'ttl', 'purge'],
-    options: [
-      { id: 'auto_delete', label: 'Auto-delete after retention period expires', recommended: true },
-      { id: 'soft_delete', label: 'Soft delete with recovery option' },
-      { id: 'manual_cleanup', label: 'Manual cleanup only (admin action)' },
-      { id: 'archive_first', label: 'Archive to cold storage before deletion' },
-      { id: 'skip', label: 'Skip - keep indefinitely' }
-    ]
-  },
-  
-  // API/Integration findings
-  api: {
-    patterns: ['api', 'rate limit', 'timeout', 'retry', 'webhook', 'integration', 'third-party', 'external'],
-    options: [
-      { id: 'robust_handling', label: 'Implement retry + fallback + caching', recommended: true },
-      { id: 'retry_only', label: 'Add retry mechanism only' },
-      { id: 'fallback', label: 'Add graceful degradation/fallback' },
-      { id: 'upgrade_tier', label: 'Upgrade to paid tier of service' },
-      { id: 'skip', label: 'Skip - current behavior acceptable' }
-    ]
-  },
-  
-  // Documentation/Config issues - CHECK THIS FIRST (before realtime)
-  documentation: {
-    patterns: ['contradiction', 'mismatch', 'docs say', 'documentation says', 'frequency', 'uptime', 'monitoring', 'free tier'],
-    options: [
-      { id: 'fix_docs', label: 'Fix the documentation to match reality', recommended: true },
-      { id: 'fix_code', label: 'Fix the code/config to match docs' },
-      { id: 'clarify_both', label: 'Update both docs and code for clarity' },
-      { id: 'skip', label: 'Skip - not a real issue' }
-    ]
-  },
-  
-  // WebRTC/Real-time findings - more specific patterns
-  realtime: {
-    patterns: ['webrtc', 'ice restart', 'ice candidate', 'peer connection', 'rtc', 'media stream'],
-    options: [
-      { id: 'auto_reconnect', label: 'Implement auto-reconnect with retry', recommended: true },
-      { id: 'manual_reconnect', label: 'Add manual "Reconnect" button' },
-      { id: 'improve_status', label: 'Better status indicators only' },
-      { id: 'defer', label: 'Defer - needs WebRTC expertise' },
-      { id: 'skip', label: 'Skip - rare edge case' }
-    ]
-  },
-  
-  // Default options for unmatched findings
-  default: {
-    patterns: [],
-    options: [
-      { id: 'implement', label: 'Implement suggested fix', recommended: true },
-      { id: 'modify', label: 'Implement with modifications...' },
-      { id: 'defer', label: 'Add to backlog - not urgent' },
-      { id: 'needs_info', label: 'Need more information...' },
-      { id: 'skip', label: 'Skip - not applicable' }
-    ]
-  }
-};
-
-// Combine related findings detection
-const COMBINABLE_PATTERNS = [
-  { pattern: /password|credit card|sensitive data|sanitiz/i, group: 'sensitive_data_sanitization' },
-  { pattern: /billing|payment|subscription|pause/i, group: 'billing_flow' },
-  { pattern: /consent|recording|indicator/i, group: 'recording_consent' },
-  { pattern: /retry|reconnect|failure.*handling/i, group: 'error_recovery' }
-];
+// No more template-based options - we use the actual suggested_fix now
 
 function parseReviewFindings(content) {
   const findings = [];
@@ -263,11 +124,8 @@ function parseReviewFindings(content) {
         i++;
       }
       
-      // Use agent options if provided, otherwise generate fallback options
+      // Generate context-specific options from the actual suggested_fix
       finding.options = generateOptions(finding);
-      
-      // Check for combinable findings
-      finding.combinable_with = findCombinableFindings(finding, findings);
       
       findings.push(finding);
       continue;
@@ -280,71 +138,85 @@ function parseReviewFindings(content) {
 }
 
 function generateOptions(finding) {
-  // PRIORITY 1: Use options from review agent if provided
-  if (finding.agent_options && finding.agent_options.length > 0) {
-    return finding.agent_options.map((optText, idx) => {
-      // Check if this is the recommended option
-      const isRecommended = finding.agent_recommendation && 
-        (finding.agent_recommendation.toLowerCase().includes(`option ${idx + 1}`) ||
-         finding.agent_recommendation.toLowerCase().includes(optText.toLowerCase().substring(0, 20)));
-      
-      return {
-        id: `agent_opt_${idx + 1}`,
-        label: optText,
-        recommended: isRecommended
-      };
-    });
-  }
+  // ALWAYS use suggested_fix as the primary option
+  const suggestedFix = finding.suggested_fix || '';
+  const issue = finding.issue || '';
+  const title = finding.title || 'this issue';
+  const context = `${title} ${issue} ${suggestedFix}`.toLowerCase();
   
-  // PRIORITY 2: If only suggested_fix exists (old format), show it as single option
-  if (finding.suggested_fix && finding.suggested_fix.length > 0) {
-    return [
-      { id: 'implement', label: `Implement: ${finding.suggested_fix.substring(0, 100)}${finding.suggested_fix.length > 100 ? '...' : ''}`, recommended: true },
-      { id: 'modify', label: 'Implement with modifications...' },
-      { id: 'defer', label: 'Add to backlog - not urgent' },
-      { id: 'skip', label: 'Skip - not worth fixing' }
-    ];
-  }
-  
-  // PRIORITY 3: Generic fallback (should rarely happen)
-  return [
-    { id: 'implement', label: 'Implement suggested fix', recommended: true },
-    { id: 'modify', label: 'Implement with modifications...' },
-    { id: 'defer', label: 'Add to backlog - not urgent' },
-    { id: 'skip', label: 'Skip - not applicable' }
-  ];
-}
-
-function customizeOptions(baseOptions, finding) {
-  return baseOptions.map(opt => ({
-    ...opt,
-    // Add finding-specific context to labels where helpful
-    label: opt.label.replace('{fix}', finding.suggested_fix.substring(0, 50))
-  }));
-}
-
-function findCombinableFindings(currentFinding, existingFindings) {
-  const combinable = [];
-  const currentText = `${currentFinding.title} ${currentFinding.issue}`;
-  
-  for (const pattern of COMBINABLE_PATTERNS) {
-    if (pattern.pattern.test(currentText)) {
-      // Find other findings in same group
-      for (const existing of existingFindings) {
-        const existingText = `${existing.title} ${existing.issue}`;
-        if (pattern.pattern.test(existingText) && existing.id !== currentFinding.id) {
-          combinable.push({
-            id: existing.id,
-            title: existing.title,
-            group: pattern.group
-          });
-        }
+  // Create Option 1 from the actual suggested fix (truncate if too long)
+  let option1 = suggestedFix;
+  if (option1.length > 100) {
+    // Find natural break point
+    const breakPoints = ['. ', ', ', ' - ', ' and '];
+    for (const bp of breakPoints) {
+      const idx = option1.indexOf(bp);
+      if (idx > 40 && idx < 100) {
+        option1 = option1.substring(0, idx);
+        break;
       }
+    }
+    if (option1.length > 100) {
+      option1 = option1.substring(0, 97) + '...';
     }
   }
   
-  return combinable.length > 0 ? combinable : null;
+  if (!option1 || option1.length < 5) {
+    option1 = `Fix: ${title}`;
+  }
+  
+  // Generate context-specific alternatives
+  let option2 = 'Implement minimal version first, iterate later';
+  let option3 = 'Add to backlog - not blocking';
+  let option4 = 'Skip - acceptable as-is';
+  
+  // Customize alternatives based on issue domain
+  if (context.includes('security') || context.includes('sensitive') || context.includes('password') || context.includes('sanitiz')) {
+    option2 = 'Add audit logging, fix in security sprint';
+    option3 = 'Add to security backlog (needs review)';
+    option4 = 'Skip - security risk acceptable';
+  } else if (context.includes('cancel')) {
+    option2 = 'Cancel at end of billing period instead';
+    option3 = 'Add to billing fixes backlog';
+    option4 = 'Skip - current flow is acceptable';
+  } else if (context.includes('billing') || context.includes('payment') || context.includes('subscription')) {
+    option2 = 'Add billing safeguards and monitoring first';
+    option3 = 'Add to billing fixes backlog';
+    option4 = 'Skip - billing impact acceptable';
+  } else if (context.includes('call') || context.includes('webrtc') || context.includes('video') || context.includes('agent')) {
+    option2 = 'Add warning/confirmation before action';
+    option3 = 'Add to call handling backlog';
+    option4 = 'Skip - edge case acceptable';
+  } else if (context.includes('error') || context.includes('fail') || context.includes('crash')) {
+    option2 = 'Add silent error handling (log only)';
+    option3 = 'Add to error handling sprint';
+    option4 = 'Skip - rare edge case';
+  } else if (context.includes('notification') || context.includes('email') || context.includes('alert')) {
+    option2 = 'In-app notification only (skip email)';
+    option3 = 'Add to notifications backlog';
+    option4 = 'Skip - users will figure it out';
+  } else if (context.includes('performance') || context.includes('slow') || context.includes('cache')) {
+    option2 = 'Add monitoring first, optimize if needed';
+    option3 = 'Add to performance backlog';
+    option4 = 'Skip - performance acceptable';
+  } else if (context.includes('ui') || context.includes('ux') || context.includes('button') || context.includes('display')) {
+    option2 = 'Implement simpler UI version first';
+    option3 = 'Add to UX improvements backlog';
+    option4 = 'Skip - current UX acceptable';
+  } else if (context.includes('state') || context.includes('status') || context.includes('sync') || context.includes('inconsistent')) {
+    option2 = 'Add state validation on read (defensive)';
+    option3 = 'Add to state management backlog';
+    option4 = 'Skip - state inconsistency is rare';
+  }
+  
+  return [
+    { id: 'implement_fix', label: option1, recommended: true },
+    { id: 'alternative', label: option2 },
+    { id: 'defer', label: option3 },
+    { id: 'skip', label: option4 }
+  ];
 }
+
 
 function generateFindingsSummary(findings) {
   const summary = {
