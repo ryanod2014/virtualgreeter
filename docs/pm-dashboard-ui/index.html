@@ -561,7 +561,6 @@
 
     function TriageView({ serverMode, onSave, findingsData, serverDecisions }) {
       const [severityFilter, setSeverityFilter] = useState('critical');
-      const [statusFilter, setStatusFilter] = useState('all');
       const [saveStatus, setSaveStatus] = useState(null);
       const [page, setPage] = useState(0);
       const PAGE_SIZE = 10;
@@ -716,54 +715,38 @@
         }));
       };
 
-      // Calculate stats
+      // Calculate stats - count pending (non-ticketed) per severity + answered count
       const stats = useMemo(() => {
         const bySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
-        const byStatus = { pending: 0, in_discussion: 0, resolved: 0, ticketed: 0 };
+        const answeredBySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
+        let ticketed = 0;
         
         findings.forEach(f => {
-          // Only count non-ticketed findings in severity tabs
-          if (f.status !== 'ticketed') {
-            bySeverity[f.severity] = (bySeverity[f.severity] || 0) + 1;
-          }
-          
-          // Count ticketed separately
           if (f.status === 'ticketed') {
-            byStatus.ticketed++;
+            ticketed++;
           } else {
+            bySeverity[f.severity] = (bySeverity[f.severity] || 0) + 1;
+            // Count answered (has decision, ready for ticket)
             const thread = getThread(f.id);
-            const status = thread?.status || 'pending';
-            byStatus[status]++;
+            if (thread?.status === 'resolved' || (thread?.decision && thread?.decision?.option_id !== 'custom')) {
+              answeredBySeverity[f.severity] = (answeredBySeverity[f.severity] || 0) + 1;
+            }
           }
         });
         
-        return { bySeverity, byStatus };
+        return { bySeverity, answeredBySeverity, ticketed };
       }, [findings, decisions]);
 
-      // Filter findings
+      // Filter findings - just by severity, hide ticketed
       const filtered = useMemo(() => {
+        if (severityFilter === 'ticketed') {
+          return findings.filter(f => f.status === 'ticketed');
+        }
         return findings.filter(f => {
-          // Severity filter
-          if (f.severity !== severityFilter) return false;
-          
-          // Hide already-ticketed findings unless specifically viewing them
-          if (f.status === 'ticketed' && statusFilter !== 'ticketed') {
-            return false;
-          }
-          
-          // Status filter (uses thread status OR finding status for ticketed)
-          if (statusFilter !== 'all') {
-            if (statusFilter === 'ticketed') {
-              return f.status === 'ticketed';
-            }
-            const thread = getThread(f.id);
-            const status = thread?.status || 'pending';
-            if (status !== statusFilter) return false;
-          }
-          
-          return true;
+          if (f.status === 'ticketed') return false;
+          return f.severity === severityFilter;
         });
-      }, [findings, severityFilter, statusFilter, decisions]);
+      }, [findings, severityFilter, decisions]);
 
       // Paginated
       const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -771,20 +754,31 @@
 
       return (
         <div className="fade-in">
-          {/* Severity Tabs */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          {/* Single Bar: Severity + Ticketed */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div className="tabs">
               <button className={`tab ${severityFilter === 'critical' ? 'active' : ''}`} onClick={() => { setSeverityFilter('critical'); setPage(0); }}>
                 🔴 Critical <span className="count">{stats.bySeverity.critical || 0}</span>
+                {stats.answeredBySeverity.critical > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.critical} ready)</span>}
               </button>
               <button className={`tab ${severityFilter === 'high' ? 'active' : ''}`} onClick={() => { setSeverityFilter('high'); setPage(0); }}>
                 🟠 High <span className="count">{stats.bySeverity.high || 0}</span>
+                {stats.answeredBySeverity.high > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.high} ready)</span>}
               </button>
               <button className={`tab ${severityFilter === 'medium' ? 'active' : ''}`} onClick={() => { setSeverityFilter('medium'); setPage(0); }}>
                 🟡 Medium <span className="count">{stats.bySeverity.medium || 0}</span>
+                {stats.answeredBySeverity.medium > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.medium} ready)</span>}
               </button>
               <button className={`tab ${severityFilter === 'low' ? 'active' : ''}`} onClick={() => { setSeverityFilter('low'); setPage(0); }}>
                 🟢 Low <span className="count">{stats.bySeverity.low || 0}</span>
+                {stats.answeredBySeverity.low > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.low} ready)</span>}
+              </button>
+              <button 
+                className={`tab ${severityFilter === 'ticketed' ? 'active' : ''}`} 
+                onClick={() => { setSeverityFilter('ticketed'); setPage(0); }}
+                style={{ marginLeft: '12px' }}
+              >
+                🎫 Ticketed <span className="count">{stats.ticketed}</span>
               </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -808,41 +802,18 @@
             </div>
           </div>
 
-          {/* Status Filter */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-            <button 
-              className={`btn btn-sm ${statusFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setStatusFilter('all')}
-            >All</button>
-            <button 
-              className={`btn btn-sm ${statusFilter === 'pending' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setStatusFilter('pending')}
-            >○ Pending ({stats.byStatus.pending})</button>
-            <button 
-              className={`btn btn-sm ${statusFilter === 'in_discussion' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setStatusFilter('in_discussion')}
-            >⏳ Ready ({stats.byStatus.in_discussion})</button>
-            <button 
-              className={`btn btn-sm ${statusFilter === 'resolved' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setStatusFilter('resolved')}
-            >✓ Done ({stats.byStatus.resolved})</button>
-            <button 
-              className={`btn btn-sm ${statusFilter === 'ticketed' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setStatusFilter('ticketed')}
-              style={{ marginLeft: '12px', background: statusFilter === 'ticketed' ? 'var(--success)' : undefined }}
-            >🎫 Ticketed ({stats.byStatus.ticketed})</button>
-          </div>
-
           {/* Findings List */}
           {filtered.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>📋</div>
-              <div style={{ color: 'var(--text-muted)' }}>No {severityFilter} findings {statusFilter !== 'all' ? `with ${statusFilter} status` : ''}</div>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>{severityFilter === 'ticketed' ? '🎫' : '🎉'}</div>
+              <div style={{ color: 'var(--text-muted)' }}>
+                {severityFilter === 'ticketed' ? 'No ticketed findings yet' : `All ${severityFilter} findings have been ticketed!`}
+              </div>
             </div>
           ) : (
             <>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter} findings
+                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter === 'ticketed' ? 'ticketed' : severityFilter} findings
               </div>
               {paginated.map(f => (
                 <FindingCard 
