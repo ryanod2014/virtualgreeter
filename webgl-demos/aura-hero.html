@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aura Gradient - WebGL Demo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      overflow: hidden; 
+      background: #000; 
+      font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    }
+    canvas { 
+      display: block; 
+      position: fixed;
+      top: 0; 
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .hero-content {
+      position: relative;
+      z-index: 10;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      color: white;
+      pointer-events: none;
+      padding: 20px;
+    }
+    
+    .eyebrow {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 24px;
+    }
+    
+    h1 {
+      font-size: clamp(48px, 9vw, 100px);
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin-bottom: 28px;
+      color: #fff;
+    }
+    
+    p {
+      font-size: 18px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.6);
+      max-width: 480px;
+      line-height: 1.6;
+    }
+
+    .cta-row {
+      display: flex;
+      gap: 16px;
+      margin-top: 40px;
+      pointer-events: auto;
+    }
+
+    .btn {
+      padding: 14px 28px;
+      border-radius: 100px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: #fff;
+      color: #000;
+      border: none;
+    }
+
+    .btn-primary:hover {
+      transform: scale(1.05);
+      box-shadow: 0 10px 40px rgba(255,255,255,0.2);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  
+  <div class="hero-content">
+    <div class="eyebrow">Welcome to the future</div>
+    <h1>Financial<br>Intelligence</h1>
+    <p>AI-powered wealth management that adapts to your goals and grows with your ambitions.</p>
+    <div class="cta-row">
+      <a href="#" class="btn btn-primary">Get Started</a>
+      <a href="#" class="btn btn-secondary">Learn More</a>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // AURA MESH GRADIENT
+    // Premium fluid blob effect with soft edges
+    // ============================================
+
+    const canvas = document.getElementById('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+
+    if (!gl) throw new Error('WebGL not supported');
+
+    let mouse = { x: 0.5, y: 0.5 };
+    let targetMouse = { x: 0.5, y: 0.5 };
+
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio, 2);
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    document.addEventListener('mousemove', e => {
+      targetMouse.x = e.clientX / window.innerWidth;
+      targetMouse.y = 1.0 - e.clientY / window.innerHeight;
+    });
+
+    // ============================================
+    // SHADERS
+    // ============================================
+
+    const vsSource = `#version 300 es
+      in vec2 a_position;
+      out vec2 v_uv;
+      void main() {
+        v_uv = a_position * 0.5 + 0.5;
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    `;
+
+    const fsSource = `#version 300 es
+      precision highp float;
+      
+      in vec2 v_uv;
+      out vec4 fragColor;
+      
+      uniform float u_time;
+      uniform vec2 u_resolution;
+      uniform vec2 u_mouse;
+      
+      #define PI 3.14159265359
+      
+      // Simplex 2D noise
+      vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+
+      float snoise(vec2 v){
+        const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                 -0.577350269189626, 0.024390243902439);
+        vec2 i  = floor(v + dot(v, C.yy) );
+        vec2 x0 = v -   i + dot(i, C.xx);
+        vec2 i1;
+        i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+        vec4 x12 = x0.xyxy + C.xxzz;
+        x12.xy -= i1;
+        i = mod(i, 289.0);
+        vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+        + i.x + vec3(0.0, i1.x, 1.0 ));
+        vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
+          dot(x12.zw,x12.zw)), 0.0);
+        m = m*m ;
+        m = m*m ;
+        vec3 x = 2.0 * fract(p * C.www) - 1.0;
+        vec3 h = abs(x) - 0.5;
+        vec3 ox = floor(x + 0.5);
+        vec3 a0 = x - ox;
+        m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+        vec3 g;
+        g.x  = a0.x  * x0.x  + h.x  * x0.y;
+        g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+        return 130.0 * dot(m, g);
+      }
+      
+      // Soft metaball function - creates smooth blob shapes
+      float metaball(vec2 p, vec2 center, float radius) {
+        float d = length(p - center);
+        return radius / (d * d + 0.0001);
+      }
+      
+      // Smooth minimum for blending shapes
+      float smin(float a, float b, float k) {
+        float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+        return mix(b, a, h) - k * h * (1.0 - h);
+      }
+
+      void main() {
+        vec2 uv = v_uv;
+        float aspect = u_resolution.x / u_resolution.y;
+        
+        // Normalized coordinates with aspect correction
+        vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+        
+        // Very slow time for elegant movement
+        float t = u_time * 0.08;
+        
+        // Mouse position (aspect corrected)
+        vec2 m = (u_mouse - 0.5) * vec2(aspect, 1.0);
+        
+        // === BLOB POSITIONS ===
+        // Large, slow-moving organic shapes
+        
+        // Blob 1: Deep Blue/Indigo - top right area
+        vec2 b1 = vec2(
+          0.3 + sin(t * 0.7) * 0.25,
+          0.2 + cos(t * 0.5) * 0.2
+        );
+        
+        // Blob 2: Magenta/Pink - left side
+        vec2 b2 = vec2(
+          -0.35 + sin(t * 0.4 + 2.0) * 0.2,
+          -0.1 + cos(t * 0.6 + 1.0) * 0.25
+        );
+        
+        // Blob 3: Cyan/Teal - bottom
+        vec2 b3 = vec2(
+          0.0 + cos(t * 0.5 + 4.0) * 0.3,
+          -0.35 + sin(t * 0.3 + 2.0) * 0.15
+        );
+        
+        // Blob 4: Purple - center-ish, follows mouse slightly
+        vec2 b4 = vec2(
+          sin(t * 0.6) * 0.15 + m.x * 0.3,
+          cos(t * 0.4) * 0.15 + m.y * 0.3
+        );
+        
+        // Blob 5: Secondary cyan - opposite corner
+        vec2 b5 = vec2(
+          -0.25 + cos(t * 0.35 + 3.0) * 0.2,
+          0.3 + sin(t * 0.45 + 1.5) * 0.2
+        );
+        
+        // === NOISE DISTORTION ===
+        // Subtle warping to make blobs feel organic
+        float noiseScale = 1.5;
+        float noiseAmt = 0.08;
+        vec2 noise = vec2(
+          snoise(p * noiseScale + t * 0.3),
+          snoise(p * noiseScale + t * 0.3 + 100.0)
+        ) * noiseAmt;
+        
+        vec2 distP = p + noise;
+        
+        // === METABALL FIELD ===
+        float f1 = metaball(distP, b1, 0.12);
+        float f2 = metaball(distP, b2, 0.10);
+        float f3 = metaball(distP, b3, 0.09);
+        float f4 = metaball(distP, b4, 0.07);
+        float f5 = metaball(distP, b5, 0.08);
+        
+        // === COLORS ===
+        // Premium fintech palette
+        vec3 col1 = vec3(0.15, 0.25, 0.95);   // Electric Blue
+        vec3 col2 = vec3(0.85, 0.15, 0.55);   // Hot Pink/Magenta
+        vec3 col3 = vec3(0.10, 0.75, 0.70);   // Teal
+        vec3 col4 = vec3(0.55, 0.20, 0.85);   // Violet
+        vec3 col5 = vec3(0.20, 0.60, 0.90);   // Sky Blue
+        
+        // Background - deep dark with subtle gradient
+        vec3 bgTop = vec3(0.02, 0.02, 0.06);
+        vec3 bgBot = vec3(0.01, 0.01, 0.03);
+        vec3 bg = mix(bgBot, bgTop, uv.y);
+        
+        // === COMPOSITE COLORS ===
+        vec3 col = bg;
+        
+        // Add each blob with soft falloff
+        // Using smoothstep for softer edges
+        float falloff = 0.8;
+        
+        col = mix(col, col1, smoothstep(0.0, falloff, f1) * 0.9);
+        col = mix(col, col2, smoothstep(0.0, falloff, f2) * 0.85);
+        col = mix(col, col3, smoothstep(0.0, falloff, f3) * 0.8);
+        col = mix(col, col4, smoothstep(0.0, falloff, f4) * 0.75);
+        col = mix(col, col5, smoothstep(0.0, falloff, f5) * 0.7);
+        
+        // === GLOW LAYER ===
+        // Add outer glow around the blobs
+        float totalField = f1 + f2 + f3 + f4 + f5;
+        vec3 glowColor = mix(col1, col3, 0.5);
+        col += glowColor * smoothstep(0.0, 0.15, totalField) * 0.15;
+        
+        // === HIGHLIGHTS ===
+        // Bright spots where blobs overlap
+        float overlap = f1 * f2 + f2 * f3 + f3 * f4;
+        col += vec3(1.0, 0.9, 0.95) * smoothstep(0.02, 0.08, overlap) * 0.3;
+        
+        // === POST PROCESSING ===
+        
+        // Subtle vignette
+        float vig = 1.0 - length(uv - 0.5) * 0.4;
+        col *= vig;
+        
+        // Very subtle noise/grain for texture
+        float grain = snoise(uv * 400.0 + u_time) * 0.015;
+        col += grain;
+        
+        // Gamma / tone curve for richness
+        col = pow(col, vec3(0.95));
+        
+        // Saturation boost
+        float luma = dot(col, vec3(0.299, 0.587, 0.114));
+        col = mix(vec3(luma), col, 1.15);
+        
+        fragColor = vec4(col, 1.0);
+      }
+    `;
+
+    // ============================================
+    // GL SETUP
+    // ============================================
+
+    function createShader(gl, type, source) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, source);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(s));
+        return null;
+      }
+      return s;
+    }
+
+    const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(program, 'a_position');
+    const timeLoc = gl.getUniformLocation(program, 'u_time');
+    const resLoc = gl.getUniformLocation(program, 'u_resolution');
+    const mouseLoc = gl.getUniformLocation(program, 'u_mouse');
+
+    // ============================================
+    // RENDER LOOP
+    // ============================================
+
+    function render(now) {
+      now *= 0.001;
+      
+      // Smooth mouse interpolation
+      mouse.x += (targetMouse.x - mouse.x) * 0.03;
+      mouse.y += (targetMouse.y - mouse.y) * 0.03;
+      
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(posLoc);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+      
+      gl.uniform1f(timeLoc, now);
+      gl.uniform2f(resLoc, canvas.width, canvas.height);
+      gl.uniform2f(mouseLoc, mouse.x, mouse.y);
+      
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

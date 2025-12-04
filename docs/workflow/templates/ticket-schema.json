@@ -1,0 +1,191 @@
+{
+  "$schema": "Ticket Schema v2",
+  "description": "Standard schema for all dev tickets. PM must populate all required fields before ticket is 'ready'.",
+  "version": "2.0",
+  
+  "fields": {
+    "required": {
+      "id": {
+        "type": "string",
+        "format": "TKT-XXX",
+        "description": "Unique ticket identifier"
+      },
+      "title": {
+        "type": "string",
+        "description": "Short descriptive title (max 60 chars)"
+      },
+      "priority": {
+        "type": "enum",
+        "values": ["critical", "high", "medium", "low"],
+        "description": "Business priority"
+      },
+      "difficulty": {
+        "type": "enum",
+        "values": ["easy", "medium", "hard"],
+        "description": "Implementation difficulty"
+      },
+      "feature": {
+        "type": "string",
+        "description": "Which feature this relates to"
+      },
+      "status": {
+        "type": "enum",
+        "values": ["ready", "in_progress", "blocked", "review", "qa", "done"],
+        "description": "Current ticket status"
+      },
+      "issue": {
+        "type": "string",
+        "description": "What's wrong and why it matters (the 'why')"
+      },
+      "files_to_modify": {
+        "type": "array",
+        "items": "string",
+        "description": "Explicit list of files agent CAN modify"
+      },
+      "fix_required": {
+        "type": "array",
+        "items": "string",
+        "description": "Specific steps/changes needed"
+      },
+      "acceptance_criteria": {
+        "type": "array",
+        "items": "string",
+        "description": "Testable, binary criteria (agent-verifiable)"
+      },
+      "risks": {
+        "type": "array",
+        "items": "string",
+        "description": "Specific things that could go wrong"
+      },
+      "out_of_scope": {
+        "type": "array",
+        "items": "string",
+        "description": "Explicit list of what NOT to do"
+      }
+    },
+    
+    "recommended": {
+      "feature_docs": {
+        "type": "array",
+        "items": "string",
+        "description": "Links to relevant docs/features/*.md files"
+      },
+      "similar_code": {
+        "type": "array",
+        "items": "string",
+        "description": "Paths to similar implementations to follow as patterns"
+      },
+      "files_to_read": {
+        "type": "array",
+        "items": "string",
+        "description": "Files to read for context, but NOT modify"
+      },
+      "dev_checks": {
+        "type": "array",
+        "items": "string",
+        "description": "Quick verification dev does before submitting"
+      },
+      "qa_notes": {
+        "type": "string",
+        "description": "Any special context QA needs (test data, setup, etc.)"
+      }
+    },
+    
+    "optional": {
+      "source": {
+        "type": "string",
+        "description": "Where this ticket came from (finding ID, observation, etc.)"
+      },
+      "complexity": {
+        "type": "enum",
+        "values": ["low", "medium", "high"],
+        "description": "Codebase complexity involved"
+      },
+      "risk_level": {
+        "type": "enum",
+        "values": ["low", "medium", "high"],
+        "description": "Risk level if something goes wrong"
+      },
+      "depends_on": {
+        "type": "array",
+        "items": "string",
+        "description": "Ticket IDs that must complete first"
+      }
+    }
+  },
+  
+  "size_guidelines": {
+    "easy": {
+      "files": "1-2",
+      "criteria": "2-3",
+      "description": "Single focused change"
+    },
+    "medium": {
+      "files": "2-4",
+      "criteria": "3-5",
+      "description": "Related changes in one area"
+    },
+    "hard": {
+      "files": "4+",
+      "criteria": "5+",
+      "description": "Consider splitting if larger"
+    }
+  },
+  
+  "split_triggers": [
+    "More than 5 files to modify",
+    "More than 6 acceptance criteria",
+    "Touches multiple systems (e.g., frontend + backend + database)",
+    "Requires new infrastructure (scheduler, queue, etc.)",
+    "Estimated at more than 200 lines changed"
+  ],
+  
+  "example": {
+    "id": "TKT-006",
+    "title": "Fix Middleware Redirect for Unauthenticated Users",
+    "priority": "critical",
+    "difficulty": "easy",
+    "feature": "Login Flow / Authentication",
+    "status": "ready",
+    "issue": "Middleware code for protected routes has 'if (isProtectedPath && !user) { return }' but no redirect to login page. Unauthenticated users get blank/error page.",
+    "feature_docs": [
+      "docs/features/auth/login-flow.md"
+    ],
+    "similar_code": [
+      "apps/dashboard/middleware.ts:15-30 - see existing path matching logic"
+    ],
+    "files_to_modify": [
+      "apps/dashboard/middleware.ts"
+    ],
+    "files_to_read": [
+      "apps/dashboard/src/lib/supabase.ts"
+    ],
+    "out_of_scope": [
+      "Do NOT modify auth callback handling",
+      "Do NOT add new protected paths",
+      "Do NOT change session/cookie logic"
+    ],
+    "fix_required": [
+      "Add redirect to /login when user is not authenticated on protected path",
+      "Preserve original URL as ?next= parameter for post-login redirect"
+    ],
+    "acceptance_criteria": [
+      "Visiting /dashboard while logged out redirects to /login",
+      "Redirect URL includes ?next=/dashboard parameter",
+      "Logged-in users can access protected paths normally",
+      "No redirect loops occur"
+    ],
+    "risks": [
+      "Infinite redirect loop if /login is misconfigured as protected",
+      "Breaking existing callback URL handling",
+      "Affecting authenticated user flows"
+    ],
+    "dev_checks": [
+      "pnpm typecheck passes",
+      "pnpm build passes",
+      "Manual: visit /dashboard logged out → redirects to /login"
+    ],
+    "qa_notes": "Test with various protected paths. Verify ?next= param works for deep links like /dashboard/settings."
+  }
+}
+

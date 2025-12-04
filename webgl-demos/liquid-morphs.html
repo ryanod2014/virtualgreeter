@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liquid Morphs - WebGL Demo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      overflow: hidden;
+      background: #0a0a0f;
+      font-family: 'Instrument Serif', Georgia, serif;
+    }
+    
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+    
+    .ui {
+      position: fixed;
+      z-index: 10;
+      pointer-events: none;
+    }
+    
+    .title {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: rgba(255, 255, 255, 0.95);
+      font-size: clamp(48px, 10vw, 120px);
+      font-weight: 400;
+      font-style: italic;
+      letter-spacing: -0.02em;
+      text-shadow: 0 0 60px rgba(255, 200, 150, 0.3);
+      mix-blend-mode: difference;
+      z-index: 10;
+      pointer-events: none;
+    }
+    
+    .hint {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 12px;
+      font-style: normal;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      z-index: 10;
+      pointer-events: none;
+    }
+    
+    .corner-text {
+      position: fixed;
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      font-style: normal;
+    }
+    
+    .corner-text.top-left { top: 30px; left: 30px; }
+    .corner-text.top-right { top: 30px; right: 30px; }
+    .corner-text.bottom-left { bottom: 30px; left: 30px; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  
+  <div class="title">Liquid</div>
+  <div class="corner-text top-left">WebGL Demo</div>
+  <div class="corner-text top-right" id="fps">60 FPS</div>
+  <div class="corner-text bottom-left">Metaball Shader</div>
+  <div class="hint">Drag to distort</div>
+
+  <script>
+    // ============================================
+    // LIQUID METABALL SHADER DEMO
+    // Smooth organic blob animations
+    // ============================================
+
+    const canvas = document.getElementById('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    const fpsEl = document.getElementById('fps');
+
+    if (!gl) {
+      alert('WebGL not supported');
+      throw new Error('WebGL not supported');
+    }
+
+    // Interaction state
+    let mouse = { x: 0.5, y: 0.5, vx: 0, vy: 0, down: false };
+    let prevMouse = { x: 0.5, y: 0.5 };
+    let smoothMouse = { x: 0.5, y: 0.5 };
+
+    // Event listeners
+    function updateMouse(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = 1.0 - (e.clientY - rect.top) / rect.height;
+      
+      mouse.vx = x - mouse.x;
+      mouse.vy = y - mouse.y;
+      mouse.x = x;
+      mouse.y = y;
+    }
+
+    canvas.addEventListener('mousemove', updateMouse);
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      updateMouse(e.touches[0]);
+    }, { passive: false });
+
+    canvas.addEventListener('mousedown', () => mouse.down = true);
+    canvas.addEventListener('mouseup', () => mouse.down = false);
+    canvas.addEventListener('touchstart', () => mouse.down = true);
+    canvas.addEventListener('touchend', () => mouse.down = false);
+
+    // Resize handling
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio, 2);
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // ============================================
+    // SHADER SOURCES
+    // ============================================
+
+    const vertexSource = `#version 300 es
+      in vec2 a_position;
+      out vec2 v_uv;
+      void main() {
+        v_uv = a_position * 0.5 + 0.5;
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    `;
+
+    const fragmentSource = `#version 300 es
+      precision highp float;
+      
+      in vec2 v_uv;
+      out vec4 fragColor;
+      
+      uniform float u_time;
+      uniform vec2 u_resolution;
+      uniform vec2 u_mouse;
+      uniform vec2 u_mouseVel;
+      uniform float u_mouseDown;
+      
+      #define PI 3.14159265359
+      #define NUM_BLOBS 7
+      
+      // Smooth minimum for metaball blending
+      float smin(float a, float b, float k) {
+        float h = max(k - abs(a - b), 0.0) / k;
+        return min(a, b) - h * h * h * k * (1.0 / 6.0);
+      }
+      
+      // Noise functions
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+      
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+      
+      float fbm(vec2 p) {
+        float value = 0.0;
+        float amplitude = 0.5;
+        for (int i = 0; i < 5; i++) {
+          value += amplitude * noise(p);
+          p *= 2.0;
+          amplitude *= 0.5;
+        }
+        return value;
+      }
+      
+      // Blob distance function
+      float blob(vec2 p, vec2 center, float radius) {
+        return length(p - center) - radius;
+      }
+      
+      // Main metaball field
+      float metaballs(vec2 p, float time) {
+        float d = 1000.0;
+        
+        // Animated blob positions
+        for (int i = 0; i < NUM_BLOBS; i++) {
+          float fi = float(i);
+          float angle = time * (0.3 + fi * 0.1) + fi * PI * 2.0 / float(NUM_BLOBS);
+          float radius = 0.15 + 0.1 * sin(time * 0.5 + fi * 1.5);
+          
+          vec2 offset = vec2(
+            cos(angle) * (0.25 + 0.1 * sin(time * 0.7 + fi)),
+            sin(angle * 0.8 + fi) * (0.2 + 0.1 * cos(time * 0.6))
+          );
+          
+          // Add mouse attraction when clicked
+          float mouseInfluence = u_mouseDown * 0.3;
+          vec2 toMouse = u_mouse - (vec2(0.5) + offset);
+          offset += toMouse * mouseInfluence * (1.0 - fi * 0.1);
+          
+          vec2 center = vec2(0.5) + offset;
+          float blobDist = blob(p, center, radius);
+          
+          d = smin(d, blobDist, 0.15);
+        }
+        
+        // Add mouse blob
+        float mouseRadius = 0.08 + 0.04 * sin(time * 2.0);
+        mouseRadius += length(u_mouseVel) * 2.0;
+        d = smin(d, blob(p, u_mouse, mouseRadius), 0.2);
+        
+        return d;
+      }
+      
+      // Color palette - warm sunset tones
+      vec3 palette(float t, float d) {
+        // Warm gradient from coral to gold to deep purple
+        vec3 col1 = vec3(1.0, 0.4, 0.3);   // Coral
+        vec3 col2 = vec3(1.0, 0.7, 0.2);   // Gold
+        vec3 col3 = vec3(0.8, 0.3, 0.5);   // Magenta
+        vec3 col4 = vec3(0.3, 0.2, 0.5);   // Deep purple
+        vec3 col5 = vec3(0.1, 0.1, 0.2);   // Dark blue
+        
+        t = fract(t);
+        
+        vec3 col = mix(col1, col2, smoothstep(0.0, 0.25, t));
+        col = mix(col, col3, smoothstep(0.25, 0.5, t));
+        col = mix(col, col4, smoothstep(0.5, 0.75, t));
+        col = mix(col, col5, smoothstep(0.75, 1.0, t));
+        
+        return col;
+      }
+      
+      void main() {
+        vec2 uv = v_uv;
+        float aspect = u_resolution.x / u_resolution.y;
+        vec2 p = uv;
+        p.x *= aspect;
+        
+        // Adjust mouse for aspect ratio
+        vec2 m = u_mouse;
+        m.x *= aspect;
+        
+        float time = u_time * 0.5;
+        
+        // Add subtle warping based on mouse velocity
+        float warp = fbm(p * 3.0 + time * 0.2) * 0.1;
+        warp += length(u_mouseVel) * 0.5;
+        p += vec2(cos(warp * PI * 2.0), sin(warp * PI * 2.0)) * 0.02;
+        
+        // Calculate metaball field
+        float d = metaballs(p, time);
+        
+        // Create layered effect
+        float edge = smoothstep(0.02, 0.0, abs(d));
+        float inside = smoothstep(0.01, -0.1, d);
+        float glow = smoothstep(0.3, 0.0, d);
+        
+        // Color based on distance and position
+        float colorT = d * 2.0 + time * 0.1;
+        colorT += fbm(p * 2.0 + time * 0.1) * 0.3;
+        vec3 col = palette(colorT, d);
+        
+        // Inside color - warmer, more saturated
+        vec3 insideCol = palette(colorT - 0.2, d);
+        insideCol = mix(insideCol, vec3(1.0, 0.9, 0.8), 0.3);
+        
+        // Outer glow
+        vec3 glowCol = vec3(1.0, 0.5, 0.3) * glow * 0.5;
+        
+        // Compose final color
+        vec3 finalCol = vec3(0.05, 0.03, 0.08); // Dark background
+        finalCol += glowCol;
+        finalCol = mix(finalCol, insideCol, inside);
+        finalCol = mix(finalCol, vec3(1.0, 0.95, 0.9), edge * 0.8);
+        
+        // Add internal refraction/caustic effect
+        float caustic = fbm(p * 10.0 + time) * inside;
+        finalCol += caustic * vec3(0.2, 0.1, 0.05) * inside;
+        
+        // Specular highlights
+        vec2 normal = normalize(vec2(
+          metaballs(p + vec2(0.001, 0.0), time) - metaballs(p - vec2(0.001, 0.0), time),
+          metaballs(p + vec2(0.0, 0.001), time) - metaballs(p - vec2(0.0, 0.001), time)
+        ));
+        
+        vec2 lightDir = normalize(vec2(0.5, 0.8));
+        float spec = pow(max(0.0, dot(normal, lightDir)), 32.0);
+        finalCol += spec * inside * vec3(1.0, 0.9, 0.8) * 0.5;
+        
+        // Subtle vignette
+        float vig = 1.0 - length(uv - 0.5) * 0.5;
+        finalCol *= vig;
+        
+        // Film grain
+        float grain = hash(uv * 1000.0 + fract(time * 100.0)) * 0.03;
+        finalCol += grain - 0.015;
+        
+        // Tone mapping
+        finalCol = finalCol / (1.0 + finalCol);
+        finalCol = pow(finalCol, vec3(0.9));
+        
+        fragColor = vec4(finalCol, 1.0);
+      }
+    `;
+
+    // WebGL 1 fallback
+    const vertexSourceGL1 = `
+      attribute vec2 a_position;
+      varying vec2 v_uv;
+      void main() {
+        v_uv = a_position * 0.5 + 0.5;
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    `;
+
+    const fragmentSourceGL1 = `
+      precision highp float;
+      varying vec2 v_uv;
+      uniform float u_time;
+      uniform vec2 u_resolution;
+      uniform vec2 u_mouse;
+      uniform vec2 u_mouseVel;
+      uniform float u_mouseDown;
+      
+      #define PI 3.14159265359
+      #define NUM_BLOBS 7
+      
+      float smin(float a, float b, float k) {
+        float h = max(k - abs(a - b), 0.0) / k;
+        return min(a, b) - h * h * h * k * (1.0 / 6.0);
+      }
+      
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      
+      float noise(vec2 p) {
+        vec2 i = floor(p); vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = hash(i); float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0)); float d = hash(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+      
+      float fbm(vec2 p) {
+        float v = 0.0, a = 0.5;
+        for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.0; a *= 0.5; }
+        return v;
+      }
+      
+      float blob(vec2 p, vec2 c, float r) { return length(p - c) - r; }
+      
+      float metaballs(vec2 p, float time) {
+        float d = 1000.0;
+        for (int i = 0; i < NUM_BLOBS; i++) {
+          float fi = float(i);
+          float angle = time * (0.3 + fi * 0.1) + fi * PI * 2.0 / float(NUM_BLOBS);
+          float r = 0.15 + 0.1 * sin(time * 0.5 + fi * 1.5);
+          vec2 off = vec2(cos(angle) * (0.25 + 0.1 * sin(time * 0.7 + fi)), 
+                         sin(angle * 0.8 + fi) * (0.2 + 0.1 * cos(time * 0.6)));
+          float mi = u_mouseDown * 0.3;
+          vec2 tm = u_mouse - (vec2(0.5) + off);
+          off += tm * mi * (1.0 - fi * 0.1);
+          d = smin(d, blob(p, vec2(0.5) + off, r), 0.15);
+        }
+        float mr = 0.08 + 0.04 * sin(time * 2.0) + length(u_mouseVel) * 2.0;
+        d = smin(d, blob(p, u_mouse, mr), 0.2);
+        return d;
+      }
+      
+      vec3 palette(float t) {
+        vec3 c1 = vec3(1.0, 0.4, 0.3); vec3 c2 = vec3(1.0, 0.7, 0.2);
+        vec3 c3 = vec3(0.8, 0.3, 0.5); vec3 c4 = vec3(0.3, 0.2, 0.5);
+        t = fract(t);
+        vec3 c = mix(c1, c2, smoothstep(0.0, 0.33, t));
+        c = mix(c, c3, smoothstep(0.33, 0.66, t));
+        c = mix(c, c4, smoothstep(0.66, 1.0, t));
+        return c;
+      }
+      
+      void main() {
+        vec2 uv = v_uv;
+        float aspect = u_resolution.x / u_resolution.y;
+        vec2 p = uv; p.x *= aspect;
+        float time = u_time * 0.5;
+        
+        float warp = fbm(p * 3.0 + time * 0.2) * 0.1;
+        p += vec2(cos(warp * PI * 2.0), sin(warp * PI * 2.0)) * 0.02;
+        
+        float d = metaballs(p, time);
+        float edge = smoothstep(0.02, 0.0, abs(d));
+        float inside = smoothstep(0.01, -0.1, d);
+        float glow = smoothstep(0.3, 0.0, d);
+        
+        float colorT = d * 2.0 + time * 0.1 + fbm(p * 2.0 + time * 0.1) * 0.3;
+        vec3 col = palette(colorT);
+        vec3 insideCol = mix(palette(colorT - 0.2), vec3(1.0, 0.9, 0.8), 0.3);
+        
+        vec3 finalCol = vec3(0.05, 0.03, 0.08);
+        finalCol += vec3(1.0, 0.5, 0.3) * glow * 0.5;
+        finalCol = mix(finalCol, insideCol, inside);
+        finalCol = mix(finalCol, vec3(1.0, 0.95, 0.9), edge * 0.8);
+        finalCol += fbm(p * 10.0 + time) * vec3(0.2, 0.1, 0.05) * inside;
+        
+        float vig = 1.0 - length(uv - 0.5) * 0.5;
+        finalCol *= vig;
+        finalCol += hash(uv * 1000.0 + fract(time * 100.0)) * 0.03 - 0.015;
+        finalCol = finalCol / (1.0 + finalCol);
+        finalCol = pow(finalCol, vec3(0.9));
+        
+        gl_FragColor = vec4(finalCol, 1.0);
+      }
+    `;
+
+    // ============================================
+    // WEBGL SETUP
+    // ============================================
+
+    function createShader(gl, type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error('Shader error:', gl.getShaderInfoLog(shader));
+        return null;
+      }
+      return shader;
+    }
+
+    const isWebGL2 = gl instanceof WebGL2RenderingContext;
+    const vs = createShader(gl, gl.VERTEX_SHADER, isWebGL2 ? vertexSource : vertexSourceGL1);
+    const fs = createShader(gl, gl.FRAGMENT_SHADER, isWebGL2 ? fragmentSource : fragmentSourceGL1);
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error('Program error:', gl.getProgramInfoLog(program));
+    }
+
+    // Quad buffer
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(program, 'a_position');
+    const timeLoc = gl.getUniformLocation(program, 'u_time');
+    const resLoc = gl.getUniformLocation(program, 'u_resolution');
+    const mouseLoc = gl.getUniformLocation(program, 'u_mouse');
+    const mouseVelLoc = gl.getUniformLocation(program, 'u_mouseVel');
+    const mouseDownLoc = gl.getUniformLocation(program, 'u_mouseDown');
+
+    // FPS counter
+    let lastTime = 0;
+    let frameCount = 0;
+    let fps = 60;
+
+    // ============================================
+    // RENDER
+    // ============================================
+
+    function render(time) {
+      time *= 0.001;
+      
+      // FPS calculation
+      frameCount++;
+      if (time - lastTime >= 1.0) {
+        fps = frameCount;
+        frameCount = 0;
+        lastTime = time;
+        fpsEl.textContent = fps + ' FPS';
+      }
+      
+      // Smooth mouse
+      smoothMouse.x += (mouse.x - smoothMouse.x) * 0.1;
+      smoothMouse.y += (mouse.y - smoothMouse.y) * 0.1;
+      
+      gl.useProgram(program);
+      gl.enableVertexAttribArray(posLoc);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+      
+      gl.uniform1f(timeLoc, time);
+      gl.uniform2f(resLoc, canvas.width, canvas.height);
+      gl.uniform2f(mouseLoc, smoothMouse.x, smoothMouse.y);
+      gl.uniform2f(mouseVelLoc, mouse.vx, mouse.vy);
+      gl.uniform1f(mouseDownLoc, mouse.down ? 1.0 : 0.0);
+      
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      
+      // Decay velocity
+      mouse.vx *= 0.9;
+      mouse.vy *= 0.9;
+      
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
+

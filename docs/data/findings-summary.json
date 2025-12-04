@@ -1,9 +1,272 @@
 {
-  "critical": 15,
-  "high": 48,
-  "medium": 315,
-  "low": 364,
-  "pending": 717,
-  "ticketed": 25,
-  "rejected": 0
+  "meta": {
+    "last_updated": "2025-12-04",
+    "total_features": 61,
+    "reviewed_features": 61,
+    "total_findings": 742
+  },
+  "by_priority": {
+    "critical": {
+      "total": 15,
+      "answered": 14,
+      "tickets_created": 14,
+      "pending": 1
+    },
+    "high": {
+      "total": 48,
+      "answered": 41,
+      "tickets_created": 36,
+      "pending": 7
+    },
+    "medium": {
+      "total": 315,
+      "answered": 4,
+      "tickets_created": 4,
+      "pending": 311
+    },
+    "low": {
+      "total": 364,
+      "answered": 0,
+      "tickets_created": 0,
+      "pending": 364
+    }
+  },
+  "by_category": {
+    "decision-legend": {
+      "total": 1,
+      "reviewed": 1
+    },
+    "A-cobrowse-viewer": {
+      "total": 23,
+      "reviewed": 23
+    },
+    "D4": {
+      "total": 20,
+      "reviewed": 20
+    },
+    "D-call-logs": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "D-blocklist-settings": {
+      "total": 9,
+      "reviewed": 9
+    },
+    "D-widget-settings": {
+      "total": 9,
+      "reviewed": 9
+    },
+    "A-agent-stats-dashboard": {
+      "total": 24,
+      "reviewed": 24
+    },
+    "D-organization-settings": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "A-agent-call-logs": {
+      "total": 28,
+      "reviewed": 28
+    },
+    "D-tiered-routing": {
+      "total": 6,
+      "reviewed": 6
+    },
+    "D-sites-setup": {
+      "total": 11,
+      "reviewed": 11
+    },
+    "D-routing-rules": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "D8": {
+      "total": 11,
+      "reviewed": 11
+    },
+    "D-recording-settings": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "A-idle-timer": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "A-agent-active-call": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "P-visitor-reassignment": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "P-transcription-service": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "A-agent-stats-detail": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "A-incoming-call": {
+      "total": 8,
+      "reviewed": 8
+    },
+    "B-subscription-creation": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "B-seat-management": {
+      "total": 9,
+      "reviewed": 9
+    },
+    "B-billing-frequency": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "A-bullpen-states": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "B-pause-subscription": {
+      "total": 13,
+      "reviewed": 13
+    },
+    "B-payment-failure": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "P-agent-assignment": {
+      "total": 9,
+      "reviewed": 9
+    },
+    "B-cancel-subscription": {
+      "total": 14,
+      "reviewed": 14
+    },
+    "SA-retargeting-analytics": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "SA-cancellations-dashboard": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "SA-feedback-dashboard": {
+      "total": 14,
+      "reviewed": 14
+    },
+    "SA-funnel-analytics": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "SA-organizations-manager": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "D-pool-management": {
+      "total": 11,
+      "reviewed": 11
+    },
+    "D-dispositions": {
+      "total": 11,
+      "reviewed": 11
+    },
+    "A-rna-timeout": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "P-geolocation-service": {
+      "total": 11,
+      "reviewed": 11
+    },
+    "SA-platform-dashboard": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "AUTH-invite-accept": {
+      "total": 14,
+      "reviewed": 14
+    },
+    "V-call-reconnection": {
+      "total": 9,
+      "reviewed": 9
+    },
+    "V-mobile-gate": {
+      "total": 11,
+      "reviewed": 11
+    },
+    "P-heartbeat-staleness": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "D-embed-code": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "AUTH-signup-flow": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "V-public-feedback": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "V-video-sequencer": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "FEEDBACK-ellis-survey": {
+      "total": 13,
+      "reviewed": 13
+    },
+    "STATS-coverage-stats": {
+      "total": 11,
+      "reviewed": 11
+    },
+    "API-invites-api": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "AUTH-password-reset": {
+      "total": 12,
+      "reviewed": 12
+    },
+    "V-visitor-call": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "STATS-agent-stats": {
+      "total": 15,
+      "reviewed": 15
+    },
+    "A-video-recordings": {
+      "total": 13,
+      "reviewed": 13
+    },
+    "AUTH-login-flow": {
+      "total": 24,
+      "reviewed": 24
+    },
+    "V-cobrowse-sender": {
+      "total": 24,
+      "reviewed": 24
+    },
+    "API-agent-api": {
+      "total": 25,
+      "reviewed": 25
+    },
+    "STATS-call-analytics": {
+      "total": 15,
+      "reviewed": 15
+    },
+    "M-error-tracking": {
+      "total": 10,
+      "reviewed": 10
+    },
+    "API-billing-api": {
+      "total": 14,
+      "reviewed": 14
+    }
+  }
 }

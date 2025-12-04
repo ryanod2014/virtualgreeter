@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flow Field - WebGL Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      overflow: hidden; 
+      background: #000; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    canvas { display: block; }
+    
+    .overlay {
+      position: fixed;
+      bottom: 40px;
+      left: 40px;
+      color: rgba(255,255,255,0.8);
+      pointer-events: none;
+      mix-blend-mode: difference;
+    }
+    h1 { font-weight: 200; letter-spacing: 0.1em; text-transform: uppercase; font-size: 16px; margin-bottom: 8px; }
+    p { font-size: 12px; color: rgba(255,255,255,0.5); max-width: 300px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div class="overlay">
+    <h1>Flow Field</h1>
+    <p>100,000+ particles tracing curl noise paths. Click to reset the field.</p>
+  </div>
+
+  <script>
+    // ============================================
+    // GPGPU FLOW FIELD
+    // Uses transform feedback (WebGL2) to update 
+    // particle positions entirely on the GPU
+    // ============================================
+
+    const canvas = document.getElementById('canvas');
+    const gl = canvas.getContext('webgl2', { alpha: false });
+
+    if (!gl) throw new Error('WebGL2 not supported');
+
+    // Configuration
+    const PARTICLE_COUNT = 250000; // Heavy load!
+    const PARTICLE_SIZE = 1.2;
+    const SPEED = 1.5;
+
+    // Resize
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // ============================================
+    // SHADERS
+    // ============================================
+
+    // UPDATE VERTEX SHADER (Compute physics)
+    const updateVsSource = `#version 300 es
+      layout(location = 0) in vec2 a_position;
+      layout(location = 1) in float a_age;
+      
+      out vec2 v_position;
+      out float v_age;
+      
+      uniform float u_time;
+      uniform float u_dt;
+      uniform vec2 u_resolution;
+      uniform vec2 u_mouse;
+      uniform float u_reset;
+      
+      // Random function
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+      }
+      
+      // Simplex noise (simplified)
+      vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+      vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+      vec3 permute(vec3 x) { return mod289(((x * 34.0) + 1.0) * x); }
+
+      float snoise(vec2 v) {
+        const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+        vec2 i = floor(v + dot(v, C.yy));
+        vec2 x0 = v - i + dot(i, C.xx);
+        vec2 i1;
+        i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+        vec4 x12 = x0.xyxy + C.xxzz;
+        x12.xy -= i1;
+        i = mod289(i);
+        vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+        vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+        m = m * m;
+        m = m * m;
+        vec3 x = 2.0 * fract(p * C.www) - 1.0;
+        vec3 h = abs(x) - 0.5;
+        vec3 ox = floor(x + 0.5);
+        vec3 a0 = x - ox;
+        m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+        vec3 g;
+        g.x = a0.x * x0.x + h.x * x0.y;
+        g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+        return 130.0 * dot(m, g);
+      }
+
+      void main() {
+        vec2 pos = a_position;
+        float age = a_age;
+        
+        // Calculate flow field angle based on noise
+        vec2 noisePos = pos * 0.002;
+        float n = snoise(noisePos + u_time * 0.1);
+        float angle = n * 3.14159 * 4.0;
+        
+        // Calculate velocity
+        vec2 vel = vec2(cos(angle), sin(angle)) * ${SPEED}.0;
+        
+        // Mouse interaction
+        vec2 toMouse = u_mouse - pos;
+        float dist = length(toMouse);
+        if (dist < 200.0) {
+          vel += normalize(toMouse) * 5.0 * (1.0 - dist/200.0);
+        }
+        
+        // Update position
+        pos += vel * u_dt;
+        age += u_dt;
+        
+        // Reset if out of bounds or too old or requested
+        if (pos.x < 0.0 || pos.x > u_resolution.x || 
+            pos.y < 0.0 || pos.y > u_resolution.y || 
+            age > 5.0 || u_reset > 0.5) {
+            
+          // Respawn randomly
+          float r1 = hash(pos + vec2(u_time, 0.0));
+          float r2 = hash(pos + vec2(0.0, u_time));
+          pos = vec2(r1 * u_resolution.x, r2 * u_resolution.y);
+          age = 0.0;
+        }
+        
+        v_position = pos;
+        v_age = age;
+      }
+    `;
+
+    const updateFsSource = `#version 300 es
+      precision mediump float;
+      void main() { discard; } // Transform feedback only
+    `;
+
+    // RENDER VERTEX SHADER
+    const renderVsSource = `#version 300 es
+      in vec2 a_position;
+      in float a_age;
+      
+      uniform vec2 u_resolution;
+      
+      out float v_age;
+      out float v_speed;
+      
+      void main() {
+        // Convert pixels to clip space
+        vec2 clipSpace = (a_position / u_resolution) * 2.0 - 1.0;
+        gl_Position = vec4(clipSpace * vec2(1, -1), 0.0, 1.0);
+        gl_PointSize = ${PARTICLE_SIZE.toFixed(1)};
+        v_age = a_age;
+      }
+    `;
+
+    // RENDER FRAGMENT SHADER
+    const renderFsSource = `#version 300 es
+      precision mediump float;
+      
+      in float v_age;
+      out vec4 fragColor;
+      
+      void main() {
+        // Color based on age
+        vec3 col1 = vec3(0.1, 0.4, 0.8); // Blue
+        vec3 col2 = vec3(0.8, 0.2, 0.5); // Pink
+        vec3 col3 = vec3(1.0, 0.8, 0.2); // Gold
+        
+        float t = v_age / 5.0; // normalized age
+        vec3 col = mix(col1, col2, smoothstep(0.0, 0.5, t));
+        col = mix(col, col3, smoothstep(0.5, 1.0, t));
+        
+        // Soft particle
+        float d = length(gl_PointCoord - 0.5);
+        float alpha = 1.0 - smoothstep(0.3, 0.5, d);
+        
+        // Fade in/out
+        alpha *= smoothstep(0.0, 0.1, t) * smoothstep(1.0, 0.8, t);
+        
+        fragColor = vec4(col, alpha * 0.6);
+      }
+    `;
+
+    // ============================================
+    // WEBGL SETUP
+    // ============================================
+
+    function createShader(gl, type, source) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, source);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(s));
+        return null;
+      }
+      return s;
+    }
+
+    function createProgram(gl, vs, fs, transformFeedbackVaryings) {
+      const p = gl.createProgram();
+      gl.attachShader(p, vs);
+      gl.attachShader(p, fs);
+      
+      if (transformFeedbackVaryings) {
+        gl.transformFeedbackVaryings(p, transformFeedbackVaryings, gl.SEPARATE_ATTRIBS);
+      }
+      
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        console.error(gl.getProgramInfoLog(p));
+        return null;
+      }
+      return p;
+    }
+
+    const updateVs = createShader(gl, gl.VERTEX_SHADER, updateVsSource);
+    const updateFs = createShader(gl, gl.FRAGMENT_SHADER, updateFsSource);
+    const updateProg = createProgram(gl, updateVs, updateFs, ['v_position', 'v_age']);
+
+    const renderVs = createShader(gl, gl.VERTEX_SHADER, renderVsSource);
+    const renderFs = createShader(gl, gl.FRAGMENT_SHADER, renderFsSource);
+    const renderProg = createProgram(gl, renderVs, renderFs);
+
+    // ============================================
+    // BUFFERS
+    // ============================================
+
+    // Initialize particles
+    const initialPositions = new Float32Array(PARTICLE_COUNT * 2);
+    const initialAges = new Float32Array(PARTICLE_COUNT);
+    
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      initialPositions[i * 2] = Math.random() * canvas.width;
+      initialPositions[i * 2 + 1] = Math.random() * canvas.height;
+      initialAges[i] = Math.random() * 5.0;
+    }
+
+    function createBuffer(data) {
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_COPY);
+      return buf;
+    }
+
+    // Double buffering (Read/Write)
+    let posBuffer1 = createBuffer(initialPositions);
+    let posBuffer2 = createBuffer(initialPositions); // Placeholder size
+    let ageBuffer1 = createBuffer(initialAges);
+    let ageBuffer2 = createBuffer(initialAges);
+
+    // VAOs
+    function createVAO(posBuf, ageBuf) {
+      const vao = gl.createVertexArray();
+      gl.bindVertexArray(vao);
+      
+      gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(0);
+      
+      gl.bindBuffer(gl.ARRAY_BUFFER, ageBuf);
+      gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(1);
+      
+      return vao;
+    }
+
+    let vao1 = createVAO(posBuffer1, ageBuffer1);
+    let vao2 = createVAO(posBuffer2, ageBuffer2);
+
+    // Transform Feedback objects
+    function createTF(posBuf, ageBuf) {
+      const tf = gl.createTransformFeedback();
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, posBuf);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, ageBuf);
+      return tf;
+    }
+
+    let tf1 = createTF(posBuffer1, ageBuffer1);
+    let tf2 = createTF(posBuffer2, ageBuffer2);
+    
+    // Unbind
+    gl.bindVertexArray(null);
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    // State
+    let currentVao = vao1;
+    let currentTf = tf2; // Write to buffer 2
+    let nextVao = vao2;
+    let nextTf = tf1; // Next frame write to buffer 1
+    
+    let mouse = { x: 0, y: 0 };
+    let reset = 0;
+    
+    document.addEventListener('mousemove', e => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+    
+    document.addEventListener('mousedown', () => reset = 1);
+    document.addEventListener('mouseup', () => reset = 0);
+
+    // ============================================
+    // LOOP
+    // ============================================
+
+    let lastTime = 0;
+
+    function frame(time) {
+      const dt = (time - lastTime) * 0.001;
+      lastTime = time;
+
+      gl.clearColor(0, 0, 0, 1);
+      // Use alpha blending for trails
+      // We clear with low opacity to create trails, but in WebGL 
+      // we typically just draw over previous frame. 
+      // To get real trails without accumulating indefinitely, 
+      // we'd need a framebuffer. For simplicity here, we just
+      // use high particle count + semi-transparent drawing.
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // Additive blending
+
+      // 1. Update particles (Physics)
+      gl.useProgram(updateProg);
+      gl.bindVertexArray(currentVao);
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, currentTf);
+      
+      gl.uniform1f(gl.getUniformLocation(updateProg, 'u_time'), time * 0.001);
+      gl.uniform1f(gl.getUniformLocation(updateProg, 'u_dt'), 0.016); // Fixed step for stability
+      gl.uniform2f(gl.getUniformLocation(updateProg, 'u_resolution'), canvas.width, canvas.height);
+      gl.uniform2f(gl.getUniformLocation(updateProg, 'u_mouse'), mouse.x, mouse.y);
+      gl.uniform1f(gl.getUniformLocation(updateProg, 'u_reset'), reset);
+
+      gl.beginTransformFeedback(gl.POINTS);
+      gl.drawArrays(gl.POINTS, 0, PARTICLE_COUNT);
+      gl.endTransformFeedback();
+      
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+
+      // 2. Render particles (Visuals)
+      gl.useProgram(renderProg);
+      gl.bindVertexArray(currentVao); // Draw the state we just read from (or the one we just wrote to? No, draw current state)
+      // Actually, we should draw the state we just wrote to for lowest latency, 
+      // but swapping logic makes it easier to draw current, then update to next.
+      
+      gl.uniform2f(gl.getUniformLocation(renderProg, 'u_resolution'), canvas.width, canvas.height);
+      
+      gl.drawArrays(gl.POINTS, 0, PARTICLE_COUNT);
+
+      // Swap buffers
+      let tempVao = currentVao;
+      currentVao = nextVao;
+      nextVao = tempVao;
+      
+      let tempTf = currentTf;
+      currentTf = nextTf;
+      nextTf = tempTf;
+
+      requestAnimationFrame(frame);
+    }
+
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
+

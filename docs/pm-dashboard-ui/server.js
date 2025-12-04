@@ -46,20 +46,112 @@ function writeJSON(filename, data) {
   console.log(`✅ Saved ${filename}`);
 }
 
+// Scan features directory recursively
+function scanFeaturesDir(dir, basePath = '') {
+  const features = [];
+  const items = fs.readdirSync(dir);
+  
+  for (const item of items) {
+    const fullPath = path.join(dir, item);
+    const stat = fs.statSync(fullPath);
+    
+    if (stat.isDirectory()) {
+      // Recurse into subdirectory
+      features.push(...scanFeaturesDir(fullPath, basePath ? `${basePath}/${item}` : item));
+    } else if (item.endsWith('.md') && item !== 'README.md') {
+      // It's a markdown file
+      const relativePath = basePath ? `${basePath}/${item}` : item;
+      const name = item.replace('.md', '').split('-').map(w => 
+        w.charAt(0).toUpperCase() + w.slice(1)
+      ).join(' ');
+      const category = basePath || 'general';
+      
+      features.push({
+        name,
+        category,
+        docPath: `docs/features/${relativePath}`,
+        fileName: item
+      });
+    }
+  }
+  
+  return features;
+}
+
 // Handle API requests
 function handleAPI(req, res, body) {
   const url = req.url;
   
   // GET /api/data - Load all data files
   if (req.method === 'GET' && url === '/api/data') {
+    // Scan features directory
+    const featuresDir = path.join(DOCS_DIR, 'features');
+    let featuresList = [];
+    try {
+      featuresList = scanFeaturesDir(featuresDir);
+    } catch (e) {
+      console.error('Error scanning features:', e.message);
+    }
+    
     const data = {
       findings: readJSON('findings.json'),
       decisions: readJSON('decisions.json'),
       tickets: readJSON('tickets.json'),
-      summary: readJSON('findings-summary.json')
+      summary: readJSON('findings-summary.json'),
+      devStatus: readJSON('dev-status.json'),
+      featuresList
     };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));
+    return true;
+  }
+  
+  // POST /api/dev-status - Save dev status (blocked, in_progress, etc.)
+  if (req.method === 'POST' && url === '/api/dev-status') {
+    try {
+      const devStatus = JSON.parse(body);
+      devStatus.meta = devStatus.meta || {};
+      devStatus.meta.last_updated = new Date().toISOString();
+      writeJSON('dev-status.json', devStatus);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/blocked-decision - Record a decision on a blocked agent
+  if (req.method === 'POST' && url === '/api/blocked-decision') {
+    try {
+      const { ticketId, decision, customNote } = JSON.parse(body);
+      const devStatus = readJSON('dev-status.json') || { blocked: [], in_progress: [], completed: [], observations: [] };
+      
+      // Find the blocked item
+      const blockedIdx = devStatus.blocked.findIndex(b => b.ticket_id === ticketId);
+      if (blockedIdx === -1) {
+        throw new Error(`Ticket ${ticketId} not found in blocked queue`);
+      }
+      
+      // Update with decision
+      devStatus.blocked[blockedIdx].decision = {
+        option: decision,
+        custom_note: customNote,
+        decided_at: new Date().toISOString()
+      };
+      devStatus.blocked[blockedIdx].status = 'decided';
+      
+      devStatus.meta = devStatus.meta || {};
+      devStatus.meta.last_updated = new Date().toISOString();
+      writeJSON('dev-status.json', devStatus);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return true;
   }
   

@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "last_updated": "2025-12-04",
+    "version": "2.0",
+    "note": "Blockers now in findings.json with type: 'blocker'. Observations also in findings.json."
+  },
+  "in_progress": [],
+  "completed": [],
+  "retry_history": []
+}

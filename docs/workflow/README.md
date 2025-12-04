@@ -1,145 +1,177 @@
-# Documentation Workflow
+# Agent Workflow Hub
 
-> **Current Focus:** Feature documentation sprint
-> **Goal:** Document ALL features with comprehensive scenario-based docs
+> **Current Phase:** Ready for Dev Sprint
+> **Status:** Documentation ✅ → Review ✅ → Tickets ✅ → **Dev Ready**
 
 ---
 
 ## 🚀 Quick Start
 
-### Launch PM
+### Dev Workflow (Active)
+
+**Launch PM (Dev Mode):**
+```
+You are the PM. Read and execute docs/workflow/PM_DEV_SOP.md
+```
+
+**Launch Dev Agent:**
+```
+You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-[ID].md
+```
+
+### Documentation/Review Workflow
+
+**Launch PM (Doc/Review Mode):**
 ```
 You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md
 ```
 
-### Launch Doc Agent
+**Launch Doc Agent:**
 ```
 You are a Doc Agent. Read docs/workflow/DOC_AGENT_SOP.md then execute: docs/prompts/active/doc-agent-[ID].md
 ```
 
+**Launch Review Agent:**
+```
+You are a Review Agent. Read docs/workflow/REVIEW_AGENT_SOP.md then execute: docs/prompts/active/review-agent-[ID].md
+```
+
 ---
 
-## 📁 Active Workflow Files
+## 📁 Workflow Files
 
 ```
 docs/
 ├── workflow/
-│   ├── README.md              ← You are here
-│   ├── PM_DOCS_SOP.md         ← PM workflow for doc sprint
-│   ├── DOC_AGENT_SOP.md       ← Doc agent instructions
+│   ├── README.md                ← You are here
+│   ├── PM_DEV_SOP.md            ← PM workflow for dev sprints
+│   ├── PM_DOCS_SOP.md           ← PM workflow for doc/review sprints
+│   ├── DEV_AGENT_SOP.md         ← Dev agent instructions
+│   ├── DOC_AGENT_SOP.md         ← Doc agent instructions
+│   ├── REVIEW_AGENT_SOP.md      ← Review agent instructions
 │   └── templates/
-│       └── doc-agent.md       ← Template for new doc prompts
+│       ├── ticket-schema.json   ← Required ticket fields (v2)
+│       ├── dev-ticket.md        ← Ticket creation template
+│       ├── doc-agent.md         ← Doc agent prompt template
+│       └── review-agent.md      ← Review agent prompt template
 │
-├── FEATURE_INVENTORY.md       ← Master list of all features
-├── DOC_TRACKER.md             ← Completion tracking
+├── data/
+│   ├── tickets.json             ← All tickets (source of truth)
+│   ├── findings.json            ← Review findings
+│   └── decisions.json           ← Human decisions
 │
-├── features/                  ← Output documentation
-│   ├── visitor/               ← ✅ 5/5 complete
-│   ├── agent/                 ← ✅ 5/5 complete
-│   ├── platform/              ← ✅ 5/5 complete
-│   ├── admin/                 ← 2/8 complete
-│   ├── billing/               ← 0/6 complete
-│   ├── auth/                  ← 0/4 complete
-│   └── ...
+├── DEV_BLOCKED.md               ← Blocked dev agents queue
+├── PM_DASHBOARD.md              ← Pipeline status dashboard
+├── TICKET_BACKLOG.md            ← Human-readable backlog
 │
 └── prompts/
-    └── active/                ← Active doc agent prompts
-        └── doc-agent-*.md
+    ├── active/                  ← Active agent prompts
+    │   ├── dev-agent-*.md
+    │   ├── doc-agent-*.md
+    │   └── review-agent-*.md
+    └── archive/                 ← Completed prompts
 ```
 
 ---
 
-## 📊 Current Progress
-
-| Category | Done | Remaining |
-|----------|------|-----------|
-| Visitor | ✅ 5 | 0 |
-| Agent | ✅ 5 | 0 |
-| Platform | ✅ 5 | 0 |
-| Admin | 2 | 6 |
-| Billing | 0 | 6 |
-| Auth | 0 | 4 |
-| Other | 1 | 4 |
-| **Total** | **18** | **~23** |
-
----
-
-## 🔄 Workflow Overview
+## 🔄 Full Pipeline
 
 ```
-┌─────────────────────────┐
-│  FEATURE_INVENTORY.md   │  ← All features listed
-└───────────┬─────────────┘
-            │ PM creates prompts
-            ▼
-┌─────────────────────────┐
-│   DOC AGENTS (parallel) │  ← Read code, write docs
-│   No dependencies!      │
-└───────────┬─────────────┘
-            │ Agents post to tracker
-            ▼
-┌─────────────────────────┐
-│    DOC_TRACKER.md       │  ← PM checks progress
-└─────────────────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│   docs/features/*.md    │  ← Final documentation
-└─────────────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  DOCUMENTATION  │ → │     REVIEW      │ → │    QUESTIONS    │
+│   Doc Agents    │    │  Review Agents  │    │  Human Decides  │
+│   ✅ Complete   │    │   ✅ Complete   │    │   ✅ Complete   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                                      │
+                                                      ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│     MERGED      │ ← │     REVIEW      │ ← │   DEV AGENTS    │
+│  Human Merges   │    │  Human/QA Agent │    │  Execute Tickets │
+│                 │    │                 │    │  ⚡ READY       │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                                      │
+                                                      ▼
+                                              ┌─────────────────┐
+                                              │    BLOCKED?     │
+                                              │  Human Decides  │
+                                              │  → Continuation │
+                                              └─────────────────┘
 ```
 
 ---
 
-## ✅ What's Different (Simplified)
+## 📊 Current Status
 
-**This workflow is ONLY for documentation:**
-- ❌ No Dev agents (not fixing code)
-- ❌ No QA agents (not testing)
-- ❌ No Review agents (not reviewing PRs)
-- ❌ No Strategy agents (not auditing)
-- ❌ No file locks (docs don't conflict)
-- ❌ No ticket versioning (one-shot docs)
-- ❌ No branches or PRs (docs go straight to main)
+### Tickets Ready for Dev
 
-**Just:**
-- ✅ PM creates doc prompts
-- ✅ Doc agents read code & write docs
-- ✅ All agents run in parallel
-- ✅ Track progress in DOC_TRACKER.md
-- ✅ PM commits docs periodically (`git add docs/ && git commit`)
+| Priority | Count | Status |
+|----------|-------|--------|
+| 🔴 Critical | 7 | Ready |
+| 🟠 High | 19 | Ready |
+| 🟡 Medium | 3 | Ready |
+| 🟢 Low | 2 | Ready |
+| **Total** | **40** | **Ready** |
+
+**Note:** Tickets TKT-004 and TKT-005 were split into smaller pieces (4a/b/c/d and 5a/b/c/d/e).
 
 ---
 
-## 🔀 Git (Automatic)
+## 🛠️ Dev Workflow Details
 
-**PM handles Git automatically. Human never thinks about it.**
+### Ticket Quality (v2 Schema)
 
-PM commits:
-- When starting (any uncommitted docs)
-- After creating prompts
-- After checking progress (if new docs exist)
-- When sprint completes
+All tickets now include:
+- ✅ `feature_docs` — Links to relevant documentation
+- ✅ `similar_code` — Patterns to follow
+- ✅ `out_of_scope` — What NOT to do
+- ✅ `dev_checks` — Quick verification steps
+- ✅ `qa_notes` — Context for QA agent
+
+### When Agents Get Blocked
+
+1. Agent reports to `docs/DEV_BLOCKED.md` with:
+   - Progress checkpoint (commits, files, current state)
+   - Options with tradeoffs
+   - Recommendation
+
+2. Human reviews and chooses option
+
+3. PM creates continuation ticket with decision
+
+4. Agent resumes with full context
+
+### Branch Strategy
+
+```
+main (production)
+  ├── agent/TKT-001-cobrowse-sanitization
+  ├── agent/TKT-006-middleware-redirect
+  └── agent/TKT-019-incoming-call-countdown
+```
+
+- Agents create branches: `agent/TKT-XXX-description`
+- Human merges to main after QA approval
 
 ---
 
-## 📝 Key Files
+## 📝 Key Files Reference
 
-| File | Who Updates | Purpose |
-|------|-------------|---------|
-| `FEATURE_INVENTORY.md` | PM | Master list of features |
-| `DOC_TRACKER.md` | Doc Agents + PM | Completion tracking |
-| `PM_DOCS_SOP.md` | - | PM instructions |
-| `DOC_AGENT_SOP.md` | - | Doc agent instructions |
-| `prompts/active/doc-agent-*.md` | PM creates | Active assignments |
-| `features/**/*.md` | Doc Agents | Output docs |
+| File | Purpose | Who Updates |
+|------|---------|-------------|
+| `docs/data/tickets.json` | All tickets (source of truth) | PM |
+| `docs/DEV_BLOCKED.md` | Blocked dev agents queue | Dev Agents |
+| `docs/PM_DASHBOARD.md` | Pipeline status | PM |
+| `docs/workflow/PM_DEV_SOP.md` | PM dev instructions | - |
+| `docs/workflow/DEV_AGENT_SOP.md` | Dev agent instructions | - |
+| `docs/workflow/templates/ticket-schema.json` | Ticket requirements | - |
 
 ---
 
-## 🗄️ Archived (Old Workflow)
+## 🗄️ Archived Workflows
 
-The previous multi-agent workflow (Dev/QA/Review/Strategy) is archived in:
+Previous workflow versions are in:
 ```
 docs/workflow/archive/
 ```
 
-These are NOT in use for the documentation sprint.
+These include the original Dev/QA/Review/Strategy agent SOPs before the v2 update.

@@ -147,6 +147,34 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
+    // Format message text with basic markdown-like styling
+    function formatMessage(text) {
+      if (!text) return null;
+      
+      // First split by newlines to create paragraphs
+      const paragraphs = text.split('\n').filter(p => p.trim());
+      
+      return paragraphs.map((para, pIdx) => {
+        // Split into parts for bold and numbered items
+        const parts = para.split(/(\*\*[^*]+\*\*|\(\d+\))/g);
+        
+        const content = parts.map((part, i) => {
+          // Bold text: **text**
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={i} style={{ color: 'var(--accent-bright)' }}>{part.slice(2, -2)}</strong>;
+          }
+          // Numbered option: (1), (2), etc.
+          if (part.match(/^\(\d+\)$/)) {
+            return <strong key={i} style={{ color: 'var(--success)' }}>{part}</strong>;
+          }
+          // Regular text
+          return <span key={i}>{part}</span>;
+        });
+        
+        return <div key={pIdx} style={{ marginBottom: '8px' }}>{content}</div>;
+      });
+    }
+
     // ================= DATA =================
     const FINDINGS_SUMMARY = {
       "meta": { "total_features": 61, "reviewed_features": 61, "total_findings": 742 },
@@ -158,18 +186,8 @@
       }
     };
 
-    const TICKETS_DATA = [
-      { id: "TKT-001", title: "Co-Browse Sensitive Data Sanitization", priority: "critical", feature: "Co-Browse", status: "ready", difficulty: "medium", files: ["domSerializer.ts", "cobrowseSender.ts", "CobrowseViewer.tsx"], acceptance_criteria: ["Password masked", "CC masked", "data-sensitive masked", "Unit tests"], risk_notes: ["Regex too aggressive", "Bypass risk"], issue: "Password fields and credit card numbers are captured in DOM snapshots." },
-      { id: "TKT-002", title: "Complete Stripe Subscription Cancellation", priority: "critical", feature: "Billing", status: "ready", difficulty: "medium", files: ["settings/actions.ts", "stripe.ts", "webhooks/stripe.ts"], acceptance_criteria: ["Stripe API called", "Access until period end", "Webhook handler"], issue: "Cancellation only updates DB, doesn't call Stripe API." },
-      { id: "TKT-003", title: "Update Cancellation Data Deletion Copy", priority: "critical", feature: "Billing", status: "ready", difficulty: "easy", files: ["CancelModal.tsx"], acceptance_criteria: ["Updated copy", "No immediate deletion mention"], issue: "Modal says 'permanently deleted' but data isn't actually deleted." },
-      { id: "TKT-004", title: "Complete Pause Subscription with Stripe", priority: "critical", feature: "Billing", status: "ready", difficulty: "hard", files: ["settings/actions.ts", "stripe.ts", "webhooks/stripe.ts", "scheduler/"], acceptance_criteria: ["Stripe pause", "Auto-resume", "Widget disabled"], issue: "Pause updates DB but doesn't stop Stripe billing." },
-      { id: "TKT-005", title: "Payment Failure Blocking + Retry UI", priority: "critical", feature: "Billing", status: "ready", difficulty: "hard", files: ["PaymentBlocker.tsx", "layout.tsx", "webhooks/stripe.ts", "email.ts"], acceptance_criteria: ["past_due status", "Block modal", "Email notification", "Agents offline"], issue: "No feedback when payment fails - account keeps working." },
-      { id: "TKT-006", title: "Fix Middleware Redirect", priority: "critical", feature: "Auth", status: "ready", difficulty: "easy", files: ["middleware.ts"], acceptance_criteria: ["Redirect to /login", "No loops"], issue: "Protected routes return blank instead of redirecting." },
-      { id: "TKT-017", title: "Enforce Pool Routing on Reassignment", priority: "critical", feature: "Routing", status: "ready", difficulty: "medium", files: ["reassignVisitors.ts", "agentSelection.ts"], acceptance_criteria: ["Pool ID passed", "Stay in pool"], issue: "Reassignment ignores pool - crosses pool boundaries." },
-      { id: "TKT-009", title: "Org-Level Co-Browse Disable", priority: "high", feature: "Co-Browse", status: "ready", difficulty: "medium", files: ["settings/page.tsx", "settings/actions.ts", "cobrowseSender.ts"], acceptance_criteria: ["Settings toggle", "Disable works"], issue: "No way to disable co-browse for GDPR." },
-      { id: "TKT-011", title: "Email Invite Retry Mechanism", priority: "high", feature: "Agent Mgmt", status: "ready", difficulty: "medium", files: ["agents/actions.ts", "email.ts"], acceptance_criteria: ["Auto-retry", "Status visible", "Resend button"], issue: "Email failures are silent - invites stuck." },
-      { id: "TKT-012", title: "Migrate Geolocation to MaxMind", priority: "high", feature: "Blocklist", status: "ready", difficulty: "medium", files: ["geolocation.ts", "checkVisitor.ts"], acceptance_criteria: ["MaxMind API", "Rate limit OK"], issue: "ip-api.com rate limit fails at scale." },
-    ];
+    // Fallback data - server data takes precedence when available
+    const TICKETS_DATA = [];
 
     // Findings will be loaded from server or embedded fallback
     let FINDINGS_DATA = [];
@@ -187,8 +205,13 @@
       },
       processDecisions: {
         label: "🎫 Process Triage Decisions",
-        command: "You are the PM. Read docs/data/decisions.json and:\n1. For each 'resolved' finding, create ticket in tickets.json\n2. For 'in_discussion' findings, add follow-up questions to decisions.json\n3. Update findings.json status to 'ticketed'\n4. Run: node docs/scripts/generate-pm-dashboard.js",
-        description: "Creates tickets from your resolved findings"
+        command: "Run: node docs/scripts/process-decisions.js\n\nThis will:\n1. Create tickets in tickets.json for resolved findings\n2. Update findings.json status to 'ticketed'\n3. Dashboard will auto-refresh with changes",
+        description: "Creates tickets from your resolved findings (run the script, then refresh dashboard)"
+      },
+      answerQuestions: {
+        label: "💬 Answer User Questions",
+        command: "Read docs/data/decisions.json and look for threads where:\n- status is 'in_discussion'\n- decision.option_id is 'custom'\n- There are human messages without a system response\n\nFor each question, add a PM response using:\nnode docs/scripts/pm-respond.js F-XXX 'Your response here'\n\nThen the user can refresh the dashboard to see your answers.",
+        description: "Respond to questions from the dashboard"
       },
       continueHighFindings: {
         label: "📋 Continue High Priority Triage",
@@ -234,7 +257,7 @@
           </div>
           <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>{ticket.title}</h3>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>{ticket.feature}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>📁 {(ticket.files || []).length} files • ✓ {(ticket.acceptance_criteria || []).length} criteria</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>📁 {(ticket.files_to_modify || ticket.files || []).length} files • ✓ {(ticket.acceptance_criteria || []).length} criteria</div>
         </div>
       );
     }
@@ -259,19 +282,66 @@
               <div className="section">
                 <div className="section-title">Files to Edit</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {(ticket.files || []).map((f, i) => <code key={i} style={{ padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: '6px', fontSize: '12px', color: 'var(--accent-bright)' }}>{f}</code>)}
+                  {(ticket.files_to_modify || ticket.files || []).map((f, i) => <code key={i} style={{ padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: '6px', fontSize: '12px', color: 'var(--accent-bright)' }}>{f}</code>)}
                 </div>
               </div>
+              {/* Feature Docs */}
+              {ticket.feature_docs && ticket.feature_docs.length > 0 && (
+                <div className="section">
+                  <div className="section-title">📚 Feature Documentation</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {ticket.feature_docs.map((doc, i) => <code key={i} style={{ padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>{doc}</code>)}
+                  </div>
+                </div>
+              )}
+              
+              {/* Similar Code */}
+              {ticket.similar_code && ticket.similar_code.length > 0 && (
+                <div className="section">
+                  <div className="section-title">🔍 Similar Code to Follow</div>
+                  {ticket.similar_code.map((code, i) => (
+                    <div key={i} style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>{code}</div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Out of Scope */}
+              {ticket.out_of_scope && ticket.out_of_scope.length > 0 && (
+                <div className="section">
+                  <div className="section-title">🚫 Out of Scope</div>
+                  {ticket.out_of_scope.map((item, i) => (
+                    <div key={i} style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.08)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', color: 'var(--critical)' }}>✕ {item}</div>
+                  ))}
+                </div>
+              )}
+              
               <div className="section">
                 <div className="section-title">Acceptance Criteria</div>
                 {(ticket.acceptance_criteria || []).map((c, i) => (
                   <div key={i} style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '6px', marginBottom: '6px', fontSize: '13px' }}>☐ {c}</div>
                 ))}
               </div>
-              {ticket.risk_notes && (
-                <div style={{ padding: '16px', background: 'var(--critical-bg)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--critical)', fontWeight: 600, marginBottom: '8px' }}>⚠️ Risk Notes</div>
-                  {ticket.risk_notes.map((n, i) => <div key={i} style={{ fontSize: '13px', marginBottom: '4px' }}>• {n}</div>)}
+              
+              {(ticket.risks || ticket.risk_notes) && (
+                <div style={{ padding: '16px', background: 'var(--critical-bg)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--critical)', fontWeight: 600, marginBottom: '8px' }}>⚠️ Risks to Avoid</div>
+                  {(ticket.risks || ticket.risk_notes || []).map((n, i) => <div key={i} style={{ fontSize: '13px', marginBottom: '4px' }}>• {n}</div>)}
+                </div>
+              )}
+              
+              {/* Dev Checks */}
+              {ticket.dev_checks && ticket.dev_checks.length > 0 && (
+                <div style={{ padding: '16px', background: 'var(--accent-bg)', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.2)', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--accent-bright)', fontWeight: 600, marginBottom: '8px' }}>✓ Dev Checks (Before Submitting)</div>
+                  {ticket.dev_checks.map((check, i) => <div key={i} style={{ fontSize: '13px', marginBottom: '4px' }}>☐ {check}</div>)}
+                </div>
+              )}
+              
+              {/* QA Notes */}
+              {ticket.qa_notes && (
+                <div style={{ padding: '16px', background: 'rgba(234,179,8,0.1)', borderRadius: '8px', border: '1px solid rgba(234,179,8,0.2)' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--medium)', fontWeight: 600, marginBottom: '8px' }}>🧪 QA Notes</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{ticket.qa_notes}</div>
                 </div>
               )}
             </div>
@@ -280,13 +350,14 @@
       );
     }
 
-    function FindingCard({ finding, thread, onSelectOption, onCustomResponse, onResolve }) {
+    function FindingCard({ finding, thread, onSelectOption, onCustomResponse, onResolve, onSkip, onCombine }) {
       const [customInput, setCustomInput] = useState('');
       const [showCustom, setShowCustom] = useState(false);
       const isResolved = thread?.status === 'resolved';
       const hasDecision = thread?.decision?.option_id;
-      const options = (finding.options || []).slice().sort((a, b) => (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0));
+      const options = finding.options || [];
       const recommendedOption = options.find(o => o.recommended);
+      const combinable = finding.combinable_with;
 
       const handleCustomSubmit = () => {
         if (customInput.trim()) {
@@ -316,6 +387,45 @@
 
           {/* Issue */}
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.6' }}>{finding.issue}</p>
+          
+          {/* Suggested Fix */}
+          <div style={{ fontSize: '12px', padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: '8px', marginBottom: '12px', borderLeft: '3px solid var(--accent)' }}>
+            <span style={{ color: 'var(--accent-bright)', fontWeight: 600 }}>💡 Suggested Fix:</span>
+            <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{finding.suggested_fix}</span>
+          </div>
+
+          {/* Combinable Findings Alert */}
+          {combinable && combinable.length > 0 && (
+            <div style={{ fontSize: '12px', padding: '12px 14px', background: 'rgba(234,179,8,0.1)', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(234,179,8,0.2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <span style={{ color: 'var(--medium)', fontWeight: 600 }}>🔗 Related Findings:</span>
+                  <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>
+                    {combinable.map(c => `${c.id}: ${c.title}`).join(', ')}
+                  </span>
+                </div>
+                <button
+                  onClick={() => onCombine(finding.id, combinable.map(c => c.id))}
+                  style={{
+                    padding: '6px 12px',
+                    background: 'var(--medium)',
+                    border: 'none',
+                    borderRadius: '6px',
+                    color: 'black',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Combine into 1 ticket →
+                </button>
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                Category: {combinable[0]?.group?.replace(/_/g, ' ')}
+              </div>
+            </div>
+          )}
 
           {/* Decision Area */}
           <div style={{ background: 'var(--bg-elevated)', borderRadius: '10px', padding: '16px', marginTop: '8px' }}>
@@ -325,11 +435,11 @@
 
             {/* Show conversation if any */}
             {thread?.messages?.length > 0 && (
-              <div style={{ marginBottom: '12px' }}>
+              <div style={{ marginBottom: '16px' }}>
                 {thread.messages.map((msg, i) => (
-                  <div key={i} className={`message message-${msg.role}`} style={{ marginBottom: '6px' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '2px' }}>{msg.role === 'system' ? '🤖 PM' : '👤 You'}</div>
-                    {msg.text}
+                  <div key={i} className={`message message-${msg.role}`} style={{ marginBottom: '10px', padding: '12px', background: msg.role === 'system' ? 'var(--bg-elevated)' : 'var(--accent-bg)', borderRadius: '8px', borderLeft: msg.role === 'system' ? '3px solid var(--accent)' : '3px solid var(--success)' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>{msg.role === 'system' ? '📚 PM' : '👤 You'}</div>
+                    <div style={{ fontSize: '13px', lineHeight: 1.6 }}>{formatMessage(msg.text)}</div>
                   </div>
                 ))}
               </div>
@@ -379,14 +489,18 @@
                     onClick={() => setShowCustom(true)}
                     style={{ fontSize: '12px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}
                   >
-                    💬 Need a different option? Add custom response...
+                    {hasDecision && thread?.decision?.option_id !== 'custom' 
+                      ? '📝 Add a note to your decision...'
+                      : '💬 Need a different option? Add custom response...'}
                   </button>
                 ) : (
                   <div style={{ marginTop: '8px' }}>
                     <textarea
                       value={customInput}
                       onChange={e => setCustomInput(e.target.value)}
-                      placeholder="Describe your preferred approach or ask a question..."
+                      placeholder={hasDecision && thread?.decision?.option_id !== 'custom'
+                        ? "Add a note explaining your decision (e.g., 'we should honor the grace period')..."
+                        : "Describe your preferred approach or ask a question..."}
                       style={{
                         width: '100%',
                         padding: '10px 12px',
@@ -401,7 +515,9 @@
                       }}
                     />
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                      <button className="btn btn-primary btn-sm" onClick={handleCustomSubmit}>💬 Send to PM</button>
+                      <button className="btn btn-primary btn-sm" onClick={handleCustomSubmit}>
+                        {hasDecision && thread?.decision?.option_id !== 'custom' ? '📝 Add Note' : '💬 Send Question to PM'}
+                      </button>
                       <button className="btn btn-secondary btn-sm" onClick={() => setShowCustom(false)}>Cancel</button>
                     </div>
                   </div>
@@ -410,20 +526,40 @@
                 {/* Resolve Button - only show for actual decisions, not questions */}
                 {hasDecision && thread?.decision?.option_id !== 'custom' && (
                   <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-                    <button className="btn btn-success" onClick={() => onResolve(finding.id)}>
-                      ✓ Confirm & Create Ticket
-                    </button>
+                    {thread?.decision?.custom_note && (
+                      <div style={{ marginBottom: '10px', padding: '8px 12px', background: 'var(--bg-surface)', borderRadius: '6px', fontSize: '12px' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>📝 Note:</span>
+                        <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{thread.decision.custom_note}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button className="btn btn-success" onClick={() => onResolve(finding.id)}>
+                        ✓ Confirm & Create Ticket
+                      </button>
+                      <button className="btn btn-secondary" onClick={() => onSkip(finding.id, 'Won\'t fix - acceptable risk')}>
+                        ✕ Skip / Won't Fix
+                      </button>
+                    </div>
                   </div>
                 )}
                 
-                {/* For custom responses (questions), show waiting state */}
+                {/* For custom responses - show option to resolve OR wait for PM */}
                 {hasDecision && thread?.decision?.option_id === 'custom' && (
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)', padding: '12px', background: 'rgba(99,102,241,0.1)', borderRadius: '6px' }}>
-                    <div style={{ fontSize: '13px', color: 'var(--accent-bright)' }}>
-                      💬 Question sent! PM will respond in this thread.
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ padding: '12px', background: 'var(--bg-surface)', borderRadius: '6px', marginBottom: '10px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Your response:</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{thread.decision.custom_note}</div>
                     </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Tell PM in Cursor: "check my answers" → then refresh this page
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button className="btn btn-success" onClick={() => onResolve(finding.id)}>
+                        ✓ This is my decision - Create Ticket
+                      </button>
+                      <button className="btn btn-secondary" onClick={() => onSkip(finding.id, 'Won\'t fix - acceptable risk')}>
+                        ✕ Skip / Won't Fix
+                      </button>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                      💡 Click "Create Ticket" if this is your final decision, or "Skip" if no action needed.
                     </div>
                   </div>
                 )}
@@ -480,7 +616,8 @@
 
     // ================= VIEWS =================
 
-    function PipelineView() {
+    // DEPRECATED - Replaced by NewPipelineView
+    function PipelineView_DEPRECATED() {
       const s = FINDINGS_SUMMARY;
       const totalAnswered = Object.values(s.by_priority).reduce((sum, p) => sum + p.answered, 0);
       const totalPending = Object.values(s.by_priority).reduce((sum, p) => sum + p.pending, 0);
@@ -519,8 +656,22 @@
       );
     }
 
-    function TriageView({ serverMode, onSave, findingsData, serverDecisions }) {
-      const [severityFilter, setSeverityFilter] = useState('critical');
+    // ================= INBOX VIEW =================
+    // Unified inbox - blockers are now part of findings with type: "blocker"
+
+    function InboxView({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange }) {
+      return (
+        <div className="fade-in">
+          <TriageContent serverMode={serverMode} onSave={onSave} findingsData={findingsData} serverDecisions={serverDecisions} onDecisionsChange={onDecisionsChange} />
+        </div>
+      );
+    }
+
+    // ================= TRIAGE CONTENT =================
+    // Renamed from TriageView to be embedded in InboxView
+
+    function TriageContent({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange }) {
+      const [severityFilter, setSeverityFilter] = useState('all');
       const [saveStatus, setSaveStatus] = useState(null);
       const [page, setPage] = useState(0);
       const PAGE_SIZE = 10;
@@ -580,6 +731,11 @@
       useEffect(() => {
         localStorage.setItem('pm-decisions-v3', JSON.stringify(decisions));
         
+        // Update parent state so other views (like Launch) see the changes
+        if (onDecisionsChange) {
+          onDecisionsChange(decisions);
+        }
+        
         if (serverMode && onSave && decisions.threads.length > 0) {
           setSaveStatus('saving');
           onSave(decisions).then(() => {
@@ -617,20 +773,42 @@
           ...prev,
           threads: prev.threads.map(t => {
             if (t.finding_id !== id) return t;
-            return {
-              ...t,
-              status: 'in_discussion',
-              messages: [
-                ...t.messages,
-                { role: 'human', text, timestamp: new Date().toISOString() }
-              ],
-              decision: {
-                option_id: 'custom',
-                option_label: 'Custom response',
-                custom_note: text,
-                timestamp: new Date().toISOString()
-              }
-            };
+            
+            // Check if there's already a selected option (not custom/null)
+            const hasSelectedOption = t.decision?.option_id && t.decision.option_id !== 'custom';
+            
+            if (hasSelectedOption) {
+              // User is adding a note to their selected option - preserve the option
+              return {
+                ...t,
+                status: 'in_discussion',
+                messages: [
+                  ...t.messages,
+                  { role: 'human', text, timestamp: new Date().toISOString() }
+                ],
+                decision: {
+                  ...t.decision,
+                  custom_note: text,
+                  timestamp: new Date().toISOString()
+                }
+              };
+            } else {
+              // No option selected - treat as a question for PM
+              return {
+                ...t,
+                status: 'in_discussion',
+                messages: [
+                  ...t.messages,
+                  { role: 'human', text, timestamp: new Date().toISOString() }
+                ],
+                decision: {
+                  option_id: 'custom',
+                  option_label: 'Custom response',
+                  custom_note: text,
+                  timestamp: new Date().toISOString()
+                }
+              };
+            }
           })
         }));
       };
@@ -645,45 +823,162 @@
         }));
       };
 
-      // Calculate stats - count unanswered per severity + total answered
+      const handleSkip = (id, reason) => {
+        setDecisions(prev => ({
+          ...prev,
+          threads: prev.threads.map(t => {
+            if (t.finding_id !== id) return t;
+            return { 
+              ...t, 
+              status: 'resolved',
+              decision: {
+                option_id: 'skip',
+                option_label: reason || 'Skipped - no action needed',
+                recommended: false,
+                timestamp: new Date().toISOString()
+              }
+            };
+          })
+        }));
+      };
+
+      const handleCombine = (primaryId, relatedIds) => {
+        const allIds = [primaryId, ...relatedIds];
+        const primaryFinding = findings.find(f => f.id === primaryId);
+        const relatedFindings = relatedIds.map(id => findings.find(f => f.id === id)).filter(Boolean);
+        
+        // Create combined decision
+        const combinedDecision = {
+          option_id: 'combined',
+          option_label: `Combined ticket: ${primaryFinding?.title}`,
+          combined_with: relatedIds,
+          combined_titles: relatedFindings.map(f => f?.title),
+          timestamp: new Date().toISOString()
+        };
+
+        setDecisions(prev => ({
+          ...prev,
+          threads: prev.threads.map(t => {
+            if (!allIds.includes(t.finding_id)) return t;
+            return {
+              ...t,
+              status: 'in_discussion',
+              decision: {
+                ...combinedDecision,
+                is_primary: t.finding_id === primaryId
+              }
+            };
+          })
+        }));
+      };
+
+      // Calculate stats - count pending (non-ticketed, non-resolved) per severity
+      // Now includes blockers (type: "blocker") as a separate category
       const stats = useMemo(() => {
         const bySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
-        let totalAnswered = 0;
+        const answeredBySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
+        let ticketed = 0;
+        let skipped = 0;
+        let answered = 0;
+        let resolved = 0;
+        let blockers = 0;
         
         findings.forEach(f => {
-          if (f.status === 'ticketed') return;
-          
           const thread = getThread(f.id);
-          const answered = thread?.status === 'resolved' || (thread?.decision && thread?.decision?.option_id !== 'custom');
+          const isResolved = thread?.status === 'resolved';
+          const hasNonCustomDecision = thread?.decision && thread.decision.option_id && thread.decision.option_id !== 'custom';
+          const hasCustomDecision = thread?.decision && thread.decision.option_id === 'custom';
+          const msgs = thread?.messages || [];
+          const hasResolutionMsg = msgs.some(m => 
+            m.role === 'system' && 
+            (m.text?.includes('Decision confirmed') || m.text?.includes('Marking resolved') || m.text?.includes('Ticket TKT-'))
+          );
           
-          if (answered) {
-            totalAnswered++;
+          // Count blockers separately (they show at top)
+          if (f.type === 'blocker' && f.status !== 'ticketed' && f.status !== 'skipped' && !isResolved && !hasResolutionMsg) {
+            blockers++;
+            return; // Don't count in severity tabs
+          }
+          
+          if (f.status === 'ticketed') {
+            ticketed++;
+          } else if (f.status === 'skipped') {
+            skipped++;
+          } else if (isResolved || hasResolutionMsg) {
+            // Fully resolved
+            resolved++;
+          } else if (hasNonCustomDecision) {
+            // Has a decision (PM picked an option) - ready to process
+            answered++;
+            answeredBySeverity[f.severity] = (answeredBySeverity[f.severity] || 0) + 1;
           } else {
-            // Only count unanswered in severity tabs
+            // Pending - needs decision (includes custom responses in discussion)
             bySeverity[f.severity] = (bySeverity[f.severity] || 0) + 1;
           }
         });
         
-        return { bySeverity, totalAnswered };
+        const done = ticketed + skipped + resolved;
+        const totalPending = Object.values(bySeverity).reduce((sum, n) => sum + n, 0);
+        return { bySeverity, answeredBySeverity, ticketed, skipped, answered, resolved, done, blockers, totalPending };
       }, [findings, decisions]);
 
-      // Helper to check if finding is answered
-      const isAnswered = (f) => {
-        if (f.status === 'ticketed') return false;
-        const thread = getThread(f.id);
-        return thread?.status === 'resolved' || (thread?.decision && thread?.decision?.option_id !== 'custom');
-      };
-      
-      // Filter findings - by severity (excluding answered), or show all answered
+      // Filter findings - by blockers, severity, ticketed, or answered
       const filtered = useMemo(() => {
-        if (severityFilter === 'answered') {
-          // Show all findings with decisions (ready for PM to create tickets)
-          return findings.filter(f => isAnswered(f));
+        // Helper to check if resolved
+        const isEffectivelyResolved = (f) => {
+          const thread = getThread(f.id);
+          if (thread?.status === 'resolved') return true;
+          if (thread?.decision && thread.decision.option_id) return true;
+          const msgs = thread?.messages || [];
+          return msgs.some(m => 
+            m.role === 'system' && 
+            (m.text?.includes('Decision confirmed') || m.text?.includes('Marking resolved') || m.text?.includes('Ticket TKT-'))
+          );
+        };
+        
+        // All filter - show all pending findings (not ticketed, not skipped, not resolved)
+        if (severityFilter === 'all') {
+          return findings.filter(f => {
+            if (f.type === 'blocker') return false; // Blockers shown separately
+            if (f.status === 'ticketed' || f.status === 'skipped') return false;
+            return !isEffectivelyResolved(f);
+          });
         }
-        // Severity tabs: exclude ticketed AND answered
+        
+        // Blockers filter - show type: "blocker" items that need decision
+        if (severityFilter === 'blockers') {
+          return findings.filter(f => {
+            if (f.type !== 'blocker') return false;
+            if (f.status === 'ticketed' || f.status === 'skipped') return false;
+            return !isEffectivelyResolved(f);
+          });
+        }
+        if (severityFilter === 'ticketed') {
+          return findings.filter(f => f.status === 'ticketed');
+        }
+        if (severityFilter === 'answered') {
+          // Show resolved findings that haven't been ticketed yet
+          return findings.filter(f => {
+            if (f.status === 'ticketed' || f.status === 'skipped') return false;
+            const thread = getThread(f.id);
+            return thread?.status === 'resolved' || (thread?.decision && thread?.decision?.option_id !== 'custom');
+          });
+        }
+        if (severityFilter === 'done') {
+          // Show all resolved/ticketed items
+          return findings.filter(f => {
+            if (f.status === 'ticketed' || f.status === 'skipped') return true;
+            const thread = getThread(f.id);
+            return thread?.status === 'resolved';
+          });
+        }
         return findings.filter(f => {
-          if (f.status === 'ticketed') return false;
-          if (isAnswered(f)) return false; // Hide answered from severity tabs
+          // Hide blockers from severity tabs (they have their own tab)
+          if (f.type === 'blocker') return false;
+          // Hide ticketed, skipped, AND resolved items from triage
+          if (f.status === 'ticketed' || f.status === 'skipped') return false;
+          // Also hide resolved items (decision already made)
+          if (isEffectivelyResolved(f)) return false;
           return f.severity === severityFilter;
         });
       }, [findings, severityFilter, decisions]);
@@ -692,29 +987,63 @@
       const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
       const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
+      // Set default filter to blockers if there are any, otherwise all
+      useEffect(() => {
+        if (stats.blockers > 0 && severityFilter === 'all') {
+          setSeverityFilter('blockers');
+        }
+      }, [stats.blockers]);
+
       return (
         <div className="fade-in">
-          {/* Single Bar: Severity + Ticketed */}
+          {/* Single Bar: Blockers + Severity + Done */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div className="tabs">
+              {/* All Tab */}
+              <button className={`tab ${severityFilter === 'all' ? 'active' : ''}`} onClick={() => { setSeverityFilter('all'); setPage(0); }}>
+                All <span className="count">{stats.totalPending}</span>
+              </button>
+              {/* Blockers Tab - only show if there are blockers */}
+              {stats.blockers > 0 && (
+                <button 
+                  className={`tab ${severityFilter === 'blockers' ? 'active' : ''}`} 
+                  onClick={() => { setSeverityFilter('blockers'); setPage(0); }}
+                  style={{ 
+                    background: severityFilter === 'blockers' ? 'rgba(239,68,68,0.15)' : undefined,
+                    borderColor: severityFilter === 'blockers' ? 'var(--critical)' : undefined
+                  }}
+                >
+                  🚨 Blockers <span className="count" style={{ background: 'var(--critical)', color: 'white' }}>{stats.blockers}</span>
+                </button>
+              )}
               <button className={`tab ${severityFilter === 'critical' ? 'active' : ''}`} onClick={() => { setSeverityFilter('critical'); setPage(0); }}>
                 🔴 Critical <span className="count">{stats.bySeverity.critical || 0}</span>
+                {stats.answeredBySeverity.critical > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.critical} ready)</span>}
               </button>
               <button className={`tab ${severityFilter === 'high' ? 'active' : ''}`} onClick={() => { setSeverityFilter('high'); setPage(0); }}>
                 🟠 High <span className="count">{stats.bySeverity.high || 0}</span>
+                {stats.answeredBySeverity.high > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.high} ready)</span>}
               </button>
               <button className={`tab ${severityFilter === 'medium' ? 'active' : ''}`} onClick={() => { setSeverityFilter('medium'); setPage(0); }}>
                 🟡 Medium <span className="count">{stats.bySeverity.medium || 0}</span>
+                {stats.answeredBySeverity.medium > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.medium} ready)</span>}
               </button>
               <button className={`tab ${severityFilter === 'low' ? 'active' : ''}`} onClick={() => { setSeverityFilter('low'); setPage(0); }}>
                 🟢 Low <span className="count">{stats.bySeverity.low || 0}</span>
+                {stats.answeredBySeverity.low > 0 && <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--success)' }}>({stats.answeredBySeverity.low} ready)</span>}
               </button>
               <button 
                 className={`tab ${severityFilter === 'answered' ? 'active' : ''}`} 
                 onClick={() => { setSeverityFilter('answered'); setPage(0); }}
                 style={{ marginLeft: '12px' }}
               >
-                ✅ Answered <span className="count">{stats.totalAnswered}</span>
+                ✅ Answered <span className="count">{stats.answered}</span>
+              </button>
+              <button 
+                className={`tab ${severityFilter === 'done' ? 'active' : ''}`} 
+                onClick={() => { setSeverityFilter('done'); setPage(0); }}
+              >
+                ✓ Done <span className="count">{stats.done}</span>
               </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -741,16 +1070,15 @@
           {/* Findings List */}
           {filtered.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>{severityFilter === 'answered' ? '📋' : '🎉'}</div>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>{severityFilter === 'done' ? '✓' : severityFilter === 'answered' ? '✅' : '🎉'}</div>
               <div style={{ color: 'var(--text-muted)' }}>
-                {severityFilter === 'answered' ? 'No answered findings waiting for tickets' : `All ${severityFilter} findings have been processed!`}
+                {severityFilter === 'done' ? 'No completed findings yet' : severityFilter === 'answered' ? 'No answered findings yet' : `All ${severityFilter} priority findings are done!`}
               </div>
             </div>
           ) : (
             <>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter === 'answered' ? 'answered' : severityFilter} findings
-                {severityFilter === 'answered' && <span style={{ marginLeft: '8px', color: 'var(--accent-bright)' }}>→ Tell PM "check my answers" to create tickets</span>}
+                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter === 'done' ? 'completed' : severityFilter === 'answered' ? 'answered' : severityFilter} findings
               </div>
               {paginated.map(f => (
                 <FindingCard 
@@ -760,6 +1088,8 @@
                   onSelectOption={handleSelectOption}
                   onCustomResponse={handleCustomResponse}
                   onResolve={handleResolve}
+                  onSkip={handleSkip}
+                  onCombine={handleCombine}
                 />
               ))}
               
@@ -787,7 +1117,8 @@
       );
     }
 
-    function TicketsView({ ticketsData }) {
+    // DEPRECATED - Replaced by NewPipelineView "All Tickets" tab
+    function TicketsView_DEPRECATED({ ticketsData }) {
       const [filter, setFilter] = useState('all');
       const [selectedTicket, setSelectedTicket] = useState(null);
       
@@ -820,7 +1151,8 @@
       );
     }
 
-    function AgentsView() {
+    // DEPRECATED - Replaced by LaunchView
+    function AgentsView_DEPRECATED() {
       const s = FINDINGS_SUMMARY;
       const totalPending = Object.values(s.by_priority).reduce((sum, p) => sum + p.pending, 0);
       const highPending = s.by_priority.high.pending;
@@ -863,6 +1195,7 @@
             </p>
             
             <CommandBox label={PM_COMMANDS.processDecisions.label} command={PM_COMMANDS.processDecisions.command} description={PM_COMMANDS.processDecisions.description} />
+            <CommandBox label={PM_COMMANDS.answerQuestions.label} command={PM_COMMANDS.answerQuestions.command} description={PM_COMMANDS.answerQuestions.description} />
             <CommandBox label={PM_COMMANDS.continueHighFindings.label} command={PM_COMMANDS.continueHighFindings.command} description={PM_COMMANDS.continueHighFindings.description} />
             <CommandBox label={PM_COMMANDS.docMode.label} command={PM_COMMANDS.docMode.command} description={PM_COMMANDS.docMode.description} />
             <CommandBox label={PM_COMMANDS.reviewMode.label} command={PM_COMMANDS.reviewMode.command} description={PM_COMMANDS.reviewMode.description} />
@@ -908,13 +1241,2019 @@
       );
     }
 
+    // ================= DEV VIEW (DEPRECATED - kept for reference) =================
+    // This component has been replaced by NewPipelineView and LaunchView
+    // TODO: Remove after confirming new views work correctly
+
+    function DevView_DEPRECATED({ tickets, devStatus, onBlockedDecision, onSaveDevStatus, serverMode }) {
+      const [devTab, setDevTab] = useState('batch');
+      const [copied, setCopied] = useState(null);
+      const [customInputs, setCustomInputs] = useState({});
+      
+      // Filter tickets by status
+      const readyTickets = tickets.filter(t => t.status === 'ready');
+      const blockedItems = devStatus?.blocked || [];
+      const inProgressItems = devStatus?.in_progress || [];
+      const completedItems = devStatus?.completed || [];
+      
+      // Group ready tickets by priority
+      const byPriority = {
+        critical: readyTickets.filter(t => t.priority === 'critical'),
+        high: readyTickets.filter(t => t.priority === 'high'),
+        medium: readyTickets.filter(t => t.priority === 'medium'),
+        low: readyTickets.filter(t => t.priority === 'low')
+      };
+      
+      const copyCommand = (ticketId, version = 1) => {
+        const cmd = `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${ticketId}-v${version}.md`;
+        navigator.clipboard.writeText(cmd);
+        setCopied(ticketId);
+        setTimeout(() => setCopied(null), 2000);
+      };
+      
+      const handleBlockedDecision = (ticketId, optionId, optionLabel) => {
+        const customNote = customInputs[ticketId] || '';
+        onBlockedDecision(ticketId, { option_id: optionId, option_label: optionLabel }, customNote);
+        setCustomInputs(prev => ({ ...prev, [ticketId]: '' }));
+      };
+      
+      const markInProgress = (ticket) => {
+        const newInProgress = [...inProgressItems, {
+          ticket_id: ticket.id,
+          title: ticket.title,
+          branch: `agent/${ticket.id.toLowerCase()}-${ticket.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`,
+          started_at: new Date().toISOString()
+        }];
+        onSaveDevStatus({ ...devStatus, in_progress: newInProgress });
+      };
+      
+      const markCompleted = (ticketId) => {
+        const item = inProgressItems.find(i => i.ticket_id === ticketId);
+        if (!item) return;
+        
+        const newInProgress = inProgressItems.filter(i => i.ticket_id !== ticketId);
+        const newCompleted = [...completedItems, { ...item, completed_at: new Date().toISOString() }];
+        onSaveDevStatus({ ...devStatus, in_progress: newInProgress, completed: newCompleted });
+      };
+      
+      const retryTicket = (ticketId) => {
+        const item = inProgressItems.find(i => i.ticket_id === ticketId);
+        if (!item) return;
+        
+        // Move back to ready (remove from in_progress)
+        const newInProgress = inProgressItems.filter(i => i.ticket_id !== ticketId);
+        
+        // Track retry count
+        const retryHistory = [...(devStatus.retry_history || []), {
+          ticket_id: ticketId,
+          retried_at: new Date().toISOString(),
+          previous_attempt: item
+        }];
+        
+        onSaveDevStatus({ ...devStatus, in_progress: newInProgress, retry_history: retryHistory });
+      };
+      
+      const cancelTicket = (ticketId) => {
+        const newInProgress = inProgressItems.filter(i => i.ticket_id !== ticketId);
+        onSaveDevStatus({ ...devStatus, in_progress: newInProgress });
+      };
+      
+      // Helper: get elapsed time in minutes
+      const getElapsedMinutes = (startedAt) => {
+        if (!startedAt) return 0;
+        return Math.floor((Date.now() - new Date(startedAt).getTime()) / 60000);
+      };
+      
+      // Helper: format elapsed time nicely
+      const formatElapsed = (startedAt) => {
+        const mins = getElapsedMinutes(startedAt);
+        if (mins < 1) return 'Just started';
+        if (mins < 60) return `${mins} min ago`;
+        const hours = Math.floor(mins / 60);
+        const remainingMins = mins % 60;
+        if (hours < 24) return `${hours}h ${remainingMins}m ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ${hours % 24}h ago`;
+      };
+      
+      // Stale threshold: 30 minutes
+      const STALE_THRESHOLD_MINS = 30;
+      const isStale = (startedAt) => getElapsedMinutes(startedAt) > STALE_THRESHOLD_MINS;
+      
+      const pendingBlockers = blockedItems.filter(b => b.status !== 'decided');
+      const staleCount = inProgressItems.filter(i => isStale(i.started_at)).length;
+      
+      // ============ PARALLELIZATION LOGIC ============
+      // Calculate which tickets can run simultaneously without file conflicts
+      
+      // Get files currently being modified by in-progress tickets
+      const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id));
+      const filesInProgress = new Set();
+      tickets.filter(t => inProgressTicketIds.has(t.id)).forEach(t => {
+        (t.files_to_modify || []).forEach(f => filesInProgress.add(f));
+      });
+      
+      // Get tickets that are ready and not in progress
+      const availableTickets = readyTickets.filter(t => !inProgressTicketIds.has(t.id));
+      
+      // Calculate next batch - greedy algorithm to find non-conflicting tickets
+      const calculateNextBatch = () => {
+        const batch = [];
+        const batchFiles = new Set(filesInProgress); // Start with files already in progress
+        
+        // Sort by priority (critical first, then high, etc.)
+        const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+        const sorted = [...availableTickets].sort((a, b) => 
+          (priorityOrder[a.priority] || 4) - (priorityOrder[b.priority] || 4)
+        );
+        
+        for (const ticket of sorted) {
+          const ticketFiles = ticket.files_to_modify || [];
+          const hasConflict = ticketFiles.some(f => batchFiles.has(f));
+          
+          if (!hasConflict) {
+            batch.push(ticket);
+            ticketFiles.forEach(f => batchFiles.add(f));
+          }
+        }
+        
+        return batch;
+      };
+      
+      const nextBatch = calculateNextBatch();
+      
+      // Find conflicts for display
+      const getConflicts = (ticket) => {
+        const ticketFiles = ticket.files_to_modify || [];
+        const conflicts = [];
+        
+        // Check against in-progress
+        inProgressItems.forEach(ip => {
+          const ipTicket = tickets.find(t => t.id === ip.ticket_id);
+          if (ipTicket) {
+            const ipFiles = ipTicket.files_to_modify || [];
+            const sharedFiles = ticketFiles.filter(f => ipFiles.includes(f));
+            if (sharedFiles.length > 0) {
+              conflicts.push({ ticket_id: ip.ticket_id, files: sharedFiles, type: 'in_progress' });
+            }
+          }
+        });
+        
+        // Check against batch
+        nextBatch.forEach(bt => {
+          if (bt.id !== ticket.id) {
+            const btFiles = bt.files_to_modify || [];
+            const sharedFiles = ticketFiles.filter(f => btFiles.includes(f));
+            if (sharedFiles.length > 0) {
+              conflicts.push({ ticket_id: bt.id, files: sharedFiles, type: 'batch' });
+            }
+          }
+        });
+        
+        return conflicts;
+      };
+
+      return (
+        <div className="fade-in">
+          {/* Summary Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
+            <div 
+              className="card" 
+              onClick={() => setDevTab('all')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer', 
+                borderLeft: '4px solid var(--border)',
+                background: devTab === 'all' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {tickets.length}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>📋 All Tickets</div>
+            </div>
+            <div 
+              className="card" 
+              onClick={() => setDevTab('batch')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer',
+                borderLeft: '4px solid var(--success)',
+                background: devTab === 'batch' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--success)' }}>
+                {nextBatch.length}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🚀 Next Batch</div>
+            </div>
+            <div 
+              className="card" 
+              onClick={() => setDevTab('progress')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer',
+                borderLeft: staleCount > 0 ? '4px solid var(--medium)' : inProgressItems.length > 0 ? '4px solid var(--accent)' : '4px solid var(--border)',
+                background: devTab === 'progress' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{ fontSize: '24px', fontWeight: 700, color: staleCount > 0 ? 'var(--medium)' : inProgressItems.length > 0 ? 'var(--accent-bright)' : 'var(--text-muted)' }}>
+                  {inProgressItems.length}
+                </span>
+                {staleCount > 0 && (
+                  <span style={{ fontSize: '11px', color: 'var(--medium)', fontWeight: 600 }}>⚠️</span>
+                )}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🔄 In Progress</div>
+            </div>
+            <div 
+              className="card" 
+              onClick={() => setDevTab('blockers')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer', 
+                borderLeft: pendingBlockers.length > 0 ? '4px solid var(--critical)' : '4px solid var(--border)',
+                background: devTab === 'blockers' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ fontSize: '24px', fontWeight: 700, color: pendingBlockers.length > 0 ? 'var(--critical)' : 'var(--text-muted)' }}>
+                {pendingBlockers.length}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🚧 Blockers</div>
+            </div>
+            <div 
+              className="card" 
+              onClick={() => setDevTab('review')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer',
+                borderLeft: completedItems.length > 0 ? '4px solid var(--accent)' : '4px solid var(--border)',
+                background: devTab === 'review' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ fontSize: '24px', fontWeight: 700, color: completedItems.length > 0 ? 'var(--accent-bright)' : 'var(--text-muted)' }}>
+                {completedItems.length}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>✅ For Review</div>
+            </div>
+          </div>
+          
+          {/* Tab Navigation */}
+          <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0', overflowX: 'auto' }}>
+            {[
+              { id: 'all', label: '📋 All', count: tickets.length, color: 'var(--text-primary)' },
+              { id: 'batch', label: '🚀 Next Batch', count: nextBatch.length, color: 'var(--success)' },
+              { id: 'progress', label: '🔄 In Progress', count: inProgressItems.length, color: staleCount > 0 ? 'var(--medium)' : 'var(--accent)', stale: staleCount },
+              { id: 'blockers', label: '🚧 Blockers', count: pendingBlockers.length, color: 'var(--critical)' },
+              { id: 'review', label: '✅ For Review', count: completedItems.length, color: 'var(--accent)' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setDevTab(tab.id)}
+                style={{
+                  padding: '10px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: devTab === tab.id ? `3px solid ${tab.color}` : '3px solid transparent',
+                  color: devTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
+                  fontSize: '13px',
+                  fontWeight: devTab === tab.id ? 600 : 400,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginBottom: '-1px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {tab.label}
+                {tab.count > 0 && (
+                  <span style={{ 
+                    padding: '2px 6px', 
+                    background: devTab === tab.id ? tab.color : 'var(--bg-elevated)', 
+                    color: devTab === tab.id ? 'white' : 'var(--text-muted)', 
+                    borderRadius: '10px', 
+                    fontSize: '10px', 
+                    fontWeight: 600 
+                  }}>
+                    {tab.stale ? `⚠️ ${tab.count}` : tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          
+          {/* Tab Content */}
+          
+          {/* ALL TICKETS TAB */}
+          {devTab === 'all' && (
+            <div className="fade-in">
+              <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                Showing all {tickets.length} tickets. Filter by status or use "Next Batch" to see parallelizable tickets.
+              </div>
+              
+              {['ready', 'in_progress', 'blocked', 'review', 'done'].map(status => {
+                const statusTickets = tickets.filter(t => {
+                  if (status === 'in_progress') return inProgressTicketIds.has(t.id);
+                  if (status === 'blocked') return blockedItems.some(b => b.ticket_id === t.id);
+                  if (status === 'review') return completedItems.some(c => c.ticket_id === t.id);
+                  return t.status === status;
+                });
+                
+                if (statusTickets.length === 0) return null;
+                
+                const statusConfig = {
+                  ready: { label: 'Ready', icon: '🟢', color: 'var(--success)' },
+                  in_progress: { label: 'In Progress', icon: '🔄', color: 'var(--accent)' },
+                  blocked: { label: 'Blocked', icon: '🚧', color: 'var(--critical)' },
+                  review: { label: 'For Review', icon: '✅', color: 'var(--accent)' },
+                  done: { label: 'Done', icon: '✓', color: 'var(--text-muted)' }
+                };
+                const config = statusConfig[status] || { label: status, icon: '📋', color: 'var(--text-muted)' };
+                
+                return (
+                  <div key={status} style={{ marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <span>{config.icon}</span>
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: config.color }}>{config.label}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>({statusTickets.length})</span>
+                    </div>
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      {statusTickets.map(ticket => (
+                        <div key={ticket.id} className="card" style={{ padding: '12px 16px', borderLeft: `3px solid ${config.color}` }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <code style={{ fontSize: '11px', padding: '2px 6px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{ticket.id}</code>
+                                <span style={{ fontSize: '13px', fontWeight: 500 }}>{ticket.title}</span>
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                {ticket.priority} • {(ticket.files_to_modify || []).length} files
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* NEXT BATCH TAB */}
+          {devTab === 'batch' && (
+            <div className="fade-in">
+              {/* Batch Info */}
+              <div style={{ 
+                padding: '16px 20px', 
+                background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(99,102,241,0.1))',
+                borderRadius: '12px', 
+                marginBottom: '20px',
+                border: '1px solid rgba(16,185,129,0.2)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      🚀 {nextBatch.length} tickets can run in parallel
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      These tickets have no file conflicts — launch them all simultaneously!
+                    </div>
+                  </div>
+                  {nextBatch.length > 0 && (
+                    <button 
+                      className="btn btn-success"
+                      onClick={() => {
+                        nextBatch.forEach(t => markInProgress(t));
+                      }}
+                    >
+                      ▶ Start All {nextBatch.length}
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* In Progress Warning */}
+              {inProgressItems.length > 0 && (
+                <div style={{ 
+                  padding: '12px 16px', 
+                  background: 'rgba(99,102,241,0.1)', 
+                  borderRadius: '8px', 
+                  marginBottom: '16px',
+                  fontSize: '13px',
+                  color: 'var(--text-secondary)'
+                }}>
+                  ⚡ <strong>{inProgressItems.length} agents running</strong> — these files are locked: {' '}
+                  <code style={{ fontSize: '11px' }}>{[...filesInProgress].slice(0, 3).join(', ')}{filesInProgress.size > 3 ? ` +${filesInProgress.size - 3} more` : ''}</code>
+                </div>
+              )}
+              
+              {nextBatch.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+                  <div style={{ fontSize: '18px', fontWeight: 500 }}>
+                    {inProgressItems.length > 0 ? 'All remaining tickets conflict with in-progress work' : 'No ready tickets'}
+                  </div>
+                  <div style={{ fontSize: '14px', marginTop: '8px' }}>
+                    {inProgressItems.length > 0 ? 'Wait for current agents to complete, or check the "All Tickets" tab' : 'Create more tickets or check the backlog'}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  {nextBatch.map((ticket, idx) => {
+                    const priorityColors = { critical: 'var(--critical)', high: 'var(--high)', medium: 'var(--medium)', low: 'var(--low)' };
+                    const priorityIcons = { critical: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+                    
+                    return (
+                      <div key={ticket.id} className="card" style={{ padding: '16px 20px', borderLeft: `4px solid ${priorityColors[ticket.priority] || 'var(--border)'}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-muted)' }}>#{idx + 1}</span>
+                              <code style={{ fontSize: '12px', padding: '3px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{ticket.id}</code>
+                              <span style={{ fontSize: '11px' }}>{priorityIcons[ticket.priority]}</span>
+                              <Badge type={ticket.priority === 'critical' ? 'critical' : ticket.priority === 'high' ? 'open' : 'active'}>
+                                {ticket.priority?.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <div style={{ fontSize: '15px', fontWeight: 600, marginTop: '8px' }}>{ticket.title}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                              {(ticket.files_to_modify || []).length} files • {(ticket.acceptance_criteria || []).length} criteria
+                            </div>
+                            {(ticket.files_to_modify || []).length > 0 && (
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                                Files: <code>{(ticket.files_to_modify || []).slice(0, 2).join(', ')}{(ticket.files_to_modify || []).length > 2 ? ` +${(ticket.files_to_modify || []).length - 2}` : ''}</code>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', marginLeft: '16px' }}>
+                            <button 
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => markInProgress(ticket)}
+                            >
+                              ▶ Start
+                            </button>
+                            <button 
+                              className={`btn btn-sm ${copied === ticket.id ? 'btn-success' : 'btn-primary'}`}
+                              onClick={() => copyCommand(ticket.id)}
+                            >
+                              {copied === ticket.id ? '✓ Copied!' : '📋 Copy'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {/* Conflicting tickets */}
+              {availableTickets.length > nextBatch.length && (
+                <div style={{ marginTop: '32px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '12px' }}>
+                    ⏳ Waiting (file conflicts with batch above)
+                  </div>
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    {availableTickets.filter(t => !nextBatch.includes(t)).slice(0, 5).map(ticket => {
+                      const conflicts = getConflicts(ticket);
+                      return (
+                        <div key={ticket.id} className="card" style={{ padding: '12px 16px', opacity: 0.7, borderLeft: '3px solid var(--border)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <code style={{ fontSize: '11px' }}>{ticket.id}</code>
+                                <span style={{ fontSize: '13px' }}>{ticket.title}</span>
+                              </div>
+                              {conflicts.length > 0 && (
+                                <div style={{ fontSize: '11px', color: 'var(--critical)', marginTop: '4px' }}>
+                                  ⚠️ Conflicts with: {conflicts.map(c => c.ticket_id).join(', ')}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {availableTickets.filter(t => !nextBatch.includes(t)).length > 5 && (
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '8px' }}>
+                        ... and {availableTickets.filter(t => !nextBatch.includes(t)).length - 5} more waiting
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* BLOCKERS TAB */}
+          {devTab === 'blockers' && (
+            <div className="fade-in">
+              {pendingBlockers.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>✓</div>
+                  <div style={{ fontSize: '18px', fontWeight: 500 }}>No blocked agents</div>
+                  <div style={{ fontSize: '14px', marginTop: '8px' }}>All agents are running smoothly</div>
+                </div>
+              ) : (
+                pendingBlockers.map(blocked => (
+                  <div key={blocked.ticket_id} className="card" style={{ marginBottom: '16px', borderLeft: '4px solid var(--critical)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                      <div>
+                        <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{blocked.ticket_id}</code>
+                        <h3 style={{ fontSize: '18px', fontWeight: 600, marginTop: '4px' }}>{blocked.title}</h3>
+                        {blocked.branch && (
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Branch: <code style={{ color: 'var(--accent-bright)' }}>{blocked.branch}</code>
+                          </div>
+                        )}
+                      </div>
+                      <Badge type="critical">NEEDS DECISION</Badge>
+                    </div>
+                    
+                    <div style={{ padding: '16px', background: 'var(--bg-elevated)', borderRadius: '8px', marginBottom: '16px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Question:</div>
+                      <div style={{ fontSize: '15px', fontWeight: 500, lineHeight: '1.5' }}>{blocked.question}</div>
+                    </div>
+                    
+                    {blocked.progress && (
+                      <div style={{ display: 'flex', gap: '24px', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', padding: '12px', background: 'rgba(99,102,241,0.05)', borderRadius: '8px' }}>
+                        <div><strong style={{ color: 'var(--success)' }}>✓ Done:</strong> {blocked.progress.done?.length || 0} items</div>
+                        <div><strong style={{ color: 'var(--medium)' }}>⏳ Remaining:</strong> {blocked.progress.remaining?.length || 0} items</div>
+                      </div>
+                    )}
+                    
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Choose an option:</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {(blocked.options || []).map((opt, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleBlockedDecision(blocked.ticket_id, opt.id || (i + 1), opt.label)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '14px 18px',
+                              background: opt.recommended ? 'var(--accent-bg)' : 'var(--bg-surface)',
+                              border: opt.recommended ? '2px solid var(--accent)' : '1px solid var(--border)',
+                              borderRadius: '10px',
+                              color: 'var(--text-primary)',
+                              fontSize: '14px',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span style={{ flex: 1, paddingRight: '12px' }}>{opt.label}</span>
+                            {opt.recommended && (
+                              <span style={{ fontSize: '11px', padding: '4px 10px', background: 'var(--accent)', color: 'white', borderRadius: '6px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                ⭐ RECOMMENDED
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <input
+                      type="text"
+                      placeholder="Add a note with your decision (optional)..."
+                      value={customInputs[blocked.ticket_id] || ''}
+                      onChange={e => setCustomInputs(prev => ({ ...prev, [blocked.ticket_id]: e.target.value }))}
+                      className="input"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                ))
+              )}
+              
+              {/* Decided blockers */}
+              {blockedItems.filter(b => b.status === 'decided').length > 0 && (
+                <div style={{ marginTop: '24px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--success)', marginBottom: '12px' }}>✓ Recently Decided</div>
+                  {blockedItems.filter(b => b.status === 'decided').map(b => (
+                    <div key={b.ticket_id} style={{ padding: '14px', background: 'rgba(16,185,129,0.08)', borderRadius: '10px', marginBottom: '10px', fontSize: '14px', borderLeft: '3px solid var(--success)' }}>
+                      <strong>{b.ticket_id}</strong>: {b.decision?.option_label}
+                      {b.decision?.custom_note && <div style={{ color: 'var(--text-muted)', marginTop: '4px', fontSize: '13px' }}>Note: {b.decision.custom_note}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* IN PROGRESS TAB */}
+          {devTab === 'progress' && (
+            <div className="fade-in">
+              {/* Stale warning banner */}
+              {staleCount > 0 && (
+                <div style={{ 
+                  padding: '14px 20px', 
+                  background: 'rgba(234,179,8,0.15)', 
+                  borderRadius: '10px', 
+                  marginBottom: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  border: '1px solid rgba(234,179,8,0.3)'
+                }}>
+                  <span style={{ fontSize: '20px' }}>⚠️</span>
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--medium)' }}>{staleCount} agent{staleCount > 1 ? 's' : ''} may be stalled</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No update in over 30 minutes. Consider retrying if the chat errored.</div>
+                  </div>
+                </div>
+              )}
+              
+              {inProgressItems.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚀</div>
+                  <div style={{ fontSize: '18px', fontWeight: 500 }}>No agents running</div>
+                  <div style={{ fontSize: '14px', marginTop: '8px' }}>Go to "Ready to Launch" to start an agent</div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  {inProgressItems.map(item => {
+                    const stale = isStale(item.started_at);
+                    const elapsed = formatElapsed(item.started_at);
+                    
+                    return (
+                      <div 
+                        key={item.ticket_id} 
+                        className="card" 
+                        style={{ 
+                          padding: '20px', 
+                          borderLeft: stale ? '4px solid var(--medium)' : '4px solid var(--accent)',
+                          background: stale ? 'rgba(234,179,8,0.05)' : undefined
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                              <code style={{ fontSize: '13px', padding: '4px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{item.ticket_id}</code>
+                              {stale ? (
+                                <Badge type="open">⚠️ Possibly Stalled</Badge>
+                              ) : (
+                                <Badge type="active">Running</Badge>
+                              )}
+                              <span style={{ 
+                                fontSize: '12px', 
+                                color: stale ? 'var(--medium)' : 'var(--text-muted)',
+                                fontWeight: stale ? 600 : 400
+                              }}>
+                                {elapsed}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '17px', fontWeight: 600, marginTop: '10px' }}>{item.title}</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                              Branch: <code style={{ color: 'var(--accent-bright)', background: 'var(--accent-bg)', padding: '2px 6px', borderRadius: '4px' }}>{item.branch}</code>
+                            </div>
+                            
+                            {stale && (
+                              <div style={{ 
+                                marginTop: '12px', 
+                                padding: '10px 14px', 
+                                background: 'rgba(234,179,8,0.1)', 
+                                borderRadius: '6px',
+                                fontSize: '13px',
+                                color: 'var(--text-secondary)'
+                              }}>
+                                💡 <strong>Tip:</strong> Check if the Cursor chat is still running. If it errored, click Retry to relaunch.
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '16px' }}>
+                            <button className="btn btn-success" onClick={() => markCompleted(item.ticket_id)}>
+                              ✓ Complete
+                            </button>
+                            <button 
+                              className="btn btn-secondary" 
+                              onClick={() => retryTicket(item.ticket_id)}
+                              style={{ fontSize: '13px' }}
+                            >
+                              ⟳ Retry
+                            </button>
+                            <button 
+                              className="btn" 
+                              onClick={() => cancelTicket(item.ticket_id)}
+                              style={{ fontSize: '13px', color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border)' }}
+                            >
+                              ✗ Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {/* Completed items */}
+              {completedItems.length > 0 && (
+                <div style={{ marginTop: '32px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--success)', marginBottom: '12px' }}>✅ Recently Completed</div>
+                  {completedItems.map(item => (
+                    <div key={item.ticket_id} className="card" style={{ marginBottom: '12px', borderLeft: '4px solid var(--success)', opacity: 0.8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.ticket_id}</code>
+                          <div style={{ fontSize: '15px', fontWeight: 500, marginTop: '4px' }}>{item.title}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Completed: {new Date(item.completed_at).toLocaleString()}
+                          </div>
+                        </div>
+                        <Badge type="resolved">Done</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* FOR REVIEW TAB */}
+          {devTab === 'review' && (
+            <div className="fade-in">
+              {completedItems.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+                  <div style={{ fontSize: '18px', fontWeight: 500 }}>No completed work awaiting review</div>
+                  <div style={{ fontSize: '14px', marginTop: '8px' }}>Completed dev agent work will appear here for QA review</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ 
+                    padding: '16px 20px', 
+                    background: 'rgba(99,102,241,0.1)', 
+                    borderRadius: '12px', 
+                    marginBottom: '20px',
+                    border: '1px solid rgba(99,102,241,0.2)'
+                  }}>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      ✅ {completedItems.length} ticket{completedItems.length > 1 ? 's' : ''} ready for review
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Review the changes, run QA tests, then mark as done or request fixes
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gap: '16px' }}>
+                    {completedItems.map(item => {
+                      const ticket = tickets.find(t => t.id === item.ticket_id);
+                      return (
+                        <div key={item.ticket_id} className="card" style={{ padding: '20px', borderLeft: '4px solid var(--success)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <code style={{ fontSize: '12px', padding: '3px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{item.ticket_id}</code>
+                                <Badge type="resolved">Completed</Badge>
+                              </div>
+                              <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '10px' }}>{item.title}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                                Branch: <code style={{ color: 'var(--accent-bright)' }}>{item.branch}</code>
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                Completed: {new Date(item.completed_at).toLocaleString()}
+                              </div>
+                              
+                              {ticket && (
+                                <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
+                                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Acceptance Criteria to Verify:</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {(ticket.acceptance_criteria || []).map((ac, i) => (
+                                      <div key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                        ☐ {ac}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '16px' }}>
+                              <button className="btn btn-success" onClick={() => {
+                                const newCompleted = completedItems.filter(c => c.ticket_id !== item.ticket_id);
+                                onSaveDevStatus({ ...devStatus, completed: newCompleted });
+                              }}>
+                                ✓ Approve
+                              </button>
+                              <button className="btn btn-secondary" style={{ fontSize: '12px' }}>
+                                🔄 Request Fixes
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+        </div>
+      );
+    }
+
+    // ================= NEW PIPELINE VIEW =================
+    // Combines Feature Inventory + All Tickets + In Progress + For Review
+
+    function NewPipelineView({ tickets, devStatus, onSaveDevStatus, featuresList, findings }) {
+      const [pipelineTab, setPipelineTab] = useState('inventory');
+      const [selectedTicket, setSelectedTicket] = useState(null);
+      const [filter, setFilter] = useState('all');
+      const [selectedFeature, setSelectedFeature] = useState(null);
+      
+      // Ticket calculations
+      const readyTickets = tickets.filter(t => t.status === 'ready');
+      const inProgressItems = devStatus?.in_progress || [];
+      const completedItems = devStatus?.completed || [];
+      const blockedItems = devStatus?.blocked || [];
+      const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id));
+      
+      // Helper functions
+      const getElapsedMinutes = (startedAt) => {
+        if (!startedAt) return 0;
+        return Math.floor((Date.now() - new Date(startedAt).getTime()) / 60000);
+      };
+      
+      const formatElapsed = (startedAt) => {
+        const mins = getElapsedMinutes(startedAt);
+        if (mins < 1) return 'Just started';
+        if (mins < 60) return `${mins} min ago`;
+        const hours = Math.floor(mins / 60);
+        const remainingMins = mins % 60;
+        if (hours < 24) return `${hours}h ${remainingMins}m ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ${hours % 24}h ago`;
+      };
+      
+      const STALE_THRESHOLD_MINS = 30;
+      const isStale = (startedAt) => getElapsedMinutes(startedAt) > STALE_THRESHOLD_MINS;
+      const staleCount = inProgressItems.filter(i => isStale(i.started_at)).length;
+      
+      const markCompleted = (ticketId) => {
+        const item = inProgressItems.find(i => i.ticket_id === ticketId);
+        if (!item) return;
+        const newInProgress = inProgressItems.filter(i => i.ticket_id !== ticketId);
+        const newCompleted = [...completedItems, { ...item, completed_at: new Date().toISOString() }];
+        onSaveDevStatus({ ...devStatus, in_progress: newInProgress, completed: newCompleted });
+      };
+      
+      const retryTicket = (ticketId) => {
+        const item = inProgressItems.find(i => i.ticket_id === ticketId);
+        if (!item) return;
+        const newInProgress = inProgressItems.filter(i => i.ticket_id !== ticketId);
+        const retryHistory = [...(devStatus.retry_history || []), {
+          ticket_id: ticketId,
+          retried_at: new Date().toISOString(),
+          previous_attempt: item
+        }];
+        onSaveDevStatus({ ...devStatus, in_progress: newInProgress, retry_history: retryHistory });
+      };
+      
+      const cancelTicket = (ticketId) => {
+        const newInProgress = inProgressItems.filter(i => i.ticket_id !== ticketId);
+        onSaveDevStatus({ ...devStatus, in_progress: newInProgress });
+      };
+
+      return (
+        <div className="fade-in">
+          {/* Summary Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+            <div 
+              className="card" 
+              onClick={() => setPipelineTab('inventory')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer', 
+                borderLeft: '4px solid var(--accent)',
+                background: pipelineTab === 'inventory' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--accent-bright)' }}>
+                {FINDINGS_SUMMARY.meta.total_features}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>📚 Features</div>
+            </div>
+            <div 
+              className="card" 
+              onClick={() => setPipelineTab('all')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer',
+                borderLeft: '4px solid var(--text-muted)',
+                background: pipelineTab === 'all' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {tickets.length}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🎫 All Tickets</div>
+            </div>
+            <div 
+              className="card" 
+              onClick={() => setPipelineTab('progress')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer',
+                borderLeft: staleCount > 0 ? '4px solid var(--medium)' : inProgressItems.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
+                background: pipelineTab === 'progress' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{ fontSize: '24px', fontWeight: 700, color: staleCount > 0 ? 'var(--medium)' : inProgressItems.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
+                  {inProgressItems.length}
+                </span>
+                {staleCount > 0 && <span style={{ fontSize: '11px', color: 'var(--medium)', fontWeight: 600 }}>⚠️</span>}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🔄 In Progress</div>
+            </div>
+            <div 
+              className="card" 
+              onClick={() => setPipelineTab('review')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer',
+                borderLeft: completedItems.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
+                background: pipelineTab === 'review' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ fontSize: '24px', fontWeight: 700, color: completedItems.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
+                {completedItems.length}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>✅ For Review</div>
+            </div>
+          </div>
+          
+          {/* Tab Navigation */}
+          <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0' }}>
+            {[
+              { id: 'inventory', label: '📚 Feature Inventory', count: FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
+              { id: 'all', label: '🎫 All Tickets', count: tickets.length, color: 'var(--text-primary)' },
+              { id: 'progress', label: '🔄 In Progress', count: inProgressItems.length, color: staleCount > 0 ? 'var(--medium)' : 'var(--success)', stale: staleCount },
+              { id: 'review', label: '✅ For Review', count: completedItems.length, color: 'var(--success)' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setPipelineTab(tab.id)}
+                style={{
+                  padding: '10px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: pipelineTab === tab.id ? `3px solid ${tab.color}` : '3px solid transparent',
+                  color: pipelineTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
+                  fontSize: '13px',
+                  fontWeight: pipelineTab === tab.id ? 600 : 400,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginBottom: '-1px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {tab.label}
+                {tab.count > 0 && (
+                  <span style={{ 
+                    padding: '2px 6px', 
+                    background: pipelineTab === tab.id ? tab.color : 'var(--bg-elevated)', 
+                    color: pipelineTab === tab.id ? 'white' : 'var(--text-muted)', 
+                    borderRadius: '10px', 
+                    fontSize: '10px', 
+                    fontWeight: 600 
+                  }}>
+                    {tab.stale ? `⚠️ ${tab.count}` : tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          
+          {/* FEATURE INVENTORY TAB */}
+          {pipelineTab === 'inventory' && (
+            <div className="fade-in">
+              {/* Header */}
+              <div style={{ 
+                padding: '16px 20px', 
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(147,51,234,0.1))',
+                borderRadius: '12px', 
+                marginBottom: '20px',
+                border: '1px solid rgba(99,102,241,0.2)'
+              }}>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  📚 Feature Documentation & Review Status
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  {featuresList.length} features documented • Click to view documentation
+                </div>
+              </div>
+              
+              {/* Group features by category */}
+              {(() => {
+                const byCategory = {};
+                featuresList.forEach(f => {
+                  if (!byCategory[f.category]) byCategory[f.category] = [];
+                  byCategory[f.category].push(f);
+                });
+                
+                // Calculate review status per feature from findings
+                // "Reviewed" means review agent ran on this feature (findings exist)
+                // "Triaged" shows how many findings have been processed
+                const getFeatureReviewStatus = (featureName) => {
+                  const featureFindings = findings.filter(f => 
+                    f.feature?.toLowerCase().includes(featureName.toLowerCase()) ||
+                    featureName.toLowerCase().includes(f.feature?.toLowerCase().split(' ')[0] || '')
+                  );
+                  const triaged = featureFindings.filter(f => f.status === 'ticketed' || f.status === 'skipped').length;
+                  const total = featureFindings.length;
+                  const reviewed = total > 0; // If findings exist, it was reviewed
+                  return { triaged, total, reviewed };
+                };
+                
+                const categoryLabels = {
+                  admin: '🔧 Admin',
+                  agent: '👤 Agent',
+                  api: '🔌 API',
+                  auth: '🔐 Auth',
+                  billing: '💳 Billing',
+                  feedback: '💬 Feedback',
+                  monitoring: '📊 Monitoring',
+                  platform: '⚙️ Platform',
+                  stats: '📈 Stats',
+                  superadmin: '👑 Super Admin',
+                  visitor: '🌐 Visitor',
+                  general: '📁 General'
+                };
+                
+                return Object.entries(byCategory).sort((a, b) => a[0].localeCompare(b[0])).map(([category, categoryFeatures]) => (
+                  <div key={category} style={{ marginBottom: '24px' }}>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      fontWeight: 600, 
+                      color: 'var(--text-muted)', 
+                      marginBottom: '12px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      {categoryLabels[category] || category}
+                    </div>
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      {categoryFeatures.map(feature => {
+                        const reviewStatus = getFeatureReviewStatus(feature.name);
+                        return (
+                          <div 
+                            key={feature.docPath} 
+                            className="card" 
+                            style={{ 
+                              padding: '14px 18px', 
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              borderLeft: '3px solid var(--accent)'
+                            }}
+                            onClick={() => setSelectedFeature(feature)}
+                            onMouseOver={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                            onMouseOut={e => e.currentTarget.style.background = ''}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <span style={{ fontSize: '15px', fontWeight: 500 }}>{feature.name}</span>
+                                <code style={{ 
+                                  fontSize: '10px', 
+                                  padding: '2px 6px', 
+                                  background: 'var(--bg-elevated)', 
+                                  borderRadius: '4px',
+                                  color: 'var(--text-muted)'
+                                }}>
+                                  {feature.fileName}
+                                </code>
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                {/* Documented badge - always green since file exists */}
+                                <span style={{ 
+                                  padding: '4px 10px', 
+                                  borderRadius: '6px', 
+                                  fontSize: '11px', 
+                                  fontWeight: 600,
+                                  background: 'rgba(16,185,129,0.15)', 
+                                  color: 'var(--success)'
+                                }}>
+                                  ✓ Documented
+                                </span>
+                                {/* Reviewed badge - green if review agent ran (findings exist) */}
+                                <span style={{ 
+                                  padding: '4px 10px', 
+                                  borderRadius: '6px', 
+                                  fontSize: '11px', 
+                                  fontWeight: 600,
+                                  background: reviewStatus.reviewed ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)', 
+                                  color: reviewStatus.reviewed ? 'var(--success)' : 'var(--accent)'
+                                }}>
+                                  {reviewStatus.reviewed ? '✓ Reviewed' : '⏳ Not reviewed'}
+                                </span>
+                                {/* Findings count if any */}
+                                {reviewStatus.total > 0 && (
+                                  <span style={{ 
+                                    padding: '4px 10px', 
+                                    borderRadius: '6px', 
+                                    fontSize: '11px', 
+                                    fontWeight: 600,
+                                    background: 'var(--bg-elevated)', 
+                                    color: 'var(--text-muted)'
+                                  }}>
+                                    {reviewStatus.triaged}/{reviewStatus.total} triaged
+                                  </span>
+                                )}
+                                <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>→</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ));
+              })()}
+              
+              {/* Feature Doc Modal */}
+              {selectedFeature && (
+                <div className="modal-overlay" onClick={() => setSelectedFeature(null)}>
+                  <div className="modal fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+                    <div className="modal-header">
+                      <div>
+                        <code style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{selectedFeature.docPath}</code>
+                        <h2 style={{ fontSize: '18px', fontWeight: 600, marginTop: '4px' }}>{selectedFeature.name}</h2>
+                      </div>
+                      <button className="btn btn-sm btn-secondary" onClick={() => setSelectedFeature(null)}>×</button>
+                    </div>
+                    <div className="modal-body">
+                      <div style={{ 
+                        padding: '20px', 
+                        background: 'var(--bg-elevated)', 
+                        borderRadius: '8px',
+                        marginBottom: '16px'
+                      }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                          To view this documentation, open the file in your editor:
+                        </div>
+                        <code style={{ 
+                          display: 'block',
+                          padding: '12px 16px', 
+                          background: 'var(--bg-surface)', 
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          color: 'var(--accent-bright)',
+                          fontFamily: 'monospace'
+                        }}>
+                          {selectedFeature.docPath}
+                        </code>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button 
+                          className="btn btn-primary"
+                          onClick={() => {
+                            navigator.clipboard.writeText(selectedFeature.docPath);
+                          }}
+                        >
+                          📋 Copy Path
+                        </button>
+                        <button 
+                          className="btn btn-secondary"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`code ${selectedFeature.docPath}`);
+                          }}
+                        >
+                          📝 Copy VS Code Command
+                        </button>
+                      </div>
+                      
+                      {/* Show related findings */}
+                      {(() => {
+                        const relatedFindings = findings.filter(f => 
+                          f.feature?.toLowerCase().includes(selectedFeature.name.toLowerCase()) ||
+                          selectedFeature.name.toLowerCase().includes(f.feature?.toLowerCase().split(' ')[0] || '')
+                        ).slice(0, 5);
+                        
+                        if (relatedFindings.length === 0) return null;
+                        
+                        return (
+                          <div style={{ marginTop: '24px' }}>
+                            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>
+                              Related Findings ({relatedFindings.length})
+                            </div>
+                            <div style={{ display: 'grid', gap: '8px' }}>
+                              {relatedFindings.map(f => (
+                                <div key={f.id} style={{ 
+                                  padding: '10px 14px', 
+                                  background: 'var(--bg-elevated)', 
+                                  borderRadius: '6px',
+                                  borderLeft: `3px solid ${f.severity === 'critical' ? 'var(--critical)' : f.severity === 'high' ? 'var(--high)' : f.severity === 'medium' ? 'var(--medium)' : 'var(--low)'}`
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ fontSize: '13px', fontWeight: 500 }}>{f.title}</div>
+                                    <Badge type={f.status === 'ticketed' ? 'resolved' : f.severity}>{f.status === 'ticketed' ? 'Ticketed' : f.severity}</Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* ALL TICKETS TAB */}
+          {pipelineTab === 'all' && (
+            <div className="fade-in">
+              {/* Priority Filter Tabs */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div className="tabs">
+                  <button className={`tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
+                    All <span className="count">{tickets.length}</span>
+                  </button>
+                  <button className={`tab ${filter === 'critical' ? 'active' : ''}`} onClick={() => setFilter('critical')}>
+                    🔴 Critical <span className="count">{tickets.filter(t => t.priority === 'critical').length}</span>
+                  </button>
+                  <button className={`tab ${filter === 'high' ? 'active' : ''}`} onClick={() => setFilter('high')}>
+                    🟠 High <span className="count">{tickets.filter(t => t.priority === 'high').length}</span>
+                  </button>
+                  <button className={`tab ${filter === 'medium' ? 'active' : ''}`} onClick={() => setFilter('medium')}>
+                    🟡 Medium <span className="count">{tickets.filter(t => t.priority === 'medium').length}</span>
+                  </button>
+                  <button className={`tab ${filter === 'low' ? 'active' : ''}`} onClick={() => setFilter('low')}>
+                    🟢 Low <span className="count">{tickets.filter(t => t.priority === 'low').length}</span>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Ticket Grid */}
+              <div className="ticket-grid">
+                {(filter === 'all' ? tickets : tickets.filter(t => t.priority === filter)).map(ticket => (
+                  <TicketCard key={ticket.id} ticket={ticket} onClick={() => setSelectedTicket(ticket)} />
+                ))}
+              </div>
+              
+              {/* Ticket Modal */}
+              {selectedTicket && <TicketModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}
+            </div>
+          )}
+          
+          {/* IN PROGRESS TAB */}
+          {pipelineTab === 'progress' && (
+            <div className="fade-in">
+              {staleCount > 0 && (
+                <div style={{ 
+                  padding: '14px 20px', 
+                  background: 'rgba(234,179,8,0.15)', 
+                  borderRadius: '10px', 
+                  marginBottom: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  border: '1px solid rgba(234,179,8,0.3)'
+                }}>
+                  <span style={{ fontSize: '20px' }}>⚠️</span>
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--medium)' }}>{staleCount} agent{staleCount > 1 ? 's' : ''} may be stalled</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No update in over 30 minutes. Consider retrying if the chat errored.</div>
+                  </div>
+                </div>
+              )}
+              
+              {inProgressItems.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚀</div>
+                  <div style={{ fontSize: '18px', fontWeight: 500 }}>No agents running</div>
+                  <div style={{ fontSize: '14px', marginTop: '8px' }}>Go to Launch tab to start agents</div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  {inProgressItems.map(item => {
+                    const stale = isStale(item.started_at);
+                    const elapsed = formatElapsed(item.started_at);
+                    
+                    return (
+                      <div 
+                        key={item.ticket_id} 
+                        className="card" 
+                        style={{ 
+                          padding: '20px', 
+                          borderLeft: stale ? '4px solid var(--medium)' : '4px solid var(--success)',
+                          background: stale ? 'rgba(234,179,8,0.05)' : undefined
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                              <code style={{ fontSize: '13px', padding: '4px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{item.ticket_id}</code>
+                              {stale ? (
+                                <Badge type="open">⚠️ Possibly Stalled</Badge>
+                              ) : (
+                                <Badge type="active">Running</Badge>
+                              )}
+                              <span style={{ fontSize: '12px', color: stale ? 'var(--medium)' : 'var(--text-muted)', fontWeight: stale ? 600 : 400 }}>
+                                {elapsed}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '17px', fontWeight: 600, marginTop: '10px' }}>{item.title}</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                              Branch: <code style={{ color: 'var(--accent-bright)', background: 'var(--accent-bg)', padding: '2px 6px', borderRadius: '4px' }}>{item.branch}</code>
+                            </div>
+                          </div>
+                          
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '16px' }}>
+                            <button className="btn btn-success" onClick={() => markCompleted(item.ticket_id)}>
+                              ✓ Complete
+                            </button>
+                            <button className="btn btn-secondary" onClick={() => retryTicket(item.ticket_id)} style={{ fontSize: '13px' }}>
+                              ⟳ Retry
+                            </button>
+                            <button 
+                              className="btn" 
+                              onClick={() => cancelTicket(item.ticket_id)}
+                              style={{ fontSize: '13px', color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border)' }}
+                            >
+                              ✗ Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* FOR REVIEW TAB */}
+          {pipelineTab === 'review' && (
+            <div className="fade-in">
+              {completedItems.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+                  <div style={{ fontSize: '18px', fontWeight: 500 }}>No completed work awaiting review</div>
+                  <div style={{ fontSize: '14px', marginTop: '8px' }}>Completed dev agent work will appear here for QA review</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ 
+                    padding: '16px 20px', 
+                    background: 'rgba(16,185,129,0.1)', 
+                    borderRadius: '12px', 
+                    marginBottom: '20px',
+                    border: '1px solid rgba(16,185,129,0.2)'
+                  }}>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      ✅ {completedItems.length} ticket{completedItems.length > 1 ? 's' : ''} ready for review
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Review the changes, run QA tests, then mark as done or request fixes
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gap: '16px' }}>
+                    {completedItems.map(item => {
+                      const ticket = tickets.find(t => t.id === item.ticket_id);
+                      return (
+                        <div key={item.ticket_id} className="card" style={{ padding: '20px', borderLeft: '4px solid var(--success)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <code style={{ fontSize: '12px', padding: '3px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{item.ticket_id}</code>
+                                <Badge type="resolved">Completed</Badge>
+                              </div>
+                              <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '10px' }}>{item.title}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                                Branch: <code style={{ color: 'var(--accent-bright)' }}>{item.branch}</code>
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                Completed: {new Date(item.completed_at).toLocaleString()}
+                              </div>
+                              
+                              {ticket && (
+                                <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
+                                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Acceptance Criteria:</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {(ticket.acceptance_criteria || []).map((ac, i) => (
+                                      <div key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                        ☐ {ac}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '16px' }}>
+                              <button className="btn btn-success" onClick={() => {
+                                const newCompleted = completedItems.filter(c => c.ticket_id !== item.ticket_id);
+                                onSaveDevStatus({ ...devStatus, completed: newCompleted });
+                              }}>
+                                ✓ Approve
+                              </button>
+                              <button className="btn btn-secondary" style={{ fontSize: '12px' }}>
+                                🔄 Request Fixes
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ================= LAUNCH VIEW =================
+    // All agent commands in one place
+
+    function LaunchView({ tickets, devStatus, onSaveDevStatus, findings, serverDecisions }) {
+      const [copied, setCopied] = useState(null);
+      const [expandedSection, setExpandedSection] = useState('dev');
+      const [expandedTicket, setExpandedTicket] = useState(null);
+      const [launchNotes, setLaunchNotes] = useState({});
+      
+      // Ticket calculations
+      const readyTickets = tickets.filter(t => t.status === 'ready');
+      const inProgressItems = devStatus?.in_progress || [];
+      const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id));
+      const filesInProgress = new Set();
+      tickets.filter(t => inProgressTicketIds.has(t.id)).forEach(t => {
+        (t.files_to_modify || []).forEach(f => filesInProgress.add(f));
+      });
+      
+      const availableTickets = readyTickets.filter(t => !inProgressTicketIds.has(t.id));
+      
+      // Sort by priority
+      const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      const sortedTickets = [...availableTickets].sort((a, b) => 
+        (priorityOrder[a.priority] || 4) - (priorityOrder[b.priority] || 4)
+      );
+      
+      // Calculate next batch - greedy algorithm for parallelization
+      const calculateNextBatch = () => {
+        const batch = [];
+        const batchFiles = new Set(filesInProgress);
+        
+        for (const ticket of sortedTickets) {
+          const ticketFiles = ticket.files_to_modify || [];
+          const hasConflict = ticketFiles.some(f => batchFiles.has(f));
+          if (!hasConflict) {
+            batch.push(ticket);
+            ticketFiles.forEach(f => batchFiles.add(f));
+          }
+        }
+        return batch;
+      };
+      
+      const nextBatch = calculateNextBatch();
+      const nextBatchIds = new Set(nextBatch.map(t => t.id));
+      
+      const copyCommand = (id, additionalNotes = '') => {
+        let cmd = `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${id}-v1.md`;
+        if (additionalNotes) {
+          cmd += `\n\n---\nPM Notes: ${additionalNotes}`;
+        }
+        navigator.clipboard.writeText(cmd);
+        setCopied(id);
+        setTimeout(() => setCopied(null), 2000);
+      };
+      
+      const copyAllBatch = () => {
+        const commands = nextBatch.map((t, i) => {
+          let cmd = `# Agent ${i + 1}: ${t.id}\nYou are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${t.id}-v1.md`;
+          if (launchNotes[t.id]) {
+            cmd += `\n\nPM Notes: ${launchNotes[t.id]}`;
+          }
+          return cmd;
+        }).join('\n\n---\n\n');
+        navigator.clipboard.writeText(commands);
+        setCopied('all-batch');
+        setTimeout(() => setCopied(null), 2000);
+      };
+      
+      const markInProgress = (ticket) => {
+        const newInProgress = [...inProgressItems, {
+          ticket_id: ticket.id,
+          title: ticket.title,
+          branch: `agent/${ticket.id.toLowerCase()}-${ticket.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`,
+          started_at: new Date().toISOString(),
+          launch_notes: launchNotes[ticket.id] || null
+        }];
+        onSaveDevStatus({ ...devStatus, in_progress: newInProgress });
+      };
+      
+      // Count pipeline items by category
+      const pipelineStats = useMemo(() => {
+        if (!serverDecisions?.threads) return { pendingResponses: [], pendingTickets: [] };
+        
+        const getThread = (id) => serverDecisions.threads.find(t => t.finding_id === id);
+        
+        const pendingResponses = []; // PM asked a question, waiting for response
+        const pendingTickets = [];   // PM made decision, ready for ticket creation
+        
+        findings.forEach(f => {
+          const thread = getThread(f.id);
+          if (!thread) return;
+          
+          // Already processed - don't count
+          if (f.status === 'ticketed' || f.status === 'skipped') return;
+          
+          const isResolved = thread.status === 'resolved';
+          const hasCustomDecision = thread.decision && thread.decision.option_id === 'custom';
+          const hasNonCustomDecision = thread.decision && thread.decision.option_id && thread.decision.option_id !== 'custom';
+          const msgs = thread.messages || [];
+          const hasResolutionMsg = msgs.some(m => 
+            m.role === 'system' && 
+            (m.text?.includes('Decision confirmed') || m.text?.includes('Marking resolved') || m.text?.includes('Ticket TKT-'))
+          );
+          
+          // Skip if already fully resolved
+          if (hasResolutionMsg) return;
+          
+          // Custom decision = PM asked a question, waiting for response
+          if (hasCustomDecision && !isResolved) {
+            pendingResponses.push({ ...f, thread, isBlocker: f.type === 'blocker' });
+          }
+          // Non-custom decision or resolved = ready for ticket creation
+          else if (isResolved || hasNonCustomDecision) {
+            pendingTickets.push({ ...f, thread, isBlocker: f.type === 'blocker' });
+          }
+        });
+        
+        return { pendingResponses, pendingTickets };
+      }, [findings, serverDecisions]);
+      
+      const totalToProcess = pipelineStats.pendingResponses.length + pipelineStats.pendingTickets.length;
+      
+      // PM Command - unified
+      const pmCommand = {
+        label: 'Process Pipeline',
+        description: 'Create tickets from answered findings & mark resolved',
+        command: 'You are a PM agent. Read docs/workflow/PM_DEV_SOP.md. Read decisions.json and findings.json. For each finding with a PM decision: (1) if decision is to fix → create ticket in tickets.json following the schema in docs/workflow/templates/ticket-schema.json, (2) update finding status to "ticketed" or "skipped", (3) update thread status to "resolved" in decisions.json. Report: tickets created, items skipped, items already processed.'
+      };
+      
+      const DOC_REVIEW_COMMANDS = {
+        docSprint: {
+          label: 'Launch Doc Sprint',
+          description: 'Generate documentation for all features',
+          command: 'You are a PM agent. Read docs/workflow/PM_DOCS_SOP.md and execute doc-sprint mode. Generate doc-agent prompts for all undocumented features.'
+        },
+        reviewSprint: {
+          label: 'Launch Review Sprint', 
+          description: 'Review all documented features for issues',
+          command: 'You are a PM agent. Read docs/workflow/PM_DOCS_SOP.md and execute review-sprint mode. Generate review-agent prompts for all documented features.'
+        }
+      };
+
+      return (
+        <div className="fade-in">
+          {/* PM Agent Section */}
+          <div className="section" style={{ marginBottom: '32px' }}>
+            <div 
+              className="section-title" 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                marginBottom: expandedSection === 'pm' ? '16px' : '0'
+              }}
+              onClick={() => setExpandedSection(expandedSection === 'pm' ? null : 'pm')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '18px' }}>📋</span>
+                <span style={{ fontWeight: 600 }}>PM Agent</span>
+                <span style={{ 
+                  padding: '3px 10px', 
+                  background: totalToProcess > 0 ? 'var(--accent)' : 'var(--bg-elevated)', 
+                  color: totalToProcess > 0 ? 'white' : 'var(--text-muted)', 
+                  borderRadius: '12px', 
+                  fontSize: '11px', 
+                  fontWeight: 600 
+                }}>
+                  {totalToProcess} to process
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Respond & create tickets</span>
+              </div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'pm' ? '▼' : '▶'}</span>
+            </div>
+            
+            {expandedSection === 'pm' && (
+              <div style={{ display: 'grid', gap: '16px' }}>
+                {/* Stats breakdown */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                  <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '28px', fontWeight: 700, color: pipelineStats.pendingResponses.length > 0 ? 'var(--medium)' : 'var(--text-muted)' }}>
+                      {pipelineStats.pendingResponses.length}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>💬 Pending Responses</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      PM asked questions, awaiting answers
+                    </div>
+                    {pipelineStats.pendingResponses.filter(f => f.isBlocker).length > 0 && (
+                      <div style={{ fontSize: '10px', color: 'var(--critical)', marginTop: '4px' }}>
+                        🚨 {pipelineStats.pendingResponses.filter(f => f.isBlocker).length} blocker{pipelineStats.pendingResponses.filter(f => f.isBlocker).length !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                  <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '28px', fontWeight: 700, color: pipelineStats.pendingTickets.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
+                      {pipelineStats.pendingTickets.length}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>🎫 Pending Ticket Creation</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Decisions made, ready for tickets
+                    </div>
+                    {pipelineStats.pendingTickets.filter(f => f.isBlocker).length > 0 && (
+                      <div style={{ fontSize: '10px', color: 'var(--critical)', marginTop: '4px' }}>
+                        🚨 {pipelineStats.pendingTickets.filter(f => f.isBlocker).length} continuation ticket{pipelineStats.pendingTickets.filter(f => f.isBlocker).length !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Command card */}
+                <div className="card" style={{ padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '15px', fontWeight: 600 }}>{pmCommand.label}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{pmCommand.description}</div>
+                    </div>
+                    <button 
+                      className={`btn ${copied === 'pm-command' ? 'btn-success' : 'btn-primary'}`}
+                      onClick={() => {
+                        navigator.clipboard.writeText(pmCommand.command);
+                        setCopied('pm-command');
+                        setTimeout(() => setCopied(null), 2000);
+                      }}
+                    >
+                      {copied === 'pm-command' ? '✓ Copied!' : '📋 Copy Command'}
+                    </button>
+                  </div>
+                  <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
+                    <code style={{ fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-word' }}>{pmCommand.command}</code>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Dev Agents Section */}
+          <div className="section" style={{ marginBottom: '32px' }}>
+            <div 
+              className="section-title" 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                marginBottom: expandedSection === 'dev' ? '16px' : '0'
+              }}
+              onClick={() => setExpandedSection(expandedSection === 'dev' ? null : 'dev')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '18px' }}>🔨</span>
+                <span style={{ fontWeight: 600 }}>Dev Agents</span>
+                {nextBatch.length > 0 && (
+                  <span style={{ padding: '3px 10px', background: 'var(--success)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                    {nextBatch.length} ready
+                  </span>
+                )}
+              </div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'dev' ? '▼' : '▶'}</span>
+            </div>
+            
+            {expandedSection === 'dev' && (
+              <div className="fade-in">
+                {/* Batch Header */}
+                {nextBatch.length > 0 && (
+                  <div style={{ 
+                    padding: '16px 20px', 
+                    background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(99,102,241,0.1))',
+                    borderRadius: '12px', 
+                    marginBottom: '20px',
+                    border: '1px solid rgba(16,185,129,0.2)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          🚀 {nextBatch.length} tickets can run in parallel
+                        </div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          Click to expand, add notes, then copy command
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button 
+                          className={`btn ${copied === 'all-batch' ? 'btn-success' : 'btn-primary'}`}
+                          onClick={copyAllBatch}
+                        >
+                          {copied === 'all-batch' ? '✓ Copied All!' : `📋 Copy All ${nextBatch.length}`}
+                        </button>
+                        <button 
+                          className={`btn ${copied === 'started-all' ? 'btn-success' : 'btn-secondary'}`}
+                          onClick={() => {
+                            const newInProgress = nextBatch.map(ticket => ({
+                              ticket_id: ticket.id,
+                              title: ticket.title,
+                              branch: `agent/${ticket.id.toLowerCase()}-${ticket.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`,
+                              started_at: new Date().toISOString(),
+                              launch_notes: launchNotes[ticket.id] || null
+                            }));
+                            onSaveDevStatus({ 
+                              ...devStatus, 
+                              in_progress: [...inProgressItems, ...newInProgress] 
+                            });
+                            setCopied('started-all');
+                            setTimeout(() => setCopied(null), 2000);
+                          }}
+                        >
+                          {copied === 'started-all' ? '✓ Started!' : `▶ Start All ${nextBatch.length}`}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {inProgressItems.length > 0 && (
+                  <div style={{ 
+                    padding: '12px 16px', 
+                    background: 'rgba(99,102,241,0.1)', 
+                    borderRadius: '8px', 
+                    marginBottom: '16px',
+                    fontSize: '13px',
+                    color: 'var(--text-secondary)'
+                  }}>
+                    ⚡ <strong>{inProgressItems.length} agents running</strong> — locked files: {' '}
+                    <code style={{ fontSize: '11px' }}>{[...filesInProgress].slice(0, 3).join(', ')}{filesInProgress.size > 3 ? ` +${filesInProgress.size - 3} more` : ''}</code>
+                  </div>
+                )}
+                
+                {nextBatch.length === 0 ? (
+                  <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '36px', marginBottom: '12px' }}>🎉</div>
+                    <div style={{ fontSize: '16px', fontWeight: 500 }}>
+                      {inProgressItems.length > 0 ? 'All remaining tickets conflict with in-progress work' : 'No ready tickets'}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '12px' }}>
+                    {/* Group by priority - ONLY show tickets that can be parallelized */}
+                    {['critical', 'high', 'medium', 'low'].map(priority => {
+                      const priorityTickets = nextBatch.filter(t => t.priority === priority);
+                      if (priorityTickets.length === 0) return null;
+                      
+                      const priorityConfig = {
+                        critical: { label: '🔴 Critical', color: 'var(--critical)' },
+                        high: { label: '🟠 High', color: 'var(--high)' },
+                        medium: { label: '🟡 Medium', color: 'var(--medium)' },
+                        low: { label: '🟢 Low', color: 'var(--low)' }
+                      };
+                      const config = priorityConfig[priority];
+                      
+                      return (
+                        <div key={priority}>
+                          <div style={{ 
+                            fontSize: '13px', 
+                            fontWeight: 600, 
+                            color: config.color, 
+                            marginBottom: '10px',
+                            marginTop: priority !== 'critical' ? '16px' : '0'
+                          }}>
+                            {config.label} ({priorityTickets.length})
+                          </div>
+                          
+                          {priorityTickets.map((ticket) => {
+                            const isExpanded = expandedTicket === ticket.id;
+                            
+                            return (
+                              <div 
+                                key={ticket.id} 
+                                className="card" 
+                                style={{ 
+                                  marginBottom: '10px',
+                                  borderLeft: `4px solid ${config.color}`
+                                }}
+                              >
+                                {/* Ticket Header - Always Visible */}
+                                <div 
+                                  style={{ 
+                                    padding: '14px 18px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start'
+                                  }}
+                                  onClick={() => setExpandedTicket(isExpanded ? null : ticket.id)}
+                                >
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                      <code style={{ fontSize: '12px', padding: '3px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{ticket.id}</code>
+                                      <Badge type={ticket.priority}>{ticket.priority}</Badge>
+                                      <Badge type={ticket.difficulty === 'easy' ? 'low' : ticket.difficulty === 'hard' ? 'critical' : 'medium'}>{ticket.difficulty}</Badge>
+                                    </div>
+                                    <div style={{ fontSize: '15px', fontWeight: 600, marginTop: '8px' }}>{ticket.title}</div>
+                                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                      {ticket.feature} • {(ticket.files_to_modify || []).length} files • {(ticket.acceptance_criteria || []).length} criteria
+                                    </div>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{isExpanded ? '▼' : '▶'}</span>
+                                  </div>
+                                </div>
+                                
+                                {/* Expanded Content */}
+                                {isExpanded && (
+                                  <div style={{ padding: '0 18px 18px 18px', borderTop: '1px solid var(--border)' }}>
+                                    {/* Issue */}
+                                    <div style={{ marginTop: '16px' }}>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>Issue</div>
+                                      <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{ticket.issue}</div>
+                                    </div>
+                                    
+                                    {/* Files to Modify */}
+                                    <div style={{ marginTop: '16px' }}>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>Files to Modify</div>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                        {(ticket.files_to_modify || []).map((f, i) => (
+                                          <code key={i} style={{ fontSize: '11px', padding: '4px 8px', background: 'var(--bg-elevated)', borderRadius: '4px', color: 'var(--accent-bright)' }}>{f}</code>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Acceptance Criteria */}
+                                    <div style={{ marginTop: '16px' }}>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>Acceptance Criteria</div>
+                                      <div style={{ display: 'grid', gap: '4px' }}>
+                                        {(ticket.acceptance_criteria || []).map((c, i) => (
+                                          <div key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)', padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>
+                                            ☐ {c}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Risks */}
+                                    {(ticket.risks || []).length > 0 && (
+                                      <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(239,68,68,0.08)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                        <div style={{ fontSize: '11px', color: 'var(--critical)', fontWeight: 600, marginBottom: '6px' }}>⚠️ Risks to Avoid</div>
+                                        {(ticket.risks || []).map((r, i) => (
+                                          <div key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>• {r}</div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Launch Notes Input */}
+                                    <div style={{ marginTop: '20px', padding: '16px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
+                                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>📝 Add notes for the dev agent (optional)</div>
+                                      <textarea
+                                        value={launchNotes[ticket.id] || ''}
+                                        onChange={e => setLaunchNotes(prev => ({ ...prev, [ticket.id]: e.target.value }))}
+                                        placeholder="E.g., 'Focus on edge case X first' or 'Check with design team about Y'"
+                                        style={{
+                                          width: '100%',
+                                          minHeight: '60px',
+                                          padding: '10px 12px',
+                                          background: 'var(--bg-surface)',
+                                          border: '1px solid var(--border)',
+                                          borderRadius: '6px',
+                                          color: 'var(--text-primary)',
+                                          fontSize: '13px',
+                                          resize: 'vertical'
+                                        }}
+                                      />
+                                    </div>
+                                    
+                                    {/* Action Buttons */}
+                                    <div style={{ marginTop: '16px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                      <button 
+                                        className="btn btn-secondary"
+                                        onClick={() => markInProgress(ticket)}
+                                      >
+                                        ▶ Mark In Progress
+                                      </button>
+                                      <button 
+                                        className={`btn ${copied === ticket.id ? 'btn-success' : 'btn-primary'}`}
+                                        onClick={() => copyCommand(ticket.id, launchNotes[ticket.id])}
+                                      >
+                                        {copied === ticket.id ? '✓ Copied!' : '📋 Copy Launch Command'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Waiting tickets (file conflicts) */}
+                {(() => {
+                  const waitingTickets = sortedTickets.filter(t => !nextBatchIds.has(t.id));
+                  if (waitingTickets.length === 0) return null;
+                  return (
+                    <div style={{ marginTop: '24px', padding: '16px', background: 'var(--bg-elevated)', borderRadius: '8px', opacity: 0.7 }}>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                        ⏳ <strong>{waitingTickets.length} tickets waiting</strong> — file conflicts with current batch
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {waitingTickets.map(t => (
+                          <span key={t.id} style={{ 
+                            padding: '4px 10px', 
+                            background: 'var(--bg-surface)', 
+                            borderRadius: '6px', 
+                            fontSize: '12px',
+                            color: 'var(--text-secondary)'
+                          }}>
+                            {t.id}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+
+          {/* Doc/Review Agents Section */}
+          <div className="section">
+            <div 
+              className="section-title" 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                marginBottom: expandedSection === 'doc' ? '16px' : '0'
+              }}
+              onClick={() => setExpandedSection(expandedSection === 'doc' ? null : 'doc')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '18px' }}>📚</span>
+                <span style={{ fontWeight: 600 }}>Doc & Review Agents</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Documentation sprints</span>
+              </div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'doc' ? '▼' : '▶'}</span>
+            </div>
+            
+            {expandedSection === 'doc' && (
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {Object.values(DOC_REVIEW_COMMANDS).map((cmd, i) => (
+                  <div key={i} className="card" style={{ padding: '16px 20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '15px', fontWeight: 600 }}>{cmd.label}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{cmd.description}</div>
+                      </div>
+                      <button 
+                        className={`btn btn-sm ${copied === cmd.label ? 'btn-success' : 'btn-primary'}`}
+                        onClick={() => {
+                          navigator.clipboard.writeText(cmd.command);
+                          setCopied(cmd.label);
+                          setTimeout(() => setCopied(null), 2000);
+                        }}
+                      >
+                        {copied === cmd.label ? '✓ Copied!' : '📋 Copy'}
+                      </button>
+                    </div>
+                    <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
+                      <code style={{ fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-word' }}>{cmd.command}</code>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     // ================= MAIN APP =================
 
     function App() {
-      const [view, setView] = useState('pipeline');
+      const [view, setView] = useState('inbox');
       const [serverMode, setServerMode] = useState(false);
       const [findings, setFindings] = useState([]);
       const [tickets, setTickets] = useState([]);
+      const [featuresList, setFeaturesList] = useState([]);
+      const [devStatus, setDevStatus] = useState({ in_progress: [], completed: [] });
       const [serverDecisions, setServerDecisions] = useState(null);
       const [loading, setLoading] = useState(true);
 
@@ -940,6 +3279,12 @@
             if (data.tickets?.tickets) {
               setTickets(data.tickets.tickets);
             }
+            if (data.devStatus) {
+              setDevStatus(data.devStatus);
+            }
+            if (data.featuresList) {
+              setFeaturesList(data.featuresList);
+            }
             setLoading(false);
           })
           .catch(() => {
@@ -958,6 +3303,21 @@
           body: JSON.stringify(decisions)
         });
         if (!res.ok) throw new Error('Save failed');
+      };
+      
+      // Save dev status
+      const saveDevStatus = async (newStatus) => {
+        try {
+          const res = await fetch('/api/dev-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newStatus)
+          });
+          if (!res.ok) throw new Error('Save failed');
+          setDevStatus(newStatus);
+        } catch (e) {
+          console.error('Failed to save dev status:', e);
+        }
       };
 
       return (
@@ -981,10 +3341,37 @@
               </div>
             </div>
             <div className="nav">
+              <button className={`nav-item ${view === 'inbox' ? 'active' : ''}`} onClick={() => setView('inbox')}>
+                📥 Inbox
+                {(() => {
+                  const pendingFindings = findings.filter(f => f.status !== 'ticketed' && f.status !== 'skipped');
+                  const blockerCount = pendingFindings.filter(f => f.type === 'blocker').length;
+                  const totalCount = pendingFindings.length;
+                  if (totalCount === 0) return null;
+                  return (
+                    <span style={{ 
+                      marginLeft: '6px', 
+                      padding: '2px 6px', 
+                      background: blockerCount > 0 ? 'var(--critical)' : 'var(--accent)', 
+                      color: 'white', 
+                      borderRadius: '10px', 
+                      fontSize: '10px', 
+                      fontWeight: 600 
+                    }}>
+                      {blockerCount > 0 ? `🚨${blockerCount}` : Math.min(totalCount, 99)}
+                    </span>
+                  );
+                })()}
+              </button>
               <button className={`nav-item ${view === 'pipeline' ? 'active' : ''}`} onClick={() => setView('pipeline')}>📊 Pipeline</button>
-              <button className={`nav-item ${view === 'triage' ? 'active' : ''}`} onClick={() => setView('triage')}>📋 Triage</button>
-              <button className={`nav-item ${view === 'tickets' ? 'active' : ''}`} onClick={() => setView('tickets')}>🎫 Tickets</button>
-              <button className={`nav-item ${view === 'agents' ? 'active' : ''}`} onClick={() => setView('agents')}>🚀 Agents</button>
+              <button className={`nav-item ${view === 'launch' ? 'active' : ''}`} onClick={() => setView('launch')}>
+                🚀 Launch
+                {tickets.filter(t => t.status === 'ready').length > 0 && (
+                  <span style={{ marginLeft: '6px', padding: '2px 6px', background: 'var(--success)', color: 'white', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>
+                    {tickets.filter(t => t.status === 'ready').length}
+                  </span>
+                )}
+              </button>
             </div>
           </header>
 
@@ -993,14 +3380,31 @@
             {loading ? (
               <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
                 <div style={{ fontSize: '24px', marginBottom: '12px' }}>⟳</div>
-                <div style={{ color: 'var(--text-muted)' }}>Loading findings...</div>
+                <div style={{ color: 'var(--text-muted)' }}>Loading...</div>
               </div>
             ) : (
               <>
-                {view === 'pipeline' && <PipelineView />}
-                {view === 'triage' && <TriageView serverMode={serverMode} onSave={saveDecisions} findingsData={findings} serverDecisions={serverDecisions} />}
-                {view === 'tickets' && <TicketsView ticketsData={tickets} />}
-                {view === 'agents' && <AgentsView />}
+                {view === 'inbox' && <InboxView 
+                  serverMode={serverMode} 
+                  onSave={saveDecisions} 
+                  findingsData={findings} 
+                  serverDecisions={serverDecisions}
+                  onDecisionsChange={setServerDecisions}
+                />}
+                {view === 'pipeline' && <NewPipelineView 
+                  tickets={tickets} 
+                  devStatus={devStatus}
+                  onSaveDevStatus={saveDevStatus}
+                  featuresList={featuresList}
+                  findings={findings}
+                />}
+                {view === 'launch' && <LaunchView 
+                  tickets={tickets}
+                  devStatus={devStatus}
+                  onSaveDevStatus={saveDevStatus}
+                  findings={findings}
+                  serverDecisions={serverDecisions}
+                />}
               </>
             )}
           </main>

@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wave Grid - WebGL Demo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      overflow: hidden;
+      background: #000;
+      font-family: 'Space Mono', monospace;
+    }
+    
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+    
+    .ui {
+      position: fixed;
+      z-index: 10;
+      pointer-events: none;
+      color: #fff;
+    }
+    
+    .brand {
+      position: fixed;
+      top: 30px;
+      left: 30px;
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .center-text {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    
+    .center-text h1 {
+      font-size: clamp(40px, 8vw, 100px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 0 0 100px rgba(100, 200, 255, 0.5);
+    }
+    
+    .center-text p {
+      font-size: 12px;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.4);
+      margin-top: 20px;
+    }
+    
+    .controls {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      display: flex;
+      gap: 15px;
+    }
+    
+    .control-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.7);
+      padding: 10px 20px;
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all 0.3s ease;
+    }
+    
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+    
+    .control-btn.active {
+      background: rgba(100, 200, 255, 0.3);
+      border-color: rgba(100, 200, 255, 0.5);
+    }
+    
+    .stats {
+      position: fixed;
+      bottom: 30px;
+      left: 30px;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  
+  <div class="ui">
+    <div class="brand">WebGL × Shader Art</div>
+    <div class="center-text">
+      <h1>WAVE</h1>
+      <p>Interactive 3D Grid</p>
+    </div>
+    <div class="stats">
+      <div id="info">Vertices: 10,000 | Mode: Perspective</div>
+    </div>
+  </div>
+  
+  <div class="controls">
+    <button class="control-btn active" data-mode="wave">Wave</button>
+    <button class="control-btn" data-mode="spiral">Spiral</button>
+    <button class="control-btn" data-mode="ripple">Ripple</button>
+  </div>
+
+  <script>
+    // ============================================
+    // 3D WAVE GRID SHADER
+    // Perspective grid with wave distortions
+    // ============================================
+
+    const canvas = document.getElementById('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    const infoEl = document.getElementById('info');
+
+    if (!gl) {
+      alert('WebGL not supported');
+      throw new Error('WebGL not supported');
+    }
+
+    // State
+    let mode = 'wave';
+    let mouse = { x: 0.5, y: 0.5 };
+    let smoothMouse = { x: 0.5, y: 0.5 };
+
+    // Mode switching
+    document.querySelectorAll('.control-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelector('.control-btn.active').classList.remove('active');
+        btn.classList.add('active');
+        mode = btn.dataset.mode;
+      });
+    });
+
+    // Mouse tracking
+    document.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX / window.innerWidth;
+      mouse.y = 1.0 - e.clientY / window.innerHeight;
+    });
+
+    // Resize
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio, 2);
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // ============================================
+    // SHADERS
+    // ============================================
+
+    const vertexSource = `#version 300 es
+      in vec2 a_position;
+      out vec2 v_uv;
+      void main() {
+        v_uv = a_position * 0.5 + 0.5;
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    `;
+
+    const fragmentSource = `#version 300 es
+      precision highp float;
+      
+      in vec2 v_uv;
+      out vec4 fragColor;
+      
+      uniform float u_time;
+      uniform vec2 u_resolution;
+      uniform vec2 u_mouse;
+      uniform int u_mode;
+      
+      #define PI 3.14159265359
+      #define TAU 6.28318530718
+      
+      // Rotation matrix
+      mat2 rot(float a) {
+        float c = cos(a), s = sin(a);
+        return mat2(c, -s, s, c);
+      }
+      
+      // Hash function
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+      
+      // Value noise
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+      
+      // Get height based on mode
+      float getHeight(vec2 p, float time, vec2 mouse) {
+        float h = 0.0;
+        
+        if (u_mode == 0) { // Wave
+          h = sin(p.x * 3.0 + time * 2.0) * 0.3;
+          h += sin(p.y * 2.5 + time * 1.5) * 0.2;
+          h += sin(length(p) * 2.0 - time * 3.0) * 0.2;
+          
+          // Mouse influence
+          float mouseDist = length(p - (mouse * 2.0 - 1.0) * 5.0);
+          h += sin(mouseDist * 2.0 - time * 4.0) * 0.3 * exp(-mouseDist * 0.3);
+          
+        } else if (u_mode == 1) { // Spiral
+          float angle = atan(p.y, p.x);
+          float dist = length(p);
+          h = sin(angle * 3.0 + dist * 2.0 - time * 2.0) * 0.4;
+          h += sin(dist * 3.0 - time * 2.5) * 0.2;
+          
+          // Mouse attracts spiral
+          vec2 mp = (mouse * 2.0 - 1.0) * 5.0;
+          float mAngle = atan(p.y - mp.y, p.x - mp.x);
+          float mDist = length(p - mp);
+          h += sin(mAngle * 5.0 + mDist - time * 3.0) * 0.2 * exp(-mDist * 0.2);
+          
+        } else { // Ripple
+          vec2 mp = (mouse * 2.0 - 1.0) * 5.0;
+          float d1 = length(p);
+          float d2 = length(p - mp);
+          float d3 = length(p + mp * 0.5);
+          
+          h = sin(d1 * 4.0 - time * 3.0) * 0.2;
+          h += sin(d2 * 5.0 - time * 4.0) * 0.3;
+          h += sin(d3 * 3.0 - time * 2.0) * 0.15;
+        }
+        
+        return h;
+      }
+      
+      // Draw grid with perspective
+      vec4 grid(vec2 uv, float time, vec2 mouse) {
+        // Camera setup
+        vec3 ro = vec3(0.0, 3.0, -8.0); // Ray origin
+        vec3 lookAt = vec3(0.0, 0.0, 0.0);
+        
+        // Add subtle camera movement
+        ro.x += sin(time * 0.3) * 1.0;
+        ro.y += sin(time * 0.2) * 0.5;
+        
+        // Mouse influence on camera
+        ro.x += (mouse.x - 0.5) * 4.0;
+        ro.y += (mouse.y - 0.5) * 2.0;
+        
+        // Camera matrix
+        vec3 forward = normalize(lookAt - ro);
+        vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+        vec3 up = cross(forward, right);
+        
+        // Ray direction
+        vec2 screenPos = (uv - 0.5) * 2.0;
+        screenPos.x *= u_resolution.x / u_resolution.y;
+        vec3 rd = normalize(screenPos.x * right + screenPos.y * up + 2.0 * forward);
+        
+        // Ground plane intersection
+        float t = -ro.y / rd.y;
+        
+        vec4 col = vec4(0.0);
+        
+        if (t > 0.0 && rd.y < 0.0) {
+          vec3 p = ro + rd * t;
+          
+          // Get height at this point
+          float h = getHeight(p.xz, time, mouse);
+          
+          // Recalculate with height offset
+          float t2 = -(ro.y - h) / rd.y;
+          if (t2 > 0.0) {
+            vec3 p2 = ro + rd * t2;
+            h = getHeight(p2.xz, time, mouse);
+            p = ro + rd * (-(ro.y - h) / rd.y);
+          }
+          
+          // Grid lines
+          vec2 grid = abs(fract(p.xz) - 0.5);
+          float lineWidth = 0.03 + 0.02 * (1.0 - exp(-t * 0.1));
+          float gridLine = smoothstep(lineWidth, 0.0, min(grid.x, grid.y));
+          
+          // Grid dots at intersections
+          vec2 gridId = floor(p.xz);
+          vec2 gridUv = fract(p.xz) - 0.5;
+          float dot = smoothstep(0.08, 0.04, length(gridUv));
+          
+          // Color based on height and distance
+          float heightCol = h * 0.5 + 0.5;
+          vec3 gridColor = mix(
+            vec3(0.0, 0.4, 0.8),  // Blue
+            vec3(0.0, 0.8, 0.6),  // Cyan
+            heightCol
+          );
+          gridColor = mix(gridColor, vec3(1.0, 0.3, 0.5), pow(heightCol, 2.0)); // Pink peaks
+          
+          // Fade with distance
+          float fade = exp(-t * 0.08);
+          
+          // Glow effect
+          float glow = gridLine * 0.5 + dot * 0.8;
+          
+          col.rgb = gridColor * glow * fade;
+          col.a = glow * fade;
+          
+          // Add scanlines
+          float scanline = sin(p.z * 20.0 + time * 10.0) * 0.5 + 0.5;
+          col.rgb += vec3(0.1, 0.2, 0.3) * scanline * 0.1 * fade;
+          
+          // Height-based emission
+          col.rgb += vec3(0.5, 0.8, 1.0) * pow(max(0.0, h), 2.0) * 0.3 * fade;
+        }
+        
+        return col;
+      }
+      
+      void main() {
+        vec2 uv = v_uv;
+        float time = u_time;
+        
+        // Smooth mouse
+        vec2 m = u_mouse;
+        
+        // Background gradient
+        vec3 bgTop = vec3(0.02, 0.02, 0.05);
+        vec3 bgBot = vec3(0.0, 0.02, 0.04);
+        vec3 bg = mix(bgBot, bgTop, uv.y);
+        
+        // Add subtle stars
+        float stars = pow(hash(floor(uv * 500.0)), 20.0);
+        bg += stars * 0.3;
+        
+        // Grid
+        vec4 g = grid(uv, time, m);
+        
+        // Compose
+        vec3 col = bg;
+        col = mix(col, g.rgb, g.a);
+        
+        // Add bloom/glow
+        vec4 g2 = grid(uv + vec2(0.002, 0.002), time, m);
+        vec4 g3 = grid(uv - vec2(0.002, 0.002), time, m);
+        col += (g2.rgb + g3.rgb) * 0.1;
+        
+        // Chromatic aberration
+        vec4 gR = grid(uv + vec2(0.003, 0.0), time, m);
+        vec4 gB = grid(uv - vec2(0.003, 0.0), time, m);
+        col.r = mix(col.r, gR.r, 0.3);
+        col.b = mix(col.b, gB.b, 0.3);
+        
+        // Vignette
+        float vig = 1.0 - length(uv - 0.5) * 0.7;
+        col *= vig;
+        
+        // Scanlines (CRT effect)
+        float scanlines = sin(uv.y * u_resolution.y * 0.5) * 0.03 + 1.0;
+        col *= scanlines;
+        
+        // Film grain
+        float grain = hash(uv + fract(time)) * 0.05;
+        col += grain - 0.025;
+        
+        // Tone mapping
+        col = pow(col, vec3(0.9));
+        
+        fragColor = vec4(col, 1.0);
+      }
+    `;
+
+    // WebGL 1 fallback (simplified)
+    const vertexSourceGL1 = `
+      attribute vec2 a_position;
+      varying vec2 v_uv;
+      void main() {
+        v_uv = a_position * 0.5 + 0.5;
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    `;
+
+    const fragmentSourceGL1 = `
+      precision highp float;
+      varying vec2 v_uv;
+      uniform float u_time;
+      uniform vec2 u_resolution;
+      uniform vec2 u_mouse;
+      uniform int u_mode;
+      
+      #define PI 3.14159265359
+      
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      
+      float getHeight(vec2 p, float time, vec2 mouse) {
+        float h = 0.0;
+        h = sin(p.x * 3.0 + time * 2.0) * 0.3;
+        h += sin(p.y * 2.5 + time * 1.5) * 0.2;
+        h += sin(length(p) * 2.0 - time * 3.0) * 0.2;
+        float mouseDist = length(p - (mouse * 2.0 - 1.0) * 5.0);
+        h += sin(mouseDist * 2.0 - time * 4.0) * 0.3 * exp(-mouseDist * 0.3);
+        return h;
+      }
+      
+      vec4 grid(vec2 uv, float time, vec2 mouse) {
+        vec3 ro = vec3(0.0, 3.0, -8.0);
+        ro.x += sin(time * 0.3) * 1.0 + (mouse.x - 0.5) * 4.0;
+        ro.y += sin(time * 0.2) * 0.5 + (mouse.y - 0.5) * 2.0;
+        
+        vec3 forward = normalize(-ro);
+        vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+        vec3 up = cross(forward, right);
+        
+        vec2 screenPos = (uv - 0.5) * 2.0;
+        screenPos.x *= u_resolution.x / u_resolution.y;
+        vec3 rd = normalize(screenPos.x * right + screenPos.y * up + 2.0 * forward);
+        
+        float t = -ro.y / rd.y;
+        vec4 col = vec4(0.0);
+        
+        if (t > 0.0 && rd.y < 0.0) {
+          vec3 p = ro + rd * t;
+          float h = getHeight(p.xz, time, mouse);
+          p = ro + rd * (-(ro.y - h) / rd.y);
+          
+          vec2 g = abs(fract(p.xz) - 0.5);
+          float lineWidth = 0.03 + 0.02 * (1.0 - exp(-t * 0.1));
+          float gridLine = smoothstep(lineWidth, 0.0, min(g.x, g.y));
+          float dot = smoothstep(0.08, 0.04, length(fract(p.xz) - 0.5));
+          
+          float heightCol = h * 0.5 + 0.5;
+          vec3 gridColor = mix(vec3(0.0, 0.4, 0.8), vec3(0.0, 0.8, 0.6), heightCol);
+          gridColor = mix(gridColor, vec3(1.0, 0.3, 0.5), pow(heightCol, 2.0));
+          
+          float fade = exp(-t * 0.08);
+          float glow = gridLine * 0.5 + dot * 0.8;
+          
+          col.rgb = gridColor * glow * fade;
+          col.a = glow * fade;
+          col.rgb += vec3(0.5, 0.8, 1.0) * pow(max(0.0, h), 2.0) * 0.3 * fade;
+        }
+        return col;
+      }
+      
+      void main() {
+        vec2 uv = v_uv;
+        float time = u_time;
+        
+        vec3 bg = mix(vec3(0.0, 0.02, 0.04), vec3(0.02, 0.02, 0.05), uv.y);
+        bg += pow(hash(floor(uv * 500.0)), 20.0) * 0.3;
+        
+        vec4 g = grid(uv, time, u_mouse);
+        vec3 col = mix(bg, g.rgb, g.a);
+        col += (grid(uv + vec2(0.002), time, u_mouse).rgb + grid(uv - vec2(0.002), time, u_mouse).rgb) * 0.1;
+        
+        col *= 1.0 - length(uv - 0.5) * 0.7;
+        col *= sin(uv.y * u_resolution.y * 0.5) * 0.03 + 1.0;
+        col += hash(uv + fract(time)) * 0.05 - 0.025;
+        col = pow(col, vec3(0.9));
+        
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `;
+
+    // ============================================
+    // GL SETUP
+    // ============================================
+
+    function createShader(gl, type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error('Shader:', gl.getShaderInfoLog(shader));
+        return null;
+      }
+      return shader;
+    }
+
+    const isWebGL2 = gl instanceof WebGL2RenderingContext;
+    const vs = createShader(gl, gl.VERTEX_SHADER, isWebGL2 ? vertexSource : vertexSourceGL1);
+    const fs = createShader(gl, gl.FRAGMENT_SHADER, isWebGL2 ? fragmentSource : fragmentSourceGL1);
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(program, 'a_position');
+    const timeLoc = gl.getUniformLocation(program, 'u_time');
+    const resLoc = gl.getUniformLocation(program, 'u_resolution');
+    const mouseLoc = gl.getUniformLocation(program, 'u_mouse');
+    const modeLoc = gl.getUniformLocation(program, 'u_mode');
+
+    // ============================================
+    // RENDER
+    // ============================================
+
+    function getModeInt() {
+      if (mode === 'wave') return 0;
+      if (mode === 'spiral') return 1;
+      return 2;
+    }
+
+    function render(time) {
+      time *= 0.001;
+      
+      smoothMouse.x += (mouse.x - smoothMouse.x) * 0.08;
+      smoothMouse.y += (mouse.y - smoothMouse.y) * 0.08;
+      
+      gl.useProgram(program);
+      gl.enableVertexAttribArray(posLoc);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+      
+      gl.uniform1f(timeLoc, time);
+      gl.uniform2f(resLoc, canvas.width, canvas.height);
+      gl.uniform2f(mouseLoc, smoothMouse.x, smoothMouse.y);
+      gl.uniform1i(modeLoc, getModeInt());
+      
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
+

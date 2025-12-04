@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebGL Demos - Unicorn.studio Style</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Inter:wght@300;400;500&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      min-height: 100vh;
+      background: #0a0a0f;
+      font-family: 'Inter', sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+    
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(36px, 6vw, 64px);
+      font-weight: 400;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #fff 0%, #8b9dc3 50%, #ff6b9d 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .subtitle {
+      font-size: 14px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .demos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 30px;
+      max-width: 1000px;
+      width: 100%;
+    }
+    
+    .demo-card {
+      background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+    }
+    
+    .demo-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(255, 255, 255, 0.2);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+    
+    .demo-preview {
+      height: 200px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .demo-preview::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.8;
+    }
+    
+    .demo-card:nth-child(1) .demo-preview::before {
+      background: linear-gradient(135deg, #1a3a2f 0%, #0f1a2e 50%, #2a1a3a 100%);
+    }
+    
+    .demo-card:nth-child(2) .demo-preview::before {
+      background: linear-gradient(135deg, #3a1a1a 0%, #2a1a0a 50%, #1a0a1a 100%);
+    }
+    
+    .demo-card:nth-child(3) .demo-preview::before {
+      background: linear-gradient(135deg, #0a1a2a 0%, #1a2a3a 50%, #0a0f1a 100%);
+    }
+    
+    .demo-preview-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 32px;
+      font-style: italic;
+      opacity: 0.3;
+    }
+    
+    .demo-card:hover .demo-preview-text {
+      opacity: 0.6;
+    }
+    
+    .demo-info {
+      padding: 24px;
+    }
+    
+    .demo-info h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .demo-info p {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.5);
+      line-height: 1.6;
+    }
+    
+    .demo-tags {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    
+    .tag {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .footer {
+      margin-top: 60px;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 12px;
+    }
+    
+    .footer a {
+      color: rgba(255, 255, 255, 0.5);
+      text-decoration: none;
+    }
+    
+    .footer a:hover {
+      color: #fff;
+    }
+    
+    /* Animated background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: 
+        radial-gradient(circle at 20% 80%, rgba(100, 200, 150, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(150, 100, 200, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(200, 100, 150, 0.05) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: -1;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>WebGL Shader Demos</h1>
+    <p class="subtitle">Unicorn.studio style effects</p>
+  </div>
+  
+  <div class="demos">
+    <a href="aura-hero.html" class="demo-card">
+      <div class="demo-preview">
+        <div class="demo-preview-text">Aura</div>
+      </div>
+      <div class="demo-info">
+        <h3>Aura Financial Hero</h3>
+        <p>Fluid, organic mesh gradient background with domain warping. Features soft glowing orbs that mix and flow, responding to subtle mouse movement.</p>
+        <div class="demo-tags">
+          <span class="tag">Fluid Mesh</span>
+          <span class="tag">Domain Warp</span>
+          <span class="tag">Aura</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="aurora-particles.html" class="demo-card">
+      <div class="demo-preview">
+        <div class="demo-preview-text">Aurora</div>
+      </div>
+      <div class="demo-info">
+        <h3>Aurora Particles</h3>
+        <p>Flowing aurora borealis effect with mouse-reactive particles and sparkle effects. Uses fractal brownian motion for organic movement.</p>
+        <div class="demo-tags">
+          <span class="tag">FBM Noise</span>
+          <span class="tag">Particles</span>
+          <span class="tag">Mouse Reactive</span>
+        </div>
+      </div>
+    </a>
+    
+    <a href="liquid-morphs.html" class="demo-card">
+      <div class="demo-preview">
+        <div class="demo-preview-text">Liquid</div>
+      </div>
+      <div class="demo-info">
+        <h3>Liquid Morphs</h3>
+        <p>Organic metaball blobs with smooth blending. Click and drag to attract the shapes. Features specular highlights and caustic effects.</p>
+        <div class="demo-tags">
+          <span class="tag">Metaballs</span>
+          <span class="tag">SDF</span>
+          <span class="tag">Interactive</span>
+        </div>
+      </div>
+    </a>
+    
+    <a href="wave-grid.html" class="demo-card">
+      <div class="demo-preview">
+        <div class="demo-preview-text">Grid</div>
+      </div>
+      <div class="demo-info">
+        <h3>Wave Grid</h3>
+        <p>3D perspective grid with wave distortions. Three modes: Wave, Spiral, and Ripple. Features chromatic aberration and CRT scanlines.</p>
+        <div class="demo-tags">
+          <span class="tag">3D Perspective</span>
+          <span class="tag">Raymarching</span>
+          <span class="tag">Retro</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="flow-field.html" class="demo-card">
+      <div class="demo-preview">
+        <div class="demo-preview-text">Flow</div>
+      </div>
+      <div class="demo-info">
+        <h3>Flow Field</h3>
+        <p>250,000 particles simulated entirely on the GPU using Transform Feedback. Particles trace invisible noise paths creating organic textures.</p>
+        <div class="demo-tags">
+          <span class="tag">GPGPU</span>
+          <span class="tag">Transform Feedback</span>
+          <span class="tag">250k Particles</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="iridescent-cloth.html" class="demo-card">
+      <div class="demo-preview">
+        <div class="demo-preview-text">Silk</div>
+      </div>
+      <div class="demo-info">
+        <h3>Iridescent Cloth</h3>
+        <p>Simulated silk fabric with vertex displacement and a custom pearlescent shader using Fresnel effects. Moves organically like fluid cloth.</p>
+        <div class="demo-tags">
+          <span class="tag">Vertex Displacement</span>
+          <span class="tag">Fresnel Shader</span>
+          <span class="tag">3D Mesh</span>
+        </div>
+      </div>
+    </a>
+  </div>
+  
+  <footer class="footer">
+    <p>Pure WebGL shaders • No libraries • Open any HTML file directly in your browser</p>
+  </footer>
+</body>
+</html>
+

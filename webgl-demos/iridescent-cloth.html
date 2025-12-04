@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iridescent Cloth - WebGL Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      overflow: hidden; 
+      background: #050505; 
+      font-family: serif;
+    }
+    canvas { display: block; }
+    
+    .title {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      mix-blend-mode: overlay;
+      font-size: 8vw;
+      font-style: italic;
+      pointer-events: none;
+      text-align: center;
+      line-height: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div class="title">Silk &<br>Pearl</div>
+
+  <script>
+    // ============================================
+    // IRIDESCENT CLOTH SIMULATION
+    // Uses vertex displacement and fresnel shading
+    // ============================================
+
+    const canvas = document.getElementById('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+
+    if (!gl) throw new Error('WebGL not supported');
+
+    // Config
+    const ROWS = 100;
+    const COLS = 100;
+    const NUM_VERTICES = ROWS * COLS;
+    
+    // State
+    let mouse = { x: 0.5, y: 0.5 };
+    let targetMouse = { x: 0.5, y: 0.5 };
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    document.addEventListener('mousemove', e => {
+      targetMouse.x = e.clientX / window.innerWidth;
+      targetMouse.y = 1.0 - e.clientY / window.innerHeight;
+    });
+
+    // ============================================
+    // SHADERS
+    // ============================================
+
+    const vsSource = `#version 300 es
+      in vec3 a_position;
+      in vec2 a_uv;
+      
+      uniform float u_time;
+      uniform vec2 u_mouse;
+      uniform mat4 u_projection;
+      uniform mat4 u_view;
+      
+      out vec3 v_normal;
+      out vec3 v_viewDir;
+      out float v_displacement;
+      
+      // Simplex noise
+      vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+      vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+      vec3 permute(vec3 x) { return mod289(((x * 34.0) + 1.0) * x); }
+
+      float snoise(vec2 v) {
+        const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+        vec2 i = floor(v + dot(v, C.yy));
+        vec2 x0 = v - i + dot(i, C.xx);
+        vec2 i1;
+        i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+        vec4 x12 = x0.xyxy + C.xxzz;
+        x12.xy -= i1;
+        i = mod289(i);
+        vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+        vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+        m = m * m;
+        m = m * m;
+        vec3 x = 2.0 * fract(p * C.www) - 1.0;
+        vec3 h = abs(x) - 0.5;
+        vec3 ox = floor(x + 0.5);
+        vec3 a0 = x - ox;
+        m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+        vec3 g;
+        g.x = a0.x * x0.x + h.x * x0.y;
+        g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+        return 130.0 * dot(m, g);
+      }
+      
+      // Get height at position
+      float getHeight(vec2 p, float t) {
+        float h = 0.0;
+        
+        // Large waves
+        h += sin(p.x * 2.0 + t) * 0.5;
+        h += sin(p.y * 1.5 + t * 1.2) * 0.5;
+        
+        // Noise detail
+        h += snoise(p * 2.0 + t * 0.5) * 0.3;
+        h += snoise(p * 5.0 - t * 0.2) * 0.1;
+        
+        // Mouse ripple
+        vec2 m = (u_mouse * 2.0 - 1.0) * 4.0; // map to grid coords approx
+        float d = length(p - m);
+        h += sin(d * 5.0 - t * 5.0) * exp(-d) * 0.5;
+        
+        return h * 0.8;
+      }
+
+      void main() {
+        vec3 pos = a_position;
+        float t = u_time * 0.5;
+        
+        // Calculate height displacement
+        float h = getHeight(pos.xy, t);
+        pos.z += h;
+        v_displacement = h;
+        
+        // Calculate normal via finite differences
+        float eps = 0.05;
+        float hx = getHeight(pos.xy + vec2(eps, 0.0), t);
+        float hy = getHeight(pos.xy + vec2(0.0, eps), t);
+        vec3 va = vec3(eps, 0.0, hx - h);
+        vec3 vb = vec3(0.0, eps, hy - h);
+        v_normal = normalize(cross(va, vb));
+        
+        vec4 worldPos = vec4(pos, 1.0);
+        vec4 viewPos = u_view * worldPos;
+        v_viewDir = normalize(-viewPos.xyz);
+        
+        gl_Position = u_projection * viewPos;
+      }
+    `;
+
+    const fsSource = `#version 300 es
+      precision highp float;
+      
+      in vec3 v_normal;
+      in vec3 v_viewDir;
+      in float v_displacement;
+      
+      out vec4 fragColor;
+      
+      void main() {
+        vec3 normal = normalize(v_normal);
+        vec3 viewDir = normalize(v_viewDir);
+        
+        // Fresnel effect
+        float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
+        
+        // Iridescent colors
+        vec3 colA = vec3(0.5, 0.0, 0.5); // Deep purple
+        vec3 colB = vec3(0.0, 0.5, 0.8); // Cyan
+        vec3 colC = vec3(1.0, 0.8, 0.6); // Pearl/Gold
+        
+        // Mix colors based on normal orientation and fresnel
+        vec3 col = mix(colA, colB, normal.y * 0.5 + 0.5);
+        col = mix(col, colC, fresnel);
+        
+        // Specular highlight
+        vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
+        vec3 halfDir = normalize(lightDir + viewDir);
+        float spec = pow(max(dot(normal, halfDir), 0.0), 32.0);
+        
+        col += spec * 0.5;
+        
+        // Add displacement darkness (AO approximation)
+        col *= 0.8 + v_displacement * 0.2;
+        
+        fragColor = vec4(col, 1.0);
+      }
+    `;
+
+    // ============================================
+    // SETUP
+    // ============================================
+
+    function createShader(gl, type, source) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, source);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(s));
+        return null;
+      }
+      return s;
+    }
+
+    const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+
+    // Generate Grid Mesh
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    const width = 8;
+    const height = 8;
+
+    for (let y = 0; y <= ROWS; y++) {
+      for (let x = 0; x <= COLS; x++) {
+        const u = x / COLS;
+        const v = y / ROWS;
+        
+        positions.push(
+          (u - 0.5) * width,
+          (v - 0.5) * height,
+          0
+        );
+        uvs.push(u, v);
+      }
+    }
+
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const a = y * (COLS + 1) + x;
+        const b = a + 1;
+        const c = (y + 1) * (COLS + 1) + x;
+        const d = c + 1;
+        
+        indices.push(a, b, d);
+        indices.push(a, d, c);
+      }
+    }
+
+    // Buffers
+    const posBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+    const uvBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
+
+    const indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+    // Attributes
+    const posLoc = gl.getAttribLocation(program, 'a_position');
+    const uvLoc = gl.getAttribLocation(program, 'a_uv');
+
+    // Matrices
+    const projection = new Float32Array(16);
+    const view = new Float32Array(16);
+
+    function perspective(out, fovy, aspect, near, far) {
+      const f = 1.0 / Math.tan(fovy / 2);
+      out[0] = f / aspect; out[1] = 0; out[2] = 0; out[3] = 0;
+      out[4] = 0; out[5] = f; out[6] = 0; out[7] = 0;
+      out[8] = 0; out[9] = 0; out[10] = (far + near) / (near - far); out[11] = -1;
+      out[12] = 0; out[13] = 0; out[14] = (2 * far * near) / (near - far); out[15] = 0;
+    }
+
+    function lookAt(out, eye, center, up) {
+      const z0 = eye[0] - center[0], z1 = eye[1] - center[1], z2 = eye[2] - center[2];
+      const len = 1 / Math.sqrt(z0 * z0 + z1 * z1 + z2 * z2);
+      const zx = z0 * len, zy = z1 * len, zz = z2 * len;
+      const x0 = up[1] * zz - up[2] * zy, x1 = up[2] * zx - up[0] * zz, x2 = up[0] * zy - up[1] * zx;
+      const lenX = 1 / Math.sqrt(x0 * x0 + x1 * x1 + x2 * x2);
+      const xx = x0 * lenX, xy = x1 * lenX, xz = x2 * lenX;
+      const y0 = zy * xz - zz * xy, y1 = zz * xx - zx * xz, y2 = zx * xy - zy * xx;
+      const lenY = 1 / Math.sqrt(y0 * y0 + y1 * y1 + y2 * y2);
+      const yx = y0 * lenY, yy = y1 * lenY, yz = y2 * lenY;
+      out[0] = xx; out[1] = yx; out[2] = zx; out[3] = 0;
+      out[4] = xy; out[5] = yy; out[6] = zy; out[7] = 0;
+      out[8] = xz; out[9] = yz; out[10] = zz; out[11] = 0;
+      out[12] = -(xx * eye[0] + xy * eye[1] + xz * eye[2]);
+      out[13] = -(yx * eye[0] + yy * eye[1] + yz * eye[2]);
+      out[14] = -(zx * eye[0] + zy * eye[1] + zz * eye[2]);
+      out[15] = 1;
+    }
+
+    // ============================================
+    // RENDER
+    // ============================================
+
+    function render(time) {
+      time *= 0.001;
+      
+      // Smooth mouse
+      mouse.x += (targetMouse.x - mouse.x) * 0.05;
+      mouse.y += (targetMouse.y - mouse.y) * 0.05;
+      
+      gl.clearColor(0.02, 0.02, 0.05, 1);
+      gl.enable(gl.DEPTH_TEST);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      
+      gl.useProgram(program);
+      
+      // Update Camera
+      perspective(projection, Math.PI / 4, canvas.width / canvas.height, 0.1, 100.0);
+      
+      // Orbit camera slightly based on mouse
+      const camX = Math.sin(time * 0.2) * 2.0 + (mouse.x - 0.5) * 4.0;
+      const camY = 4.0 + (mouse.y - 0.5) * 4.0;
+      const camZ = 6.0;
+      
+      lookAt(view, [camX, camY, camZ], [0, 0, 0], [0, 1, 0]);
+      
+      gl.uniformMatrix4fv(gl.getUniformLocation(program, 'u_projection'), false, projection);
+      gl.uniformMatrix4fv(gl.getUniformLocation(program, 'u_view'), false, view);
+      gl.uniform1f(gl.getUniformLocation(program, 'u_time'), time);
+      gl.uniform2f(gl.getUniformLocation(program, 'u_mouse'), mouse.x, mouse.y);
+      
+      gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+      gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(posLoc);
+      
+      gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+      gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(uvLoc);
+      
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+      gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+      
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
+

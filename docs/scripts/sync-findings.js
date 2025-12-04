@@ -158,33 +158,16 @@ function generateOptions(finding) {
     });
   }
   
-  // Fallback: generate from suggested_fix if no agent_options
+  // No agent_options - use full suggested_fix as the recommended option
+  // No truncation - UI handles text wrapping
   const suggestedFix = finding.suggested_fix || '';
   const title = finding.title || 'this issue';
   
-  let option1 = suggestedFix;
-  if (option1.length > 100) {
-    const breakPoints = ['. ', ', ', ' - ', ' and '];
-    for (const bp of breakPoints) {
-      const idx = option1.indexOf(bp);
-      if (idx > 40 && idx < 100) {
-        option1 = option1.substring(0, idx);
-        break;
-      }
-    }
-    if (option1.length > 100) {
-      option1 = option1.substring(0, 97) + '...';
-    }
-  }
+  const option1 = suggestedFix.length >= 5 ? suggestedFix : `Implement: ${title}`;
   
-  if (!option1 || option1.length < 5) {
-    option1 = `Fix: ${title}`;
-  }
-  
+  // Return ONLY the recommended option - no generic fallbacks
   return [
-    { id: 'implement_fix', label: option1, recommended: true },
-    { id: 'defer', label: 'Add to backlog', recommended: false },
-    { id: 'skip', label: 'Skip - acceptable as-is', recommended: false }
+    { id: 'implement_fix', label: option1, recommended: true }
   ];
 }
 
