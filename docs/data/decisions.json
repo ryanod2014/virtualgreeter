@@ -3859,7 +3859,7 @@
     },
     {
       "finding_id": "F-643",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -3870,13 +3870,19 @@
           "role": "system",
           "text": "**Let me clarify:** This is about Better Uptime monitoring config. The docs say free tier = 3-min checks, but monitors are set to 1-min. Either monitors fail to create OR you get charged $20/mo unexpectedly. **Options:** (1) Change to 3-min = stay free, (2) Keep 1-min = pay $20/mo, (3) Skip = this is just a docs issue, not code. What would you like to do?",
           "timestamp": "2025-12-04T01:15:14.012Z"
+        },
+        {
+          "role": "human",
+          "text": "(1) Change to 3-min = stay free,",
+          "timestamp": "2025-12-04T01:22:23.063Z"
         }
       ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
-        "custom_note": "I dont understand",
-        "timestamp": "2025-12-04T01:06:45.578Z"
+        "custom_note": "(1) Change to 3-min = stay free,",
+        "timestamp": "2025-12-04T01:22:23.063Z",
+        "ticket_id": "TKT-025"
       }
     },
     {

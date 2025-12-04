@@ -1,8 +1,8 @@
 {
   "meta": {
-    "last_updated": "2025-12-03",
+    "last_updated": "2025-12-04",
     "version": "1.0",
-    "total_tickets": 23
+    "total_tickets": 24
   },
   "tickets": [
     {
@@ -760,7 +760,35 @@
         "Doc clearly states this is the free tier limit",
         "No contradictions between tier description and config"
       ]
+    },
+    {
+      "id": "TKT-025",
+      "title": "Update Uptime Monitors to 3-Minute Frequency",
+      "priority": "low",
+      "feature": "Uptime Monitoring",
+      "status": "ready",
+      "difficulty": "easy",
+      "complexity": "low",
+      "risk": "low",
+      "source": "Finding AUTH-login-flow #1 (F-643)",
+      "issue": "Better Uptime monitors are configured for 1-minute check frequency, but free tier only supports 3-minute. This will either fail or incur unexpected $20/mo charges.",
+      "fix_required": [
+        "Update Monitor 1 (Dashboard) to 3-minute frequency",
+        "Update Monitor 2 (Signaling Server) to 3-minute frequency",
+        "Update documentation to reflect 3-minute check frequency"
+      ],
+      "files_to_edit": [
+        "docs/features/auth/uptime-monitoring.md"
+      ],
+      "risk_notes": [
+        "Slightly slower alerting (3 min vs 1 min)",
+        "Documentation-only change if monitors not yet created"
+      ],
+      "acceptance_criteria": [
+        "Both monitors use 3-minute frequency",
+        "Documentation matches actual config",
+        "Stays within free tier limits"
+      ]
     }
   ]
 }
-
