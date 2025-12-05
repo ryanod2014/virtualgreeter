@@ -3,6 +3,7 @@ import type { Socket } from "socket.io-client";
 import type { ServerToWidgetEvents, WidgetToServerEvents } from "@ghost-greeter/domain";
 import { SOCKET_EVENTS } from "@ghost-greeter/domain";
 import { COBROWSE_TIMING } from "../../constants";
+import { maskSensitiveFields } from "./domSerializer";
 
 interface UseCobrowseOptions {
   socket: Socket<ServerToWidgetEvents, WidgetToServerEvents> | null;
@@ -48,6 +49,9 @@ export function useCobrowse({ socket, isInCall }: UseCobrowseOptions): void {
       // Remove scripts to prevent execution in the agent's view
       const scripts = docClone.querySelectorAll("script");
       scripts.forEach((script) => script.remove());
+
+      // Mask sensitive fields (passwords, credit cards, etc.)
+      maskSensitiveFields(docClone);
 
       // Convert relative URLs to absolute for images, stylesheets, etc.
       const baseUrl = window.location.origin;
