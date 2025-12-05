@@ -2801,7 +2801,7 @@ pnpm build`}
                   
                   <div style={{ display: 'grid', gap: '16px' }}>
                     {completedItems.map(item => {
-                      const ticket = tickets.find(t => t.id === item.ticket_id);
+                      const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
                       return (
                         <div key={item.ticket_id} className="card" style={{ padding: '20px', borderLeft: '4px solid var(--success)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -2871,8 +2871,9 @@ pnpm build`}
       // Ticket calculations
       const inProgressItems = devStatus?.in_progress || [];
       const completedItems = devStatus?.completed || [];
-      const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id));
-      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id));
+      // Normalize to uppercase for case-insensitive matching (TKT-004b vs TKT-004B)
+      const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id?.toUpperCase()));
+      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id?.toUpperCase()));
       
       // Blocked items from agent-output files
       const blockedItems = (agentOutputs?.blocked || []).map(b => {
@@ -2888,8 +2889,14 @@ pnpm build`}
       // Ready = status is 'ready' AND not in dev-status completed/in_progress
       const readyTickets = tickets.filter(t => 
         t.status === 'ready' && 
-        !completedTicketIds.has(t.id) && 
-        !inProgressTicketIds.has(t.id)
+        !completedTicketIds.has(t.id?.toUpperCase()) && 
+        !inProgressTicketIds.has(t.id?.toUpperCase())
+      );
+      
+      // Pending tickets = NOT in progress or completed (for All Tickets tab)
+      const pendingTickets = tickets.filter(t => 
+        !completedTicketIds.has(t.id?.toUpperCase()) && 
+        !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
       // Helper functions
@@ -2909,9 +2916,13 @@ pnpm build`}
         return `${days}d ${hours % 24}h ago`;
       };
       
-      const STALE_THRESHOLD_MINS = 30;
+      // Auto-requeue threshold: 40 minutes
+      const STALE_THRESHOLD_MINS = 40;
       const isStale = (startedAt) => getElapsedMinutes(startedAt) > STALE_THRESHOLD_MINS;
-      const staleCount = inProgressItems.filter(i => isStale(i.started_at)).length;
+      
+      // Filter out stalled agents - they automatically go back to Launch queue
+      const activeInProgressItems = inProgressItems.filter(i => !isStale(i.started_at));
+      const stalledCount = inProgressItems.length - activeInProgressItems.length;
       
       const markCompleted = (ticketId) => {
         const item = inProgressItems.find(i => i.ticket_id === ticketId);
@@ -2968,9 +2979,9 @@ pnpm build`}
               }}
             >
               <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                {tickets.length}
+                {pendingTickets.length}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>All Tickets</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Pending</div>
             </div>
             <div 
               className="card" 
@@ -2978,15 +2989,14 @@ pnpm build`}
               style={{ 
                 padding: '16px', 
                 cursor: 'pointer',
-                borderLeft: staleCount > 0 ? '4px solid var(--medium)' : inProgressItems.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
+                borderLeft: activeInProgressItems.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
                 background: pipelineTab === 'progress' ? 'var(--bg-elevated)' : undefined
               }}
             >
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontSize: '24px', fontWeight: 700, color: staleCount > 0 ? 'var(--medium)' : inProgressItems.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
-                  {inProgressItems.length}
+                <span style={{ fontSize: '24px', fontWeight: 700, color: activeInProgressItems.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
+                  {activeInProgressItems.length}
                 </span>
-                {staleCount > 0 && <span style={{ fontSize: '11px', color: 'var(--medium)', fontWeight: 600 }}>⚠️</span>}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>In Progress</div>
             </div>
@@ -3029,8 +3039,8 @@ pnpm build`}
           <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0' }}>
             {[
               { id: 'inventory', label: 'Feature Inventory', count: FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
-              { id: 'all', label: 'All Tickets', count: tickets.length, color: 'var(--text-primary)' },
-              { id: 'progress', label: 'In Progress', count: inProgressItems.length, color: staleCount > 0 ? 'var(--medium)' : 'var(--success)', stale: staleCount },
+              { id: 'all', label: 'Pending', count: pendingTickets.length, color: 'var(--text-primary)' },
+              { id: 'progress', label: 'In Progress', count: activeInProgressItems.length, color: 'var(--success)' },
               { id: 'blocked', label: 'Blocked', count: blockedItems.length, color: 'var(--critical)' },
               { id: 'review', label: 'For Review', count: completedItems.length, color: 'var(--success)' }
             ].map(tab => (
@@ -3306,33 +3316,33 @@ pnpm build`}
             </div>
           )}
           
-          {/* ALL TICKETS TAB */}
+          {/* PENDING TICKETS TAB */}
           {pipelineTab === 'all' && (
             <div className="fade-in">
               {/* Priority Filter Tabs */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <div className="tabs">
                   <button className={`tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
-                    All <span className="count">{tickets.length}</span>
+                    All <span className="count">{pendingTickets.length}</span>
                   </button>
                   <button className={`tab ${filter === 'critical' ? 'active' : ''}`} onClick={() => setFilter('critical')}>
-                    <StatusDot color="var(--critical)" /> Critical <span className="count">{tickets.filter(t => t.priority === 'critical').length}</span>
+                    <StatusDot color="var(--critical)" /> Critical <span className="count">{pendingTickets.filter(t => t.priority === 'critical').length}</span>
                   </button>
                   <button className={`tab ${filter === 'high' ? 'active' : ''}`} onClick={() => setFilter('high')}>
-                    <StatusDot color="var(--high)" /> High <span className="count">{tickets.filter(t => t.priority === 'high').length}</span>
+                    <StatusDot color="var(--high)" /> High <span className="count">{pendingTickets.filter(t => t.priority === 'high').length}</span>
                   </button>
                   <button className={`tab ${filter === 'medium' ? 'active' : ''}`} onClick={() => setFilter('medium')}>
-                    <StatusDot color="var(--medium)" /> Medium <span className="count">{tickets.filter(t => t.priority === 'medium').length}</span>
+                    <StatusDot color="var(--medium)" /> Medium <span className="count">{pendingTickets.filter(t => t.priority === 'medium').length}</span>
                   </button>
                   <button className={`tab ${filter === 'low' ? 'active' : ''}`} onClick={() => setFilter('low')}>
-                    <StatusDot color="var(--low)" /> Low <span className="count">{tickets.filter(t => t.priority === 'low').length}</span>
+                    <StatusDot color="var(--low)" /> Low <span className="count">{pendingTickets.filter(t => t.priority === 'low').length}</span>
                   </button>
                 </div>
               </div>
               
               {/* Ticket Grid */}
               <div className="ticket-grid">
-                {(filter === 'all' ? tickets : tickets.filter(t => t.priority === filter)).map(ticket => (
+                {(filter === 'all' ? pendingTickets : pendingTickets.filter(t => t.priority === filter)).map(ticket => (
                   <TicketCard key={ticket.id} ticket={ticket} onClick={() => setSelectedTicket(ticket)} />
                 ))}
               </div>
@@ -3345,35 +3355,21 @@ pnpm build`}
           {/* IN PROGRESS TAB */}
           {pipelineTab === 'progress' && (
             <div className="fade-in">
-              {staleCount > 0 && (
-                <div style={{ 
-                  padding: '14px 20px', 
-                  background: 'rgba(234,179,8,0.15)', 
-                  borderRadius: '10px', 
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  border: '1px solid rgba(234,179,8,0.3)'
-                }}>
-                  <span style={{ fontSize: '20px' }}>⚠️</span>
-                  <div>
-                    <div style={{ fontWeight: 600, color: 'var(--medium)' }}>{staleCount} agent{staleCount > 1 ? 's' : ''} may be stalled</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No update in over 30 minutes. Consider retrying if the chat errored.</div>
-                  </div>
-                </div>
-              )}
-              
-              {inProgressItems.length === 0 ? (
+              {activeInProgressItems.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
                   <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚀</div>
                   <div style={{ fontSize: '18px', fontWeight: 500 }}>No agents running</div>
                   <div style={{ fontSize: '14px', marginTop: '8px' }}>Go to Launch tab to start agents</div>
+                  {stalledCount > 0 && (
+                    <div style={{ fontSize: '13px', marginTop: '16px', color: 'var(--text-muted)' }}>
+                      {stalledCount} stalled agent{stalledCount > 1 ? 's' : ''} auto-requeued to Launch
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: '12px' }}>
-                  {inProgressItems.map(item => {
-                    const stale = isStale(item.started_at);
+                  {activeInProgressItems.map(item => {
+                    const mins = getElapsedMinutes(item.started_at);
                     const elapsed = formatElapsed(item.started_at);
                     
                     return (
@@ -3382,43 +3378,22 @@ pnpm build`}
                         className="card" 
                         style={{ 
                           padding: '20px', 
-                          borderLeft: stale ? '4px solid var(--medium)' : '4px solid var(--success)',
-                          background: stale ? 'rgba(234,179,8,0.05)' : undefined
+                          borderLeft: '4px solid var(--success)'
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                               <code style={{ fontSize: '13px', padding: '4px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{item.ticket_id}</code>
-                              {stale ? (
-                                <Badge type="open">⚠️ Possibly Stalled</Badge>
-                              ) : (
-                                <Badge type="active">Running</Badge>
-                              )}
-                              <span style={{ fontSize: '12px', color: stale ? 'var(--medium)' : 'var(--text-muted)', fontWeight: stale ? 600 : 400 }}>
-                                {elapsed}
+                              <Badge type="active">Running</Badge>
+                              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                {mins < 1 ? 'Just started' : `Running ${mins} min`}
                               </span>
                             </div>
                             <div style={{ fontSize: '17px', fontWeight: 600, marginTop: '10px' }}>{item.title}</div>
                             <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>
                               Branch: <code style={{ color: 'var(--accent-bright)', background: 'var(--accent-bg)', padding: '2px 6px', borderRadius: '4px' }}>{item.branch}</code>
                             </div>
-                          </div>
-                          
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '16px' }}>
-                            <button className="btn btn-success" onClick={() => markCompleted(item.ticket_id)}>
-                              ✓ Complete
-                            </button>
-                            <button className="btn btn-secondary" onClick={() => retryTicket(item.ticket_id)} style={{ fontSize: '13px' }}>
-                              ⟳ Retry
-                            </button>
-                            <button 
-                              className="btn" 
-                              onClick={() => cancelTicket(item.ticket_id)}
-                              style={{ fontSize: '13px', color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border)' }}
-                            >
-                              ✗ Cancel
-                            </button>
                           </div>
                         </div>
                       </div>
@@ -3694,7 +3669,7 @@ pnpm build`}
                   
                   <div className="ticket-grid">
                     {completedItems.map(item => {
-                      const ticket = tickets.find(t => t.id === item.ticket_id);
+                      const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
                       return (
                         <div 
                           key={item.ticket_id} 
@@ -3757,6 +3732,48 @@ pnpm build`}
       const [expandedTicket, setExpandedTicket] = useState(null);
       const [launchNotes, setLaunchNotes] = useState({});
       const [savedNotes, setSavedNotes] = useState({});
+      const [worktreeStatus, setWorktreeStatus] = useState(null); // null, 'creating', 'done', 'error'
+      const [worktreeResults, setWorktreeResults] = useState([]);
+      const [launchingTicket, setLaunchingTicket] = useState(null); // ticket ID being launched
+      const [launchingAll, setLaunchingAll] = useState(false);
+      const [launchAllProgress, setLaunchAllProgress] = useState(0);
+      
+      // Launch a single agent: create worktree, open Cursor, copy prompt
+      const launchAgent = async (ticket) => {
+        setLaunchingTicket(ticket.id);
+        
+        try {
+          // Call API to create worktree and open Cursor
+          const response = await fetch('/api/launch-agent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticketId: ticket.id })
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            // Copy the prompt to clipboard
+            const prompt = `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${ticket.id}-v1.md`;
+            navigator.clipboard.writeText(prompt);
+            
+            // Mark as in progress
+            markInProgress(ticket);
+            
+            setCopied(ticket.id);
+            setTimeout(() => {
+              setCopied(null);
+              setLaunchingTicket(null);
+            }, 3000);
+          } else {
+            console.error('Launch failed:', result.error);
+            setLaunchingTicket(null);
+          }
+        } catch (err) {
+          console.error('Failed to launch agent:', err);
+          setLaunchingTicket(null);
+        }
+      };
       
       // Calculate undocumented and unreviewed features
       const undocumentedFeatures = useMemo(() => {
@@ -3802,19 +3819,25 @@ pnpm build`}
       // Ticket calculations
       const inProgressItems = devStatus?.in_progress || [];
       const completedItems = devStatus?.completed || [];
-      const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id));
-      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id));
+      // Normalize to uppercase for case-insensitive matching
+      const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id?.toUpperCase()));
+      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id?.toUpperCase()));
       
       // Ready = status is 'ready' AND not in dev-status completed/in_progress
       const readyTickets = tickets.filter(t => 
         t.status === 'ready' && 
-        !completedTicketIds.has(t.id) && 
-        !inProgressTicketIds.has(t.id)
+        !completedTicketIds.has(t.id?.toUpperCase()) && 
+        !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
-      const filesInProgress = new Set();
-      tickets.filter(t => inProgressTicketIds.has(t.id)).forEach(t => {
-        (t.files_to_modify || []).forEach(f => filesInProgress.add(f));
+      const lockedFiles = new Set();
+      // Add files from in-progress tickets
+      tickets.filter(t => inProgressTicketIds.has(t.id?.toUpperCase())).forEach(t => {
+        (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
+      });
+      // Add files from completed (for review) tickets - they're not merged yet!
+      tickets.filter(t => completedTicketIds.has(t.id?.toUpperCase())).forEach(t => {
+        (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
       });
       
       const availableTickets = readyTickets;
@@ -3828,7 +3851,7 @@ pnpm build`}
       // Calculate next batch - greedy algorithm for parallelization
       const calculateNextBatch = () => {
         const batch = [];
-        const batchFiles = new Set(filesInProgress);
+        const batchFiles = new Set(lockedFiles);
         
         for (const ticket of sortedTickets) {
           const ticketFiles = ticket.files_to_modify || [];
@@ -3845,7 +3868,11 @@ pnpm build`}
       const nextBatchIds = new Set(nextBatch.map(t => t.id));
       
       const copyCommand = (id, additionalNotes = '') => {
-        let cmd = `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${id}-v1.md`;
+        let cmd = `# IMPORTANT: First set up your isolated worktree!
+# Run: ./scripts/setup-agent-worktree.sh ${id}
+# Then: cd ../agent-worktrees/${id}
+
+You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${id}-v1.md`;
         if (additionalNotes) {
           cmd += `\n\n---\nPM Notes: ${additionalNotes}`;
         }
@@ -3856,7 +3883,13 @@ pnpm build`}
       
       const copyAllBatch = () => {
         const commands = nextBatch.map((t, i) => {
-          let cmd = `# Agent ${i + 1}: ${t.id}\nYou are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${t.id}-v1.md`;
+          let cmd = `# ========================================
+# Agent ${i + 1}: ${t.id}
+# Worktree: ../agent-worktrees/${t.id}
+# ========================================
+# Setup: ./scripts/setup-agent-worktree.sh ${t.id} && cd ../agent-worktrees/${t.id}
+
+You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${t.id}-v1.md`;
           if (launchNotes[t.id]) {
             cmd += `\n\nPM Notes: ${launchNotes[t.id]}`;
           }
@@ -4140,31 +4173,134 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                           {copied === 'all-batch' ? 'Copied All!' : `Copy All ${nextBatch.length}`}
                         </button>
                         <button 
-                          className={`btn ${copied === 'started-all' ? 'btn-success' : 'btn-secondary'}`}
-                          onClick={() => {
+                          className={`btn ${worktreeStatus === 'done' ? 'btn-success' : worktreeStatus === 'creating' ? 'btn-warning' : 'btn-secondary'}`}
+                          disabled={worktreeStatus === 'creating'}
+                          onClick={async () => {
+                            // Step 1: Create worktrees for all tickets
+                            setWorktreeStatus('creating');
+                            setWorktreeResults([]);
+                            
+                            try {
+                              const ticketIds = nextBatch.map(t => t.id);
+                              const response = await fetch('/api/setup-worktrees', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ ticketIds })
+                              });
+                              
+                              const result = await response.json();
+                              setWorktreeResults(result.results || []);
+                              
+                              if (result.success) {
+                                // Step 2: Mark tickets as in progress
+                                const newInProgress = nextBatch.map(ticket => ({
+                                  ticket_id: ticket.id,
+                                  title: ticket.title,
+                                  branch: `agent/${ticket.id.toLowerCase()}`,
+                                  started_at: new Date().toISOString(),
+                                  launch_notes: launchNotes[ticket.id] || null,
+                                  worktree_path: `../agent-worktrees/${ticket.id}`
+                                }));
+                                onSaveDevStatus({ 
+                                  ...devStatus, 
+                                  in_progress: [...inProgressItems, ...newInProgress] 
+                                });
+                                setWorktreeStatus('done');
+                                setTimeout(() => setWorktreeStatus(null), 3000);
+                              } else {
+                                setWorktreeStatus('error');
+                              }
+                            } catch (err) {
+                              console.error('Failed to create worktrees:', err);
+                              setWorktreeStatus('error');
+                            }
+                          }}
+                        >
+                          {worktreeStatus === 'creating' ? '⏳ Creating Worktrees...' : 
+                           worktreeStatus === 'done' ? '✓ Worktrees Ready!' : 
+                           worktreeStatus === 'error' ? '❌ Error (retry)' :
+                           `▶ Setup Worktrees`}
+                        </button>
+                        <button 
+                          className={`btn ${launchingAll ? 'btn-warning' : 'btn-success'}`}
+                          disabled={launchingAll}
+                          onClick={async () => {
+                            setLaunchingAll(true);
+                            setLaunchAllProgress(0);
+                            
+                            // Launch each agent with a small delay to prevent overwhelming
+                            for (let i = 0; i < nextBatch.length; i++) {
+                              const ticket = nextBatch[i];
+                              setLaunchAllProgress(i + 1);
+                              
+                              try {
+                                await fetch('/api/launch-agent', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ ticketId: ticket.id })
+                                });
+                                
+                                // Small delay between launches
+                                await new Promise(r => setTimeout(r, 1000));
+                              } catch (err) {
+                                console.error(`Failed to launch ${ticket.id}:`, err);
+                              }
+                            }
+                            
+                            // Mark all as in progress
                             const newInProgress = nextBatch.map(ticket => ({
                               ticket_id: ticket.id,
                               title: ticket.title,
-                              branch: `agent/${ticket.id.toLowerCase()}-${ticket.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`,
+                              branch: `agent/${ticket.id.toLowerCase()}`,
                               started_at: new Date().toISOString(),
-                              launch_notes: launchNotes[ticket.id] || null
+                              launch_notes: launchNotes[ticket.id] || null,
+                              worktree_path: `../agent-worktrees/${ticket.id}`
                             }));
                             onSaveDevStatus({ 
                               ...devStatus, 
                               in_progress: [...inProgressItems, ...newInProgress] 
                             });
-                            setCopied('started-all');
-                            setTimeout(() => setCopied(null), 2000);
+                            
+                            // Copy all prompts to clipboard
+                            copyAllBatch();
+                            
+                            setLaunchingAll(false);
+                            setLaunchAllProgress(0);
                           }}
                         >
-                          {copied === 'started-all' ? '✓ Started!' : `▶ Start All ${nextBatch.length}`}
+                          {launchingAll ? `🚀 Launching ${launchAllProgress}/${nextBatch.length}...` : 
+                           `🚀 Launch All ${nextBatch.length} in Cursor`}
                         </button>
                       </div>
                     </div>
                   </div>
                 )}
                 
-                {inProgressItems.length > 0 && (
+                {/* Worktree Status Display */}
+                {worktreeResults.length > 0 && (
+                  <div style={{ 
+                    padding: '12px 16px', 
+                    background: worktreeStatus === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)', 
+                    borderRadius: '8px', 
+                    marginBottom: '16px',
+                    fontSize: '13px'
+                  }}>
+                    <strong>Worktree Setup Results:</strong>
+                    <div style={{ marginTop: '8px', display: 'grid', gap: '4px' }}>
+                      {worktreeResults.map(r => (
+                        <div key={r.ticketId} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>{r.success ? '✅' : '❌'}</span>
+                          <code style={{ fontSize: '12px' }}>{r.ticketId}</code>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                            {r.success ? r.path : r.error}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {(inProgressItems.length > 0 || completedItems.length > 0) && (
                   <div style={{ 
                     padding: '12px 16px', 
                     background: 'rgba(99,102,241,0.1)', 
@@ -4173,8 +4309,8 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                     fontSize: '13px',
                     color: 'var(--text-secondary)'
                   }}>
-                    ⚡ <strong>{inProgressItems.length} agents running</strong> — locked files: {' '}
-                    <code style={{ fontSize: '11px' }}>{[...filesInProgress].slice(0, 3).join(', ')}{filesInProgress.size > 3 ? ` +${filesInProgress.size - 3} more` : ''}</code>
+                    ⚡ <strong>{inProgressItems.length} running, {completedItems.length} for review</strong> — locked files: {' '}
+                    <code style={{ fontSize: '11px' }}>{[...lockedFiles].slice(0, 3).join(', ')}{lockedFiles.size > 3 ? ` +${lockedFiles.size - 3} more` : ''}</code>
                   </div>
                 )}
                 
@@ -4182,7 +4318,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                   <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     <div style={{ fontSize: '36px', marginBottom: '12px' }}>🎉</div>
                     <div style={{ fontSize: '16px', fontWeight: 500 }}>
-                      {inProgressItems.length > 0 ? 'All remaining tickets conflict with in-progress work' : 'No ready tickets'}
+                      {(inProgressItems.length > 0 || completedItems.length > 0) ? 'All remaining tickets conflict with pending branches' : 'No ready tickets'}
                     </div>
                   </div>
                 ) : (
@@ -4388,15 +4524,18 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                                     <div style={{ marginTop: '16px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                                       <button 
                                         className="btn btn-secondary"
-                                        onClick={() => markInProgress(ticket)}
-                                      >
-                                        ▶ Mark In Progress
-                                      </button>
-                                      <button 
-                                        className={`btn ${copied === ticket.id ? 'btn-success' : 'btn-primary'}`}
                                         onClick={() => copyCommand(ticket.id, launchNotes[ticket.id])}
                                       >
-                                        {copied === ticket.id ? 'Copied!' : 'Copy Launch Command'}
+                                        {copied === ticket.id ? '✓ Copied!' : 'Copy Command'}
+                                      </button>
+                                      <button 
+                                        className={`btn ${launchingTicket === ticket.id ? 'btn-warning' : copied === ticket.id ? 'btn-success' : 'btn-primary'}`}
+                                        disabled={launchingTicket === ticket.id}
+                                        onClick={() => launchAgent(ticket)}
+                                      >
+                                        {launchingTicket === ticket.id ? '⏳ Launching...' : 
+                                         copied === ticket.id ? '✓ Cursor Opened! Paste prompt' : 
+                                         '🚀 Launch in Cursor'}
                                       </button>
                                     </div>
                                   </div>
@@ -4650,6 +4789,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
       const [tickets, setTickets] = useState([]);
       const [featuresList, setFeaturesList] = useState([]);
       const [devStatus, setDevStatus] = useState({ in_progress: [], completed: [] });
+      const [agentOutputs, setAgentOutputs] = useState({ blocked: [], completions: [], started: [], findings: [] });
       const [serverDecisions, setServerDecisions] = useState(null);
       const [loading, setLoading] = useState(true);
       const [lastRefresh, setLastRefresh] = useState(null);
@@ -4678,6 +4818,9 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
             }
             if (data.devStatus) {
               setDevStatus(data.devStatus);
+            }
+            if (data.agentOutputs) {
+              setAgentOutputs(data.agentOutputs);
             }
             if (data.featuresList) {
               setFeaturesList(data.featuresList);
@@ -4820,6 +4963,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                 {view === 'pipeline' && <NewPipelineView 
                   tickets={tickets} 
                   devStatus={devStatus}
+                  agentOutputs={agentOutputs}
                   onSaveDevStatus={saveDevStatus}
                   featuresList={featuresList}
                   findings={findings}
