@@ -1,24 +1,25 @@
-# Feature: Public Feedback (V6)
+# Feature: Feature Request Voting & Bug Reporting (V6)
 
 ## Quick Summary
-A cross-organization feature request voting system and private bug reporting tool. Users can submit feature requests visible to all authenticated users, vote/comment on ideas, and report bugs privately within their organization. Includes screenshot/recording capture and notifications.
+A cross-organization feature request voting system and private bug reporting tool for authenticated dashboard users. Users can submit feature requests visible to all authenticated users across organizations, vote/comment on ideas, and report bugs privately within their organization. Includes screenshot/recording capture and notifications.
+
+> **Naming Note:** The term "public" in the original feature name referred to cross-organization visibility of feature requests (visible to all authenticated users, regardless of organization), NOT anonymous/unauthenticated public access. This feature requires authentication.
 
 ## Affected Users
-- [x] Website Visitor (indirect - features requested may improve their experience)
 - [x] Agent
 - [x] Admin
 - [x] Platform Admin
 
-> **Note:** The prompt description mentions "post-call feedback form for visitors." This is **NOT** what this feature does. The actual implementation is a UserVoice/Canny-style **feature request voting system** and **bug reporter** for authenticated dashboard users (Agents/Admins), NOT website visitors or post-call surveys.
+> **Authentication Required:** This feature is only accessible to authenticated dashboard users (Agents, Admins, Platform Admins). Website visitors do not interact with this feature directly.
 
 ---
 
 ## 1. WHAT IT DOES
 
 ### Purpose
-Provides a two-part feedback system:
-1. **Feature Requests (Public):** A Reddit-style voting forum where users from ANY organization can submit, vote on, and discuss feature ideas. Top-voted features inform product roadmap.
-2. **Bug Reports (Private):** An in-app bug reporting tool with screenshot/recording capture, visible only within the submitter's organization.
+Provides a two-part feedback system for authenticated dashboard users (Agents, Admins, Platform Admins):
+1. **Feature Requests (Cross-Organization):** A Reddit-style voting forum where authenticated users from ANY organization can submit, vote on, and discuss feature ideas. Requests are visible across all organizations, enabling community-driven feature prioritization. Top-voted features inform product roadmap.
+2. **Bug Reports (Organization-Private):** An in-app bug reporting tool with screenshot/recording capture, visible only within the submitter's organization for internal tracking.
 
 ### User Goals
 | User Type | What They Want | How This Feature Helps |
@@ -341,9 +342,7 @@ COMMENT THREADING
 
 5. **Should feature request status changes trigger notifications?** Currently only replies and upvotes notify users; status changes (completed, declined) do not.
 
-6. **Why is this called "Public Feedback" when it's for authenticated users only?** The "public" refers to cross-organization visibility of feature requests, not public anonymous access.
-
-7. **Note: Prompt description mismatch** - The prompt describes this as "Post-call feedback form for visitors. Collects ratings, comments, and satisfaction data after calls end." This does NOT match the actual implementation. The actual feature is a UserVoice-style feature request voting system for authenticated dashboard users, not a post-call visitor survey.
+6. **Should there be email digest options for notifications?** Users may prefer daily/weekly summaries instead of real-time notifications for high-activity feature requests.
 
 
 
