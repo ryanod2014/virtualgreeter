@@ -771,6 +771,105 @@
       );
     }
 
+    function ReviewModal({ item, ticket, onClose, onApprove, onRequestFixes }) {
+      if (!item || !ticket) return null;
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="modal fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+            <div className="modal-header" style={{ borderBottom: '3px solid var(--success)' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                  <code style={{ color: 'var(--text-muted)' }}>{ticket.id}</code>
+                  <Badge type="resolved">Completed</Badge>
+                  <Badge type={ticket.priority}>{ticket.priority}</Badge>
+                  <Badge type={ticket.difficulty === 'easy' ? 'low' : ticket.difficulty === 'hard' ? 'critical' : 'medium'}>{ticket.difficulty}</Badge>
+                </div>
+                <h2 style={{ fontSize: '18px', fontWeight: 600, marginTop: '4px' }}>{ticket.title}</h2>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>{ticket.feature}</div>
+              </div>
+              <button className="btn btn-sm btn-secondary" onClick={onClose}>×</button>
+            </div>
+            <div className="modal-body">
+              {/* Completion Info */}
+              <div style={{ padding: '16px', background: 'rgba(16,185,129,0.1)', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)', marginBottom: '16px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--success)', fontWeight: 600, marginBottom: '8px' }}>✅ Completion Details</div>
+                <div style={{ fontSize: '13px', marginBottom: '4px' }}>
+                  <strong>Branch:</strong> <code style={{ color: 'var(--accent-bright)' }}>{item.branch}</code>
+                </div>
+                <div style={{ fontSize: '13px', marginBottom: '4px' }}>
+                  <strong>Completed:</strong> {new Date(item.completed_at).toLocaleString()}
+                </div>
+                {item.completion_file && (
+                  <div style={{ fontSize: '13px' }}>
+                    <strong>Report:</strong> <code style={{ fontSize: '11px' }}>{item.completion_file}</code>
+                  </div>
+                )}
+              </div>
+              
+              <div className="section">
+                <div className="section-title">Issue</div>
+                <p style={{ color: 'var(--text-secondary)' }}>{ticket.issue}</p>
+              </div>
+              
+              <div className="section">
+                <div className="section-title">Files Changed</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {(ticket.files_to_modify || ticket.files || []).map((f, i) => <code key={i} style={{ padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: '6px', fontSize: '12px', color: 'var(--accent-bright)' }}>{f}</code>)}
+                </div>
+              </div>
+              
+              <div className="section">
+                <div className="section-title">Acceptance Criteria to Verify</div>
+                {(ticket.acceptance_criteria || []).map((c, i) => (
+                  <div key={i} style={{ padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '6px', marginBottom: '6px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '16px' }}>☐</span> {c}
+                  </div>
+                ))}
+              </div>
+              
+              {(ticket.risks || ticket.risk_notes) && (
+                <div style={{ padding: '16px', background: 'var(--critical-bg)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--critical)', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.warning /> Risks to Check</div>
+                  {(ticket.risks || ticket.risk_notes || []).map((n, i) => <div key={i} style={{ fontSize: '13px', marginBottom: '4px' }}>• {n}</div>)}
+                </div>
+              )}
+              
+              {ticket.qa_notes && (
+                <div style={{ padding: '16px', background: 'rgba(234,179,8,0.1)', borderRadius: '8px', border: '1px solid rgba(234,179,8,0.2)', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--medium)', fontWeight: 600, marginBottom: '8px' }}>QA Notes</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{ticket.qa_notes}</div>
+                </div>
+              )}
+              
+              {/* Git Commands */}
+              <div style={{ padding: '16px', background: 'var(--bg-elevated)', borderRadius: '8px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '8px' }}>Review Commands</div>
+                <pre style={{ background: 'var(--bg-base)', padding: '12px', borderRadius: '6px', fontSize: '11px', overflow: 'auto' }}>
+{`# View the changes
+git diff main..${item.branch}
+
+# Checkout and test
+git checkout ${item.branch}
+pnpm install
+pnpm build`}
+                </pre>
+              </div>
+              
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                <button className="btn btn-success" style={{ flex: 1 }} onClick={() => { onApprove(item.ticket_id); onClose(); }}>
+                  ✓ Approve & Merge
+                </button>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { onRequestFixes(item.ticket_id); onClose(); }}>
+                  🔄 Request Fixes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     function TicketModal({ ticket, onClose }) {
       if (!ticket) return null;
       return (
@@ -2756,6 +2855,7 @@
     function NewPipelineView({ tickets, devStatus, onSaveDevStatus, featuresList, findings }) {
       const [pipelineTab, setPipelineTab] = useState('inventory');
       const [selectedTicket, setSelectedTicket] = useState(null);
+      const [selectedReviewItem, setSelectedReviewItem] = useState(null);
       const [filter, setFilter] = useState('all');
       const [selectedFeature, setSelectedFeature] = useState(null);
       
@@ -3310,55 +3410,54 @@
                     </div>
                   </div>
                   
-                  <div style={{ display: 'grid', gap: '16px' }}>
+                  <div className="ticket-grid">
                     {completedItems.map(item => {
                       const ticket = tickets.find(t => t.id === item.ticket_id);
                       return (
-                        <div key={item.ticket_id} className="card" style={{ padding: '20px', borderLeft: '4px solid var(--success)' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <code style={{ fontSize: '12px', padding: '3px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{item.ticket_id}</code>
-                                <Badge type="resolved">Completed</Badge>
-                              </div>
-                              <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '10px' }}>{item.title}</div>
-                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                                Branch: <code style={{ color: 'var(--accent-bright)' }}>{item.branch}</code>
-                              </div>
-                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                Completed: {new Date(item.completed_at).toLocaleString()}
-                              </div>
-                              
-                              {ticket && (
-                                <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
-                                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Acceptance Criteria:</div>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    {(ticket.acceptance_criteria || []).map((ac, i) => (
-                                      <div key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                        ☐ {ac}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
+                        <div 
+                          key={item.ticket_id} 
+                          className={`ticket-card priority-${ticket?.priority || 'medium'}`}
+                          onClick={() => setSelectedReviewItem({ item, ticket })}
+                          style={{ borderLeftColor: 'var(--success)', cursor: 'pointer' }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.ticket_id}</code>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <Badge type="resolved">Completed</Badge>
+                              {ticket && <Badge type={ticket.priority}>{ticket.priority}</Badge>}
                             </div>
-                            
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '16px' }}>
-                              <button className="btn btn-success" onClick={() => {
-                                const newCompleted = completedItems.filter(c => c.ticket_id !== item.ticket_id);
-                                onSaveDevStatus({ ...devStatus, completed: newCompleted });
-                              }}>
-                                ✓ Approve
-                              </button>
-                              <button className="btn btn-secondary" style={{ fontSize: '12px' }}>
-                                🔄 Request Fixes
-                              </button>
-                            </div>
+                          </div>
+                          <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>{ticket?.title || item.title || 'Unknown Ticket'}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>{ticket?.feature || ''}</div>
+                          <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                            <span>{(ticket?.files_to_modify || []).length} files</span>
+                            <span>•</span>
+                            <span>{(ticket?.acceptance_criteria || []).length} criteria</span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--success)', marginTop: '8px' }}>
+                            Completed: {new Date(item.completed_at).toLocaleString()}
                           </div>
                         </div>
                       );
                     })}
                   </div>
+                  
+                  {/* Review Modal */}
+                  {selectedReviewItem && (
+                    <ReviewModal 
+                      item={selectedReviewItem.item} 
+                      ticket={selectedReviewItem.ticket} 
+                      onClose={() => setSelectedReviewItem(null)}
+                      onApprove={(ticketId) => {
+                        const newCompleted = completedItems.filter(c => c.ticket_id !== ticketId);
+                        onSaveDevStatus({ ...devStatus, completed: newCompleted });
+                      }}
+                      onRequestFixes={(ticketId) => {
+                        // TODO: Create fix ticket flow
+                        console.log('Request fixes for', ticketId);
+                      }}
+                    />
+                  )}
                 </div>
               )}
             </div>
