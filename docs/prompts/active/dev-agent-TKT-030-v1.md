@@ -1,0 +1,110 @@
+# Dev Agent: TKT-030 - No Grace Period Implementation
+
+> **One-liner to launch:**
+> `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-TKT-030-v1.md`
+
+---
+
+You are a Dev Agent. Your job is to implement **TKT-030: No Grace Period Implementation**.
+
+**First, read the Dev Agent SOP:** `docs/workflow/DEV_AGENT_SOP.md`
+
+---
+
+## Your Assignment
+
+**Ticket:** TKT-030
+**Priority:** High
+**Difficulty:** Medium
+**Branch:** `agent/tkt-030-no-grace-period-implementation`
+**Version:** v1
+
+---
+
+## The Problem
+
+The UI mentions 'access continues until end of billing period' but there is no implementation: no subscription_ends_at field tracked, no access gating based on billing period end, and immediate downgrade to 'free' plan occurs.
+
+---
+
+## Files to Modify
+
+| File | What to Change |
+|------|----------------|
+| `apps/dashboard/src/app/(dashboard)/settings/actions.ts` | Implement required changes |
+| `apps/server/src/features/webhooks/stripe.ts` | Implement required changes |
+
+
+**Feature Documentation:**
+- `docs/features/billing/cancel-subscription.md`
+
+
+
+**Similar Code:**
+- apps/dashboard/src/app/(dashboard)/settings/actions.ts - cancel flow
+
+
+---
+
+## What to Implement
+
+1. Store subscription_ends_at (current_period_end) from Stripe on cancel
+2. Keep plan as 'active' until subscription_ends_at passes
+3. Webhook for subscription.deleted triggers actual downgrade to 'free'
+
+---
+
+## Acceptance Criteria
+
+- [ ] subscription_ends_at is stored when user cancels
+- [ ] User retains access until subscription_ends_at
+- [ ] After period ends, webhook triggers downgrade to free
+- [ ] No immediate loss of access on cancel click
+
+---
+
+## Out of Scope
+
+- ❌ Do NOT modify cancel modal UI (TKT-003)
+- ❌ Do NOT add pause functionality (TKT-004)
+
+---
+
+## Risks to Avoid
+
+| Risk | How to Avoid |
+|------|--------------|
+| This overlaps with TKT-002 - may need to combine or sequence | Follow existing patterns |
+| Ensure webhook handling is idempotent | Follow existing patterns |
+
+---
+
+## Dev Checks
+
+```bash
+pnpm typecheck  # Must pass
+pnpm build      # Must pass
+```
+
+
+**Additional checks:**
+- Test with Stripe test mode - verify grace period works
+
+---
+
+## QA Notes
+
+Verify user can access dashboard after canceling until period ends.
+
+---
+
+## ⚠️ REQUIRED: Follow Dev Agent SOP
+
+**All reporting is handled per the SOP:**
+- **Start:** Write to `docs/agent-output/started/TKT-030-[TIMESTAMP].json`
+- **Complete:** Write to `docs/agent-output/completions/TKT-030-[TIMESTAMP].md`
+- **Update:** Add to `docs/data/dev-status.json` completed array
+- **Blocked:** Write to `docs/agent-output/blocked/BLOCKED-TKT-030-[TIMESTAMP].json`
+- **Findings:** Write to `docs/agent-output/findings/F-DEV-TKT-030-[TIMESTAMP].json`
+
+See `docs/workflow/DEV_AGENT_SOP.md` for exact formats.

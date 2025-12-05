@@ -1,0 +1,107 @@
+# Dev Agent: TKT-052 - Add Loading State for Co-Browse Viewer
+
+> **One-liner to launch:**
+> `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-TKT-052-v1.md`
+
+---
+
+You are a Dev Agent. Your job is to implement **TKT-052: Add Loading State for Co-Browse Viewer**.
+
+**First, read the Dev Agent SOP:** `docs/workflow/DEV_AGENT_SOP.md`
+
+---
+
+## Your Assignment
+
+**Ticket:** TKT-052
+**Priority:** Low
+**Difficulty:** Easy
+**Branch:** `agent/tkt-052-add-loading-state-for-co-brows`
+**Version:** v1
+
+---
+
+## The Problem
+
+Agent sees blank or stale view with no indication that co-browse is initializing. Creates confusion about whether feature is working.
+
+---
+
+## Files to Modify
+
+| File | What to Change |
+|------|----------------|
+| `apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx` | Implement required changes |
+
+
+**Feature Documentation:**
+- `docs/features/agent/cobrowse-viewer.md`
+
+
+
+**Similar Code:**
+- apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx - existing viewer component
+
+
+---
+
+## What to Implement
+
+1. Add 'Loading visitor's screen...' placeholder with spinner while waiting for first snapshot
+2. Show 'Updating...' indicator during subsequent refreshes
+
+---
+
+## Acceptance Criteria
+
+- [ ] Loading spinner shows while waiting for first snapshot
+- [ ] Spinner includes 'Loading visitor's screen...' text
+- [ ] After first snapshot, subtle 'Updating...' indicator on refreshes
+- [ ] No flicker or blank states
+
+---
+
+## Out of Scope
+
+- ❌ Do NOT modify snapshot transmission
+- ❌ Do NOT add reconnection logic
+
+---
+
+## Risks to Avoid
+
+| Risk | How to Avoid |
+|------|--------------|
+| Simple UI change - low risk | Follow existing patterns |
+
+---
+
+## Dev Checks
+
+```bash
+pnpm typecheck  # Must pass
+pnpm build      # Must pass
+```
+
+
+**Additional checks:**
+- Manual: Start co-browse, verify loading state displays
+
+---
+
+## QA Notes
+
+Test on slow connections to verify loading state is visible.
+
+---
+
+## ⚠️ REQUIRED: Follow Dev Agent SOP
+
+**All reporting is handled per the SOP:**
+- **Start:** Write to `docs/agent-output/started/TKT-052-[TIMESTAMP].json`
+- **Complete:** Write to `docs/agent-output/completions/TKT-052-[TIMESTAMP].md`
+- **Update:** Add to `docs/data/dev-status.json` completed array
+- **Blocked:** Write to `docs/agent-output/blocked/BLOCKED-TKT-052-[TIMESTAMP].json`
+- **Findings:** Write to `docs/agent-output/findings/F-DEV-TKT-052-[TIMESTAMP].json`
+
+See `docs/workflow/DEV_AGENT_SOP.md` for exact formats.

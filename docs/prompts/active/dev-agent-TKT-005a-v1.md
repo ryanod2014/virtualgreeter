@@ -1,0 +1,104 @@
+# Dev Agent: TKT-005a - Add past_due Status to TypeScript Types
+
+> **One-liner to launch:**
+> `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-TKT-005a-v1.md`
+
+---
+
+You are a Dev Agent. Your job is to implement **TKT-005a: Add past_due Status to TypeScript Types**.
+
+**First, read the Dev Agent SOP:** `docs/workflow/DEV_AGENT_SOP.md`
+
+---
+
+## Your Assignment
+
+**Ticket:** TKT-005a
+**Priority:** Critical
+**Difficulty:** Easy
+**Branch:** `agent/tkt-005a-add-past_due-status-to-typescr`
+**Version:** v1
+
+---
+
+## The Problem
+
+TypeScript type SubscriptionStatus missing 'past_due' - needed for payment failure handling.
+
+---
+
+## Files to Modify
+
+| File | What to Change |
+|------|----------------|
+| `packages/domain/src/database.types.ts` | Implement required changes |
+
+
+**Feature Documentation:**
+- `docs/features/billing/payment-failure.md`
+
+
+
+**Similar Code:**
+- packages/domain/src/database.types.ts - see existing SubscriptionStatus type
+
+
+---
+
+## What to Implement
+
+1. Add 'past_due' to SubscriptionStatus type union
+
+---
+
+## Acceptance Criteria
+
+- [ ] SubscriptionStatus includes 'past_due'
+- [ ] Type is: 'active' | 'paused' | 'cancelled' | 'trialing' | 'past_due'
+- [ ] pnpm typecheck passes across all packages
+
+---
+
+## Out of Scope
+
+- ❌ Do NOT modify other types in this file
+- ❌ Do NOT implement payment failure UI (TKT-005b)
+- ❌ Do NOT add webhook handlers (TKT-005c)
+
+---
+
+## Risks to Avoid
+
+| Risk | How to Avoid |
+|------|--------------|
+| Simple type addition - low risk | Follow existing patterns |
+| Verify no existing code breaks with new type | Follow existing patterns |
+
+---
+
+## Dev Checks
+
+```bash
+pnpm typecheck  # Must pass
+pnpm build      # Must pass
+```
+
+
+---
+
+## QA Notes
+
+N/A - type-only change, no runtime behavior.
+
+---
+
+## ⚠️ REQUIRED: Follow Dev Agent SOP
+
+**All reporting is handled per the SOP:**
+- **Start:** Write to `docs/agent-output/started/TKT-005a-[TIMESTAMP].json`
+- **Complete:** Write to `docs/agent-output/completions/TKT-005a-[TIMESTAMP].md`
+- **Update:** Add to `docs/data/dev-status.json` completed array
+- **Blocked:** Write to `docs/agent-output/blocked/BLOCKED-TKT-005a-[TIMESTAMP].json`
+- **Findings:** Write to `docs/agent-output/findings/F-DEV-TKT-005a-[TIMESTAMP].json`
+
+See `docs/workflow/DEV_AGENT_SOP.md` for exact formats.
