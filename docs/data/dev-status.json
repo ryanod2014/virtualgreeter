@@ -12,6 +12,27 @@
       "started_at": "2025-12-05T12:00:00Z",
       "completed_at": "2025-12-05T12:39:00Z",
       "completion_file": "docs/agent-output/completions/SEC-001-2025-12-05T1230.md"
+    },
+    {
+      "ticket_id": "TKT-006",
+      "branch": "agent/TKT-006-middleware-redirect",
+      "started_at": "2025-12-05T16:00:00Z",
+      "completed_at": "2025-12-05T16:15:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-006-2025-12-05T1600.md"
+    },
+    {
+      "ticket_id": "TKT-001",
+      "branch": "agent/TKT-001-cobrowse-sanitization",
+      "started_at": "2025-12-05T14:30:00Z",
+      "completed_at": "2025-12-05T18:30:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-001-2025-12-05T1430.md"
+    },
+    {
+      "ticket_id": "TKT-003",
+      "branch": "agent/TKT-003-cancel-copy",
+      "started_at": "2025-12-05T12:00:00Z",
+      "completed_at": "2025-12-05T19:35:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-003-2025-12-05T1935.md"
     }
   ],
   "retry_history": []
