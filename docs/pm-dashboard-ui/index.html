@@ -3732,6 +3732,48 @@ pnpm build`}
       const [expandedTicket, setExpandedTicket] = useState(null);
       const [launchNotes, setLaunchNotes] = useState({});
       const [savedNotes, setSavedNotes] = useState({});
+      const [worktreeStatus, setWorktreeStatus] = useState(null); // null, 'creating', 'done', 'error'
+      const [worktreeResults, setWorktreeResults] = useState([]);
+      const [launchingTicket, setLaunchingTicket] = useState(null); // ticket ID being launched
+      const [launchingAll, setLaunchingAll] = useState(false);
+      const [launchAllProgress, setLaunchAllProgress] = useState(0);
+      
+      // Launch a single agent: create worktree, open Cursor, copy prompt
+      const launchAgent = async (ticket) => {
+        setLaunchingTicket(ticket.id);
+        
+        try {
+          // Call API to create worktree and open Cursor
+          const response = await fetch('/api/launch-agent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticketId: ticket.id })
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            // Copy the prompt to clipboard
+            const prompt = `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${ticket.id}-v1.md`;
+            navigator.clipboard.writeText(prompt);
+            
+            // Mark as in progress
+            markInProgress(ticket);
+            
+            setCopied(ticket.id);
+            setTimeout(() => {
+              setCopied(null);
+              setLaunchingTicket(null);
+            }, 3000);
+          } else {
+            console.error('Launch failed:', result.error);
+            setLaunchingTicket(null);
+          }
+        } catch (err) {
+          console.error('Failed to launch agent:', err);
+          setLaunchingTicket(null);
+        }
+      };
       
       // Calculate undocumented and unreviewed features
       const undocumentedFeatures = useMemo(() => {
@@ -3788,9 +3830,14 @@ pnpm build`}
         !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
-      const filesInProgress = new Set();
+      const lockedFiles = new Set();
+      // Add files from in-progress tickets
       tickets.filter(t => inProgressTicketIds.has(t.id?.toUpperCase())).forEach(t => {
-        (t.files_to_modify || []).forEach(f => filesInProgress.add(f));
+        (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
+      });
+      // Add files from completed (for review) tickets - they're not merged yet!
+      tickets.filter(t => completedTicketIds.has(t.id?.toUpperCase())).forEach(t => {
+        (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
       });
       
       const availableTickets = readyTickets;
@@ -3804,7 +3851,7 @@ pnpm build`}
       // Calculate next batch - greedy algorithm for parallelization
       const calculateNextBatch = () => {
         const batch = [];
-        const batchFiles = new Set(filesInProgress);
+        const batchFiles = new Set(lockedFiles);
         
         for (const ticket of sortedTickets) {
           const ticketFiles = ticket.files_to_modify || [];
@@ -3821,7 +3868,11 @@ pnpm build`}
       const nextBatchIds = new Set(nextBatch.map(t => t.id));
       
       const copyCommand = (id, additionalNotes = '') => {
-        let cmd = `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${id}-v1.md`;
+        let cmd = `# IMPORTANT: First set up your isolated worktree!
+# Run: ./scripts/setup-agent-worktree.sh ${id}
+# Then: cd ../agent-worktrees/${id}
+
+You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${id}-v1.md`;
         if (additionalNotes) {
           cmd += `\n\n---\nPM Notes: ${additionalNotes}`;
         }
@@ -3832,7 +3883,13 @@ pnpm build`}
       
       const copyAllBatch = () => {
         const commands = nextBatch.map((t, i) => {
-          let cmd = `# Agent ${i + 1}: ${t.id}\nYou are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${t.id}-v1.md`;
+          let cmd = `# ========================================
+# Agent ${i + 1}: ${t.id}
+# Worktree: ../agent-worktrees/${t.id}
+# ========================================
+# Setup: ./scripts/setup-agent-worktree.sh ${t.id} && cd ../agent-worktrees/${t.id}
+
+You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${t.id}-v1.md`;
           if (launchNotes[t.id]) {
             cmd += `\n\nPM Notes: ${launchNotes[t.id]}`;
           }
@@ -4116,31 +4173,134 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                           {copied === 'all-batch' ? 'Copied All!' : `Copy All ${nextBatch.length}`}
                         </button>
                         <button 
-                          className={`btn ${copied === 'started-all' ? 'btn-success' : 'btn-secondary'}`}
-                          onClick={() => {
+                          className={`btn ${worktreeStatus === 'done' ? 'btn-success' : worktreeStatus === 'creating' ? 'btn-warning' : 'btn-secondary'}`}
+                          disabled={worktreeStatus === 'creating'}
+                          onClick={async () => {
+                            // Step 1: Create worktrees for all tickets
+                            setWorktreeStatus('creating');
+                            setWorktreeResults([]);
+                            
+                            try {
+                              const ticketIds = nextBatch.map(t => t.id);
+                              const response = await fetch('/api/setup-worktrees', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ ticketIds })
+                              });
+                              
+                              const result = await response.json();
+                              setWorktreeResults(result.results || []);
+                              
+                              if (result.success) {
+                                // Step 2: Mark tickets as in progress
+                                const newInProgress = nextBatch.map(ticket => ({
+                                  ticket_id: ticket.id,
+                                  title: ticket.title,
+                                  branch: `agent/${ticket.id.toLowerCase()}`,
+                                  started_at: new Date().toISOString(),
+                                  launch_notes: launchNotes[ticket.id] || null,
+                                  worktree_path: `../agent-worktrees/${ticket.id}`
+                                }));
+                                onSaveDevStatus({ 
+                                  ...devStatus, 
+                                  in_progress: [...inProgressItems, ...newInProgress] 
+                                });
+                                setWorktreeStatus('done');
+                                setTimeout(() => setWorktreeStatus(null), 3000);
+                              } else {
+                                setWorktreeStatus('error');
+                              }
+                            } catch (err) {
+                              console.error('Failed to create worktrees:', err);
+                              setWorktreeStatus('error');
+                            }
+                          }}
+                        >
+                          {worktreeStatus === 'creating' ? '⏳ Creating Worktrees...' : 
+                           worktreeStatus === 'done' ? '✓ Worktrees Ready!' : 
+                           worktreeStatus === 'error' ? '❌ Error (retry)' :
+                           `▶ Setup Worktrees`}
+                        </button>
+                        <button 
+                          className={`btn ${launchingAll ? 'btn-warning' : 'btn-success'}`}
+                          disabled={launchingAll}
+                          onClick={async () => {
+                            setLaunchingAll(true);
+                            setLaunchAllProgress(0);
+                            
+                            // Launch each agent with a small delay to prevent overwhelming
+                            for (let i = 0; i < nextBatch.length; i++) {
+                              const ticket = nextBatch[i];
+                              setLaunchAllProgress(i + 1);
+                              
+                              try {
+                                await fetch('/api/launch-agent', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ ticketId: ticket.id })
+                                });
+                                
+                                // Small delay between launches
+                                await new Promise(r => setTimeout(r, 1000));
+                              } catch (err) {
+                                console.error(`Failed to launch ${ticket.id}:`, err);
+                              }
+                            }
+                            
+                            // Mark all as in progress
                             const newInProgress = nextBatch.map(ticket => ({
                               ticket_id: ticket.id,
                               title: ticket.title,
-                              branch: `agent/${ticket.id.toLowerCase()}-${ticket.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`,
+                              branch: `agent/${ticket.id.toLowerCase()}`,
                               started_at: new Date().toISOString(),
-                              launch_notes: launchNotes[ticket.id] || null
+                              launch_notes: launchNotes[ticket.id] || null,
+                              worktree_path: `../agent-worktrees/${ticket.id}`
                             }));
                             onSaveDevStatus({ 
                               ...devStatus, 
                               in_progress: [...inProgressItems, ...newInProgress] 
                             });
-                            setCopied('started-all');
-                            setTimeout(() => setCopied(null), 2000);
+                            
+                            // Copy all prompts to clipboard
+                            copyAllBatch();
+                            
+                            setLaunchingAll(false);
+                            setLaunchAllProgress(0);
                           }}
                         >
-                          {copied === 'started-all' ? '✓ Started!' : `▶ Start All ${nextBatch.length}`}
+                          {launchingAll ? `🚀 Launching ${launchAllProgress}/${nextBatch.length}...` : 
+                           `🚀 Launch All ${nextBatch.length} in Cursor`}
                         </button>
                       </div>
                     </div>
                   </div>
                 )}
                 
-                {inProgressItems.length > 0 && (
+                {/* Worktree Status Display */}
+                {worktreeResults.length > 0 && (
+                  <div style={{ 
+                    padding: '12px 16px', 
+                    background: worktreeStatus === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)', 
+                    borderRadius: '8px', 
+                    marginBottom: '16px',
+                    fontSize: '13px'
+                  }}>
+                    <strong>Worktree Setup Results:</strong>
+                    <div style={{ marginTop: '8px', display: 'grid', gap: '4px' }}>
+                      {worktreeResults.map(r => (
+                        <div key={r.ticketId} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>{r.success ? '✅' : '❌'}</span>
+                          <code style={{ fontSize: '12px' }}>{r.ticketId}</code>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                            {r.success ? r.path : r.error}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {(inProgressItems.length > 0 || completedItems.length > 0) && (
                   <div style={{ 
                     padding: '12px 16px', 
                     background: 'rgba(99,102,241,0.1)', 
@@ -4149,8 +4309,8 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                     fontSize: '13px',
                     color: 'var(--text-secondary)'
                   }}>
-                    ⚡ <strong>{inProgressItems.length} agents running</strong> — locked files: {' '}
-                    <code style={{ fontSize: '11px' }}>{[...filesInProgress].slice(0, 3).join(', ')}{filesInProgress.size > 3 ? ` +${filesInProgress.size - 3} more` : ''}</code>
+                    ⚡ <strong>{inProgressItems.length} running, {completedItems.length} for review</strong> — locked files: {' '}
+                    <code style={{ fontSize: '11px' }}>{[...lockedFiles].slice(0, 3).join(', ')}{lockedFiles.size > 3 ? ` +${lockedFiles.size - 3} more` : ''}</code>
                   </div>
                 )}
                 
@@ -4158,7 +4318,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                   <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     <div style={{ fontSize: '36px', marginBottom: '12px' }}>🎉</div>
                     <div style={{ fontSize: '16px', fontWeight: 500 }}>
-                      {inProgressItems.length > 0 ? 'All remaining tickets conflict with in-progress work' : 'No ready tickets'}
+                      {(inProgressItems.length > 0 || completedItems.length > 0) ? 'All remaining tickets conflict with pending branches' : 'No ready tickets'}
                     </div>
                   </div>
                 ) : (
@@ -4364,15 +4524,18 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                                     <div style={{ marginTop: '16px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                                       <button 
                                         className="btn btn-secondary"
-                                        onClick={() => markInProgress(ticket)}
-                                      >
-                                        ▶ Mark In Progress
-                                      </button>
-                                      <button 
-                                        className={`btn ${copied === ticket.id ? 'btn-success' : 'btn-primary'}`}
                                         onClick={() => copyCommand(ticket.id, launchNotes[ticket.id])}
                                       >
-                                        {copied === ticket.id ? 'Copied!' : 'Copy Launch Command'}
+                                        {copied === ticket.id ? '✓ Copied!' : 'Copy Command'}
+                                      </button>
+                                      <button 
+                                        className={`btn ${launchingTicket === ticket.id ? 'btn-warning' : copied === ticket.id ? 'btn-success' : 'btn-primary'}`}
+                                        disabled={launchingTicket === ticket.id}
+                                        onClick={() => launchAgent(ticket)}
+                                      >
+                                        {launchingTicket === ticket.id ? '⏳ Launching...' : 
+                                         copied === ticket.id ? '✓ Cursor Opened! Paste prompt' : 
+                                         '🚀 Launch in Cursor'}
                                       </button>
                                     </div>
                                   </div>
