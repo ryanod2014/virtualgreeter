@@ -525,6 +525,66 @@ function handleAPI(req, res, body) {
     return true;
   }
   
+  // POST /api/setup-worktrees - Create worktrees for multiple tickets
+  if (req.method === 'POST' && url === '/api/setup-worktrees') {
+    try {
+      const { ticketIds } = JSON.parse(body);
+      if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+        throw new Error('ticketIds must be a non-empty array');
+      }
+      
+      const results = [];
+      const SETUP_SCRIPT = path.join(__dirname, '../../scripts/setup-agent-worktree.sh');
+      const WORKTREE_BASE = path.join(__dirname, '../../../agent-worktrees');
+      
+      // Ensure worktree base directory exists
+      if (!fs.existsSync(WORKTREE_BASE)) {
+        fs.mkdirSync(WORKTREE_BASE, { recursive: true });
+      }
+      
+      for (const ticketId of ticketIds) {
+        const worktreePath = path.join(WORKTREE_BASE, ticketId);
+        
+        try {
+          // Run the setup script
+          const output = execSync(`bash "${SETUP_SCRIPT}" "${ticketId}"`, {
+            cwd: path.join(__dirname, '../..'),
+            encoding: 'utf8',
+            timeout: 60000, // 60 second timeout per worktree
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          
+          results.push({
+            ticketId,
+            success: true,
+            path: worktreePath,
+            message: 'Worktree created successfully'
+          });
+          console.log(`✅ Created worktree for ${ticketId}`);
+        } catch (scriptError) {
+          results.push({
+            ticketId,
+            success: false,
+            path: worktreePath,
+            error: scriptError.message || 'Script execution failed'
+          });
+          console.error(`❌ Failed to create worktree for ${ticketId}:`, scriptError.message);
+        }
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        success: results.every(r => r.success),
+        results,
+        worktreeBase: WORKTREE_BASE
+      }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
   // POST /api/decisions - Save decisions (with PM response preservation)
   if (req.method === 'POST' && url === '/api/decisions') {
     try {

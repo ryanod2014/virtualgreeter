@@ -3732,6 +3732,8 @@ pnpm build`}
       const [expandedTicket, setExpandedTicket] = useState(null);
       const [launchNotes, setLaunchNotes] = useState({});
       const [savedNotes, setSavedNotes] = useState({});
+      const [worktreeStatus, setWorktreeStatus] = useState(null); // null, 'creating', 'done', 'error'
+      const [worktreeResults, setWorktreeResults] = useState([]);
       
       // Calculate undocumented and unreviewed features
       const undocumentedFeatures = useMemo(() => {
@@ -3826,7 +3828,11 @@ pnpm build`}
       const nextBatchIds = new Set(nextBatch.map(t => t.id));
       
       const copyCommand = (id, additionalNotes = '') => {
-        let cmd = `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${id}-v1.md`;
+        let cmd = `# IMPORTANT: First set up your isolated worktree!
+# Run: ./scripts/setup-agent-worktree.sh ${id}
+# Then: cd ../agent-worktrees/${id}
+
+You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${id}-v1.md`;
         if (additionalNotes) {
           cmd += `\n\n---\nPM Notes: ${additionalNotes}`;
         }
@@ -3837,7 +3843,13 @@ pnpm build`}
       
       const copyAllBatch = () => {
         const commands = nextBatch.map((t, i) => {
-          let cmd = `# Agent ${i + 1}: ${t.id}\nYou are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${t.id}-v1.md`;
+          let cmd = `# ========================================
+# Agent ${i + 1}: ${t.id}
+# Worktree: ../agent-worktrees/${t.id}
+# ========================================
+# Setup: ./scripts/setup-agent-worktree.sh ${t.id} && cd ../agent-worktrees/${t.id}
+
+You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${t.id}-v1.md`;
           if (launchNotes[t.id]) {
             cmd += `\n\nPM Notes: ${launchNotes[t.id]}`;
           }
@@ -4121,26 +4133,79 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                           {copied === 'all-batch' ? 'Copied All!' : `Copy All ${nextBatch.length}`}
                         </button>
                         <button 
-                          className={`btn ${copied === 'started-all' ? 'btn-success' : 'btn-secondary'}`}
-                          onClick={() => {
-                            const newInProgress = nextBatch.map(ticket => ({
-                              ticket_id: ticket.id,
-                              title: ticket.title,
-                              branch: `agent/${ticket.id.toLowerCase()}-${ticket.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`,
-                              started_at: new Date().toISOString(),
-                              launch_notes: launchNotes[ticket.id] || null
-                            }));
-                            onSaveDevStatus({ 
-                              ...devStatus, 
-                              in_progress: [...inProgressItems, ...newInProgress] 
-                            });
-                            setCopied('started-all');
-                            setTimeout(() => setCopied(null), 2000);
+                          className={`btn ${worktreeStatus === 'done' ? 'btn-success' : worktreeStatus === 'creating' ? 'btn-warning' : 'btn-secondary'}`}
+                          disabled={worktreeStatus === 'creating'}
+                          onClick={async () => {
+                            // Step 1: Create worktrees for all tickets
+                            setWorktreeStatus('creating');
+                            setWorktreeResults([]);
+                            
+                            try {
+                              const ticketIds = nextBatch.map(t => t.id);
+                              const response = await fetch('/api/setup-worktrees', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ ticketIds })
+                              });
+                              
+                              const result = await response.json();
+                              setWorktreeResults(result.results || []);
+                              
+                              if (result.success) {
+                                // Step 2: Mark tickets as in progress
+                                const newInProgress = nextBatch.map(ticket => ({
+                                  ticket_id: ticket.id,
+                                  title: ticket.title,
+                                  branch: `agent/${ticket.id.toLowerCase()}`,
+                                  started_at: new Date().toISOString(),
+                                  launch_notes: launchNotes[ticket.id] || null,
+                                  worktree_path: `../agent-worktrees/${ticket.id}`
+                                }));
+                                onSaveDevStatus({ 
+                                  ...devStatus, 
+                                  in_progress: [...inProgressItems, ...newInProgress] 
+                                });
+                                setWorktreeStatus('done');
+                                setTimeout(() => setWorktreeStatus(null), 3000);
+                              } else {
+                                setWorktreeStatus('error');
+                              }
+                            } catch (err) {
+                              console.error('Failed to create worktrees:', err);
+                              setWorktreeStatus('error');
+                            }
                           }}
                         >
-                          {copied === 'started-all' ? '✓ Started!' : `▶ Start All ${nextBatch.length}`}
+                          {worktreeStatus === 'creating' ? '⏳ Creating Worktrees...' : 
+                           worktreeStatus === 'done' ? '✓ Worktrees Ready!' : 
+                           worktreeStatus === 'error' ? '❌ Error (retry)' :
+                           `▶ Setup & Start All ${nextBatch.length}`}
                         </button>
                       </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Worktree Status Display */}
+                {worktreeResults.length > 0 && (
+                  <div style={{ 
+                    padding: '12px 16px', 
+                    background: worktreeStatus === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)', 
+                    borderRadius: '8px', 
+                    marginBottom: '16px',
+                    fontSize: '13px'
+                  }}>
+                    <strong>Worktree Setup Results:</strong>
+                    <div style={{ marginTop: '8px', display: 'grid', gap: '4px' }}>
+                      {worktreeResults.map(r => (
+                        <div key={r.ticketId} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>{r.success ? '✅' : '❌'}</span>
+                          <code style={{ fontSize: '12px' }}>{r.ticketId}</code>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                            {r.success ? r.path : r.error}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
