@@ -33,6 +33,20 @@
       "started_at": "2025-12-05T12:00:00Z",
       "completed_at": "2025-12-05T19:35:00Z",
       "completion_file": "docs/agent-output/completions/TKT-003-2025-12-05T1935.md"
+    },
+    {
+      "ticket_id": "TKT-005d",
+      "branch": "agent/tkt-005d-send-email-on-payment-failure",
+      "started_at": "2025-12-05T18:00:00Z",
+      "completed_at": "2025-12-05T19:45:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-005d-2025-12-05T1945.md"
+    },
+    {
+      "ticket_id": "TKT-022",
+      "branch": "agent/tkt-022-enforce-seat-limit-in-api",
+      "started_at": "2025-12-05T14:30:00Z",
+      "completed_at": "2025-12-05T20:30:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-022-2025-12-05T1430.md"
     }
   ],
   "retry_history": []
