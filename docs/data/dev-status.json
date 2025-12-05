@@ -33,6 +33,13 @@
       "started_at": "2025-12-05T12:00:00Z",
       "completed_at": "2025-12-05T19:35:00Z",
       "completion_file": "docs/agent-output/completions/TKT-003-2025-12-05T1935.md"
+    },
+    {
+      "ticket_id": "TKT-041",
+      "branch": "agent/tkt-041-verify-session-invalidation-on",
+      "started_at": "2025-12-05T14:30:00Z",
+      "completed_at": "2025-12-05T15:00:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-041-2025-12-05T1430.md"
     }
   ],
   "retry_history": []
