@@ -86,14 +86,18 @@ function scanAgentOutputs() {
     reviews: [],
     completions: [],
     blocked: [],
-    docTracker: []
+    docTracker: [],
+    started: [],
+    findings: []
   };
   
   const subdirs = {
     'reviews': 'reviews',
     'completions': 'completions',
     'blocked': 'blocked',
-    'doc-tracker': 'docTracker'
+    'doc-tracker': 'docTracker',
+    'started': 'started',
+    'findings': 'findings'
   };
   
   for (const [dirName, outputKey] of Object.entries(subdirs)) {
@@ -102,8 +106,9 @@ function scanAgentOutputs() {
     try {
       if (!fs.existsSync(dirPath)) continue;
       
+      // Handle both .md and .json files
       const files = fs.readdirSync(dirPath)
-        .filter(f => f.endsWith('.md') && f !== '.gitkeep' && f !== 'README.md');
+        .filter(f => (f.endsWith('.md') || f.endsWith('.json')) && f !== '.gitkeep' && f !== 'README.md');
       
       for (const file of files) {
         const filePath = path.join(dirPath, file);
@@ -111,13 +116,29 @@ function scanAgentOutputs() {
         
         try {
           const content = fs.readFileSync(filePath, 'utf8');
+          
+          // Extract ticket ID from filename patterns:
+          // "TKT-001-2025-12-04T1430.md" -> "TKT-001"
+          // "SEC-001-2025-12-05T1230.md" -> "SEC-001"
+          const ticketMatch = file.match(/^([A-Z]+-\d+)/);
+          const ticketId = ticketMatch ? ticketMatch[1] : file.replace(/-\d{4}-\d{2}-\d{2}T\d+\.(md|json)$/, '').replace(/\.(md|json)$/, '');
+          
+          // Parse branch from completion file content if it's a completion
+          let branch = null;
+          if (dirName === 'completions') {
+            const branchMatch = content.match(/\*\*Branch:\*\*\s*`?([^`\n]+)`?/);
+            branch = branchMatch ? branchMatch[1].trim() : `agent/${ticketId.toLowerCase()}`;
+          }
+          
           outputs[outputKey].push({
             fileName: file,
             filePath: `docs/agent-output/${dirName}/${file}`,
             content: content,
             modifiedAt: stat.mtime.toISOString(),
-            // Extract ID from filename (e.g., "D-routing-rules-2025-12-04T1430.md" -> "D-routing-rules")
-            id: file.replace(/-\d{4}-\d{2}-\d{2}T\d+\.md$/, '').replace(/\.md$/, '')
+            ticketId: ticketId,
+            branch: branch,
+            // Legacy ID field for backwards compatibility
+            id: file.replace(/-\d{4}-\d{2}-\d{2}T\d+\.(md|json)$/, '').replace(/\.(md|json)$/, '')
           });
         } catch (e) {
           console.error(`Error reading ${filePath}:`, e.message);
@@ -135,6 +156,54 @@ function scanAgentOutputs() {
   }
   
   return outputs;
+}
+
+// Build devStatus from actual agent output files (source of truth)
+// This prevents race conditions where agents update dev-status.json on their branch
+function buildDevStatusFromOutputs(agentOutputs) {
+  const completed = [];
+  const inProgress = [];
+  
+  // Build completed list from completion files
+  for (const completion of agentOutputs.completions) {
+    completed.push({
+      ticket_id: completion.ticketId,
+      branch: completion.branch || `agent/${completion.ticketId.toLowerCase()}`,
+      completed_at: completion.modifiedAt,
+      completion_file: completion.filePath
+    });
+  }
+  
+  // Build in_progress from started files (that don't have a matching completion)
+  const completedIds = new Set(completed.map(c => c.ticket_id));
+  for (const started of agentOutputs.started) {
+    if (!completedIds.has(started.ticketId)) {
+      // Try to parse JSON content for more details
+      let startedData = {};
+      try {
+        startedData = JSON.parse(started.content);
+      } catch (e) {
+        // Not JSON, use filename info
+      }
+      
+      inProgress.push({
+        ticket_id: started.ticketId,
+        branch: startedData.branch || `agent/${started.ticketId.toLowerCase()}`,
+        started_at: startedData.started_at || started.modifiedAt
+      });
+    }
+  }
+  
+  return {
+    meta: {
+      last_updated: new Date().toISOString(),
+      version: "2.1",
+      note: "Built from agent-output files (source of truth)"
+    },
+    in_progress: inProgress,
+    completed: completed,
+    retry_history: []
+  };
 }
 
 // Generate dev agent prompt from ticket data
@@ -329,11 +398,21 @@ function handleAPI(req, res, body) {
     }
     
     // Scan agent-output directories for per-agent files (auto-aggregation)
-    let agentOutputs = { reviews: [], completions: [], blocked: [], docTracker: [] };
+    let agentOutputs = { reviews: [], completions: [], blocked: [], docTracker: [], started: [], findings: [] };
     try {
       agentOutputs = scanAgentOutputs();
     } catch (e) {
       console.error('Error scanning agent outputs:', e.message);
+    }
+    
+    // Build devStatus from actual output files (source of truth)
+    // This prevents race conditions where agents update dev-status.json on their branch
+    let devStatus;
+    try {
+      devStatus = buildDevStatusFromOutputs(agentOutputs);
+    } catch (e) {
+      console.error('Error building devStatus:', e.message);
+      devStatus = readJSON('dev-status.json') || { in_progress: [], completed: [] };
     }
     
     const data = {
@@ -341,7 +420,7 @@ function handleAPI(req, res, body) {
       decisions: readJSON('decisions.json'),
       tickets: readJSON('tickets.json'),
       summary: readJSON('findings-summary.json'),
-      devStatus: readJSON('dev-status.json'),
+      devStatus: devStatus,
       featuresList,
       // Aggregated agent outputs (prevents race conditions with multiple agents)
       agentOutputs
