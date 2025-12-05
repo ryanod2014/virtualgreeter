@@ -2042,10 +2042,18 @@ pnpm build`}
       const [customInputs, setCustomInputs] = useState({});
       
       // Filter tickets by status
-      const readyTickets = tickets.filter(t => t.status === 'ready');
       const blockedItems = devStatus?.blocked || [];
       const inProgressItems = devStatus?.in_progress || [];
       const completedItems = devStatus?.completed || [];
+      
+      // Ready = status is 'ready' AND not in dev-status completed/in_progress
+      const completedIds = new Set(completedItems.map(c => c.ticket_id));
+      const inProgressIds = new Set(inProgressItems.map(i => i.ticket_id));
+      const readyTickets = tickets.filter(t => 
+        t.status === 'ready' && 
+        !completedIds.has(t.id) && 
+        !inProgressIds.has(t.id)
+      );
       
       // Group ready tickets by priority
       const byPriority = {
@@ -2860,11 +2868,18 @@ pnpm build`}
       const [selectedFeature, setSelectedFeature] = useState(null);
       
       // Ticket calculations
-      const readyTickets = tickets.filter(t => t.status === 'ready');
       const inProgressItems = devStatus?.in_progress || [];
       const completedItems = devStatus?.completed || [];
       const blockedItems = devStatus?.blocked || [];
       const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id));
+      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id));
+      
+      // Ready = status is 'ready' AND not in dev-status completed/in_progress
+      const readyTickets = tickets.filter(t => 
+        t.status === 'ready' && 
+        !completedTicketIds.has(t.id) && 
+        !inProgressTicketIds.has(t.id)
+      );
       
       // Helper functions
       const getElapsedMinutes = (startedAt) => {
