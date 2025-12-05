@@ -2892,6 +2892,12 @@ pnpm build`}
         !inProgressTicketIds.has(t.id)
       );
       
+      // Pending tickets = NOT in progress or completed (for All Tickets tab)
+      const pendingTickets = tickets.filter(t => 
+        !completedTicketIds.has(t.id) && 
+        !inProgressTicketIds.has(t.id)
+      );
+      
       // Helper functions
       const getElapsedMinutes = (startedAt) => {
         if (!startedAt) return 0;
@@ -2972,9 +2978,9 @@ pnpm build`}
               }}
             >
               <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                {tickets.length}
+                {pendingTickets.length}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>All Tickets</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Pending</div>
             </div>
             <div 
               className="card" 
@@ -3032,7 +3038,7 @@ pnpm build`}
           <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0' }}>
             {[
               { id: 'inventory', label: 'Feature Inventory', count: FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
-              { id: 'all', label: 'All Tickets', count: tickets.length, color: 'var(--text-primary)' },
+              { id: 'all', label: 'Pending', count: pendingTickets.length, color: 'var(--text-primary)' },
               { id: 'progress', label: 'In Progress', count: activeInProgressItems.length, color: 'var(--success)' },
               { id: 'blocked', label: 'Blocked', count: blockedItems.length, color: 'var(--critical)' },
               { id: 'review', label: 'For Review', count: completedItems.length, color: 'var(--success)' }
@@ -3309,33 +3315,33 @@ pnpm build`}
             </div>
           )}
           
-          {/* ALL TICKETS TAB */}
+          {/* PENDING TICKETS TAB */}
           {pipelineTab === 'all' && (
             <div className="fade-in">
               {/* Priority Filter Tabs */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <div className="tabs">
                   <button className={`tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
-                    All <span className="count">{tickets.length}</span>
+                    All <span className="count">{pendingTickets.length}</span>
                   </button>
                   <button className={`tab ${filter === 'critical' ? 'active' : ''}`} onClick={() => setFilter('critical')}>
-                    <StatusDot color="var(--critical)" /> Critical <span className="count">{tickets.filter(t => t.priority === 'critical').length}</span>
+                    <StatusDot color="var(--critical)" /> Critical <span className="count">{pendingTickets.filter(t => t.priority === 'critical').length}</span>
                   </button>
                   <button className={`tab ${filter === 'high' ? 'active' : ''}`} onClick={() => setFilter('high')}>
-                    <StatusDot color="var(--high)" /> High <span className="count">{tickets.filter(t => t.priority === 'high').length}</span>
+                    <StatusDot color="var(--high)" /> High <span className="count">{pendingTickets.filter(t => t.priority === 'high').length}</span>
                   </button>
                   <button className={`tab ${filter === 'medium' ? 'active' : ''}`} onClick={() => setFilter('medium')}>
-                    <StatusDot color="var(--medium)" /> Medium <span className="count">{tickets.filter(t => t.priority === 'medium').length}</span>
+                    <StatusDot color="var(--medium)" /> Medium <span className="count">{pendingTickets.filter(t => t.priority === 'medium').length}</span>
                   </button>
                   <button className={`tab ${filter === 'low' ? 'active' : ''}`} onClick={() => setFilter('low')}>
-                    <StatusDot color="var(--low)" /> Low <span className="count">{tickets.filter(t => t.priority === 'low').length}</span>
+                    <StatusDot color="var(--low)" /> Low <span className="count">{pendingTickets.filter(t => t.priority === 'low').length}</span>
                   </button>
                 </div>
               </div>
               
               {/* Ticket Grid */}
               <div className="ticket-grid">
-                {(filter === 'all' ? tickets : tickets.filter(t => t.priority === filter)).map(ticket => (
+                {(filter === 'all' ? pendingTickets : pendingTickets.filter(t => t.priority === filter)).map(ticket => (
                   <TicketCard key={ticket.id} ticket={ticket} onClick={() => setSelectedTicket(ticket)} />
                 ))}
               </div>
