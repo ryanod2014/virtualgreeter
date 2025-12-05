@@ -1,3 +1,4 @@
+import type { Socket } from "socket.io";
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 
 export interface TokenVerificationResult {
@@ -175,5 +176,34 @@ export async function fetchOrgRoutingConfig(orgId: string) {
     console.error("[Auth] Routing config fetch error:", err);
     return { defaultPoolId: null, pathRules: [] };
   }
+}
+
+/**
+ * Check if a socket is authenticated as an agent
+ * Returns the agentId if authenticated, null otherwise
+ * 
+ * Use this guard at the start of agent-only socket handlers to ensure
+ * the socket has successfully completed AGENT_LOGIN.
+ * 
+ * @param socket - The socket to check
+ * @param handlerName - Name of the handler (for logging)
+ * @returns agentId if authenticated, null if not
+ */
+export function requireAgentAuth(
+  socket: Socket,
+  handlerName: string
+): string | null {
+  const agentId = socket.data?.agentId as string | undefined;
+  
+  if (!agentId) {
+    console.warn(`[Auth] ${handlerName} rejected - socket ${socket.id} not authenticated as agent`);
+    socket.emit("error", {
+      code: "AUTH_REQUIRED",
+      message: "Not authenticated as agent. Please login first.",
+    });
+    return null;
+  }
+  
+  return agentId;
 }
 
