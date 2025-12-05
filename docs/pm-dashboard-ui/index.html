@@ -2909,9 +2909,13 @@ pnpm build`}
         return `${days}d ${hours % 24}h ago`;
       };
       
-      const STALE_THRESHOLD_MINS = 30;
+      // Auto-requeue threshold: 40 minutes
+      const STALE_THRESHOLD_MINS = 40;
       const isStale = (startedAt) => getElapsedMinutes(startedAt) > STALE_THRESHOLD_MINS;
-      const staleCount = inProgressItems.filter(i => isStale(i.started_at)).length;
+      
+      // Filter out stalled agents - they automatically go back to Launch queue
+      const activeInProgressItems = inProgressItems.filter(i => !isStale(i.started_at));
+      const stalledCount = inProgressItems.length - activeInProgressItems.length;
       
       const markCompleted = (ticketId) => {
         const item = inProgressItems.find(i => i.ticket_id === ticketId);
@@ -2978,15 +2982,14 @@ pnpm build`}
               style={{ 
                 padding: '16px', 
                 cursor: 'pointer',
-                borderLeft: staleCount > 0 ? '4px solid var(--medium)' : inProgressItems.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
+                borderLeft: activeInProgressItems.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
                 background: pipelineTab === 'progress' ? 'var(--bg-elevated)' : undefined
               }}
             >
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontSize: '24px', fontWeight: 700, color: staleCount > 0 ? 'var(--medium)' : inProgressItems.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
-                  {inProgressItems.length}
+                <span style={{ fontSize: '24px', fontWeight: 700, color: activeInProgressItems.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
+                  {activeInProgressItems.length}
                 </span>
-                {staleCount > 0 && <span style={{ fontSize: '11px', color: 'var(--medium)', fontWeight: 600 }}>⚠️</span>}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>In Progress</div>
             </div>
@@ -3030,7 +3033,7 @@ pnpm build`}
             {[
               { id: 'inventory', label: 'Feature Inventory', count: FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
               { id: 'all', label: 'All Tickets', count: tickets.length, color: 'var(--text-primary)' },
-              { id: 'progress', label: 'In Progress', count: inProgressItems.length, color: staleCount > 0 ? 'var(--medium)' : 'var(--success)', stale: staleCount },
+              { id: 'progress', label: 'In Progress', count: activeInProgressItems.length, color: 'var(--success)' },
               { id: 'blocked', label: 'Blocked', count: blockedItems.length, color: 'var(--critical)' },
               { id: 'review', label: 'For Review', count: completedItems.length, color: 'var(--success)' }
             ].map(tab => (
@@ -3345,35 +3348,21 @@ pnpm build`}
           {/* IN PROGRESS TAB */}
           {pipelineTab === 'progress' && (
             <div className="fade-in">
-              {staleCount > 0 && (
-                <div style={{ 
-                  padding: '14px 20px', 
-                  background: 'rgba(234,179,8,0.15)', 
-                  borderRadius: '10px', 
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  border: '1px solid rgba(234,179,8,0.3)'
-                }}>
-                  <span style={{ fontSize: '20px' }}>⚠️</span>
-                  <div>
-                    <div style={{ fontWeight: 600, color: 'var(--medium)' }}>{staleCount} agent{staleCount > 1 ? 's' : ''} may be stalled</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No update in over 30 minutes. Consider retrying if the chat errored.</div>
-                  </div>
-                </div>
-              )}
-              
-              {inProgressItems.length === 0 ? (
+              {activeInProgressItems.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
                   <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚀</div>
                   <div style={{ fontSize: '18px', fontWeight: 500 }}>No agents running</div>
                   <div style={{ fontSize: '14px', marginTop: '8px' }}>Go to Launch tab to start agents</div>
+                  {stalledCount > 0 && (
+                    <div style={{ fontSize: '13px', marginTop: '16px', color: 'var(--text-muted)' }}>
+                      {stalledCount} stalled agent{stalledCount > 1 ? 's' : ''} auto-requeued to Launch
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: '12px' }}>
-                  {inProgressItems.map(item => {
-                    const stale = isStale(item.started_at);
+                  {activeInProgressItems.map(item => {
+                    const mins = getElapsedMinutes(item.started_at);
                     const elapsed = formatElapsed(item.started_at);
                     
                     return (
@@ -3382,43 +3371,22 @@ pnpm build`}
                         className="card" 
                         style={{ 
                           padding: '20px', 
-                          borderLeft: stale ? '4px solid var(--medium)' : '4px solid var(--success)',
-                          background: stale ? 'rgba(234,179,8,0.05)' : undefined
+                          borderLeft: '4px solid var(--success)'
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                               <code style={{ fontSize: '13px', padding: '4px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{item.ticket_id}</code>
-                              {stale ? (
-                                <Badge type="open">⚠️ Possibly Stalled</Badge>
-                              ) : (
-                                <Badge type="active">Running</Badge>
-                              )}
-                              <span style={{ fontSize: '12px', color: stale ? 'var(--medium)' : 'var(--text-muted)', fontWeight: stale ? 600 : 400 }}>
-                                {elapsed}
+                              <Badge type="active">Running</Badge>
+                              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                {mins < 1 ? 'Just started' : `Running ${mins} min`}
                               </span>
                             </div>
                             <div style={{ fontSize: '17px', fontWeight: 600, marginTop: '10px' }}>{item.title}</div>
                             <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>
                               Branch: <code style={{ color: 'var(--accent-bright)', background: 'var(--accent-bg)', padding: '2px 6px', borderRadius: '4px' }}>{item.branch}</code>
                             </div>
-                          </div>
-                          
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '16px' }}>
-                            <button className="btn btn-success" onClick={() => markCompleted(item.ticket_id)}>
-                              ✓ Complete
-                            </button>
-                            <button className="btn btn-secondary" onClick={() => retryTicket(item.ticket_id)} style={{ fontSize: '13px' }}>
-                              ⟳ Retry
-                            </button>
-                            <button 
-                              className="btn" 
-                              onClick={() => cancelTicket(item.ticket_id)}
-                              style={{ fontSize: '13px', color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border)' }}
-                            >
-                              ✗ Cancel
-                            </button>
                           </div>
                         </div>
                       </div>
