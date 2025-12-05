@@ -1,67 +1,89 @@
 import type { VisitorLocation } from "@ghost-greeter/domain";
+import { Reader, ReaderModel } from "@maxmind/geoip2-node";
+import * as fs from "fs";
+import * as path from "path";
 
-// Cache for IP lookups to avoid excessive API calls
+// Cache for IP lookups to avoid repeated database reads
 const locationCache = new Map<string, { location: VisitorLocation | null; expiresAt: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour cache
 
-// Response type from ip-api.com
-interface IPApiResponse {
-  status: "success" | "fail";
-  message?: string;
-  city?: string;
-  regionName?: string;
-  country?: string;
-  countryCode?: string;
+// MaxMind database reader (singleton)
+let dbReader: ReaderModel | null = null;
+let dbLoadAttempted = false;
+
+/**
+ * Get the MaxMind database path from environment or default location
+ */
+function getDbPath(): string {
+  if (process.env.MAXMIND_DB_PATH) {
+    return process.env.MAXMIND_DB_PATH;
+  }
+  return path.join(process.cwd(), "data", "GeoLite2-City.mmdb");
 }
 
 /**
- * Look up location from IP address using ip-api.com (free, no API key required)
- * Rate limit: 45 requests/minute for free tier
+ * Initialize the MaxMind database reader
+ * Uses GeoLite2-City database for IP geolocation
+ */
+async function initReader(): Promise<ReaderModel | null> {
+  if (dbLoadAttempted) {
+    return dbReader;
+  }
+  
+  dbLoadAttempted = true;
+  const dbPath = getDbPath();
+  
+  if (!fs.existsSync(dbPath)) {
+    console.warn("[Geolocation] MaxMind database not found at: " + dbPath);
+    console.warn("[Geolocation] Download GeoLite2-City.mmdb from https://dev.maxmind.com/geoip/geolite2-free-geolocation-data");
+    return null;
+  }
+  
+  try {
+    dbReader = await Reader.open(dbPath);
+    console.log("[Geolocation] MaxMind database loaded successfully");
+    return dbReader;
+  } catch (error) {
+    console.error("[Geolocation] Failed to load MaxMind database:", error);
+    return null;
+  }
+}
+
+/**
+ * Look up location from IP address using MaxMind GeoLite2 database
  */
 export async function getLocationFromIP(ipAddress: string): Promise<VisitorLocation | null> {
-  // Check cache first
   const cached = locationCache.get(ipAddress);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.location;
   }
 
-  // Skip localhost/private IPs
   if (isPrivateIP(ipAddress)) {
-    console.log(`[Geolocation] Skipping private IP: ${ipAddress}`);
+    console.log("[Geolocation] Skipping private IP: " + ipAddress);
+    return null;
+  }
+
+  const reader = await initReader();
+  if (!reader) {
     return null;
   }
 
   try {
-    const response = await fetch(`http://ip-api.com/json/${ipAddress}?fields=status,city,regionName,country,countryCode`);
+    const response = reader.city(ipAddress);
     
-    if (!response.ok) {
-      console.error(`[Geolocation] API error: ${response.status}`);
-      return null;
-    }
-
-    const data = await response.json() as IPApiResponse;
-
-    if (data.status !== "success") {
-      console.log(`[Geolocation] Lookup failed for ${ipAddress}: ${data.message || "unknown"}`);
-      // Cache failure to avoid repeated lookups
-      locationCache.set(ipAddress, { location: null, expiresAt: Date.now() + CACHE_TTL_MS });
-      return null;
-    }
-
     const location: VisitorLocation = {
-      city: data.city || null,
-      region: data.regionName || null,
-      country: data.country || null,
-      countryCode: data.countryCode || null,
+      city: response.city?.names?.en || null,
+      region: response.subdivisions?.[0]?.names?.en || null,
+      country: response.country?.names?.en || null,
+      countryCode: response.country?.isoCode || null,
     };
 
-    // Cache successful result
     locationCache.set(ipAddress, { location, expiresAt: Date.now() + CACHE_TTL_MS });
-    
-    console.log(`[Geolocation] Resolved ${ipAddress} -> ${location.city}, ${location.region}, ${location.countryCode}`);
+    console.log("[Geolocation] Resolved " + ipAddress + " -> " + location.city + ", " + location.region + ", " + location.countryCode);
     return location;
   } catch (error) {
-    console.error(`[Geolocation] Error looking up ${ipAddress}:`, error);
+    console.log("[Geolocation] IP not found in MaxMind database: " + ipAddress);
+    locationCache.set(ipAddress, { location: null, expiresAt: Date.now() + CACHE_TTL_MS });
     return null;
   }
 }
@@ -69,8 +91,7 @@ export async function getLocationFromIP(ipAddress: string): Promise<VisitorLocat
 /**
  * Check if IP is private/localhost
  */
-function isPrivateIP(ip: string): boolean {
-  // IPv4 private ranges
+export function isPrivateIP(ip: string): boolean {
   if (
     ip === "127.0.0.1" ||
     ip === "localhost" ||
@@ -95,12 +116,9 @@ function isPrivateIP(ip: string): boolean {
   ) {
     return true;
   }
-
-  // IPv6 localhost
   if (ip === "::1" || ip === "::ffff:127.0.0.1") {
     return true;
   }
-
   return false;
 }
 
@@ -108,24 +126,17 @@ function isPrivateIP(ip: string): boolean {
  * Extract client IP from socket handshake, handling proxies
  */
 export function getClientIP(handshake: { headers: Record<string, string | string[] | undefined>; address: string }): string {
-  // Check x-forwarded-for header (from proxies/load balancers)
   const forwardedFor = handshake.headers["x-forwarded-for"];
   if (forwardedFor) {
     const ips = typeof forwardedFor === "string" ? forwardedFor : forwardedFor[0];
-    // First IP in the list is the original client IP
     const clientIP = ips?.split(",")[0]?.trim();
     if (clientIP) {
       return clientIP;
     }
   }
-
-  // Check x-real-ip header (nginx)
   const realIP = handshake.headers["x-real-ip"];
   if (realIP) {
     return typeof realIP === "string" ? realIP : realIP[0] || handshake.address;
   }
-
-  // Fall back to socket address
   return handshake.address;
 }
-
