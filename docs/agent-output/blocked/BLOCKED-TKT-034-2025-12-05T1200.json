@@ -1,0 +1,65 @@
+{
+  "id": "BLOCKED-TKT-034-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-034",
+  "severity": "critical",
+  "title": "Specified files do not exist - need correct file paths",
+  "feature": "Call Logs Pagination",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-05T12:00:00Z",
+
+  "issue": "The ticket specifies files that do not exist in the codebase. I cannot proceed without knowing the correct files to modify.\n\nFiles specified (DO NOT EXIST):\n- apps/dashboard/src/features/call-logs/CallLogsTable.tsx\n- apps/dashboard/src/app/api/call-logs/route.ts\n\nActual call logs implementation files that DO exist:\n- apps/dashboard/src/app/(app)/admin/calls/page.tsx (Server Component - fetches data)\n- apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx (Client Component - renders UI)\n\nThe current implementation uses Server Components (not API routes). The server component fetches data directly with Supabase and passes it to the client component as props. There's currently a `.limit(500)` on line 120 of page.tsx.",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Modify existing Server Components — Add pagination to apps/dashboard/src/app/(app)/admin/calls/page.tsx and calls-client.tsx. Keeps existing architecture (Server Components), adds page/limit URL params, server-side pagination with offset, and pagination UI controls.",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Create new API route + component — Create the specified files as a new API route pattern. Would require refactoring the calls page to use fetch() instead of server-side data fetching. Significant architectural change.",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Modify existing + add API route — Keep server components but also add an API route for client-side pagination (hybrid approach). More complex but allows progressive enhancement.",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 1 because it follows existing patterns in the codebase, requires minimal changes, and the existing Server Component architecture works well with URL-based pagination (page reloads with new params). The current page.tsx already handles URL search params for filters, so adding page/limit is a natural extension.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-034",
+    "ticket_version": 1,
+    "branch": "agent/tkt-034-call-logs-pagination-for-perfo",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Read ticket spec and SOP",
+        "Investigated codebase to find actual call logs implementation",
+        "Read feature documentation (docs/features/admin/call-logs.md)",
+        "Read current implementation (page.tsx and calls-client.tsx)",
+        "Identified current architecture: Server Components with .limit(500)"
+      ],
+      "remaining": [
+        "Confirm correct files to modify ← BLOCKED HERE",
+        "Add page/limit URL parameters to server component",
+        "Add server-side pagination query (limit/offset or cursor)",
+        "Fetch total count for pagination controls",
+        "Add pagination UI controls to client component",
+        "Preserve filters across page changes",
+        "Test pagination"
+      ],
+      "stopped_at": {
+        "file": "N/A - Pre-implementation phase",
+        "line": 0,
+        "context": "Blocked during investigation - files specified in ticket do not exist"
+      },
+      "notes_for_next_agent": "The actual call logs implementation uses Next.js Server Components. page.tsx fetches data with Supabase and passes to calls-client.tsx. Current implementation has .limit(500) on line 120. To add pagination: add page/limit params to Props interface (line 7-20), modify query to use .range() instead of .limit(500), add count query, and add pagination controls to CallsClient component. Also note there's an agent-specific call logs page at apps/dashboard/src/app/(app)/dashboard/calls/ that may also need pagination."
+    }
+  }
+}
+

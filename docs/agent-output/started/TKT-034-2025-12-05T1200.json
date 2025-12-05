@@ -1,0 +1,10 @@
+{
+  "ticket_id": "TKT-034",
+  "branch": "agent/tkt-034-call-logs-pagination-for-perfo",
+  "started_at": "2025-12-05T12:00:00Z",
+  "files_locking": [
+    "apps/dashboard/src/features/call-logs/CallLogsTable.tsx",
+    "apps/dashboard/src/app/api/call-logs/route.ts"
+  ]
+}
+
