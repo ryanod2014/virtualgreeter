@@ -2801,7 +2801,7 @@ pnpm build`}
                   
                   <div style={{ display: 'grid', gap: '16px' }}>
                     {completedItems.map(item => {
-                      const ticket = tickets.find(t => t.id === item.ticket_id);
+                      const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
                       return (
                         <div key={item.ticket_id} className="card" style={{ padding: '20px', borderLeft: '4px solid var(--success)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -2871,8 +2871,9 @@ pnpm build`}
       // Ticket calculations
       const inProgressItems = devStatus?.in_progress || [];
       const completedItems = devStatus?.completed || [];
-      const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id));
-      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id));
+      // Normalize to uppercase for case-insensitive matching (TKT-004b vs TKT-004B)
+      const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id?.toUpperCase()));
+      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id?.toUpperCase()));
       
       // Blocked items from agent-output files
       const blockedItems = (agentOutputs?.blocked || []).map(b => {
@@ -2888,14 +2889,14 @@ pnpm build`}
       // Ready = status is 'ready' AND not in dev-status completed/in_progress
       const readyTickets = tickets.filter(t => 
         t.status === 'ready' && 
-        !completedTicketIds.has(t.id) && 
-        !inProgressTicketIds.has(t.id)
+        !completedTicketIds.has(t.id?.toUpperCase()) && 
+        !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
       // Pending tickets = NOT in progress or completed (for All Tickets tab)
       const pendingTickets = tickets.filter(t => 
-        !completedTicketIds.has(t.id) && 
-        !inProgressTicketIds.has(t.id)
+        !completedTicketIds.has(t.id?.toUpperCase()) && 
+        !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
       // Helper functions
@@ -3668,7 +3669,7 @@ pnpm build`}
                   
                   <div className="ticket-grid">
                     {completedItems.map(item => {
-                      const ticket = tickets.find(t => t.id === item.ticket_id);
+                      const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
                       return (
                         <div 
                           key={item.ticket_id} 
@@ -3776,18 +3777,19 @@ pnpm build`}
       // Ticket calculations
       const inProgressItems = devStatus?.in_progress || [];
       const completedItems = devStatus?.completed || [];
-      const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id));
-      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id));
+      // Normalize to uppercase for case-insensitive matching
+      const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id?.toUpperCase()));
+      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id?.toUpperCase()));
       
       // Ready = status is 'ready' AND not in dev-status completed/in_progress
       const readyTickets = tickets.filter(t => 
         t.status === 'ready' && 
-        !completedTicketIds.has(t.id) && 
-        !inProgressTicketIds.has(t.id)
+        !completedTicketIds.has(t.id?.toUpperCase()) && 
+        !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
       const filesInProgress = new Set();
-      tickets.filter(t => inProgressTicketIds.has(t.id)).forEach(t => {
+      tickets.filter(t => inProgressTicketIds.has(t.id?.toUpperCase())).forEach(t => {
         (t.files_to_modify || []).forEach(f => filesInProgress.add(f));
       });
       
