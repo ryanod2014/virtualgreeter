@@ -110,6 +110,35 @@ export async function fetchAgentPoolMemberships(agentId: string): Promise<PoolMe
 }
 
 /**
+ * Fetch the organization ID for an agent
+ * Used to check org status when agent tries to go active
+ */
+export async function getAgentOrgId(agentId: string): Promise<string | null> {
+  if (!isSupabaseConfigured || !supabase) {
+    console.warn("[Auth] Supabase not configured - returning null orgId");
+    return null;
+  }
+
+  try {
+    const { data: profile, error } = await supabase
+      .from("agent_profiles")
+      .select("organization_id")
+      .eq("id", agentId)
+      .single();
+
+    if (error || !profile) {
+      console.error("[Auth] Failed to fetch agent org ID:", error?.message);
+      return null;
+    }
+
+    return profile.organization_id;
+  } catch (err) {
+    console.error("[Auth] Error fetching agent org ID:", err);
+    return null;
+  }
+}
+
+/**
  * Fetch pool routing rules for an organization
  * Used to sync server-side routing configuration
  */

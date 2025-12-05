@@ -1634,6 +1634,52 @@ const IDLE_WARNING_STYLES = `
 `;
 
 /**
+ * Organization paused styles - shown when service is temporarily unavailable
+ */
+const ORG_PAUSED_STYLES = `
+  .gg-org-paused {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: ${Z_INDEX.WIDGET};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gg-org-paused-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px;
+    background: var(--gg-bg);
+    border: 1px solid var(--gg-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-width: 280px;
+    text-align: center;
+    animation: gg-fadeIn 0.3s ease-out;
+  }
+
+  .gg-org-paused-icon {
+    color: var(--gg-text-muted);
+    opacity: 0.8;
+  }
+
+  .gg-org-paused-icon svg {
+    animation: gg-clock-tick 2s ease-in-out infinite;
+  }
+
+  .gg-org-paused-message {
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--gg-text);
+    margin: 0;
+  }
+`;
+
+/**
  * Powered by footer
  */
 const POWERED_BY_STYLES = `
@@ -1738,6 +1784,7 @@ export function getWidgetStyles(): string {
     HANDOFF_STYLES,
     ERROR_TOAST_STYLES,
     IDLE_WARNING_STYLES,
+    ORG_PAUSED_STYLES,
     POWERED_BY_STYLES,
     RESPONSIVE_STYLES,
     LIGHT_THEME_OVERRIDES,
