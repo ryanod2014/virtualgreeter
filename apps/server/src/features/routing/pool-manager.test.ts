@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { PoolManager } from "./pool-manager.js";
 import type { AgentProfile } from "@ghost-greeter/domain";
 
@@ -279,5 +279,182 @@ describe("PoolManager", () => {
       expect(next?.requestId).toBe(req1.requestId);
     });
   });
-});
 
+  describe("Pool-Aware Reassignment (TKT-017)", () => {
+    it("should reassign visitor to agent in the same pool", () => {
+      // Setup: Sales pool with 2 agents
+      poolManager.setOrgConfig("org1", "sales-pool", [
+        {
+          id: "rule1",
+          orgId: "org1",
+          pathPattern: "/sales",
+          domainPattern: "*",
+          conditions: [],
+          poolId: "sales-pool",
+          priority: 1,
+          isActive: true,
+        },
+      ]);
+
+      // Register agents
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Sales Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Sales Agent B"));
+      poolManager.addAgentToPool("agentA", "sales-pool");
+      poolManager.addAgentToPool("agentB", "sales-pool");
+
+      // Register visitor on sales page and assign to agentA
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/sales");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+
+      // AgentA goes unavailable - reassign visitors
+      const result = poolManager.reassignVisitors("agentA");
+
+      // Visitor should be reassigned to agentB (same pool)
+      expect(result.reassigned.size).toBe(1);
+      expect(result.reassigned.get("visitor1")).toBe("agentB");
+      expect(result.unassigned).toHaveLength(0);
+
+      // Verify visitor is now assigned to agentB
+      const visitor = poolManager.getVisitor("visitor1");
+      expect(visitor?.assignedAgentId).toBe("agentB");
+    });
+
+    it("should NOT reassign visitor to agent in a different pool", () => {
+      // Setup: Sales pool with 1 agent, Support pool with 1 agent
+      poolManager.setOrgConfig("org1", "sales-pool", [
+        {
+          id: "rule1",
+          orgId: "org1",
+          pathPattern: "/sales",
+          domainPattern: "*",
+          conditions: [],
+          poolId: "sales-pool",
+          priority: 1,
+          isActive: true,
+        },
+      ]);
+
+      // Register agents in different pools
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Sales Agent"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Support Agent"));
+      poolManager.addAgentToPool("agentA", "sales-pool");
+      poolManager.addAgentToPool("agentB", "support-pool"); // Different pool!
+
+      // Register visitor on sales page and assign to agentA
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/sales");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+
+      // AgentA goes unavailable - try to reassign
+      const result = poolManager.reassignVisitors("agentA");
+
+      // Visitor should NOT be reassigned to support agent (different pool)
+      expect(result.reassigned.size).toBe(0);
+      expect(result.unassigned).toHaveLength(1);
+      expect(result.unassigned[0]).toBe("visitor1");
+
+      // Verify visitor is now unassigned
+      const visitor = poolManager.getVisitor("visitor1");
+      expect(visitor?.assignedAgentId).toBeNull();
+    });
+
+    it("should log warning when no agents available in pool", () => {
+      // Setup: Sales pool with only 1 agent
+      poolManager.setOrgConfig("org1", "sales-pool", [
+        {
+          id: "rule1",
+          orgId: "org1",
+          pathPattern: "/sales",
+          domainPattern: "*",
+          conditions: [],
+          poolId: "sales-pool",
+          priority: 1,
+          isActive: true,
+        },
+      ]);
+
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Sales Agent"));
+      poolManager.addAgentToPool("agentA", "sales-pool");
+
+      // Register visitor and assign to the only agent
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/sales");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+
+      // Mock console.warn to capture the warning
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      // AgentA goes unavailable - no other agents in pool
+      const result = poolManager.reassignVisitors("agentA");
+
+      // Should be unassigned and warning logged
+      expect(result.unassigned).toHaveLength(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("No available agents in pool sales-pool")
+      );
+
+      warnSpy.mockRestore();
+    });
+
+    it("should exclude specified visitor from reassignment", () => {
+      // Setup pool with 2 agents
+      poolManager.setOrgConfig("org1", "pool1", []);
+
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+      poolManager.addAgentToPool("agentA", "pool1");
+      poolManager.addAgentToPool("agentB", "pool1");
+
+      // Register 2 visitors and assign both to agentA
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+      poolManager.assignVisitorToAgent("visitor2", "agentA");
+
+      // Reassign but exclude visitor1 (e.g., they're in a call with agentA)
+      const result = poolManager.reassignVisitors("agentA", "visitor1");
+
+      // Only visitor2 should be reassigned
+      expect(result.reassigned.size).toBe(1);
+      expect(result.reassigned.get("visitor2")).toBe("agentB");
+      expect(result.unassigned).toHaveLength(0);
+
+      // visitor1 should still be with agentA
+      const agent = poolManager.getAgent("agentA");
+      expect(agent?.currentSimulations).toContain("visitor1");
+      expect(agent?.currentSimulations).not.toContain("visitor2");
+    });
+
+    it("should handle multiple visitors in same pool reassignment", () => {
+      // Setup pool with 3 agents
+      poolManager.setOrgConfig("org1", "pool1", []);
+
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+      poolManager.registerAgent("socket_c", createMockAgentProfile("agentC", "Agent C"));
+      poolManager.addAgentToPool("agentA", "pool1");
+      poolManager.addAgentToPool("agentB", "pool1");
+      poolManager.addAgentToPool("agentC", "pool1");
+
+      // Assign 3 visitors to agentA
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+      poolManager.registerVisitor("socket_v3", "visitor3", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+      poolManager.assignVisitorToAgent("visitor2", "agentA");
+      poolManager.assignVisitorToAgent("visitor3", "agentA");
+
+      // AgentA becomes unavailable
+      const result = poolManager.reassignVisitors("agentA");
+
+      // All 3 visitors should be reassigned to other agents in pool
+      expect(result.reassigned.size).toBe(3);
+      expect(result.unassigned).toHaveLength(0);
+
+      // Each visitor should be assigned to either agentB or agentC
+      for (const [visitorId, newAgentId] of result.reassigned) {
+        expect(["agentB", "agentC"]).toContain(newAgentId);
+        const visitor = poolManager.getVisitor(visitorId);
+        expect(visitor?.assignedAgentId).toBe(newAgentId);
+      }
+    });
+  });
+});

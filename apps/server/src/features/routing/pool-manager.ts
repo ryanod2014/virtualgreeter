@@ -779,17 +779,30 @@ export class PoolManager {
     );
 
     for (const visitorId of visitorsToReassign) {
-      const newAgent = this.findBestAgent();
-      if (newAgent && newAgent.agentId !== fromAgentId) {
+      const visitor = this.visitors.get(visitorId);
+      if (!visitor) {
+        continue;
+      }
+
+      // Get the visitor's pool based on their org and page URL
+      const poolId = this.matchPathToPool(visitor.orgId, visitor.pageUrl);
+      
+      // Find best agent within the same pool (pass fromAgentId as excludeAgentId)
+      const newAgent = this.findBestAgent(poolId, fromAgentId);
+      
+      if (newAgent) {
         this.assignVisitorToAgent(visitorId, newAgent.agentId);
         reassigned.set(visitorId, newAgent.agentId);
       } else {
-        // No agent available - mark visitor as unassigned
-        const visitor = this.visitors.get(visitorId);
-        if (visitor) {
-          visitor.assignedAgentId = null;
-          unassigned.push(visitorId);
+        // No agent available in pool - do NOT fall back to cross-pool assignment
+        if (poolId) {
+          console.warn(
+            `[PoolManager] No available agents in pool ${poolId} for visitor ${visitorId}. ` +
+            `Visitor will be unassigned (no cross-pool reassignment).`
+          );
         }
+        visitor.assignedAgentId = null;
+        unassigned.push(visitorId);
       }
     }
 
