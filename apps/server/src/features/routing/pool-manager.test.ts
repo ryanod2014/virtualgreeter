@@ -186,11 +186,34 @@ describe("PoolManager", () => {
       expect(bestAgent?.agentId).toBe("agentB");
     });
 
+    it("should skip agents who are away", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      // Set agentA away (e.g., from RNA timeout)
+      poolManager.updateAgentStatus("agentA", "away");
+
+      const bestAgent = poolManager.findBestAgent();
+      expect(bestAgent?.agentId).toBe("agentB");
+    });
+
     it("should return undefined when all agents are unavailable", () => {
       poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
 
       // Put the only agent in a call
       poolManager.setAgentInCall("agentA", "some_visitor");
+
+      const bestAgent = poolManager.findBestAgent();
+      expect(bestAgent).toBeUndefined();
+    });
+
+    it("should return undefined when all agents are away", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      // Set both agents away
+      poolManager.updateAgentStatus("agentA", "away");
+      poolManager.updateAgentStatus("agentB", "away");
 
       const bestAgent = poolManager.findBestAgent();
       expect(bestAgent).toBeUndefined();
@@ -452,6 +475,221 @@ describe("PoolManager", () => {
     });
   });
 
+  describe("Tiered Routing - getAgentPriorityInPool", () => {
+    it("should return agent's priority rank for a specific pool", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      
+      // Add agent to pool with priority rank 2
+      poolManager.addAgentToPool("agentA", "pool1", 2);
+      
+      const priority = poolManager.getAgentPriorityInPool("agentA", "pool1");
+      expect(priority).toBe(2);
+    });
+
+    it("should return 1 (default) if agent is not in the pool", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      
+      // Agent is not added to any pool
+      const priority = poolManager.getAgentPriorityInPool("agentA", "nonexistent_pool");
+      expect(priority).toBe(1);
+    });
+
+    it("should return different priorities for the same agent in different pools", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      
+      // Add agent to multiple pools with different priorities
+      poolManager.addAgentToPool("agentA", "pool1", 1); // Primary in pool1
+      poolManager.addAgentToPool("agentA", "pool2", 3); // Backup in pool2
+      
+      expect(poolManager.getAgentPriorityInPool("agentA", "pool1")).toBe(1);
+      expect(poolManager.getAgentPriorityInPool("agentA", "pool2")).toBe(3);
+    });
+
+    it("should update priority when setAgentPoolMemberships is called", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      
+      // Initially add to pool with priority 1
+      poolManager.addAgentToPool("agentA", "pool1", 1);
+      expect(poolManager.getAgentPriorityInPool("agentA", "pool1")).toBe(1);
+      
+      // Update memberships with new priority
+      poolManager.setAgentPoolMemberships("agentA", [
+        { poolId: "pool1", priorityRank: 2 }
+      ]);
+      
+      expect(poolManager.getAgentPriorityInPool("agentA", "pool1")).toBe(2);
+    });
+  });
+
+  describe("Tiered Routing - findBestAgent priority ordering", () => {
+    it("should group agents by priority and try tier 1 (Primary) first", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      
+      // Register agents
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+      poolManager.registerAgent("socket_c", createMockAgentProfile("agentC", "Agent C"));
+      
+      // Add agents to pool with different priorities
+      poolManager.addAgentToPool("agentA", "pool1", 3); // Backup
+      poolManager.addAgentToPool("agentB", "pool1", 1); // Primary
+      poolManager.addAgentToPool("agentC", "pool1", 2); // Standard
+      
+      // Find best agent - should get Primary (tier 1) first
+      const result = poolManager.findBestAgent("pool1");
+      expect(result?.agentId).toBe("agentB");
+    });
+
+    it("should fall through to tier 2 when tier 1 agents are at capacity", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      
+      // Create agent with max 1 simulation
+      const primaryProfile = createMockAgentProfile("agentPrimary", "Primary Agent");
+      primaryProfile.maxSimultaneousSimulations = 1;
+      poolManager.registerAgent("socket_primary", primaryProfile);
+      
+      poolManager.registerAgent("socket_standard", createMockAgentProfile("agentStandard", "Standard Agent"));
+      
+      // Add agents to pool with different priorities
+      poolManager.addAgentToPool("agentPrimary", "pool1", 1);  // Primary - will be at capacity
+      poolManager.addAgentToPool("agentStandard", "pool1", 2); // Standard - overflow
+      
+      // Assign visitor to primary agent (now at capacity)
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentPrimary");
+      
+      // Next visitor should go to Standard tier since Primary is at capacity
+      const result = poolManager.findBestAgent("pool1");
+      expect(result?.agentId).toBe("agentStandard");
+    });
+
+    it("should fall through to tier 3 when tiers 1 and 2 are at capacity", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      
+      // Create agents with max 1 simulation each
+      const primaryProfile = createMockAgentProfile("agentPrimary", "Primary");
+      primaryProfile.maxSimultaneousSimulations = 1;
+      
+      const standardProfile = createMockAgentProfile("agentStandard", "Standard");
+      standardProfile.maxSimultaneousSimulations = 1;
+      
+      poolManager.registerAgent("socket_primary", primaryProfile);
+      poolManager.registerAgent("socket_standard", standardProfile);
+      poolManager.registerAgent("socket_backup", createMockAgentProfile("agentBackup", "Backup"));
+      
+      // Add agents with tiered priorities
+      poolManager.addAgentToPool("agentPrimary", "pool1", 1);
+      poolManager.addAgentToPool("agentStandard", "pool1", 2);
+      poolManager.addAgentToPool("agentBackup", "pool1", 3);
+      
+      // Fill up tier 1 and tier 2
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentPrimary");
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor2", "agentStandard");
+      
+      // Next visitor should go to Backup tier
+      const result = poolManager.findBestAgent("pool1");
+      expect(result?.agentId).toBe("agentBackup");
+    });
+
+    it("should return undefined when all tiers are at capacity", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      
+      // Create agents with max 1 simulation each
+      const primaryProfile = createMockAgentProfile("agentPrimary", "Primary");
+      primaryProfile.maxSimultaneousSimulations = 1;
+      
+      const standardProfile = createMockAgentProfile("agentStandard", "Standard");
+      standardProfile.maxSimultaneousSimulations = 1;
+      
+      poolManager.registerAgent("socket_primary", primaryProfile);
+      poolManager.registerAgent("socket_standard", standardProfile);
+      
+      poolManager.addAgentToPool("agentPrimary", "pool1", 1);
+      poolManager.addAgentToPool("agentStandard", "pool1", 2);
+      
+      // Fill up all tiers
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentPrimary");
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor2", "agentStandard");
+      
+      // No agent should be available
+      const result = poolManager.findBestAgent("pool1");
+      expect(result).toBeUndefined();
+    });
+
+    it("should use round-robin within the same tier", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      
+      // Register 3 agents all at tier 1 (Primary)
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+      poolManager.registerAgent("socket_c", createMockAgentProfile("agentC", "Agent C"));
+      
+      poolManager.addAgentToPool("agentA", "pool1", 1);
+      poolManager.addAgentToPool("agentB", "pool1", 1);
+      poolManager.addAgentToPool("agentC", "pool1", 1);
+      
+      // Assign 3 visitors - should distribute across all tier 1 agents
+      const assignments: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        const visitorId = `visitor_${i}`;
+        poolManager.registerVisitor(`socket_v${i}`, visitorId, "org1", "/");
+        const agent = poolManager.findBestAgent("pool1");
+        expect(agent).toBeDefined();
+        poolManager.assignVisitorToAgent(visitorId, agent!.agentId);
+        assignments.push(agent!.agentId);
+      }
+      
+      // All 3 agents in tier 1 should have received visitors (round-robin)
+      const uniqueAssignments = new Set(assignments);
+      expect(uniqueAssignments.size).toBe(3);
+    });
+
+    it("should skip unavailable agents in higher tiers before falling through", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      
+      poolManager.registerAgent("socket_primary", createMockAgentProfile("agentPrimary", "Primary"));
+      poolManager.registerAgent("socket_standard", createMockAgentProfile("agentStandard", "Standard"));
+      
+      poolManager.addAgentToPool("agentPrimary", "pool1", 1);
+      poolManager.addAgentToPool("agentStandard", "pool1", 2);
+      
+      // Set primary agent as away
+      poolManager.updateAgentStatus("agentPrimary", "away");
+      
+      // Should fall through to Standard tier
+      const result = poolManager.findBestAgent("pool1");
+      expect(result?.agentId).toBe("agentStandard");
+    });
+
+    it("should handle agents in multiple pools with different priorities correctly", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      poolManager.setOrgConfig("org1", "pool2", []);
+      
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+      
+      // Agent A is Primary in pool1, Backup in pool2
+      poolManager.addAgentToPool("agentA", "pool1", 1);
+      poolManager.addAgentToPool("agentA", "pool2", 3);
+      
+      // Agent B is Backup in pool1, Primary in pool2
+      poolManager.addAgentToPool("agentB", "pool1", 3);
+      poolManager.addAgentToPool("agentB", "pool2", 1);
+      
+      // In pool1, Agent A should be selected (Primary)
+      const result1 = poolManager.findBestAgent("pool1");
+      expect(result1?.agentId).toBe("agentA");
+      
+      // In pool2, Agent B should be selected (Primary)
+      const result2 = poolManager.findBestAgent("pool2");
+      expect(result2?.agentId).toBe("agentB");
+    });
+  });
+
   describe("Visitor Reassignment", () => {
     it("should reassign some visitors when agent goes away (round-robin behavior)", () => {
       // Note: Current behavior - reassignVisitors uses findBestAgent which uses round-robin.
@@ -501,6 +739,134 @@ describe("PoolManager", () => {
       expect(result.reassigned.size).toBe(1);
       expect(result.reassigned.has("visitor2")).toBe(true);
       expect(result.reassigned.has("visitor1")).toBe(false);
+    });
+  });
+
+  /**
+   * Test Lock A1: updateAgentStatus - Agent Status Updates
+   *
+   * Behaviors captured:
+   * 1. Updates agent.profile.status to provided value
+   * 2. Does not throw when agent not found
+   */
+  describe("updateAgentStatus", () => {
+    it("should update agent.profile.status to 'away'", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+
+      poolManager.updateAgentStatus("agentA", "away");
+
+      const agent = poolManager.getAgent("agentA");
+      expect(agent?.profile.status).toBe("away");
+    });
+
+    it("should update agent.profile.status to 'idle'", () => {
+      const awayProfile = createMockAgentProfile("agentA", "Agent A");
+      awayProfile.status = "away";
+      poolManager.registerAgent("socket_a", awayProfile);
+
+      poolManager.updateAgentStatus("agentA", "idle");
+
+      const agent = poolManager.getAgent("agentA");
+      expect(agent?.profile.status).toBe("idle");
+    });
+
+    it("should update agent.profile.status to 'offline'", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+
+      poolManager.updateAgentStatus("agentA", "offline");
+
+      const agent = poolManager.getAgent("agentA");
+      expect(agent?.profile.status).toBe("offline");
+    });
+
+    it("should update agent.profile.status to 'in_simulation'", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+
+      poolManager.updateAgentStatus("agentA", "in_simulation");
+
+      const agent = poolManager.getAgent("agentA");
+      expect(agent?.profile.status).toBe("in_simulation");
+    });
+
+    it("should not throw when agent does not exist", () => {
+      // Should silently handle non-existent agent
+      expect(() => {
+        poolManager.updateAgentStatus("non_existent", "away");
+      }).not.toThrow();
+    });
+
+    it("should not affect other agents", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      poolManager.updateAgentStatus("agentA", "away");
+
+      const agentA = poolManager.getAgent("agentA");
+      const agentB = poolManager.getAgent("agentB");
+      expect(agentA?.profile.status).toBe("away");
+      expect(agentB?.profile.status).toBe("idle"); // Unchanged
+    });
+  });
+
+  /**
+   * Test Lock A1: updateAgentActivity - Agent Activity Tracking
+   *
+   * Behaviors captured:
+   * 1. Updates lastActivityAt timestamp to current time
+   * 2. Does not throw when agent not found
+   */
+  describe("updateAgentActivity", () => {
+    it("should update lastActivityAt to current time", () => {
+      vi.useFakeTimers();
+      const initialTime = Date.now();
+      
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      
+      const agentBefore = poolManager.getAgent("agentA");
+      const initialLastActivity = agentBefore?.lastActivityAt;
+
+      // Advance time
+      vi.advanceTimersByTime(10000);
+
+      poolManager.updateAgentActivity("agentA");
+
+      const agentAfter = poolManager.getAgent("agentA");
+      expect(agentAfter?.lastActivityAt).toBeGreaterThan(initialLastActivity!);
+
+      vi.useRealTimers();
+    });
+
+    it("should not throw when agent does not exist", () => {
+      expect(() => {
+        poolManager.updateAgentActivity("non_existent");
+      }).not.toThrow();
+    });
+  });
+
+  /**
+   * Test Lock A1: Skip agents with 'away' status in findBestAgent
+   */
+  describe("Agent Status Filtering - Away Status", () => {
+    it("should skip agents who are away", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      // Set agentA to away
+      poolManager.updateAgentStatus("agentA", "away");
+
+      const bestAgent = poolManager.findBestAgent();
+      expect(bestAgent?.agentId).toBe("agentB");
+    });
+
+    it("should return undefined when all agents are away", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      poolManager.updateAgentStatus("agentA", "away");
+      poolManager.updateAgentStatus("agentB", "away");
+
+      const bestAgent = poolManager.findBestAgent();
+      expect(bestAgent).toBeUndefined();
     });
   });
 });

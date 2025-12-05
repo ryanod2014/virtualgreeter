@@ -991,14 +991,25 @@ pnpm build`}
           {/* Header */}
           <div className="card-header">
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <code style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{finding.id}</code>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <code style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{finding.blocker_context?.ticket_id || finding.id}</code>
                 {finding.category && <span style={{ fontSize: '10px', color: 'var(--text-muted)', background: 'var(--bg-elevated)', padding: '2px 6px', borderRadius: '4px' }}>{finding.category}</span>}
+                {finding.blocker_context?.branch && (
+                  <code style={{ fontSize: '10px', color: 'var(--accent-bright)', background: 'rgba(99,102,241,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                    {finding.blocker_context.branch}
+                  </code>
+                )}
               </div>
               <h3 style={{ fontSize: '15px', fontWeight: 600, marginTop: '6px' }}>{finding.title}</h3>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{finding.feature}</div>
             </div>
             <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+              {finding._isDevBlocker && (
+                <Badge type="critical"><span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>🚧 DEV BLOCKER</span></Badge>
+              )}
+              {finding.type === 'blocker' && !finding._isDevBlocker && (
+                <Badge type="critical"><span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>⚠️ BLOCKER</span></Badge>
+              )}
               <Badge type={finding.severity}>{finding.severity}</Badge>
               <Badge type={isResolved ? 'resolved' : hasDecision ? 'pending' : 'pending'}><span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{isResolved ? <><Icons.checkCircle /> Done</> : hasDecision ? <><Icons.clock /> Ready</> : <><Icons.circle /> Pending</>}</span></Badge>
             </div>
@@ -1336,11 +1347,12 @@ pnpm build`}
 
     // ================= INBOX VIEW =================
     // Unified inbox - blockers are now part of findings with type: "blocker"
+    // Dev agent blockers from agent-output/blocked/ are shown FIRST
 
-    function InboxView({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange }) {
+    function InboxView({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs }) {
       return (
         <div className="fade-in">
-          <TriageContent serverMode={serverMode} onSave={onSave} findingsData={findingsData} serverDecisions={serverDecisions} onDecisionsChange={onDecisionsChange} />
+          <TriageContent serverMode={serverMode} onSave={onSave} findingsData={findingsData} serverDecisions={serverDecisions} onDecisionsChange={onDecisionsChange} agentOutputs={agentOutputs} />
         </div>
       );
     }
@@ -1348,14 +1360,48 @@ pnpm build`}
     // ================= TRIAGE CONTENT =================
     // Renamed from TriageView to be embedded in InboxView
 
-    function TriageContent({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange }) {
+    function TriageContent({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs }) {
       const [severityFilter, setSeverityFilter] = useState('all');
       const [saveStatus, setSaveStatus] = useState(null);
       const [page, setPage] = useState(0);
       const PAGE_SIZE = 10;
       const isLocalUpdate = React.useRef(false); // Track if we triggered the update
       
-      const findings = findingsData || [];
+      // Parse dev agent blockers from agent-output/blocked/ files and convert to finding-like format
+      const devBlockersAsFindings = useMemo(() => {
+        if (!agentOutputs?.blocked) return [];
+        return agentOutputs.blocked.map(b => {
+          try {
+            const parsed = typeof b.content === 'string' ? JSON.parse(b.content) : b.content;
+            // Convert blocker to finding-like format so it shows in the list
+            return {
+              id: parsed.id || b.ticketId,
+              title: parsed.title || 'Dev Agent Blocked',
+              issue: parsed.issue,
+              severity: 'critical', // Dev blockers are always critical priority
+              type: 'dev-blocker', // Special type to identify dev blockers
+              feature: parsed.feature || 'Development',
+              category: parsed.category || 'dev-blocker',
+              status: parsed.status || 'pending',
+              options: parsed.options || [],
+              suggested_fix: parsed.recommendation,
+              blocker_context: parsed.blocker_context,
+              _raw: b,
+              _isDevBlocker: true
+            };
+          } catch (e) {
+            return null;
+          }
+        }).filter(Boolean);
+      }, [agentOutputs]);
+      
+      // Combine findings with dev blockers - dev blockers go first
+      const allFindings = useMemo(() => {
+        const regularFindings = findingsData || [];
+        return [...devBlockersAsFindings, ...regularFindings];
+      }, [findingsData, devBlockersAsFindings]);
+      
+      const findings = allFindings;
 
       const [decisions, setDecisions] = useState(() => {
         const saved = localStorage.getItem('pm-decisions-v3');
@@ -1599,10 +1645,13 @@ pnpm build`}
             (m.text?.includes('Decision confirmed') || m.text?.includes('Marking resolved') || m.text?.includes('Ticket TKT-'))
           );
           
-          // Count blockers separately (they show at top)
-          if (f.type === 'blocker' && f.status !== 'ticketed' && f.status !== 'skipped' && !isResolved && !hasResolutionMsg) {
+          // Count blockers separately (they show in Blockers tab)
+          // Include both regular blockers (type: 'blocker') and dev blockers (type: 'dev-blocker' or _isDevBlocker)
+          const isBlocker = f.type === 'blocker' || f.type === 'dev-blocker' || f._isDevBlocker;
+          if (isBlocker && f.status !== 'ticketed' && f.status !== 'skipped' && !isResolved && !hasResolutionMsg) {
             blockers++;
-            return; // Don't count in severity tabs
+            // Dev blockers also show in All tab, so don't return early for them
+            if (!f._isDevBlocker) return;
           }
           
           if (f.status === 'ticketed') {
@@ -1665,9 +1714,10 @@ pnpm build`}
         };
         
         // All filter - show all pending findings, sorted by: open convos first, then severity
+        // Dev blockers (type: 'dev-blocker') always show in All, regular blockers shown in Blockers tab
         if (severityFilter === 'all') {
           const pending = findings.filter(f => {
-            if (f.type === 'blocker') return false; // Blockers shown separately
+            if (f.type === 'blocker' && !f._isDevBlocker) return false; // Regular blockers shown separately, but dev blockers show here
             if (f.status === 'ticketed' || f.status === 'skipped') return false;
             return !isEffectivelyResolved(f);
           });
@@ -1682,6 +1732,10 @@ pnpm build`}
           };
           
           return pending.sort((a, b) => {
+            // Dev blockers ALWAYS first
+            if (a._isDevBlocker && !b._isDevBlocker) return -1;
+            if (!a._isDevBlocker && b._isDevBlocker) return 1;
+            
             const threadA = getAnyThread(a.id);
             const threadB = getAnyThread(b.id);
             const msgsA = threadA?.messages || [];
@@ -1702,12 +1756,17 @@ pnpm build`}
           });
         }
         
-        // Blockers filter - show type: "blocker" items that need decision
+        // Blockers filter - show type: "blocker" or "dev-blocker" items that need decision
         if (severityFilter === 'blockers') {
           return findings.filter(f => {
-            if (f.type !== 'blocker') return false;
+            if (f.type !== 'blocker' && f.type !== 'dev-blocker' && !f._isDevBlocker) return false;
             if (f.status === 'ticketed' || f.status === 'skipped') return false;
             return !isEffectivelyResolved(f);
+          }).sort((a, b) => {
+            // Dev blockers first
+            if (a._isDevBlocker && !b._isDevBlocker) return -1;
+            if (!a._isDevBlocker && b._isDevBlocker) return 1;
+            return 0;
           });
         }
         
@@ -1768,6 +1827,7 @@ pnpm build`}
       const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
       // Set default filter to blockers if there are any, otherwise all
+      // Dev blockers are shown at top regardless of filter, so no need to change filter for them
       useEffect(() => {
         if (stats.blockers > 0 && severityFilter === 'all') {
           setSeverityFilter('blockers');
@@ -3999,7 +4059,9 @@ pnpm build`}
 
     function LaunchView({ tickets, devStatus, onSaveDevStatus, findings, serverDecisions, featuresList, agentOutputs }) {
       const [copied, setCopied] = useState(null);
-      const [expandedSection, setExpandedSection] = useState('dev');
+      // Auto-expand testlock if there are completions to show
+      const hasTestLockCompletions = (agentOutputs?.testLock || []).length > 0;
+      const [expandedSection, setExpandedSection] = useState(hasTestLockCompletions ? 'testlock' : 'dev');
       const [expandedTicket, setExpandedTicket] = useState(null);
       const [launchNotes, setLaunchNotes] = useState({});
       const [savedNotes, setSavedNotes] = useState({});
@@ -4299,8 +4361,496 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
         }
       };
 
+      // Calculate test-lock stats
+      const testLockStats = useMemo(() => {
+        const allPrompts = [
+          'A1', 'A2', 'A3', 'A4', 'A5',
+          'API1', 'API2', 'API3',
+          'AUTH1', 'AUTH2', 'AUTH3', 'AUTH4',
+          'B1', 'B2', 'B3', 'B4', 'B5', 'B6',
+          'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8',
+          'M1', 'M2',
+          'P2', 'P3', 'P4', 'P5', 'P6',
+          'STATS1', 'STATS2', 'STATS3',
+          'V1', 'V2', 'V3', 'V4', 'V5'
+        ];
+        const completedIds = new Set((agentOutputs?.testLock || []).map(t => {
+          const match = (t.ticketId || t.id || '').match(/^([A-Z]+\d*)/i);
+          return match ? match[1].toUpperCase() : '';
+        }));
+        const completed = allPrompts.filter(id => completedIds.has(id));
+        const pending = allPrompts.filter(id => !completedIds.has(id));
+        return { total: allPrompts.length, completed, pending, completedCount: completed.length, pendingCount: pending.length };
+      }, [agentOutputs?.testLock]);
+
       return (
         <div className="fade-in">
+          {/* Quick Stats Header */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+            gap: '12px', 
+            marginBottom: '24px',
+            padding: '16px',
+            background: 'linear-gradient(135deg, rgba(30,41,59,0.6) 0%, rgba(15,23,42,0.7) 100%)',
+            borderRadius: '16px',
+            border: '1px solid rgba(71,85,105,0.25)'
+          }}>
+            {/* Test Lock Progress - Highlighted */}
+            <div 
+              style={{ 
+                padding: '16px', 
+                background: testLockStats.completedCount > 0 ? 'rgba(167,139,250,0.15)' : 'rgba(167,139,250,0.08)', 
+                borderRadius: '12px',
+                border: testLockStats.completedCount > 0 ? '2px solid rgba(167,139,250,0.5)' : '1px solid rgba(167,139,250,0.2)',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onClick={() => setExpandedSection('testlock')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🧪</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#a78bfa' }}>TEST LOCK</span>
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {testLockStats.completedCount}<span style={{ fontSize: '16px', color: 'var(--text-muted)' }}>/{testLockStats.total}</span>
+              </div>
+              <div style={{ fontSize: '11px', color: testLockStats.pendingCount > 0 ? '#fbbf24' : 'var(--success)' }}>
+                {testLockStats.pendingCount > 0 ? `${testLockStats.pendingCount} pending` : '✓ All complete'}
+              </div>
+              {testLockStats.completedCount > 0 && (
+                <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--text-muted)' }}>
+                  ✓ {testLockStats.completed.join(', ')}
+                </div>
+              )}
+            </div>
+
+            {/* Dev Progress */}
+            <div 
+              style={{ 
+                padding: '16px', 
+                background: 'rgba(59,130,246,0.08)', 
+                borderRadius: '12px',
+                border: '1px solid rgba(59,130,246,0.2)',
+                cursor: 'pointer'
+              }}
+              onClick={() => setExpandedSection('dev')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '18px' }}>⚡</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-bright)' }}>DEV AGENTS</span>
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {(devStatus?.completed || []).length}<span style={{ fontSize: '16px', color: 'var(--text-muted)' }}> done</span>
+              </div>
+              <div style={{ fontSize: '11px', color: (devStatus?.in_progress || []).length > 0 ? '#fbbf24' : 'var(--text-muted)' }}>
+                {(devStatus?.in_progress || []).length > 0 ? `${(devStatus?.in_progress || []).length} in progress` : 'None in progress'}
+              </div>
+            </div>
+
+            {/* Review Progress */}
+            <div 
+              style={{ 
+                padding: '16px', 
+                background: 'rgba(74,222,128,0.08)', 
+                borderRadius: '12px',
+                border: '1px solid rgba(74,222,128,0.2)',
+                cursor: 'pointer'
+              }}
+              onClick={() => setExpandedSection('review')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '18px' }}>✓</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--success)' }}>REVIEWS</span>
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {(agentOutputs?.reviews || []).length}
+              </div>
+              <div style={{ fontSize: '11px', color: unreviewedFeatures.length > 0 ? '#fbbf24' : 'var(--success)' }}>
+                {unreviewedFeatures.length > 0 ? `${unreviewedFeatures.length} pending` : '✓ All reviewed'}
+              </div>
+            </div>
+
+            {/* Doc Progress */}
+            <div 
+              style={{ 
+                padding: '16px', 
+                background: 'rgba(251,191,36,0.08)', 
+                borderRadius: '12px',
+                border: '1px solid rgba(251,191,36,0.2)',
+                cursor: 'pointer'
+              }}
+              onClick={() => setExpandedSection('doc')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '18px' }}>📄</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#fbbf24' }}>DOCS</span>
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {(featuresList || []).length - undocumentedFeatures.length}<span style={{ fontSize: '16px', color: 'var(--text-muted)' }}>/{(featuresList || []).length}</span>
+              </div>
+              <div style={{ fontSize: '11px', color: undocumentedFeatures.length > 0 ? '#fbbf24' : 'var(--success)' }}>
+                {undocumentedFeatures.length > 0 ? `${undocumentedFeatures.length} pending` : '✓ All documented'}
+              </div>
+            </div>
+          </div>
+
+          {/* Doc Agents Section */}
+          <div className="section" style={{ marginBottom: '32px' }}>
+            <div 
+              className="section-title" 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                marginBottom: expandedSection === 'doc' ? '16px' : '0'
+              }}
+              onClick={() => setExpandedSection(expandedSection === 'doc' ? null : 'doc')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: 'var(--accent-bright)' }}><Icons.file /></span>
+                <span style={{ fontWeight: 600 }}>Doc Agents</span>
+                {undocumentedFeatures.length > 0 ? (
+                  <span style={{ padding: '3px 10px', background: 'var(--accent)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                    {undocumentedFeatures.length} pending
+                  </span>
+                ) : (
+                  <span style={{ padding: '3px 10px', background: 'var(--bg-elevated)', color: 'var(--text-muted)', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                    All done
+                  </span>
+                )}
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Document features</span>
+              </div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'doc' ? '▼' : '▶'}</span>
+            </div>
+            
+            {expandedSection === 'doc' && (
+              <div className="fade-in">
+                {undocumentedFeatures.length === 0 ? (
+                  <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    <div style={{ marginBottom: '8px' }}><Icons.checkCircle /></div>
+                    <div>All features are documented</div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Copy All Header */}
+                    <div style={{ 
+                      padding: '12px 16px', 
+                      background: 'rgba(59,130,246,0.1)', 
+                      borderRadius: '8px', 
+                      marginBottom: '12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        {undocumentedFeatures.length} features need documentation
+                      </span>
+                      <button 
+                        className={`btn btn-sm ${copied === 'all-doc' ? 'btn-success' : 'btn-primary'}`}
+                        onClick={() => {
+                          const commands = undocumentedFeatures.map((f, i) => 
+                            `# Doc Agent ${i + 1}: ${f.name}\nYou are a Doc Agent. Document the feature: ${f.name}\nRead: docs/workflow/DOC_AGENT_SOP.md`
+                          ).join('\n\n---\n\n');
+                          navigator.clipboard.writeText(commands);
+                          setCopied('all-doc');
+                          setTimeout(() => setCopied(null), 2000);
+                        }}
+                      >
+                        {copied === 'all-doc' ? 'Copied All!' : `Copy All ${undocumentedFeatures.length}`}
+                      </button>
+                    </div>
+                    
+                    {/* Feature List */}
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      {undocumentedFeatures.map((feature, idx) => (
+                        <div key={feature.name} className="card" style={{ padding: '12px 16px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>#{idx + 1}</span>
+                              <span style={{ fontSize: '14px', fontWeight: 500 }}>{feature.name}</span>
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '2px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{feature.category}</span>
+                            </div>
+                            <button 
+                              className={`btn btn-sm ${copied === `doc-${feature.name}` ? 'btn-success' : 'btn-secondary'}`}
+                              onClick={() => {
+                                const cmd = `You are a Doc Agent. Document the feature: ${feature.name}\nRead: docs/workflow/DOC_AGENT_SOP.md`;
+                                navigator.clipboard.writeText(cmd);
+                                setCopied(`doc-${feature.name}`);
+                                setTimeout(() => setCopied(null), 2000);
+                              }}
+                            >
+                              {copied === `doc-${feature.name}` ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* TEST LOCK Agents Section */}
+          <div className="section">
+            <div 
+              className="section-title" 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                marginBottom: expandedSection === 'testlock' ? '16px' : '0'
+              }}
+              onClick={() => setExpandedSection(expandedSection === 'testlock' ? null : 'testlock')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: '#a78bfa' }}>🧪</span>
+                <span style={{ fontWeight: 600 }}>TEST LOCK Agents</span>
+                {(() => {
+                  const testedFeatureIds = new Set((agentOutputs?.testLock || []).map(t => t.ticketId?.toUpperCase()));
+                  const totalFeatures = featuresList?.length || 0;
+                  const testedCount = testedFeatureIds.size;
+                  const pendingCount = totalFeatures - testedCount;
+                  return pendingCount > 0 ? (
+                    <span style={{ padding: '3px 10px', background: '#a78bfa', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                      {testedCount}/41 done
+                    </span>
+                  ) : (
+                    <span style={{ padding: '3px 10px', background: 'var(--bg-elevated)', color: 'var(--text-muted)', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                      All done
+                    </span>
+                  );
+                })()}
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Create baseline behavior tests</span>
+              </div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'testlock' ? '▼' : '▶'}</span>
+            </div>
+            
+            {expandedSection === 'testlock' && (
+              <div className="fade-in">
+                {/* Test Lock Summary */}
+                <div style={{ 
+                  padding: '16px 20px', 
+                  background: 'rgba(167,139,250,0.1)', 
+                  borderRadius: '12px', 
+                  marginBottom: '16px',
+                  border: '1px solid rgba(167,139,250,0.2)'
+                }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>
+                    🧪 TEST LOCK Agent creates baseline behavior tests
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                    These tests "lock in" current behavior to prevent regressions. They don't define what's correct - they capture what the code currently does.
+                  </div>
+                  <div style={{ fontSize: '12px', padding: '8px 12px', background: 'rgba(16,185,129,0.15)', borderRadius: '6px', color: 'var(--success)' }}>
+                    ✓ <strong>Can run in parallel</strong> — Each agent writes to its own file, no git conflicts
+                  </div>
+                </div>
+
+                {/* Pending Test Lock Prompts - Ready to Launch */}
+                {(() => {
+                  // Get completed test lock IDs
+                  const completedIds = new Set((agentOutputs?.testLock || []).map(t => {
+                    const match = (t.ticketId || t.id || '').match(/^([A-Z]+\d*)/i);
+                    return match ? match[1].toUpperCase() : '';
+                  }));
+                  
+                  // Define all test lock prompts (from docs/prompts/active/test-lock-*.md)
+                  const allTestLockPrompts = [
+                    'A1', 'A2', 'A3', 'A4', 'A5',
+                    'API1', 'API2', 'API3',
+                    'AUTH1', 'AUTH2', 'AUTH3', 'AUTH4',
+                    'B1', 'B2', 'B3', 'B4', 'B5', 'B6',
+                    'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8',
+                    'M1', 'M2',
+                    'P2', 'P3', 'P4', 'P5', 'P6',
+                    'STATS1', 'STATS2', 'STATS3',
+                    'V1', 'V2', 'V3', 'V4', 'V5'
+                  ];
+                  
+                  const pendingPrompts = allTestLockPrompts.filter(id => !completedIds.has(id));
+                  
+                  return pendingPrompts.length > 0 ? (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--success)' }}>
+                          READY TO LAUNCH ({pendingPrompts.length})
+                        </div>
+                        <button 
+                          className={`btn btn-sm ${copied === 'testlock-all' ? 'btn-success' : ''}`}
+                          style={{ background: copied === 'testlock-all' ? 'var(--success)' : '#a78bfa' }}
+                          onClick={() => {
+                            const allCmds = pendingPrompts.map(id => 
+                              `Read and execute docs/prompts/active/test-lock-${id}.md`
+                            ).join('\n\n---\n\n');
+                            navigator.clipboard.writeText(allCmds);
+                            setCopied('testlock-all');
+                            setTimeout(() => setCopied(null), 2000);
+                          }}
+                        >
+                          {copied === 'testlock-all' ? '✓ Copied All!' : `Copy All ${pendingPrompts.length} Commands`}
+                        </button>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+                        {pendingPrompts.map(id => (
+                          <div 
+                            key={id} 
+                            className="card" 
+                            style={{ 
+                              padding: '10px 14px', 
+                              borderLeft: '3px solid var(--success)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <div>
+                              <span style={{ fontSize: '13px', fontWeight: 600 }}>{id}</span>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>test-lock-{id}.md</div>
+                            </div>
+                            <button 
+                              className={`btn btn-sm ${copied === `testlock-${id}` ? 'btn-success' : 'btn-secondary'}`}
+                              onClick={() => {
+                                navigator.clipboard.writeText(`Read and execute docs/prompts/active/test-lock-${id}.md`);
+                                setCopied(`testlock-${id}`);
+                                setTimeout(() => setCopied(null), 2000);
+                              }}
+                            >
+                              {copied === `testlock-${id}` ? '✓' : 'Copy'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Completed Test Locks */}
+                {(agentOutputs?.testLock || []).length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>
+                      COMPLETED ({(agentOutputs?.testLock || []).length})
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '6px' }}>
+                      {(agentOutputs?.testLock || []).map(output => (
+                        <div key={output.fileName} className="card" style={{ padding: '8px 12px', borderLeft: '3px solid #a78bfa', opacity: 0.7 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 500 }}>{output.ticketId}</span>
+                            <span style={{ fontSize: '10px', color: 'var(--success)' }}>✓</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Review Agents Section */}
+          <div className="section">
+            <div 
+              className="section-title" 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                marginBottom: expandedSection === 'review' ? '16px' : '0'
+              }}
+              onClick={() => setExpandedSection(expandedSection === 'review' ? null : 'review')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: 'var(--accent-bright)' }}><Icons.checkCircle /></span>
+                <span style={{ fontWeight: 600 }}>Review Agents</span>
+                {unreviewedFeatures.length > 0 ? (
+                  <span style={{ padding: '3px 10px', background: 'var(--accent)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                    {unreviewedFeatures.length} pending
+                  </span>
+                ) : (
+                  <span style={{ padding: '3px 10px', background: 'var(--bg-elevated)', color: 'var(--text-muted)', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                    All done
+                  </span>
+                )}
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Review documented features</span>
+              </div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'review' ? '▼' : '▶'}</span>
+            </div>
+            
+            {expandedSection === 'review' && (
+              <div className="fade-in">
+                {unreviewedFeatures.length === 0 ? (
+                  <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    <div style={{ marginBottom: '8px' }}><Icons.checkCircle /></div>
+                    <div>All documented features have been reviewed</div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Copy All Header */}
+                    <div style={{ 
+                      padding: '12px 16px', 
+                      background: 'rgba(59,130,246,0.1)', 
+                      borderRadius: '8px', 
+                      marginBottom: '12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        {unreviewedFeatures.length} features need review
+                      </span>
+                      <button 
+                        className={`btn btn-sm ${copied === 'all-review' ? 'btn-success' : 'btn-primary'}`}
+                        onClick={() => {
+                          const commands = unreviewedFeatures.map((f, i) => 
+                            `# Review Agent ${i + 1}: ${f.name}\nYou are a Review Agent. Review the feature: ${f.name}\nRead: docs/workflow/REVIEW_AGENT_SOP.md\nDoc: ${f.docPath}`
+                          ).join('\n\n---\n\n');
+                          navigator.clipboard.writeText(commands);
+                          setCopied('all-review');
+                          setTimeout(() => setCopied(null), 2000);
+                        }}
+                      >
+                        {copied === 'all-review' ? 'Copied All!' : `Copy All ${unreviewedFeatures.length}`}
+                      </button>
+                    </div>
+                    
+                    {/* Feature List */}
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      {unreviewedFeatures.map((feature, idx) => (
+                        <div key={feature.name} className="card" style={{ padding: '12px 16px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>#{idx + 1}</span>
+                                <span style={{ fontSize: '14px', fontWeight: 500 }}>{feature.name}</span>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '2px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{feature.category}</span>
+                              </div>
+                              <code style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>{feature.docPath}</code>
+                            </div>
+                            <button 
+                              className={`btn btn-sm ${copied === `review-${feature.name}` ? 'btn-success' : 'btn-secondary'}`}
+                              onClick={() => {
+                                const cmd = `You are a Review Agent. Review the feature: ${feature.name}\nRead: docs/workflow/REVIEW_AGENT_SOP.md\nDoc: ${feature.docPath}`;
+                                navigator.clipboard.writeText(cmd);
+                                setCopied(`review-${feature.name}`);
+                                setTimeout(() => setCopied(null), 2000);
+                              }}
+                            >
+                              {copied === `review-${feature.name}` ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* PM Agent Section */}
           <div className="section" style={{ marginBottom: '32px' }}>
             <div 
@@ -4820,334 +5370,103 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                   </div>
                 )}
                 
-                {/* Waiting tickets (file conflicts) */}
+                {/* Waiting tickets (file conflicts) - with detailed conflict info */}
                 {(() => {
                   const waitingTickets = sortedTickets.filter(t => !nextBatchIds.has(t.id));
                   if (waitingTickets.length === 0) return null;
+                  
+                  // Build a map of which files conflict with which tickets
+                  const getConflictDetails = (ticket) => {
+                    const ticketFiles = ticket.files_to_modify || [];
+                    const conflicts = [];
+                    
+                    // Check against locked files (in-progress + completed/in-review)
+                    const lockedConflicts = ticketFiles.filter(f => lockedFiles.has(f));
+                    if (lockedConflicts.length > 0) {
+                      // Find which in-review ticket owns these files
+                      const inReviewConflicts = [];
+                      tickets.filter(t => completedTicketIds.has(t.id?.toUpperCase())).forEach(reviewTicket => {
+                        const sharedFiles = lockedConflicts.filter(f => (reviewTicket.files_to_modify || []).includes(f));
+                        if (sharedFiles.length > 0) {
+                          inReviewConflicts.push({ ticket: reviewTicket.id, files: sharedFiles });
+                        }
+                      });
+                      if (inReviewConflicts.length > 0) {
+                        conflicts.push({ type: 'in-review', details: inReviewConflicts });
+                      }
+                    }
+                    
+                    // Check against batch files
+                    const batchConflicts = [];
+                    nextBatch.forEach(batchTicket => {
+                      const sharedFiles = ticketFiles.filter(f => (batchTicket.files_to_modify || []).includes(f));
+                      if (sharedFiles.length > 0) {
+                        batchConflicts.push({ ticket: batchTicket.id, files: sharedFiles });
+                      }
+                    });
+                    if (batchConflicts.length > 0) {
+                      conflicts.push({ type: 'batch', details: batchConflicts });
+                    }
+                    
+                    return conflicts;
+                  };
+                  
                   return (
-                    <div style={{ marginTop: '24px', padding: '16px', background: 'var(--bg-elevated)', borderRadius: '8px', opacity: 0.7 }}>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '10px' }}>
-                        ⏳ <strong>{waitingTickets.length} tickets waiting</strong> — file conflicts with current batch
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {waitingTickets.map(t => (
-                          <span key={t.id} style={{ 
-                            padding: '4px 10px', 
-                            background: 'var(--bg-surface)', 
-                            borderRadius: '6px', 
-                            fontSize: '12px',
-                            color: 'var(--text-secondary)'
-                          }}>
-                            {t.id}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-
-          {/* Doc Agents Section */}
-          <div className="section" style={{ marginBottom: '32px' }}>
-            <div 
-              className="section-title" 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                marginBottom: expandedSection === 'doc' ? '16px' : '0'
-              }}
-              onClick={() => setExpandedSection(expandedSection === 'doc' ? null : 'doc')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: 'var(--accent-bright)' }}><Icons.file /></span>
-                <span style={{ fontWeight: 600 }}>Doc Agents</span>
-                {undocumentedFeatures.length > 0 ? (
-                  <span style={{ padding: '3px 10px', background: 'var(--accent)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                    {undocumentedFeatures.length} pending
-                  </span>
-                ) : (
-                  <span style={{ padding: '3px 10px', background: 'var(--bg-elevated)', color: 'var(--text-muted)', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                    All done
-                  </span>
-                )}
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Document features</span>
-              </div>
-              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'doc' ? '▼' : '▶'}</span>
-            </div>
-            
-            {expandedSection === 'doc' && (
-              <div className="fade-in">
-                {undocumentedFeatures.length === 0 ? (
-                  <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    <div style={{ marginBottom: '8px' }}><Icons.checkCircle /></div>
-                    <div>All features are documented</div>
-                  </div>
-                ) : (
-                  <>
-                    {/* Copy All Header */}
-                    <div style={{ 
-                      padding: '12px 16px', 
-                      background: 'rgba(59,130,246,0.1)', 
-                      borderRadius: '8px', 
-                      marginBottom: '12px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        {undocumentedFeatures.length} features need documentation
-                      </span>
-                      <button 
-                        className={`btn btn-sm ${copied === 'all-doc' ? 'btn-success' : 'btn-primary'}`}
-                        onClick={() => {
-                          const commands = undocumentedFeatures.map((f, i) => 
-                            `# Doc Agent ${i + 1}: ${f.name}\nYou are a Doc Agent. Document the feature: ${f.name}\nRead: docs/workflow/DOC_AGENT_SOP.md`
-                          ).join('\n\n---\n\n');
-                          navigator.clipboard.writeText(commands);
-                          setCopied('all-doc');
-                          setTimeout(() => setCopied(null), 2000);
-                        }}
-                      >
-                        {copied === 'all-doc' ? 'Copied All!' : `Copy All ${undocumentedFeatures.length}`}
-                      </button>
-                    </div>
-                    
-                    {/* Feature List */}
-                    <div style={{ display: 'grid', gap: '8px' }}>
-                      {undocumentedFeatures.map((feature, idx) => (
-                        <div key={feature.name} className="card" style={{ padding: '12px 16px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>#{idx + 1}</span>
-                              <span style={{ fontSize: '14px', fontWeight: 500 }}>{feature.name}</span>
-                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '2px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{feature.category}</span>
-                            </div>
-                            <button 
-                              className={`btn btn-sm ${copied === `doc-${feature.name}` ? 'btn-success' : 'btn-secondary'}`}
-                              onClick={() => {
-                                const cmd = `You are a Doc Agent. Document the feature: ${feature.name}\nRead: docs/workflow/DOC_AGENT_SOP.md`;
-                                navigator.clipboard.writeText(cmd);
-                                setCopied(`doc-${feature.name}`);
-                                setTimeout(() => setCopied(null), 2000);
-                              }}
-                            >
-                              {copied === `doc-${feature.name}` ? 'Copied!' : 'Copy'}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Review Agents Section */}
-          <div className="section">
-            <div 
-              className="section-title" 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                marginBottom: expandedSection === 'review' ? '16px' : '0'
-              }}
-              onClick={() => setExpandedSection(expandedSection === 'review' ? null : 'review')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: 'var(--accent-bright)' }}><Icons.checkCircle /></span>
-                <span style={{ fontWeight: 600 }}>Review Agents</span>
-                {unreviewedFeatures.length > 0 ? (
-                  <span style={{ padding: '3px 10px', background: 'var(--accent)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                    {unreviewedFeatures.length} pending
-                  </span>
-                ) : (
-                  <span style={{ padding: '3px 10px', background: 'var(--bg-elevated)', color: 'var(--text-muted)', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                    All done
-                  </span>
-                )}
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Review documented features</span>
-              </div>
-              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'review' ? '▼' : '▶'}</span>
-            </div>
-            
-            {expandedSection === 'review' && (
-              <div className="fade-in">
-                {unreviewedFeatures.length === 0 ? (
-                  <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    <div style={{ marginBottom: '8px' }}><Icons.checkCircle /></div>
-                    <div>All documented features have been reviewed</div>
-                  </div>
-                ) : (
-                  <>
-                    {/* Copy All Header */}
-                    <div style={{ 
-                      padding: '12px 16px', 
-                      background: 'rgba(59,130,246,0.1)', 
-                      borderRadius: '8px', 
-                      marginBottom: '12px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        {unreviewedFeatures.length} features need review
-                      </span>
-                      <button 
-                        className={`btn btn-sm ${copied === 'all-review' ? 'btn-success' : 'btn-primary'}`}
-                        onClick={() => {
-                          const commands = unreviewedFeatures.map((f, i) => 
-                            `# Review Agent ${i + 1}: ${f.name}\nYou are a Review Agent. Review the feature: ${f.name}\nRead: docs/workflow/REVIEW_AGENT_SOP.md\nDoc: ${f.docPath}`
-                          ).join('\n\n---\n\n');
-                          navigator.clipboard.writeText(commands);
-                          setCopied('all-review');
-                          setTimeout(() => setCopied(null), 2000);
-                        }}
-                      >
-                        {copied === 'all-review' ? 'Copied All!' : `Copy All ${unreviewedFeatures.length}`}
-                      </button>
-                    </div>
-                    
-                    {/* Feature List */}
-                    <div style={{ display: 'grid', gap: '8px' }}>
-                      {unreviewedFeatures.map((feature, idx) => (
-                        <div key={feature.name} className="card" style={{ padding: '12px 16px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>#{idx + 1}</span>
-                                <span style={{ fontSize: '14px', fontWeight: 500 }}>{feature.name}</span>
-                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '2px 8px', background: 'var(--bg-elevated)', borderRadius: '4px' }}>{feature.category}</span>
+                    <div style={{ marginTop: '24px' }}>
+                      <details>
+                        <summary style={{ 
+                          cursor: 'pointer', 
+                          padding: '12px 16px',
+                          background: 'var(--bg-elevated)', 
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          color: 'var(--text-muted)'
+                        }}>
+                          <strong>{waitingTickets.length} tickets excluded</strong> — file conflicts (click to see details)
+                        </summary>
+                        <div style={{ marginTop: '8px', display: 'grid', gap: '8px' }}>
+                          {waitingTickets.map(t => {
+                            const conflicts = getConflictDetails(t);
+                            return (
+                              <div key={t.id} style={{ 
+                                padding: '12px 14px', 
+                                background: 'var(--bg-elevated)', 
+                                borderRadius: '6px',
+                                borderLeft: '3px solid var(--medium)'
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                  <div>
+                                    <code style={{ fontSize: '12px', fontWeight: 600 }}>{t.id}</code>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '8px' }}>{t.title?.substring(0, 40)}{t.title?.length > 40 ? '...' : ''}</span>
+                                  </div>
+                                  <Badge type={t.priority}>{t.priority}</Badge>
+                                </div>
+                                {conflicts.length > 0 && (
+                                  <div style={{ marginTop: '8px', fontSize: '11px' }}>
+                                    {conflicts.map((c, i) => (
+                                      <div key={i} style={{ marginBottom: '4px' }}>
+                                        {c.type === 'in-review' && (
+                                          <span style={{ color: 'var(--medium)' }}>
+                                            Conflicts with in-review: {c.details.map(d => `${d.ticket} (${d.files.map(f => f.split('/').pop()).join(', ')})`).join('; ')}
+                                          </span>
+                                        )}
+                                        {c.type === 'batch' && (
+                                          <span style={{ color: 'var(--accent-bright)' }}>
+                                            Conflicts with batch: {c.details.map(d => `${d.ticket} (${d.files.map(f => f.split('/').pop()).join(', ')})`).join('; ')}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                              <code style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>{feature.docPath}</code>
-                            </div>
-                            <button 
-                              className={`btn btn-sm ${copied === `review-${feature.name}` ? 'btn-success' : 'btn-secondary'}`}
-                              onClick={() => {
-                                const cmd = `You are a Review Agent. Review the feature: ${feature.name}\nRead: docs/workflow/REVIEW_AGENT_SOP.md\nDoc: ${feature.docPath}`;
-                                navigator.clipboard.writeText(cmd);
-                                setCopied(`review-${feature.name}`);
-                                setTimeout(() => setCopied(null), 2000);
-                              }}
-                            >
-                              {copied === `review-${feature.name}` ? 'Copied!' : 'Copy'}
-                            </button>
-                          </div>
+                            );
+                          })}
                         </div>
-                      ))}
+                      </details>
                     </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* TEST LOCK Agents Section */}
-          <div className="section">
-            <div 
-              className="section-title" 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                marginBottom: expandedSection === 'testlock' ? '16px' : '0'
-              }}
-              onClick={() => setExpandedSection(expandedSection === 'testlock' ? null : 'testlock')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: '#a78bfa' }}>🧪</span>
-                <span style={{ fontWeight: 600 }}>TEST LOCK Agents</span>
-                {(() => {
-                  const testedFeatureIds = new Set((agentOutputs?.testLock || []).map(t => t.ticketId?.toUpperCase()));
-                  const totalFeatures = featuresList?.length || 0;
-                  const testedCount = testedFeatureIds.size;
-                  const pendingCount = totalFeatures - testedCount;
-                  return pendingCount > 0 ? (
-                    <span style={{ padding: '3px 10px', background: '#a78bfa', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                      {testedCount}/41 done
-                    </span>
-                  ) : (
-                    <span style={{ padding: '3px 10px', background: 'var(--bg-elevated)', color: 'var(--text-muted)', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                      All done
-                    </span>
                   );
                 })()}
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Create baseline behavior tests</span>
-              </div>
-              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'testlock' ? '▼' : '▶'}</span>
-            </div>
-            
-            {expandedSection === 'testlock' && (
-              <div className="fade-in">
-                {/* Test Lock Summary */}
-                <div style={{ 
-                  padding: '16px 20px', 
-                  background: 'rgba(167,139,250,0.1)', 
-                  borderRadius: '12px', 
-                  marginBottom: '16px',
-                  border: '1px solid rgba(167,139,250,0.2)'
-                }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>
-                    🧪 TEST LOCK Agent creates baseline behavior tests
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                    These tests "lock in" current behavior to prevent regressions. They don't define what's correct - they capture what the code currently does.
-                  </div>
-                </div>
-
-                {/* Tested Features */}
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>COMPLETED ({(agentOutputs?.testLock || []).length})</div>
-                  <div style={{ display: 'grid', gap: '6px' }}>
-                    {(agentOutputs?.testLock || []).map(output => (
-                      <div key={output.fileName} className="card" style={{ padding: '10px 14px', borderLeft: '3px solid #a78bfa' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div>
-                            <span style={{ fontSize: '13px', fontWeight: 500 }}>{output.ticketId}</span>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px' }}>✓ Tests locked</span>
-                          </div>
-                          <code style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{output.fileName}</code>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Launch Command */}
-                <div className="card" style={{ padding: '16px 20px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '15px', fontWeight: 600 }}>Launch TEST LOCK Sprint</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        Create baseline tests for remaining features
-                      </div>
-                    </div>
-                    <button 
-                      className={`btn ${copied === 'testlock-sprint' ? 'btn-success' : 'btn-primary'}`}
-                      onClick={() => {
-                        const cmd = `You are a TEST LOCK Agent. Read docs/workflow/TEST_LOCK_AGENT_SOP.md
-
-Your job is to create behavior-level tests that "lock in" the current behavior of code. These tests serve as regression guards - they capture what the code currently does, not what it "should" do.
-
-Pick a feature from docs/FEATURE_INVENTORY.md that doesn't have tests yet and create baseline tests for it. Check docs/agent-output/test-lock/ to see which features already have tests.
-
-Follow the SOP exactly. Output your completion report to docs/agent-output/test-lock/`;
-                        navigator.clipboard.writeText(cmd);
-                        setCopied('testlock-sprint');
-                        setTimeout(() => setCopied(null), 2000);
-                      }}
-                    >
-                      {copied === 'testlock-sprint' ? 'Copied!' : 'Copy Command'}
-                    </button>
-                  </div>
-                </div>
               </div>
             )}
           </div>
@@ -5334,6 +5653,7 @@ Follow the SOP exactly. Output your completion report to docs/agent-output/test-
                   findingsData={findings} 
                   serverDecisions={serverDecisions}
                   onDecisionsChange={setServerDecisions}
+                  agentOutputs={agentOutputs}
                 />}
                 {view === 'pipeline' && <NewPipelineView 
                   tickets={tickets} 
