@@ -359,6 +359,421 @@ describe("POST /api/billing/create-subscription", () => {
       expect(response.status).toBe(400);
       expect(responseData.error).toBe("Invalid seat count");
     });
+
+    it("should return 404 when user not found in database", async () => {
+      // Setup: User authenticated but not found in users table
+      mockSingle.mockResolvedValueOnce({
+        data: null,
+        error: null,
+      });
+
+      const request = createMockRequest({ seatCount: 1, billingPreference: "monthly" });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(responseData.error).toBe("User not found");
+    });
+
+    it("should return 404 when organization not found", async () => {
+      // Setup: User found but organization not found
+      mockSingle
+        .mockResolvedValueOnce({
+          data: { organization_id: mockOrgId },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: null,
+          error: null,
+        });
+
+      const request = createMockRequest({ seatCount: 1, billingPreference: "monthly" });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(responseData.error).toBe("Organization not found");
+    });
+  });
+
+  describe("Billing frequency handling", () => {
+    it("should use annual price ID when annual billing preference selected", async () => {
+      // Setup: User with no existing subscription
+      mockSingle
+        .mockResolvedValueOnce({
+          data: { organization_id: mockOrgId },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            stripe_customer_id: mockCustomerId,
+            stripe_subscription_id: null,
+            name: "Test Org",
+            subscription_status: null,
+          },
+          error: null,
+        });
+
+      // Setup update mock
+      const supabase = await createClient();
+      (supabase.from as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+        select: mockSelect,
+        update: () => ({ eq: vi.fn(() => Promise.resolve({ error: null })) }),
+      }));
+
+      // Mock Stripe
+      (stripe.customers.retrieve as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: mockCustomerId,
+        deleted: false,
+        invoice_settings: { default_payment_method: "pm_test_456" },
+      });
+      (stripe.subscriptions.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: "sub_annual_123",
+        status: "trialing",
+        items: { data: [{ id: "si_test_789" }] },
+      });
+
+      const request = createMockRequest({ seatCount: 2, billingPreference: "annual" });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseData.billingFrequency).toBe("annual");
+      expect(stripe.subscriptions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: [{ price: "price_annual_456", quantity: 2 }],
+        })
+      );
+    });
+
+    it("should use six_month price ID when six_month billing preference selected", async () => {
+      // Setup: User with no existing subscription
+      mockSingle
+        .mockResolvedValueOnce({
+          data: { organization_id: mockOrgId },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            stripe_customer_id: mockCustomerId,
+            stripe_subscription_id: null,
+            name: "Test Org",
+            subscription_status: null,
+          },
+          error: null,
+        });
+
+      // Setup update mock
+      const supabase = await createClient();
+      (supabase.from as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+        select: mockSelect,
+        update: () => ({ eq: vi.fn(() => Promise.resolve({ error: null })) }),
+      }));
+
+      // Mock Stripe
+      (stripe.customers.retrieve as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: mockCustomerId,
+        deleted: false,
+        invoice_settings: { default_payment_method: "pm_test_456" },
+      });
+      (stripe.subscriptions.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: "sub_six_month_123",
+        status: "trialing",
+        items: { data: [{ id: "si_test_789" }] },
+      });
+
+      const request = createMockRequest({ seatCount: 3, billingPreference: "six_month" });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseData.billingFrequency).toBe("six_month");
+      expect(responseData.hasSixMonthOffer).toBe(true);
+      expect(stripe.subscriptions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: [{ price: "price_six_month_789", quantity: 3 }],
+        })
+      );
+    });
+
+    it("should default to monthly when invalid billing preference is provided", async () => {
+      // Setup: User with no existing subscription
+      mockSingle
+        .mockResolvedValueOnce({
+          data: { organization_id: mockOrgId },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            stripe_customer_id: mockCustomerId,
+            stripe_subscription_id: null,
+            name: "Test Org",
+            subscription_status: null,
+          },
+          error: null,
+        });
+
+      // Setup update mock
+      const supabase = await createClient();
+      (supabase.from as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+        select: mockSelect,
+        update: () => ({ eq: vi.fn(() => Promise.resolve({ error: null })) }),
+      }));
+
+      // Mock Stripe
+      (stripe.customers.retrieve as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: mockCustomerId,
+        deleted: false,
+        invoice_settings: { default_payment_method: "pm_test_456" },
+      });
+      (stripe.subscriptions.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: "sub_monthly_123",
+        status: "trialing",
+        items: { data: [{ id: "si_test_789" }] },
+      });
+
+      const request = createMockRequest({ seatCount: 1, billingPreference: "invalid_frequency" });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseData.billingFrequency).toBe("monthly");
+      expect(stripe.subscriptions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: [{ price: "price_monthly_123", quantity: 1 }],
+        })
+      );
+    });
+  });
+
+  describe("Payment method validation", () => {
+    it("should return 400 when organization has no stripe_customer_id", async () => {
+      // Setup: User with organization but no Stripe customer
+      mockSingle
+        .mockResolvedValueOnce({
+          data: { organization_id: mockOrgId },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            stripe_customer_id: null,
+            stripe_subscription_id: null,
+            name: "Test Org",
+            subscription_status: null,
+          },
+          error: null,
+        });
+
+      const request = createMockRequest({ seatCount: 1, billingPreference: "monthly" });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(responseData.error).toBe("No payment method on file. Please add a card first.");
+    });
+
+    it("should return 404 when Stripe customer has been deleted", async () => {
+      // Setup: User with valid org and customer ID
+      mockSingle
+        .mockResolvedValueOnce({
+          data: { organization_id: mockOrgId },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            stripe_customer_id: mockCustomerId,
+            stripe_subscription_id: null,
+            name: "Test Org",
+            subscription_status: null,
+          },
+          error: null,
+        });
+
+      // Mock Stripe customer as deleted
+      (stripe.customers.retrieve as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: mockCustomerId,
+        deleted: true,
+      });
+
+      const request = createMockRequest({ seatCount: 1, billingPreference: "monthly" });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(responseData.error).toBe("Customer not found");
+    });
+
+    it("should return 400 when customer has no default payment method", async () => {
+      // Setup: User with valid org and customer ID
+      mockSingle
+        .mockResolvedValueOnce({
+          data: { organization_id: mockOrgId },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            stripe_customer_id: mockCustomerId,
+            stripe_subscription_id: null,
+            name: "Test Org",
+            subscription_status: null,
+          },
+          error: null,
+        });
+
+      // Mock Stripe customer with no payment method
+      (stripe.customers.retrieve as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: mockCustomerId,
+        deleted: false,
+        invoice_settings: { default_payment_method: null },
+      });
+
+      const request = createMockRequest({ seatCount: 1, billingPreference: "monthly" });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(responseData.error).toBe("No payment method on file. Please add a card first.");
+    });
+  });
+
+  describe("Stripe API error handling", () => {
+    it("should return 500 when Stripe subscription creation fails", async () => {
+      // Setup: User with valid org and payment method
+      mockSingle
+        .mockResolvedValueOnce({
+          data: { organization_id: mockOrgId },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            stripe_customer_id: mockCustomerId,
+            stripe_subscription_id: null,
+            name: "Test Org",
+            subscription_status: null,
+          },
+          error: null,
+        });
+
+      // Mock Stripe customer
+      (stripe.customers.retrieve as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: mockCustomerId,
+        deleted: false,
+        invoice_settings: { default_payment_method: "pm_test_456" },
+      });
+
+      // Mock Stripe subscription.create to throw error
+      (stripe.subscriptions.create as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new Error("Stripe API error")
+      );
+
+      const request = createMockRequest({ seatCount: 1, billingPreference: "monthly" });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(responseData.error).toBe("Failed to create subscription");
+    });
+  });
+
+  describe("Subscription metadata and trial", () => {
+    it("should create subscription with 7-day trial period", async () => {
+      // Setup: User with no existing subscription
+      mockSingle
+        .mockResolvedValueOnce({
+          data: { organization_id: mockOrgId },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            stripe_customer_id: mockCustomerId,
+            stripe_subscription_id: null,
+            name: "Test Org",
+            subscription_status: null,
+          },
+          error: null,
+        });
+
+      // Setup update mock
+      const supabase = await createClient();
+      (supabase.from as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+        select: mockSelect,
+        update: () => ({ eq: vi.fn(() => Promise.resolve({ error: null })) }),
+      }));
+
+      // Mock Stripe
+      (stripe.customers.retrieve as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: mockCustomerId,
+        deleted: false,
+        invoice_settings: { default_payment_method: "pm_test_456" },
+      });
+      (stripe.subscriptions.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: "sub_new_123",
+        status: "trialing",
+        items: { data: [{ id: "si_test_789" }] },
+      });
+
+      const request = createMockRequest({ seatCount: 1, billingPreference: "monthly" });
+      await POST(request);
+
+      // Verify subscription was created with trial_end approximately 7 days from now
+      expect(stripe.subscriptions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          trial_end: expect.any(Number),
+          default_payment_method: "pm_test_456",
+          proration_behavior: "create_prorations",
+          metadata: expect.objectContaining({
+            organization_id: mockOrgId,
+            billing_preference: "monthly",
+            initial_seat_count: "1",
+          }),
+        })
+      );
+    });
+
+    it("should return trialEnd date in response", async () => {
+      // Setup: User with no existing subscription
+      mockSingle
+        .mockResolvedValueOnce({
+          data: { organization_id: mockOrgId },
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            stripe_customer_id: mockCustomerId,
+            stripe_subscription_id: null,
+            name: "Test Org",
+            subscription_status: null,
+          },
+          error: null,
+        });
+
+      // Setup update mock
+      const supabase = await createClient();
+      (supabase.from as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+        select: mockSelect,
+        update: () => ({ eq: vi.fn(() => Promise.resolve({ error: null })) }),
+      }));
+
+      // Mock Stripe
+      (stripe.customers.retrieve as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: mockCustomerId,
+        deleted: false,
+        invoice_settings: { default_payment_method: "pm_test_456" },
+      });
+      (stripe.subscriptions.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: "sub_new_123",
+        status: "trialing",
+        items: { data: [{ id: "si_test_789" }] },
+      });
+
+      const request = createMockRequest({ seatCount: 1, billingPreference: "monthly" });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseData.trialEnd).toBeDefined();
+      expect(responseData.status).toBe("trialing");
+    });
   });
 });
 
