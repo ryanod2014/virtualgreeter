@@ -3,7 +3,7 @@
     "last_updated": "2025-12-04",
     "version": "2.0",
     "schema": "docs/workflow/templates/ticket-schema.json",
-    "total_tickets": 47
+    "total_tickets": 48
   },
   "tickets": [
     {
@@ -2113,6 +2113,51 @@
       "acceptance_criteria": [
         "Issue described in F-022 is resolved",
         "Change is tested and verified"
+      ]
+    },
+    {
+      "id": "SEC-001",
+      "title": "API Authentication Enforcement",
+      "priority": "critical",
+      "feature": "Security, Signaling Server",
+      "status": "done",
+      "difficulty": "medium",
+      "source": "Security Audit",
+      "issue": "The signaling server has routes and socket handlers that need proper authentication verification. /metrics endpoint has optional API key protection. Socket handlers verify agent tokens but some code paths may skip verification.",
+      "feature_docs": [],
+      "similar_code": [
+        "apps/server/src/lib/auth.ts - existing auth helpers"
+      ],
+      "files_to_modify": [
+        "apps/server/src/index.ts",
+        "apps/server/src/lib/auth.ts",
+        "apps/server/src/features/signaling/socket-handlers.ts"
+      ],
+      "out_of_scope": [],
+      "fix_required": [
+        "Audit all HTTP routes and enforce auth in production",
+        "Audit socket handlers for auth verification",
+        "Enforce METRICS_API_KEY in production with warning if missing",
+        "Add requireAgentAuth() helper for socket auth checks"
+      ],
+      "acceptance_criteria": [
+        "/metrics requires API key in production (401 without, 403 with wrong key)",
+        "Warning logged if METRICS_API_KEY not set in production",
+        "All agent socket operations verify socket.data.agentId is set",
+        "Security model documented in socket-handlers.ts",
+        "No breaking changes to existing functionality",
+        "Typecheck passes",
+        "Lint passes",
+        "Build passes"
+      ],
+      "risks": [
+        "Breaking existing auth flow",
+        "Locking out legitimate internal requests"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm lint passes",
+        "pnpm build passes"
       ]
     }
   ]
