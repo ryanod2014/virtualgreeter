@@ -3533,15 +3533,24 @@ pnpm build`}
       }, [featuresList, findings]);
       
       // Ticket calculations
-      const readyTickets = tickets.filter(t => t.status === 'ready');
       const inProgressItems = devStatus?.in_progress || [];
+      const completedItems = devStatus?.completed || [];
       const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id));
+      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id));
+      
+      // Ready = status is 'ready' AND not in dev-status completed/in_progress
+      const readyTickets = tickets.filter(t => 
+        t.status === 'ready' && 
+        !completedTicketIds.has(t.id) && 
+        !inProgressTicketIds.has(t.id)
+      );
+      
       const filesInProgress = new Set();
       tickets.filter(t => inProgressTicketIds.has(t.id)).forEach(t => {
         (t.files_to_modify || []).forEach(f => filesInProgress.add(f));
       });
       
-      const availableTickets = readyTickets.filter(t => !inProgressTicketIds.has(t.id));
+      const availableTickets = readyTickets;
       
       // Sort by priority
       const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
