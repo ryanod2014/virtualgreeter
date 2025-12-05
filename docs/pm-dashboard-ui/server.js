@@ -116,7 +116,8 @@ function scanAgentOutputs() {
     blocked: [],
     docTracker: [],
     started: [],
-    findings: []
+    findings: [],
+    testLock: []
   };
   
   const subdirs = {
@@ -125,7 +126,8 @@ function scanAgentOutputs() {
     'blocked': 'blocked',
     'doc-tracker': 'docTracker',
     'started': 'started',
-    'findings': 'findings'
+    'findings': 'findings',
+    'test-lock': 'testLock'
   };
   
   // Fetch latest from origin (quick, ignore errors)
@@ -444,7 +446,7 @@ function handleAPI(req, res, body) {
     }
     
     // Scan agent-output directories for per-agent files (auto-aggregation)
-    let agentOutputs = { reviews: [], completions: [], blocked: [], docTracker: [], started: [], findings: [] };
+    let agentOutputs = { reviews: [], completions: [], blocked: [], docTracker: [], started: [], findings: [], testLock: [] };
     try {
       agentOutputs = scanAgentOutputs();
     } catch (e) {
@@ -635,6 +637,80 @@ function handleAPI(req, res, body) {
         worktreePath,
         message: `Cursor opened at ${worktreePath}`
       }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/run-regression - Run regression tests on a branch
+  if (req.method === 'POST' && url === '/api/run-regression') {
+    try {
+      const { ticketId, branch } = JSON.parse(body);
+      if (!ticketId) {
+        throw new Error('ticketId is required');
+      }
+      
+      const branchName = branch || `agent/${ticketId.toLowerCase()}`;
+      console.log(`🧪 Running regression tests for ${ticketId} on branch ${branchName}...`);
+      
+      // Fetch and checkout the branch
+      const repoPath = path.join(__dirname, '../..');
+      
+      try {
+        // Fetch the branch
+        execSync(`git fetch origin ${branchName}`, {
+          cwd: repoPath,
+          encoding: 'utf8',
+          timeout: 30000,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+        
+        // Run tests on the branch without switching (using git worktree or direct)
+        const testResult = execSync(`git stash && git checkout ${branchName} && pnpm test 2>&1; git checkout - && git stash pop 2>/dev/null || true`, {
+          cwd: repoPath,
+          encoding: 'utf8',
+          timeout: 300000, // 5 minute timeout for tests
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+        
+        // Parse test results
+        const passed = testResult.includes('passed') && !testResult.includes('failed');
+        const failMatch = testResult.match(/(\d+) failed/);
+        const passMatch = testResult.match(/(\d+) passed/);
+        const failedCount = failMatch ? parseInt(failMatch[1]) : 0;
+        const passedCount = passMatch ? parseInt(passMatch[1]) : 0;
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          success: true,
+          ticketId,
+          branch: branchName,
+          passed: failedCount === 0,
+          passedCount,
+          failedCount,
+          output: testResult.slice(-2000) // Last 2000 chars of output
+        }));
+      } catch (testError) {
+        // Tests failed - this is expected for behavior changes
+        const output = testError.stdout || testError.message || '';
+        const failMatch = output.match(/(\d+) failed/);
+        const passMatch = output.match(/(\d+) passed/);
+        const failedCount = failMatch ? parseInt(failMatch[1]) : 0;
+        const passedCount = passMatch ? parseInt(passMatch[1]) : 0;
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          success: true,
+          ticketId,
+          branch: branchName,
+          passed: false,
+          passedCount,
+          failedCount,
+          output: output.slice(-2000)
+        }));
+      }
     } catch (e) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));

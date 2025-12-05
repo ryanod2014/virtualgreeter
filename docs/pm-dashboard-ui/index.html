@@ -245,6 +245,7 @@
     .badge-low { color: var(--low); background: var(--low-bg); border: 1px solid rgba(74,222,128,0.2); }
     .badge-pending { color: var(--accent-bright); background: var(--accent-bg); border: 1px solid rgba(59,130,246,0.2); }
     .badge-resolved { color: var(--success); background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.2); }
+    .badge-qa { color: #a78bfa; background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.2); }
 
     /* Pipeline Card - Glass style */
     .pipeline-card { flex: 1; min-width: 160px; }
@@ -2867,6 +2868,28 @@ pnpm build`}
       const [selectedBlocker, setSelectedBlocker] = useState(null);
       const [filter, setFilter] = useState('all');
       const [selectedFeature, setSelectedFeature] = useState(null);
+      const [regressionStatus, setRegressionStatus] = useState({}); // ticketId -> { running, passed, failedCount, passedCount }
+      
+      // Parse test-lock completion files to get tested features
+      const testedFeatures = useMemo(() => {
+        const tested = new Set();
+        const testLockOutputs = agentOutputs?.testLock || [];
+        testLockOutputs.forEach(output => {
+          // Extract feature ID from filename (e.g., "AUTH1-20251205-0054.md" -> "AUTH1")
+          const featureId = output.ticketId || output.id;
+          if (featureId) tested.add(featureId.toUpperCase());
+        });
+        return tested;
+      }, [agentOutputs]);
+      
+      // Map feature IDs to feature inventory names
+      const featureIdMapping = {
+        'AUTH1': ['signup', 'signup-flow'],
+        'AUTH2': ['login', 'login-flow'],
+        'B1': ['subscription', 'subscription-creation'],
+        'B2': ['seat', 'seat-management'],
+        'P3': ['call', 'call-lifecycle']
+      };
       
       // Ticket calculations
       const inProgressItems = devStatus?.in_progress || [];
@@ -3042,7 +3065,8 @@ pnpm build`}
               { id: 'all', label: 'Pending', count: pendingTickets.length, color: 'var(--text-primary)' },
               { id: 'progress', label: 'In Progress', count: activeInProgressItems.length, color: 'var(--success)' },
               { id: 'blocked', label: 'Blocked', count: blockedItems.length, color: 'var(--critical)' },
-              { id: 'review', label: 'For Review', count: completedItems.length, color: 'var(--success)' }
+              { id: 'review', label: 'For Review', count: completedItems.length, color: 'var(--success)' },
+              { id: 'qa', label: 'QA Ready', count: Object.values(regressionStatus).filter(r => r.passed).length, color: '#a78bfa' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -3120,6 +3144,25 @@ pnpm build`}
                   return { triaged, total, reviewed };
                 };
                 
+                // Check if feature has test coverage
+                const getFeatureTestStatus = (feature) => {
+                  const normalizedName = normalize(feature.name);
+                  const fileName = feature.fileName?.replace('.md', '') || '';
+                  const normalizedFileName = normalize(fileName);
+                  
+                  // Check against test-lock outputs
+                  for (const [featureId, keywords] of Object.entries(featureIdMapping)) {
+                    if (testedFeatures.has(featureId)) {
+                      for (const keyword of keywords) {
+                        if (normalizedFileName.includes(keyword) || normalizedName.includes(keyword)) {
+                          return true;
+                        }
+                      }
+                    }
+                  }
+                  return false;
+                };
+                
                 const categoryLabels = {
                   admin: 'Admin',
                   agent: 'Agent',
@@ -3150,6 +3193,7 @@ pnpm build`}
                     <div style={{ display: 'grid', gap: '8px' }}>
                       {categoryFeatures.map(feature => {
                         const reviewStatus = getFeatureReviewStatus(feature);
+                        const isTested = getFeatureTestStatus(feature);
                         return (
                           <div 
                             key={feature.docPath} 
@@ -3199,6 +3243,17 @@ pnpm build`}
                                   color: reviewStatus.reviewed ? 'var(--success)' : 'var(--accent)'
                                 }}>
                                   {reviewStatus.reviewed ? 'Reviewed' : 'Pending'}
+                                </span>
+                                {/* Tested badge - green if TEST LOCK agent has run */}
+                                <span style={{ 
+                                  padding: '4px 10px', 
+                                  borderRadius: '6px', 
+                                  fontSize: '11px', 
+                                  fontWeight: 600,
+                                  background: isTested ? 'rgba(139,92,246,0.15)' : 'rgba(100,116,139,0.15)', 
+                                  color: isTested ? '#a78bfa' : 'var(--text-muted)'
+                                }}>
+                                  {isTested ? '🧪 Tested' : 'No Tests'}
                                 </span>
                                 {/* Findings count if any */}
                                 {reviewStatus.total > 0 && (
@@ -3670,29 +3725,69 @@ pnpm build`}
                   <div className="ticket-grid">
                     {completedItems.map(item => {
                       const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
+                      const regStatus = regressionStatus[item.ticket_id];
                       return (
                         <div 
                           key={item.ticket_id} 
                           className={`ticket-card priority-${ticket?.priority || 'medium'}`}
-                          onClick={() => setSelectedReviewItem({ item, ticket })}
-                          style={{ borderLeftColor: 'var(--success)', cursor: 'pointer' }}
+                          style={{ borderLeftColor: regStatus?.passed ? '#a78bfa' : 'var(--success)', cursor: 'pointer' }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                             <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.ticket_id}</code>
                             <div style={{ display: 'flex', gap: '6px' }}>
+                              {regStatus?.passed && <Badge type="qa">QA Ready</Badge>}
+                              {regStatus && !regStatus.passed && <Badge type="high">{regStatus.failedCount} failed</Badge>}
                               <Badge type="resolved">Completed</Badge>
                               {ticket && <Badge type={ticket.priority}>{ticket.priority}</Badge>}
                             </div>
                           </div>
-                          <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>{ticket?.title || item.title || 'Unknown Ticket'}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>{ticket?.feature || ''}</div>
-                          <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                            <span>{(ticket?.files_to_modify || []).length} files</span>
-                            <span>•</span>
-                            <span>{(ticket?.acceptance_criteria || []).length} criteria</span>
+                          <div 
+                            onClick={() => setSelectedReviewItem({ item, ticket })}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>{ticket?.title || item.title || 'Unknown Ticket'}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>{ticket?.feature || ''}</div>
+                            <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                              <span>{(ticket?.files_to_modify || []).length} files</span>
+                              <span>•</span>
+                              <span>{(ticket?.acceptance_criteria || []).length} criteria</span>
+                            </div>
                           </div>
-                          <div style={{ fontSize: '11px', color: 'var(--success)', marginTop: '8px' }}>
-                            Completed: {new Date(item.completed_at).toLocaleString()}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--success)' }}>
+                              Completed: {new Date(item.completed_at).toLocaleString()}
+                            </div>
+                            <button
+                              className={`btn btn-sm ${regStatus?.running ? 'btn-warning' : regStatus?.passed ? 'btn-success' : 'btn-secondary'}`}
+                              disabled={regStatus?.running}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setRegressionStatus(prev => ({ ...prev, [item.ticket_id]: { running: true } }));
+                                try {
+                                  const response = await fetch('/api/run-regression', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ ticketId: item.ticket_id, branch: item.branch })
+                                  });
+                                  const result = await response.json();
+                                  setRegressionStatus(prev => ({ 
+                                    ...prev, 
+                                    [item.ticket_id]: { 
+                                      running: false, 
+                                      passed: result.passed, 
+                                      passedCount: result.passedCount,
+                                      failedCount: result.failedCount,
+                                      output: result.output
+                                    } 
+                                  }));
+                                } catch (err) {
+                                  setRegressionStatus(prev => ({ ...prev, [item.ticket_id]: { running: false, error: err.message } }));
+                                }
+                              }}
+                              style={{ fontSize: '11px', padding: '4px 10px' }}
+                            >
+                              {regStatus?.running ? '🧪 Testing...' : regStatus?.passed ? '✅ Passed' : regStatus?.failedCount ? `❌ ${regStatus.failedCount} Failed` : '🧪 Run Tests'}
+                            </button>
                           </div>
                         </div>
                       );
@@ -3719,6 +3814,79 @@ pnpm build`}
               )}
             </div>
           )}
+          
+          {/* QA READY TAB */}
+          {pipelineTab === 'qa' && (
+            <div className="fade-in">
+              {(() => {
+                const qaReadyItems = completedItems.filter(item => regressionStatus[item.ticket_id]?.passed);
+                
+                if (qaReadyItems.length === 0) {
+                  return (
+                    <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                      <div style={{ marginBottom: '16px', fontSize: '48px' }}>🧪</div>
+                      <div style={{ fontSize: '18px', fontWeight: 500 }}>No tickets have passed regression testing yet</div>
+                      <div style={{ fontSize: '14px', marginTop: '8px' }}>
+                        Go to "For Review" tab and run regression tests on completed tickets
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div>
+                    <div style={{ 
+                      padding: '16px 20px', 
+                      background: 'rgba(167,139,250,0.1)', 
+                      borderRadius: '12px', 
+                      marginBottom: '20px',
+                      border: '1px solid rgba(167,139,250,0.2)'
+                    }}>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        🧪 {qaReadyItems.length} ticket{qaReadyItems.length > 1 ? 's' : ''} passed regression testing
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        These tickets are ready for human QA review. All baseline tests pass.
+                      </div>
+                    </div>
+                    
+                    <div className="ticket-grid">
+                      {qaReadyItems.map(item => {
+                        const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
+                        const regStatus = regressionStatus[item.ticket_id];
+                        return (
+                          <div 
+                            key={item.ticket_id} 
+                            className={`ticket-card priority-${ticket?.priority || 'medium'}`}
+                            onClick={() => setSelectedReviewItem({ item, ticket })}
+                            style={{ borderLeftColor: '#a78bfa', cursor: 'pointer' }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                              <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.ticket_id}</code>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <Badge type="qa">✅ QA Ready</Badge>
+                                {ticket && <Badge type={ticket.priority}>{ticket.priority}</Badge>}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>{ticket?.title || item.title || 'Unknown Ticket'}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>{ticket?.feature || ''}</div>
+                            <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                              <span>{(ticket?.files_to_modify || []).length} files</span>
+                              <span>•</span>
+                              <span>{regStatus?.passedCount || 0} tests passed</span>
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#a78bfa', marginTop: '8px' }}>
+                              Ready for QA review
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
       );
     }
@@ -3726,7 +3894,7 @@ pnpm build`}
     // ================= LAUNCH VIEW =================
     // All agent commands in one place
 
-    function LaunchView({ tickets, devStatus, onSaveDevStatus, findings, serverDecisions, featuresList }) {
+    function LaunchView({ tickets, devStatus, onSaveDevStatus, findings, serverDecisions, featuresList, agentOutputs }) {
       const [copied, setCopied] = useState(null);
       const [expandedSection, setExpandedSection] = useState('dev');
       const [expandedTicket, setExpandedTicket] = useState(null);
@@ -4776,6 +4944,110 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
               </div>
             )}
           </div>
+
+          {/* TEST LOCK Agents Section */}
+          <div className="section">
+            <div 
+              className="section-title" 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                marginBottom: expandedSection === 'testlock' ? '16px' : '0'
+              }}
+              onClick={() => setExpandedSection(expandedSection === 'testlock' ? null : 'testlock')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: '#a78bfa' }}>🧪</span>
+                <span style={{ fontWeight: 600 }}>TEST LOCK Agents</span>
+                {(() => {
+                  const testedFeatureIds = new Set((agentOutputs?.testLock || []).map(t => t.ticketId?.toUpperCase()));
+                  const totalFeatures = featuresList?.length || 0;
+                  const testedCount = testedFeatureIds.size;
+                  const pendingCount = totalFeatures - testedCount;
+                  return pendingCount > 0 ? (
+                    <span style={{ padding: '3px 10px', background: '#a78bfa', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                      {testedCount}/41 done
+                    </span>
+                  ) : (
+                    <span style={{ padding: '3px 10px', background: 'var(--bg-elevated)', color: 'var(--text-muted)', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                      All done
+                    </span>
+                  );
+                })()}
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Create baseline behavior tests</span>
+              </div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'testlock' ? '▼' : '▶'}</span>
+            </div>
+            
+            {expandedSection === 'testlock' && (
+              <div className="fade-in">
+                {/* Test Lock Summary */}
+                <div style={{ 
+                  padding: '16px 20px', 
+                  background: 'rgba(167,139,250,0.1)', 
+                  borderRadius: '12px', 
+                  marginBottom: '16px',
+                  border: '1px solid rgba(167,139,250,0.2)'
+                }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>
+                    🧪 TEST LOCK Agent creates baseline behavior tests
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                    These tests "lock in" current behavior to prevent regressions. They don't define what's correct - they capture what the code currently does.
+                  </div>
+                </div>
+
+                {/* Tested Features */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>COMPLETED ({(agentOutputs?.testLock || []).length})</div>
+                  <div style={{ display: 'grid', gap: '6px' }}>
+                    {(agentOutputs?.testLock || []).map(output => (
+                      <div key={output.fileName} className="card" style={{ padding: '10px 14px', borderLeft: '3px solid #a78bfa' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <span style={{ fontSize: '13px', fontWeight: 500 }}>{output.ticketId}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px' }}>✓ Tests locked</span>
+                          </div>
+                          <code style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{output.fileName}</code>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Launch Command */}
+                <div className="card" style={{ padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '15px', fontWeight: 600 }}>Launch TEST LOCK Sprint</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Create baseline tests for remaining features
+                      </div>
+                    </div>
+                    <button 
+                      className={`btn ${copied === 'testlock-sprint' ? 'btn-success' : 'btn-primary'}`}
+                      onClick={() => {
+                        const cmd = `You are a TEST LOCK Agent. Read docs/workflow/TEST_LOCK_AGENT_SOP.md
+
+Your job is to create behavior-level tests that "lock in" the current behavior of code. These tests serve as regression guards - they capture what the code currently does, not what it "should" do.
+
+Pick a feature from docs/FEATURE_INVENTORY.md that doesn't have tests yet and create baseline tests for it. Check docs/agent-output/test-lock/ to see which features already have tests.
+
+Follow the SOP exactly. Output your completion report to docs/agent-output/test-lock/`;
+                        navigator.clipboard.writeText(cmd);
+                        setCopied('testlock-sprint');
+                        setTimeout(() => setCopied(null), 2000);
+                      }}
+                    >
+                      {copied === 'testlock-sprint' ? 'Copied!' : 'Copy Command'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       );
     }
@@ -4789,7 +5061,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
       const [tickets, setTickets] = useState([]);
       const [featuresList, setFeaturesList] = useState([]);
       const [devStatus, setDevStatus] = useState({ in_progress: [], completed: [] });
-      const [agentOutputs, setAgentOutputs] = useState({ blocked: [], completions: [], started: [], findings: [] });
+      const [agentOutputs, setAgentOutputs] = useState({ blocked: [], completions: [], started: [], findings: [], testLock: [] });
       const [serverDecisions, setServerDecisions] = useState(null);
       const [loading, setLoading] = useState(true);
       const [lastRefresh, setLastRefresh] = useState(null);
@@ -4975,6 +5247,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                   findings={findings}
                   serverDecisions={serverDecisions}
                   featuresList={featuresList}
+                  agentOutputs={agentOutputs}
                 />}
               </>
             )}
