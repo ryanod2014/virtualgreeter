@@ -103,6 +103,7 @@ function AppShellInner({
         incomingCall={incomingCall}
         onAccept={handleAcceptCall}
         onReject={rejectCall}
+        rnaTimeoutSeconds={organization.recording_settings?.rna_timeout_seconds}
       />
 
       {/* Away Modal - only show for automatic away (idle/RNA), not manual breaks */}
