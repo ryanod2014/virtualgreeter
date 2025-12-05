@@ -3788,9 +3788,14 @@ pnpm build`}
         !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
-      const filesInProgress = new Set();
+      const lockedFiles = new Set();
+      // Add files from in-progress tickets
       tickets.filter(t => inProgressTicketIds.has(t.id?.toUpperCase())).forEach(t => {
-        (t.files_to_modify || []).forEach(f => filesInProgress.add(f));
+        (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
+      });
+      // Add files from completed (for review) tickets - they're not merged yet!
+      tickets.filter(t => completedTicketIds.has(t.id?.toUpperCase())).forEach(t => {
+        (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
       });
       
       const availableTickets = readyTickets;
@@ -3804,7 +3809,7 @@ pnpm build`}
       // Calculate next batch - greedy algorithm for parallelization
       const calculateNextBatch = () => {
         const batch = [];
-        const batchFiles = new Set(filesInProgress);
+        const batchFiles = new Set(lockedFiles);
         
         for (const ticket of sortedTickets) {
           const ticketFiles = ticket.files_to_modify || [];
@@ -4140,7 +4145,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                   </div>
                 )}
                 
-                {inProgressItems.length > 0 && (
+                {(inProgressItems.length > 0 || completedItems.length > 0) && (
                   <div style={{ 
                     padding: '12px 16px', 
                     background: 'rgba(99,102,241,0.1)', 
@@ -4149,8 +4154,8 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                     fontSize: '13px',
                     color: 'var(--text-secondary)'
                   }}>
-                    ⚡ <strong>{inProgressItems.length} agents running</strong> — locked files: {' '}
-                    <code style={{ fontSize: '11px' }}>{[...filesInProgress].slice(0, 3).join(', ')}{filesInProgress.size > 3 ? ` +${filesInProgress.size - 3} more` : ''}</code>
+                    ⚡ <strong>{inProgressItems.length} running, {completedItems.length} for review</strong> — locked files: {' '}
+                    <code style={{ fontSize: '11px' }}>{[...lockedFiles].slice(0, 3).join(', ')}{lockedFiles.size > 3 ? ` +${lockedFiles.size - 3} more` : ''}</code>
                   </div>
                 )}
                 
@@ -4158,7 +4163,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                   <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     <div style={{ fontSize: '36px', marginBottom: '12px' }}>🎉</div>
                     <div style={{ fontSize: '16px', fontWeight: 500 }}>
-                      {inProgressItems.length > 0 ? 'All remaining tickets conflict with in-progress work' : 'No ready tickets'}
+                      {(inProgressItems.length > 0 || completedItems.length > 0) ? 'All remaining tickets conflict with pending branches' : 'No ready tickets'}
                     </div>
                   </div>
                 ) : (
