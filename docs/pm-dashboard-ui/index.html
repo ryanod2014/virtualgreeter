@@ -452,6 +452,16 @@
       box-shadow: 0 4px 20px rgba(59,130,246,0.4);
       transform: translateY(-1px);
     }
+    .btn-danger { 
+      background: linear-gradient(135deg, var(--critical) 0%, #dc2626 100%);
+      color: white;
+      box-shadow: 0 2px 12px rgba(248,113,113,0.3);
+    }
+    .btn-danger:hover { 
+      background: linear-gradient(135deg, #fca5a5 0%, var(--critical) 100%);
+      box-shadow: 0 4px 20px rgba(248,113,113,0.4);
+      transform: translateY(-1px);
+    }
     .btn-sm { padding: 8px 14px; font-size: 12px; }
     .btn:disabled {
       opacity: 0.5;
@@ -2868,7 +2878,26 @@ pnpm build`}
       const [selectedBlocker, setSelectedBlocker] = useState(null);
       const [filter, setFilter] = useState('all');
       const [selectedFeature, setSelectedFeature] = useState(null);
-      const [regressionStatus, setRegressionStatus] = useState({}); // ticketId -> { running, passed, failedCount, passedCount }
+      
+      // Initialize regression status from devStatus (persisted) or empty
+      const [regressionStatus, setRegressionStatus] = useState(() => {
+        return devStatus?.regression_results || {};
+      });
+      
+      // Sync regression status when devStatus changes (e.g., on reload)
+      useEffect(() => {
+        if (devStatus?.regression_results) {
+          setRegressionStatus(devStatus.regression_results);
+        }
+      }, [devStatus?.regression_results]);
+      
+      // Helper to update regression status and persist to devStatus
+      const updateRegressionStatus = (ticketId, status) => {
+        const newStatus = { ...regressionStatus, [ticketId]: status };
+        setRegressionStatus(newStatus);
+        // Persist to devStatus
+        onSaveDevStatus({ ...devStatus, regression_results: newStatus });
+      };
       
       // Parse test-lock completion files to get tested features
       const testedFeatures = useMemo(() => {
@@ -2876,19 +2905,22 @@ pnpm build`}
         const testLockOutputs = agentOutputs?.testLock || [];
         testLockOutputs.forEach(output => {
           // Extract feature ID from filename (e.g., "AUTH1-20251205-0054.md" -> "AUTH1")
-          const featureId = output.ticketId || output.id;
-          if (featureId) tested.add(featureId.toUpperCase());
+          const rawId = output.ticketId || output.id || '';
+          // Extract just the feature code (AUTH1, B2, P3, etc.) - strip timestamps
+          const match = rawId.match(/^([A-Z]+\d*)/i);
+          const featureId = match ? match[1].toUpperCase() : rawId.toUpperCase();
+          if (featureId) tested.add(featureId);
         });
         return tested;
       }, [agentOutputs]);
       
-      // Map feature IDs to feature inventory names
+      // Map feature IDs to feature inventory names (keywords to match)
       const featureIdMapping = {
-        'AUTH1': ['signup', 'signup-flow'],
-        'AUTH2': ['login', 'login-flow'],
-        'B1': ['subscription', 'subscription-creation'],
-        'B2': ['seat', 'seat-management'],
-        'P3': ['call', 'call-lifecycle']
+        'AUTH1': ['signup', 'sign-up', 'registration'],
+        'AUTH2': ['login', 'log-in', 'signin', 'sign-in', 'authentication'],
+        'B1': ['subscription', 'subscribe', 'payment', 'stripe'],
+        'B2': ['seat', 'billing', 'plan-limits', 'plan limits'],
+        'P3': ['call', 'lifecycle', 'signaling', 'routing', 'pool']
       };
       
       // Ticket calculations
@@ -3149,12 +3181,16 @@ pnpm build`}
                   const normalizedName = normalize(feature.name);
                   const fileName = feature.fileName?.replace('.md', '') || '';
                   const normalizedFileName = normalize(fileName);
+                  const category = normalize(feature.category || '');
                   
                   // Check against test-lock outputs
                   for (const [featureId, keywords] of Object.entries(featureIdMapping)) {
                     if (testedFeatures.has(featureId)) {
                       for (const keyword of keywords) {
-                        if (normalizedFileName.includes(keyword) || normalizedName.includes(keyword)) {
+                        const normalizedKeyword = normalize(keyword);
+                        if (normalizedFileName.includes(normalizedKeyword) || 
+                            normalizedName.includes(normalizedKeyword) ||
+                            category.includes(normalizedKeyword)) {
                           return true;
                         }
                       }
@@ -3735,8 +3771,11 @@ pnpm build`}
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                             <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.ticket_id}</code>
                             <div style={{ display: 'flex', gap: '6px' }}>
-                              {regStatus?.passed && <Badge type="qa">QA Ready</Badge>}
-                              {regStatus && !regStatus.passed && <Badge type="high">{regStatus.failedCount} failed</Badge>}
+                              {regStatus?.passed && <Badge type="qa">✅ QA Ready</Badge>}
+                              {regStatus?.expectedFailures && <Badge type="qa">✅ QA Ready</Badge>}
+                              {regStatus && !regStatus.passed && !regStatus.expectedFailures && regStatus.failedCount > 0 && (
+                                <Badge type="high">⚠️ {regStatus.failedCount} unexpected</Badge>
+                              )}
                               <Badge type="resolved">Completed</Badge>
                               {ticket && <Badge type={ticket.priority}>{ticket.priority}</Badge>}
                             </div>
@@ -3757,37 +3796,93 @@ pnpm build`}
                             <div style={{ fontSize: '11px', color: 'var(--success)' }}>
                               Completed: {new Date(item.completed_at).toLocaleString()}
                             </div>
-                            <button
-                              className={`btn btn-sm ${regStatus?.running ? 'btn-warning' : regStatus?.passed ? 'btn-success' : 'btn-secondary'}`}
-                              disabled={regStatus?.running}
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                setRegressionStatus(prev => ({ ...prev, [item.ticket_id]: { running: true } }));
-                                try {
-                                  const response = await fetch('/api/run-regression', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ ticketId: item.ticket_id, branch: item.branch })
-                                  });
-                                  const result = await response.json();
-                                  setRegressionStatus(prev => ({ 
-                                    ...prev, 
-                                    [item.ticket_id]: { 
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button
+                                className={`btn btn-sm ${regStatus?.running ? 'btn-warning' : (regStatus?.passed || regStatus?.expectedFailures) ? 'btn-success' : regStatus?.failedCount ? 'btn-danger' : 'btn-secondary'}`}
+                                disabled={regStatus?.running}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  setRegressionStatus(prev => ({ ...prev, [item.ticket_id]: { running: true } }));
+                                  try {
+                                    const response = await fetch('/api/run-regression', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ ticketId: item.ticket_id, branch: item.branch })
+                                    });
+                                    const result = await response.json();
+                                    
+                                    // Auto-determine if failures are expected based on files_to_modify
+                                    const ticketFiles = (ticket?.files_to_modify || []).map(f => f.toLowerCase());
+                                    const failedFiles = (result.failedFiles || []).map(f => f.toLowerCase());
+                                    
+                                    // Check if ALL failed files are in the ticket's files_to_modify
+                                    const allFailuresExpected = failedFiles.length > 0 && failedFiles.every(failedFile => 
+                                      ticketFiles.some(ticketFile => 
+                                        failedFile.includes(ticketFile.replace(/^.*\//, '').replace('.ts', '').replace('.tsx', '')) ||
+                                        ticketFile.includes(failedFile.replace(/^.*\//, '').replace('.test.ts', '').replace('.test.tsx', ''))
+                                      )
+                                    );
+                                    
+                                    // Find unexpected failures (regressions)
+                                    const unexpectedFiles = failedFiles.filter(failedFile => 
+                                      !ticketFiles.some(ticketFile => 
+                                        failedFile.includes(ticketFile.replace(/^.*\//, '').replace('.ts', '').replace('.tsx', '')) ||
+                                        ticketFile.includes(failedFile.replace(/^.*\//, '').replace('.test.ts', '').replace('.test.tsx', ''))
+                                      )
+                                    );
+                                    
+                                    const status = { 
                                       running: false, 
                                       passed: result.passed, 
                                       passedCount: result.passedCount,
                                       failedCount: result.failedCount,
-                                      output: result.output
-                                    } 
-                                  }));
-                                } catch (err) {
-                                  setRegressionStatus(prev => ({ ...prev, [item.ticket_id]: { running: false, error: err.message } }));
-                                }
-                              }}
-                              style={{ fontSize: '11px', padding: '4px 10px' }}
-                            >
-                              {regStatus?.running ? '🧪 Testing...' : regStatus?.passed ? '✅ Passed' : regStatus?.failedCount ? `❌ ${regStatus.failedCount} Failed` : '🧪 Run Tests'}
-                            </button>
+                                      failedFiles: result.failedFiles || [],
+                                      output: result.output,
+                                      testedAt: new Date().toISOString(),
+                                      expectedFailures: result.failedCount > 0 && allFailuresExpected,
+                                      unexpectedFiles: unexpectedFiles
+                                    };
+                                    
+                                    updateRegressionStatus(item.ticket_id, status);
+                                    
+                                    // If there are unexpected failures, create a regression finding
+                                    if (unexpectedFiles.length > 0) {
+                                      const findingId = `REG-${item.ticket_id}-${Date.now()}`;
+                                      const regressionFinding = {
+                                        id: findingId,
+                                        feature: ticket?.feature || 'Unknown',
+                                        category: 'regression',
+                                        title: `Regression: ${item.ticket_id} broke tests in ${unexpectedFiles.length} file(s)`,
+                                        severity: 'critical',
+                                        type: 'blocker',
+                                        location: unexpectedFiles.join(', '),
+                                        issue: `Ticket ${item.ticket_id} caused ${unexpectedFiles.length} test file(s) to fail that were NOT in the ticket's files_to_modify. This indicates a regression.\n\nFailed files:\n${unexpectedFiles.map(f => '- ' + f).join('\n')}\n\nOriginal ticket modified: ${ticketFiles.join(', ')}`,
+                                        suggested_fix: `Review the changes in ${item.ticket_id} and fix the regressions in: ${unexpectedFiles.join(', ')}`,
+                                        status: 'pending',
+                                        source_ticket: item.ticket_id,
+                                        created_at: new Date().toISOString()
+                                      };
+                                      
+                                      // Save to findings via API (we'll add this endpoint)
+                                      fetch('/api/add-finding', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(regressionFinding)
+                                      }).catch(err => console.error('Failed to create regression finding:', err));
+                                    }
+                                  } catch (err) {
+                                    updateRegressionStatus(item.ticket_id, { running: false, error: err.message });
+                                  }
+                                }}
+                                style={{ fontSize: '11px', padding: '4px 10px' }}
+                              >
+                                {regStatus?.running ? '🧪 Testing...' : 
+                                 regStatus?.passed ? '✅ Passed' : 
+                                 regStatus?.expectedFailures ? `✅ ${regStatus.failedCount} Expected` :
+                                 regStatus?.failedCount ? `❌ ${regStatus.failedCount} Regression` : 
+                                 '🧪 Run Tests'}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -3819,7 +3914,15 @@ pnpm build`}
           {pipelineTab === 'qa' && (
             <div className="fade-in">
               {(() => {
-                const qaReadyItems = completedItems.filter(item => regressionStatus[item.ticket_id]?.passed);
+                // QA Ready = passed OR only has expected failures (in files_to_modify)
+                const qaReadyItems = completedItems.filter(item => {
+                  const regStatus = regressionStatus[item.ticket_id];
+                  if (!regStatus) return false;
+                  if (regStatus.passed) return true;
+                  // Check if failures are "expected" (in files the ticket was supposed to modify)
+                  if (regStatus.failedCount > 0 && regStatus.expectedFailures) return true;
+                  return false;
+                });
                 
                 if (qaReadyItems.length === 0) {
                   return (

@@ -458,6 +458,11 @@ function handleAPI(req, res, body) {
     let devStatus;
     try {
       devStatus = buildDevStatusFromOutputs(agentOutputs);
+      // Also load regression_results from dev-status.json (persisted test results)
+      const savedDevStatus = readJSON('dev-status.json');
+      if (savedDevStatus?.regression_results) {
+        devStatus.regression_results = savedDevStatus.regression_results;
+      }
     } catch (e) {
       console.error('Error building devStatus:', e.message);
       devStatus = readJSON('dev-status.json') || { in_progress: [], completed: [] };
@@ -658,6 +663,25 @@ function handleAPI(req, res, body) {
       // Fetch and checkout the branch
       const repoPath = path.join(__dirname, '../..');
       
+      // Helper to parse failed test files from output
+      const parseFailedFiles = (output) => {
+        const files = new Set();
+        // Match patterns like "FAIL src/lib/auth/actions.test.ts" or "❌ src/app/api/billing/seats/route.test.ts"
+        const patterns = [
+          /FAIL\s+([^\s]+\.test\.[tj]sx?)/gi,
+          /❌\s+([^\s]+\.test\.[tj]sx?)/gi,
+          /×\s+([^\s]+\.test\.[tj]sx?)/gi,
+          /failed.*?([^\s]+\.test\.[tj]sx?)/gi
+        ];
+        for (const pattern of patterns) {
+          let match;
+          while ((match = pattern.exec(output)) !== null) {
+            files.add(match[1]);
+          }
+        }
+        return Array.from(files);
+      };
+      
       try {
         // Fetch the branch
         execSync(`git fetch origin ${branchName}`, {
@@ -681,6 +705,7 @@ function handleAPI(req, res, body) {
         const passMatch = testResult.match(/(\d+) passed/);
         const failedCount = failMatch ? parseInt(failMatch[1]) : 0;
         const passedCount = passMatch ? parseInt(passMatch[1]) : 0;
+        const failedFiles = parseFailedFiles(testResult);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
@@ -690,15 +715,17 @@ function handleAPI(req, res, body) {
           passed: failedCount === 0,
           passedCount,
           failedCount,
+          failedFiles,
           output: testResult.slice(-2000) // Last 2000 chars of output
         }));
       } catch (testError) {
         // Tests failed - this is expected for behavior changes
-        const output = testError.stdout || testError.message || '';
+        const output = testError.stdout || testError.stderr || testError.message || '';
         const failMatch = output.match(/(\d+) failed/);
         const passMatch = output.match(/(\d+) passed/);
         const failedCount = failMatch ? parseInt(failMatch[1]) : 0;
         const passedCount = passMatch ? parseInt(passMatch[1]) : 0;
+        const failedFiles = parseFailedFiles(output);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
@@ -708,9 +735,37 @@ function handleAPI(req, res, body) {
           passed: false,
           passedCount,
           failedCount,
+          failedFiles,
           output: output.slice(-2000)
         }));
       }
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/add-finding - Add a regression finding
+  if (req.method === 'POST' && url === '/api/add-finding') {
+    try {
+      const finding = JSON.parse(body);
+      const findings = readJSON('findings.json') || { findings: [] };
+      
+      // Add the new finding
+      findings.findings.push(finding);
+      
+      // Update summary counts
+      if (findings.summary) {
+        findings.summary[finding.severity] = (findings.summary[finding.severity] || 0) + 1;
+        findings.summary.pending = (findings.summary.pending || 0) + 1;
+      }
+      
+      writeJSON('findings.json', findings);
+      console.log(`🚨 Created regression finding: ${finding.id}`);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, finding }));
     } catch (e) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
