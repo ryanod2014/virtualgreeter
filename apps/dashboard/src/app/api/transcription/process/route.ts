@@ -57,7 +57,7 @@ interface AISummaryResult {
 }
 
 /**
- * Transcribe audio using Deepgram
+ * Transcribe audio using Deepgram (single attempt)
  */
 async function transcribeWithDeepgram(audioUrl: string): Promise<TranscriptionResult> {
   const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
@@ -67,7 +67,7 @@ async function transcribeWithDeepgram(audioUrl: string): Promise<TranscriptionRe
   }
 
   try {
-    console.log("[Transcription] Starting Deepgram transcription for:", audioUrl);
+    console.log("[Transcription] Calling Deepgram API for:", audioUrl);
 
     const response = await fetch(
       "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&diarize=true&punctuate=true",
@@ -84,7 +84,7 @@ async function transcribeWithDeepgram(audioUrl: string): Promise<TranscriptionRe
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[Transcription] Deepgram API error:", response.status, errorText);
-      return { success: false, error: `Deepgram API error: ${response.status}` };
+      return { success: false, error: `Deepgram API error: ${response.status} - ${errorText}` };
     }
 
     const result = await response.json();
@@ -106,6 +106,49 @@ async function transcribeWithDeepgram(audioUrl: string): Promise<TranscriptionRe
     console.error("[Transcription] Error:", error);
     return { success: false, error: String(error) };
   }
+}
+
+/**
+ * Transcribe with automatic retry and exponential backoff
+ */
+async function transcribeWithRetry(audioUrl: string): Promise<ProcessingResult> {
+  const retryLog: RetryAttempt[] = [];
+  let lastError = "";
+
+  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+    console.log(`[Transcription] Attempt ${attempt}/${MAX_RETRY_ATTEMPTS}`);
+
+    const result = await transcribeWithDeepgram(audioUrl);
+
+    if (result.success) {
+      console.log(`[Transcription] Success on attempt ${attempt}`);
+      return {
+        success: true,
+        transcription: result.transcription,
+        durationSeconds: result.durationSeconds,
+        totalAttempts: attempt,
+        retryLog,
+      };
+    }
+
+    lastError = result.error || "Unknown error";
+    retryLog.push({ attempt, timestamp: new Date().toISOString(), error: lastError });
+    console.log(`[Transcription] Attempt ${attempt} failed:`, lastError);
+
+    if (isNonRetriableError(lastError)) {
+      console.log("[Transcription] Non-retriable error, skipping remaining retries");
+      return { success: false, error: lastError, totalAttempts: attempt, retryLog };
+    }
+
+    if (attempt < MAX_RETRY_ATTEMPTS) {
+      const delayMs = RETRY_DELAYS_MS[attempt - 1];
+      console.log(`[Transcription] Waiting ${delayMs}ms before retry...`);
+      await sleep(delayMs);
+    }
+  }
+
+  console.log("[Transcription] All retry attempts exhausted");
+  return { success: false, error: lastError, totalAttempts: MAX_RETRY_ATTEMPTS, retryLog };
 }
 
 /**
@@ -221,8 +264,8 @@ export async function POST(request: NextRequest) {
       .update({ transcription_status: "processing" })
       .eq("id", callLogId);
 
-    // Transcribe the audio
-    const transcriptionResult = await transcribeWithDeepgram(callLog.recording_url);
+    // Transcribe the audio with automatic retry
+    const transcriptionResult = await transcribeWithRetry(callLog.recording_url);
 
     if (!transcriptionResult.success) {
       await supabase
@@ -230,16 +273,23 @@ export async function POST(request: NextRequest) {
         .update({
           transcription_status: "failed",
           transcription_error: transcriptionResult.error,
+          transcription_retry_count: transcriptionResult.totalAttempts,
+          transcription_retry_log: JSON.stringify(transcriptionResult.retryLog),
         })
         .eq("id", callLogId);
-      return NextResponse.json({ error: transcriptionResult.error }, { status: 500 });
+      console.log(`[ProcessCall] Transcription failed after ${transcriptionResult.totalAttempts} attempts:`, transcriptionResult.error);
+      return NextResponse.json({ 
+        error: transcriptionResult.error,
+        totalAttempts: transcriptionResult.totalAttempts,
+        retryLog: transcriptionResult.retryLog,
+      }, { status: 500 });
     }
 
     // Calculate cost based on duration
     const durationMinutes = (transcriptionResult.durationSeconds || callLog.duration_seconds || 0) / 60;
     const transcriptionCost = durationMinutes * TRANSCRIPTION_COST_PER_MIN;
 
-    // Save transcription
+    // Save successful transcription with retry info
     await supabase
       .from("call_logs")
       .update({
@@ -248,6 +298,8 @@ export async function POST(request: NextRequest) {
         transcription_duration_seconds: transcriptionResult.durationSeconds,
         transcription_cost: transcriptionCost,
         transcribed_at: new Date().toISOString(),
+        transcription_retry_count: transcriptionResult.totalAttempts - 1,
+        transcription_retry_log: transcriptionResult.retryLog.length > 0 ? JSON.stringify(transcriptionResult.retryLog) : null,
       })
       .eq("id", callLogId);
 
