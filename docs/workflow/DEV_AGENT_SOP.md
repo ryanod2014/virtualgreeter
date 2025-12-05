@@ -125,20 +125,44 @@ If you need to fetch an API key that's not in the credentials file:
 - NEVER hardcode credentials in source files (use .env.local)
 - If 2FA is required → Report as environmental blocker
 
-### 3.1 Create or Checkout Branch
+### 3.1 Setup Isolated Workspace (REQUIRED)
+
+**⚠️ CRITICAL:** Each agent MUST work in an isolated worktree to prevent branch pollution when multiple agents run in parallel.
+
+**Your workspace will be at:** `../agent-worktrees/TKT-XXX/`
+
+#### Option A: Use Setup Script (Recommended)
 
 ```bash
+# From the main repo directory:
+./scripts/setup-agent-worktree.sh TKT-XXX
+
+# Then change to your worktree:
+cd ../agent-worktrees/TKT-XXX
+```
+
+The script handles all scenarios:
+- **New ticket:** Creates worktree from `origin/main` with new branch
+- **Continuation:** Creates worktree from existing remote branch
+- **Re-run:** Resets existing worktree or prompts for action
+
+#### Option B: Manual Setup
+
+```bash
+# From the main repo directory:
 git fetch origin
 
-# Check if branch already exists (from previous attempt or continuation)
-git branch -r | grep "origin/agent/TKT-XXX"
+# Check if branch already exists
+git branch -r | grep -i "origin/agent/tkt-xxx"
 
-# If branch EXISTS (continuation or retry):
-git checkout agent/TKT-XXX-[description]
-git pull origin agent/TKT-XXX-[description]
+# If branch EXISTS (continuation):
+git worktree add ../agent-worktrees/TKT-XXX origin/agent/tkt-xxx-description
 
 # If branch does NOT exist (new ticket):
-git checkout -b agent/TKT-XXX-[short-description]
+git worktree add ../agent-worktrees/TKT-XXX -b agent/tkt-xxx origin/main
+
+# Change to your worktree
+cd ../agent-worktrees/TKT-XXX
 
 # Install dependencies
 pnpm install
@@ -149,21 +173,28 @@ pnpm install
 - Lockfile conflict → Run `pnpm install --no-frozen-lockfile`
 - Still failing after 10 minutes → Report as environmental blocker (see below)
 
-**Branch naming:** `agent/TKT-XXX-[description]` (e.g., `agent/TKT-001-cobrowse-sanitization`)
+**Branch naming:** `agent/tkt-xxx` or `agent/tkt-xxx-[description]`
 
 ### 3.2 Pre-Flight Verification (REQUIRED)
 
-Before writing ANY code, verify you're on the correct branch:
+Before writing ANY code, verify you're in the correct worktree and on the correct branch:
 
 ```bash
+# Confirm you're in the worktree (NOT the main repo!)
+pwd
+# Expected output: .../agent-worktrees/TKT-XXX
+
 # Confirm you're on the correct branch
 git branch --show-current
-# Expected output: agent/TKT-XXX-*
+# Expected output: agent/tkt-xxx-*
 
 # If on main or wrong branch, STOP and fix before any code changes
 ```
 
-**⚠️ CRITICAL:** All code changes MUST be on a branch matching `agent/TKT-XXX-*`. Never commit to `main`.
+**⚠️ CRITICAL:** 
+- All code changes MUST be in your worktree at `../agent-worktrees/TKT-XXX/`
+- Never work in the main repo directory when implementing tickets
+- Never commit to `main`
 
 ### 3.3 Check File Locks (REQUIRED)
 
