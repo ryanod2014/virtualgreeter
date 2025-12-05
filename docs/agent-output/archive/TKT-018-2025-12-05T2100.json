@@ -1,0 +1,10 @@
+{
+  "ticket_id": "TKT-018",
+  "branch": "agent/tkt-018-transcription-auto-retry-with",
+  "started_at": "2025-12-05T21:00:00Z",
+  "files_locking": [
+    "apps/server/src/features/transcription/processTranscription.ts",
+    "apps/dashboard/src/features/call-logs/CallLogRow.tsx",
+    "apps/dashboard/src/app/api/transcription/retry/route.ts"
+  ]
+}

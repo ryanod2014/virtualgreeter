@@ -40,6 +40,13 @@
       "started_at": "2025-12-05T15:00:00Z",
       "completed_at": "2025-12-05T15:30:00Z",
       "completion_file": "docs/agent-output/completions/TKT-038-2025-12-05T1530.md"
+    },
+    {
+      "ticket_id": "TKT-018",
+      "branch": "agent/tkt-018-transcription-auto-retry-with",
+      "started_at": "2025-12-05T21:00:00Z",
+      "completed_at": "2025-12-06T03:00:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-018-2025-12-06T0300.md"
     }
   ],
   "retry_history": []
