@@ -83,16 +83,127 @@ Ask yourself:
 
 ## Phase 3: ENVIRONMENT SETUP
 
+### 3.0 Access Credentials (If Needed)
+
+If your ticket requires API keys, service logins, or test accounts:
+
+**Credentials file:** `docs/data/.agent-credentials.json`
+
 ```bash
-# Checkout the branch (or create if specified in ticket)
+# Read credentials (file is gitignored - never commit changes to it)
+cat docs/data/.agent-credentials.json
+```
+
+**Structure:**
+- `services.*` — Login URLs and credentials for external services (Stripe, Supabase, etc.)
+- `test_accounts.*` — Test user accounts for the app
+- `api_keys.*` — Pre-fetched API keys (use these first to avoid browser navigation)
+
+**Browser Navigation for API Keys:**
+
+If you need to fetch an API key that's not in the credentials file:
+
+1. Read the service credentials from the file
+2. Navigate to the login URL using browser tools
+3. Log in with the provided email/password
+4. Navigate to the API keys page
+5. Copy the key and use it (do NOT write it back to the credentials file)
+
+**Example: Getting Stripe Test API Key**
+
+```
+1. Read: cat docs/data/.agent-credentials.json | jq '.services.stripe'
+2. Navigate: browser_navigate to login_url
+3. Login: Fill email/password from credentials
+4. Navigate: browser_navigate to api_keys_url
+5. Copy: Get the pk_test_* and sk_test_* keys
+```
+
+**⚠️ Security Rules:**
+- NEVER commit the credentials file
+- NEVER log credentials to console or completion reports
+- NEVER hardcode credentials in source files (use .env.local)
+- If 2FA is required → Report as environmental blocker
+
+### 3.1 Create or Checkout Branch
+
+```bash
 git fetch origin
-git checkout [branch-name]
-# OR if creating new:
+
+# Check if branch already exists (from previous attempt or continuation)
+git branch -r | grep "origin/agent/TKT-XXX"
+
+# If branch EXISTS (continuation or retry):
+git checkout agent/TKT-XXX-[description]
+git pull origin agent/TKT-XXX-[description]
+
+# If branch does NOT exist (new ticket):
 git checkout -b agent/TKT-XXX-[short-description]
 
 # Install dependencies
 pnpm install
 ```
+
+**If `pnpm install` fails:**
+- Network error → Retry 2-3 times
+- Lockfile conflict → Run `pnpm install --no-frozen-lockfile`
+- Still failing after 10 minutes → Report as environmental blocker (see below)
+
+**Branch naming:** `agent/TKT-XXX-[description]` (e.g., `agent/TKT-001-cobrowse-sanitization`)
+
+### 3.2 Pre-Flight Verification (REQUIRED)
+
+Before writing ANY code, verify you're on the correct branch:
+
+```bash
+# Confirm you're on the correct branch
+git branch --show-current
+# Expected output: agent/TKT-XXX-*
+
+# If on main or wrong branch, STOP and fix before any code changes
+```
+
+**⚠️ CRITICAL:** All code changes MUST be on a branch matching `agent/TKT-XXX-*`. Never commit to `main`.
+
+### 3.3 Check File Locks (REQUIRED)
+
+**Before signaling start**, check if any of your files are already locked by another agent:
+
+```bash
+# List all currently locked files
+cat docs/agent-output/started/*.json 2>/dev/null | grep -o '"files_locking":\s*\[[^]]*\]' || echo "No locks"
+```
+
+**Check each file in your ticket's `files_to_modify`:**
+- If ANY file is already locked → **STOP and report to PM**
+- Don't proceed if there's a conflict - wait for the other agent to complete
+
+### 3.4 Signal Start (REQUIRED)
+
+**After confirming no file conflicts**, signal that you're starting work.
+
+**File path:** `docs/agent-output/started/TKT-XXX-[TIMESTAMP].json`
+
+Example: `docs/agent-output/started/TKT-001-2025-12-04T1430.json`
+
+```json
+{
+  "ticket_id": "TKT-XXX",
+  "branch": "agent/TKT-XXX-[description]",
+  "started_at": "[ISO timestamp]",
+  "files_locking": [
+    "path/to/file1.ts",
+    "path/to/file2.ts"
+  ]
+}
+```
+
+**Why this matters:**
+- PM can detect stalled agents (started but no completion after 4+ hours)
+- PM can check file locks before launching new agents
+- Prevents file conflicts between parallel agents
+
+**⚠️ Race Condition Warning:** If you and another agent start at the exact same moment, you might both pass the lock check. PM mitigates this by launching agents with a few seconds gap.
 
 ---
 
@@ -127,6 +238,21 @@ pnpm lint
 
 Fix any errors before continuing.
 
+### 4.4 If You Can't Fix an Error (40-Minute Rule)
+
+If you've been stuck on a type error, lint error, or build error for **40 minutes**:
+
+1. **STOP trying** — Don't spin endlessly
+2. **Commit your WIP** (even if broken): `git commit -m "WIP TKT-XXX: stuck on [error] - BLOCKED"`
+3. **Push your work**: `git push origin [branch-name]`
+4. **Report as environmental blocker** (see "Environmental Blockers" section below)
+
+**Signs you should block:**
+- Same error for 40+ minutes
+- Error is in a file you didn't modify (pre-existing issue)
+- Error requires knowledge you don't have (e.g., complex type system)
+- You've tried 3+ different approaches and none work
+
 ---
 
 ## Phase 5: SELF-REVIEW
@@ -148,6 +274,11 @@ For EACH risk in the ticket:
 - [ ] No console.logs left (except intentional)
 - [ ] No commented-out code
 - [ ] Following existing patterns
+
+### Findings Check
+- [ ] Did I notice any issues outside my scope? (bugs, type errors, security issues)
+- [ ] If YES → Did I write to `docs/agent-output/findings/`? (REQUIRED - not just notes!)
+- [ ] If NO → I will write "None" in completion report findings section
 
 ### Build Check
 ```bash
@@ -173,7 +304,59 @@ pnpm build      # Must pass
 git push origin [branch-name]
 ```
 
-### 6.2 Write Completion Report
+### 6.2 Verify Push Succeeded
+
+**Before writing completion report**, verify your push succeeded:
+
+```bash
+# Check that remote branch has your latest commit
+git log origin/[branch-name] --oneline -1
+
+# Should show your most recent commit
+# If it doesn't match your local HEAD, push failed - fix and retry
+```
+
+**If push failed:**
+- Check for auth issues, network problems, or branch protection
+- Resolve the issue and push again
+- Don't write completion report until push succeeds
+
+### 6.3 Archive Start File
+
+Move your start file to indicate you're done (prevents stale detection):
+
+```bash
+mv docs/agent-output/started/TKT-XXX-*.json docs/agent-output/archive/
+```
+
+Or if you can't move files, note in your completion report that the start file should be archived.
+
+### 6.4 Update Dev Status (REQUIRED)
+
+**Update `docs/data/dev-status.json`** to register your completion (required for dashboard):
+
+1. Read the current file
+2. Add your ticket to the `completed` array
+3. Write the updated file
+
+```json
+{
+  "completed": [
+    // ... existing entries ...
+    {
+      "ticket_id": "TKT-XXX",
+      "branch": "agent/TKT-XXX-[description]",
+      "started_at": "[from your start file]",
+      "completed_at": "[current ISO timestamp]",
+      "completion_file": "docs/agent-output/completions/TKT-XXX-[TIMESTAMP].md"
+    }
+  ]
+}
+```
+
+**⚠️ Important:** Read the file first to preserve other entries. Don't overwrite the entire file.
+
+### 6.5 Write Completion Report
 
 **IMPORTANT:** Write your completion report to a per-agent file to prevent conflicts with other dev agents.
 
@@ -204,6 +387,26 @@ Example: `docs/agent-output/completions/TKT-001-2025-12-04T1430.md`
 |------|-------------------|
 | `path/to/file.ts` | [What changed] |
 
+### Documentation Impact
+**REQUIRED:** List ALL feature docs that may need updating based on your changes.
+
+| Feature Doc | Why It Needs Update |
+|-------------|---------------------|
+| `docs/features/[category]/[feature].md` | [What behavior changed] |
+
+If no docs affected, write: "None - no user-facing behavior changes"
+
+### Git Context for Re-Doc Agent
+> The doc agent will read actual code changes, not trust this summary.
+> This section helps PM triage which docs to re-document.
+
+**Branch:** `agent/TKT-XXX-[description]`
+**Key commits:**
+- `[hash]` - [message]
+
+**Files changed (for git diff):**
+- `path/to/file.ts`
+
 ### UI Changes (if applicable)
 | Change | Description |
 |--------|-------------|
@@ -215,8 +418,18 @@ Example: `docs/agent-output/completions/TKT-001-2025-12-04T1430.md`
 3. [Expected result]
 
 ### Findings Reported
-[List any findings you added to findings.json, or "None"]
-- F-DEV-TKT-XXX-1: [title]
+**⚠️ REQUIRED:** If you noticed ANY issues outside your scope, you MUST have written them to `docs/agent-output/findings/`. List them here:
+
+- [ ] I wrote findings files for all issues I noticed (or there were none)
+
+| Finding ID | File Written | Title |
+|------------|--------------|-------|
+| F-DEV-TKT-XXX-1 | `docs/agent-output/findings/F-DEV-TKT-XXX-*.json` | [title] |
+
+If no findings: "None - no issues noticed outside scope"
+
+**❌ WRONG:** Mentioning issues only in "Notes" section below
+**✅ CORRECT:** Writing to `docs/agent-output/findings/` AND listing here
 
 ### Notes
 [Anything unusual, decisions made, edge cases handled]
@@ -230,9 +443,30 @@ The PM Dashboard automatically aggregates all dev agent completions.
 
 If you're unsure about ANYTHING — **STOP and report it.**
 
-### Report Blockers to `findings.json`
+### Step 1: Commit All Work-In-Progress
 
-Add a blocker entry to `docs/data/findings.json` under the `findings` array:
+**Before writing the blocker file**, commit any uncommitted work so it's not lost:
+
+```bash
+# Stage all changes
+git add .
+
+# Commit with WIP prefix
+git commit -m "WIP TKT-XXX: [what you were working on] - BLOCKED"
+
+# Push to preserve work
+git push origin [branch-name]
+```
+
+This ensures the next agent (or you in a continuation) can see exactly where you stopped.
+
+### Step 2: Write Blocker to Per-Agent File
+
+**File path:** `docs/agent-output/blocked/BLOCKED-TKT-XXX-[TIMESTAMP].json`
+
+Example: `docs/agent-output/blocked/BLOCKED-TKT-001-2025-12-04T1430.json`
+
+Write a JSON file with this structure:
 
 ```json
 {
@@ -368,6 +602,71 @@ Add a blocker entry to `docs/data/findings.json` under the `findings` array:
 
 ---
 
+## Environmental Blockers (Different from Clarification Blockers)
+
+Use this format when you're blocked by **technical issues**, not missing information:
+
+- `pnpm install` fails and won't resolve
+- Type/lint/build error you can't fix after 40 minutes
+- Pre-existing bug in code you didn't modify
+- Missing environment variables or secrets
+- External service is down
+
+**File path:** `docs/agent-output/blocked/ENV-TKT-XXX-[TIMESTAMP].json`
+
+```json
+{
+  "id": "ENV-TKT-XXX-[number]",
+  "type": "blocker",
+  "category": "environment",
+  "source": "dev-agent-TKT-XXX",
+  "severity": "critical",
+  "title": "[Short description of technical issue]",
+  "feature": "[Feature from your ticket]",
+  "status": "pending",
+  "found_at": "[ISO date]",
+  
+  "issue": "[Detailed description of what's failing]",
+  
+  "what_i_tried": [
+    "[Approach 1 and why it didn't work]",
+    "[Approach 2 and why it didn't work]",
+    "[Approach 3 and why it didn't work]"
+  ],
+  
+  "error_details": {
+    "error_message": "[Exact error message]",
+    "file": "[File where error occurs]",
+    "line": "[Line number if applicable]",
+    "stack_trace": "[First few lines of stack trace if available]"
+  },
+  
+  "suggested_resolution": "[What you think needs to happen to fix this]",
+  
+  "blocker_context": {
+    "ticket_id": "TKT-XXX",
+    "branch": "agent/TKT-XXX-[description]",
+    "time_spent": "[How long you spent trying to fix]",
+    "progress": {
+      "done": ["[What you completed before hitting this]"],
+      "blocked_on": "[Specific step that's blocked]"
+    }
+  }
+}
+```
+
+**What happens next:**
+1. PM sees your environmental blocker
+2. PM presents to human with your suggested resolution
+3. Human either:
+   - Fixes the underlying issue (e.g., fixes pre-existing type error, adds env var)
+   - Updates your ticket with specific fix instructions
+   - Cancels the ticket if issue is too complex
+4. PM creates continuation ticket with resolution
+5. You (or another agent) continues from where you left off
+
+---
+
 ## Scope Rules
 
 ### ✅ DO:
@@ -385,13 +684,28 @@ Add a blocker entry to `docs/data/findings.json` under the `findings` array:
 
 ### If You Notice Something Wrong (But It's Not In Your Scope):
 
+**⚠️ MANDATORY: You MUST write a findings file. Do NOT just mention it in your completion report notes.**
+
 1. **Do NOT fix it yourself**
-2. **Add to findings.json** for PM triage (same as review agents)
+2. **IMMEDIATELY write to per-agent findings file** (before you forget)
 3. Continue with your ticket
+
+**Common things that require findings:**
+- Pre-existing type errors in files you didn't modify
+- Bugs you noticed while reading code
+- Security issues outside your scope
+- Missing error handling in related code
+- Broken tests not related to your ticket
 
 **How to report findings (NOT blockers):**
 
-Add to `docs/data/findings.json` under the `findings` array:
+**File path:** `docs/agent-output/findings/F-DEV-TKT-XXX-[TIMESTAMP].json`
+
+Example: `docs/agent-output/findings/F-DEV-SEC-001-2025-12-05T1230.json`
+
+**⚠️ You MUST create this file. Mentioning issues in completion report "Notes" is NOT sufficient.**
+
+Write a JSON file with this structure:
 
 ```json
 {
@@ -409,7 +723,7 @@ Add to `docs/data/findings.json` under the `findings` array:
 }
 ```
 
-This will automatically appear in the PM's Triage queue.
+The PM Dashboard automatically aggregates all findings from per-agent files.
 
 ---
 
@@ -428,8 +742,9 @@ If you're working on a **continuation ticket** (e.g., `dev-agent-TKT-001-v2.md`)
 3. Check the **"Where You Left Off"** section
 4. Checkout existing branch (don't create new)
 5. Review previous commits and code
-6. Continue from checkpoint
-7. Don't redo completed work
+6. **Write a NEW start file** (see 3.4) — yes, even for continuations
+7. Continue from checkpoint
+8. Don't redo completed work
 
 ```bash
 # For continuation tickets:
@@ -439,6 +754,20 @@ git pull origin [existing-branch]
 
 # Review what's been done
 git log --oneline -10
+
+# THEN: Write new start file before continuing work
+# (Previous agent's start file was archived when they blocked)
+```
+
+### If Branch Was Deleted or Has Conflicts
+
+**Branch deleted:** Report as environmental blocker — PM needs to investigate what happened.
+
+**Merge conflicts with main:** 
+```bash
+git merge origin/main
+# If conflicts are simple, resolve them
+# If conflicts are complex (>10 files or unclear), report as environmental blocker
 ```
 
 ---
@@ -471,7 +800,9 @@ git log --oneline -10
 3. **Stay in scope** — Only modify listed files
 4. **Follow patterns** — Copy existing code style exactly
 5. **Check everything** — typecheck, lint, build before pushing
-6. **Report blockers immediately** — Don't spin; STOP and report to findings.json
+6. **Report blockers immediately** — Don't spin; STOP and write blocker to `docs/agent-output/blocked/`
 7. **Document progress** — Especially when blocked
 8. **Don't over-engineer** — Simple solutions for simple problems
 9. **Verify each criterion** — Before marking complete
+10. **Write findings to FILE** — If you notice issues outside scope, write to `docs/agent-output/findings/` (NOT just completion report notes!)
+

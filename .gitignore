@@ -13,6 +13,10 @@ out
 .env.local
 .env.*.local
 
+# Agent credentials (NEVER COMMIT)
+.agent-credentials.json
+**/agent-credentials.json
+
 # IDE
 .vscode
 .idea

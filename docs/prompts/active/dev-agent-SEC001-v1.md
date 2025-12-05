@@ -16,7 +16,7 @@ You are a Dev Agent. Your job is to implement **SEC-001: Enforce API Authenticat
 **Ticket:** SEC-001
 **Priority:** P0 (Security)
 **Type:** Security Fix
-**Branch:** `fix/SEC-001-api-auth`
+**Branch:** `agent/SEC-001-api-auth`
 **Version:** v1
 
 ---
@@ -68,7 +68,7 @@ The server uses:
 | `apps/server/src/lib/auth.ts` | Add helper for checking authenticated socket (if needed) |
 | `apps/server/src/features/signaling/socket-handlers.ts` | Audit agent operations use verified auth |
 
-**⚠️ Only modify these files. Check FILE LOCKS in AGENT_TASKS.md before starting.**
+**⚠️ Only modify these files. Check FILE LOCKS in `docs/agent-output/started/` before starting.**
 
 ---
 
@@ -192,11 +192,14 @@ pnpm build
 
 ---
 
-## ⚠️ REQUIRED: Notify PM When Done
+## ⚠️ REQUIRED: Follow Dev Agent SOP
 
-**Append to `docs/agent-inbox/completions.md` when you start AND when you finish.**
+**All reporting is handled per the SOP:**
+- **Start:** Write to `docs/agent-output/started/SEC-001-[TIMESTAMP].json`
+- **Complete:** Write to `docs/agent-output/completions/SEC-001-[TIMESTAMP].md`
+- **Blocked:** Write to `docs/agent-output/blocked/BLOCKED-SEC-001-[TIMESTAMP].json`
 
-See `docs/workflow/DEV_AGENT_SOP.md` for the exact format.
+See `docs/workflow/DEV_AGENT_SOP.md` for exact formats.
 
 
 

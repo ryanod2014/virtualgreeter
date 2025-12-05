@@ -1,10 +1,18 @@
 {
   "meta": {
-    "last_updated": "2025-12-04",
+    "last_updated": "2025-12-05",
     "version": "2.0",
     "note": "Blockers now in findings.json with type: 'blocker'. Observations also in findings.json."
   },
   "in_progress": [],
-  "completed": [],
+  "completed": [
+    {
+      "ticket_id": "SEC-001",
+      "branch": "agent/SEC-001-api-auth",
+      "started_at": "2025-12-05T12:00:00Z",
+      "completed_at": "2025-12-05T12:39:00Z",
+      "completion_file": "docs/agent-output/completions/SEC-001-2025-12-05T1230.md"
+    }
+  ],
   "retry_history": []
 }
