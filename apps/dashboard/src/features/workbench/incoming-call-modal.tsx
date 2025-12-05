@@ -9,12 +9,18 @@ interface IncomingCallModalProps {
   incomingCall: CallIncomingPayload | null;
   onAccept: (requestId: string) => void;
   onReject: (requestId: string, reason?: string) => void;
+  /** RNA timeout in seconds - countdown will match this value */
+  rnaTimeoutSeconds?: number;
 }
+
+// Default RNA timeout (matches server default in packages/domain/src/constants.ts)
+const DEFAULT_RNA_TIMEOUT_SECONDS = 15;
 
 export function IncomingCallModal({
   incomingCall,
   onAccept,
   onReject,
+  rnaTimeoutSeconds = DEFAULT_RNA_TIMEOUT_SECONDS,
 }: IncomingCallModalProps) {
   const [timeElapsed, setTimeElapsed] = useState(0);
 
@@ -128,12 +134,12 @@ export function IncomingCallModal({
           {/* Timer */}
           <div className="text-center mb-6">
             <span className="text-sm text-muted-foreground">
-              Request expires in {30 - timeElapsed}s
+              Request expires in {Math.max(0, rnaTimeoutSeconds - timeElapsed)}s
             </span>
             <div className="mt-2 h-1 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-success transition-all duration-1000"
-                style={{ width: `${((30 - timeElapsed) / 30) * 100}%` }}
+                style={{ width: `${Math.max(0, ((rnaTimeoutSeconds - timeElapsed) / rnaTimeoutSeconds) * 100)}%` }}
               />
             </div>
           </div>
@@ -160,4 +166,3 @@ export function IncomingCallModal({
     </div>
   );
 }
-
