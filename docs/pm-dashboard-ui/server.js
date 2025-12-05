@@ -137,12 +137,188 @@ function scanAgentOutputs() {
   return outputs;
 }
 
+// Generate dev agent prompt from ticket data
+function generatePromptContent(ticket) {
+  const id = ticket.id;
+  const title = ticket.title || 'Untitled';
+  const priority = (ticket.priority || 'medium').charAt(0).toUpperCase() + (ticket.priority || 'medium').slice(1);
+  const difficulty = (ticket.difficulty || 'medium').charAt(0).toUpperCase() + (ticket.difficulty || 'medium').slice(1);
+  const issue = ticket.issue || 'No issue description provided.';
+  const branchSuffix = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30).replace(/-$/, '');
+  
+  const files = ticket.files_to_modify || ticket.files || [];
+  const filesTable = files.length > 0 
+    ? files.map(f => `| \`${f}\` | Implement required changes |`).join('\n')
+    : '| (see ticket for files) | |';
+  
+  const featureDocs = ticket.feature_docs || [];
+  const featureDocsSection = featureDocs.length > 0
+    ? `\n**Feature Documentation:**\n${featureDocs.map(d => `- \`${d}\``).join('\n')}\n`
+    : '';
+  
+  const similarCode = ticket.similar_code || [];
+  const similarCodeSection = similarCode.length > 0
+    ? `\n**Similar Code:**\n${similarCode.map(c => `- ${c}`).join('\n')}\n`
+    : '';
+  
+  const fixRequired = ticket.fix_required || [];
+  const fixRequiredList = fixRequired.length > 0
+    ? fixRequired.map((f, i) => `${i + 1}. ${f}`).join('\n')
+    : '(See ticket for implementation details)';
+  
+  const criteria = ticket.acceptance_criteria || [];
+  const acceptanceCriteriaList = criteria.length > 0
+    ? criteria.map(c => `- [ ] ${c}`).join('\n')
+    : '- [ ] (See ticket for acceptance criteria)';
+  
+  const outOfScope = ticket.out_of_scope || [];
+  const outOfScopeList = outOfScope.length > 0
+    ? outOfScope.map(o => `- ❌ ${o}`).join('\n')
+    : '- (No explicit out-of-scope items listed)';
+  
+  const risks = ticket.risks || ticket.risk_notes || [];
+  const risksSection = risks.length > 0
+    ? '| Risk | How to Avoid |\n|------|--------------|' + risks.map(r => `\n| ${r} | Follow existing patterns |`).join('')
+    : '| Risk | How to Avoid |\n|------|--------------|\n| (Low risk) | Follow existing patterns |';
+  
+  const qaNotes = ticket.qa_notes || '';
+  const qaNotesSection = qaNotes ? `\n## QA Notes\n\n${qaNotes}\n\n---\n` : '';
+
+  return `# Dev Agent: ${id} - ${title}
+
+> **One-liner to launch:**
+> \`You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${id}-v1.md\`
+
+---
+
+You are a Dev Agent. Your job is to implement **${id}: ${title}**.
+
+**First, read the Dev Agent SOP:** \`docs/workflow/DEV_AGENT_SOP.md\`
+
+---
+
+## Your Assignment
+
+**Ticket:** ${id}
+**Priority:** ${priority}
+**Difficulty:** ${difficulty}
+**Branch:** \`agent/${id.toLowerCase()}-${branchSuffix}\`
+**Version:** v1
+
+---
+
+## The Problem
+
+${issue}
+
+---
+
+## Files to Modify
+
+| File | What to Change |
+|------|----------------|
+${filesTable}
+${featureDocsSection}${similarCodeSection}
+---
+
+## What to Implement
+
+${fixRequiredList}
+
+---
+
+## Acceptance Criteria
+
+${acceptanceCriteriaList}
+
+---
+
+## Out of Scope
+
+${outOfScopeList}
+
+---
+
+## Risks to Avoid
+
+${risksSection}
+
+---
+
+## Dev Checks
+
+\`\`\`bash
+pnpm typecheck  # Must pass
+pnpm build      # Must pass
+\`\`\`
+
+---
+${qaNotesSection}
+## ⚠️ REQUIRED: Follow Dev Agent SOP
+
+**All reporting is handled per the SOP:**
+- **Start:** Write to \`docs/agent-output/started/${id}-[TIMESTAMP].json\`
+- **Complete:** Write to \`docs/agent-output/completions/${id}-[TIMESTAMP].md\`
+- **Update:** Add to \`docs/data/dev-status.json\` completed array
+- **Blocked:** Write to \`docs/agent-output/blocked/BLOCKED-${id}-[TIMESTAMP].json\`
+- **Findings:** Write to \`docs/agent-output/findings/F-DEV-${id}-[TIMESTAMP].json\`
+
+See \`docs/workflow/DEV_AGENT_SOP.md\` for exact formats.
+`;
+}
+
+// Generate missing dev prompts from tickets
+function generateMissingPrompts() {
+  const PROMPTS_DIR = path.join(DOCS_DIR, 'prompts', 'active');
+  const tickets = readJSON('tickets.json');
+  if (!tickets) return { created: 0, existing: 0 };
+  
+  // Get existing prompts
+  const existing = new Set();
+  try {
+    const files = fs.readdirSync(PROMPTS_DIR);
+    for (const f of files) {
+      if (f.startsWith('dev-agent-') && f.endsWith('.md')) {
+        const parts = f.replace('dev-agent-', '').replace('.md', '').split('-v');
+        if (parts[0]) existing.add(parts[0]);
+      }
+    }
+  } catch (e) {
+    console.error('Error reading prompts dir:', e.message);
+  }
+  
+  // Generate missing
+  let created = 0;
+  const ready = (tickets.tickets || []).filter(t => t.status === 'ready');
+  
+  for (const ticket of ready) {
+    if (!existing.has(ticket.id)) {
+      const promptPath = path.join(PROMPTS_DIR, `dev-agent-${ticket.id}-v1.md`);
+      const content = generatePromptContent(ticket);
+      try {
+        fs.writeFileSync(promptPath, content);
+        console.log(`✅ Generated prompt: dev-agent-${ticket.id}-v1.md`);
+        created++;
+      } catch (e) {
+        console.error(`Error writing prompt for ${ticket.id}:`, e.message);
+      }
+    }
+  }
+  
+  return { created, existing: existing.size, total: ready.length };
+}
+
 // Handle API requests
 function handleAPI(req, res, body) {
   const url = req.url;
   
-  // GET /api/data - Load all data files
+  // GET /api/data - Load all data files (also generates missing prompts)
   if (req.method === 'GET' && url === '/api/data') {
+    // Auto-generate missing prompts on data load
+    const promptStats = generateMissingPrompts();
+    if (promptStats.created > 0) {
+      console.log(`📝 Generated ${promptStats.created} new prompts`);
+    }
     // Scan features directory
     const featuresDir = path.join(DOCS_DIR, 'features');
     let featuresList = [];
