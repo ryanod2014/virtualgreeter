@@ -4385,10 +4385,11 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
       const [devStatus, setDevStatus] = useState({ in_progress: [], completed: [] });
       const [serverDecisions, setServerDecisions] = useState(null);
       const [loading, setLoading] = useState(true);
+      const [lastRefresh, setLastRefresh] = useState(null);
 
-      // Check if server is running and load data
-      useEffect(() => {
-        setLoading(true);
+      // Fetch data from server
+      const fetchData = (showLoading = true) => {
+        if (showLoading) setLoading(true);
         fetch('/api/data')
           .then(res => {
             if (res.ok) {
@@ -4415,13 +4416,24 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
               setFeaturesList(data.featuresList);
             }
             setLoading(false);
+            setLastRefresh(new Date());
           })
           .catch(() => {
             setServerMode(false);
             setLoading(false);
-            // Try loading from embedded script or fallback
             console.log('Server not available, using fallback data');
           });
+      };
+
+      // Initial load and auto-refresh every 30 seconds
+      useEffect(() => {
+        fetchData(true);
+        
+        const interval = setInterval(() => {
+          fetchData(false); // Don't show loading spinner on auto-refresh
+        }, 30000);
+        
+        return () => clearInterval(interval);
       }, []);
 
       // Save decisions to server
@@ -4455,6 +4467,24 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
           <header style={{ padding: '24px 40px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h1 style={{ fontSize: '24px', fontWeight: 800, background: 'var(--gradient-hero)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PM Dashboard</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                {serverMode && (
+                  <span 
+                    style={{ 
+                      fontSize: '11px', 
+                      color: 'var(--text-muted)', 
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    onClick={() => fetchData(true)}
+                    title="Click to refresh now. Auto-refreshes every 30s"
+                  >
+                    ↻ {lastRefresh ? `Updated ${Math.floor((Date.now() - lastRefresh.getTime()) / 1000)}s ago` : 'Loading...'}
+                  </span>
+                )}
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Digital Greeter • {new Date().toLocaleDateString()}</span>
                 {serverMode && (
