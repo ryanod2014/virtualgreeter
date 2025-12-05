@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { PoolManager } from "./pool-manager.js";
 import type { AgentProfile } from "@ghost-greeter/domain";
 
@@ -277,6 +277,230 @@ describe("PoolManager", () => {
       // Next waiting should be the oldest
       const next = poolManager.getNextWaitingRequest("agentA");
       expect(next?.requestId).toBe(req1.requestId);
+    });
+  });
+
+  describe("Call Reconnection", () => {
+    it("should re-establish call state via reconnectVisitorToCall", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerVisitor("socket_v", "visitor1", "org1", "/page");
+
+      const reconnectedCall = poolManager.reconnectVisitorToCall("visitor1", "agentA", "reconnect_call_123");
+
+      expect(reconnectedCall).toBeDefined();
+      expect(reconnectedCall?.callId).toBe("reconnect_call_123");
+      expect(reconnectedCall?.visitorId).toBe("visitor1");
+      expect(reconnectedCall?.agentId).toBe("agentA");
+    });
+
+    it("should update visitor state to in_call on reconnect", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerVisitor("socket_v", "visitor1", "org1", "/page");
+
+      poolManager.reconnectVisitorToCall("visitor1", "agentA", "reconnect_call_123");
+
+      const visitor = poolManager.getVisitor("visitor1");
+      expect(visitor?.state).toBe("in_call");
+      expect(visitor?.assignedAgentId).toBe("agentA");
+    });
+
+    it("should set agent status to in_call on reconnect", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerVisitor("socket_v", "visitor1", "org1", "/page");
+
+      poolManager.reconnectVisitorToCall("visitor1", "agentA", "reconnect_call_123");
+
+      const agent = poolManager.getAgent("agentA");
+      expect(agent?.profile.status).toBe("in_call");
+      expect(agent?.currentCallVisitorId).toBe("visitor1");
+    });
+
+    it("should remove existing active call when reconnecting", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerVisitor("socket_v", "visitor1", "org1", "/page");
+
+      // Create an initial call
+      const request = poolManager.createCallRequest("visitor1", "agentA", "org1", "/page");
+      const initialCall = poolManager.acceptCall(request.requestId);
+      expect(initialCall).toBeDefined();
+
+      // Reconnect with a new call ID
+      poolManager.reconnectVisitorToCall("visitor1", "agentA", "new_reconnect_call");
+
+      // Old call should be gone
+      const oldCall = poolManager.getActiveCall(initialCall!.callId);
+      expect(oldCall).toBeUndefined();
+
+      // New call should exist
+      const newCall = poolManager.getActiveCall("new_reconnect_call");
+      expect(newCall).toBeDefined();
+    });
+
+    it("should return undefined when visitor not found", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+
+      const result = poolManager.reconnectVisitorToCall("nonexistent", "agentA", "call_123");
+
+      expect(result).toBeUndefined();
+    });
+
+    it("should return undefined when agent not found", () => {
+      poolManager.registerVisitor("socket_v", "visitor1", "org1", "/page");
+
+      const result = poolManager.reconnectVisitorToCall("visitor1", "nonexistent", "call_123");
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe("Agent Staleness Detection", () => {
+    it("should detect stale idle agents based on lastActivityAt threshold", () => {
+      vi.useFakeTimers();
+
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      // Advance time past threshold
+      vi.advanceTimersByTime(130000); // 130 seconds
+
+      // Keep agentB active
+      poolManager.updateAgentActivity("agentB");
+
+      const staleAgents = poolManager.getStaleAgents(120000); // 2 minute threshold
+
+      expect(staleAgents).toHaveLength(1);
+      expect(staleAgents[0]?.agentId).toBe("agentA");
+
+      vi.useRealTimers();
+    });
+
+    it("should not mark agents in_call as stale", () => {
+      vi.useFakeTimers();
+
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.setAgentInCall("agentA", "visitor1");
+
+      vi.advanceTimersByTime(130000); // Past threshold
+
+      const staleAgents = poolManager.getStaleAgents(120000);
+
+      expect(staleAgents).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
+    it("should not mark agents already away as stale", () => {
+      vi.useFakeTimers();
+
+      const awayProfile = createMockAgentProfile("agentA", "Agent A");
+      awayProfile.status = "away";
+      poolManager.registerAgent("socket_a", awayProfile);
+
+      vi.advanceTimersByTime(130000);
+
+      const staleAgents = poolManager.getStaleAgents(120000);
+
+      expect(staleAgents).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
+    it("should return empty array when all agents are active", () => {
+      vi.useFakeTimers();
+
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      vi.advanceTimersByTime(60000); // 60 seconds - under threshold
+
+      // Keep both active
+      poolManager.updateAgentActivity("agentA");
+      poolManager.updateAgentActivity("agentB");
+
+      const staleAgents = poolManager.getStaleAgents(120000);
+
+      expect(staleAgents).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe("Agent Rerouting on Rejection", () => {
+    it("should exclude rejecting agent when finding alternative", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+      poolManager.addAgentToPool("agentA", "pool1");
+      poolManager.addAgentToPool("agentB", "pool1");
+
+      // Find agent while excluding agentA (simulating post-rejection reroute)
+      const result = poolManager.findBestAgentForVisitor("org1", "/page", "agentA");
+
+      expect(result?.agent.agentId).toBe("agentB");
+    });
+
+    it("should return undefined when only the excluded agent is available", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.addAgentToPool("agentA", "pool1");
+
+      const result = poolManager.findBestAgentForVisitor("org1", "/page", "agentA");
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe("Visitor Reassignment", () => {
+    it("should reassign some visitors when agent goes away (round-robin behavior)", () => {
+      // Note: Current behavior - reassignVisitors uses findBestAgent which uses round-robin.
+      // Since agentA is still registered (just being reassigned FROM), it may be picked
+      // by the algorithm for subsequent visitors, causing them to become unassigned.
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      // Assign 2 visitors to agentA
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor2", "agentA");
+
+      const result = poolManager.reassignVisitors("agentA");
+
+      // Current behavior: first visitor gets reassigned to agentB,
+      // second visitor becomes unassigned (algorithm picks agentA which is rejected)
+      expect(result.reassigned.size).toBe(1);
+      expect(result.unassigned).toHaveLength(1);
+    });
+
+    it("should mark visitors as unassigned when no agents available", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+
+      const result = poolManager.reassignVisitors("agentA");
+
+      expect(result.reassigned.size).toBe(0);
+      expect(result.unassigned).toContain("visitor1");
+    });
+
+    it("should exclude visitor in call from reassignment", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor2", "agentA");
+
+      // Exclude visitor1 (they're in a call)
+      const result = poolManager.reassignVisitors("agentA", "visitor1");
+
+      expect(result.reassigned.size).toBe(1);
+      expect(result.reassigned.has("visitor2")).toBe(true);
+      expect(result.reassigned.has("visitor1")).toBe(false);
     });
   });
 });

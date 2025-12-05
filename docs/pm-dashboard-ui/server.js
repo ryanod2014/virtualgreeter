@@ -78,63 +78,178 @@ function scanFeaturesDir(dir, basePath = '') {
   return features;
 }
 
-// Scan agent-output directories for per-agent files
-// This aggregates outputs from multiple agents running in parallel
+const { execSync } = require('child_process');
+
+// Helper: Run git command and return output
+function git(cmd) {
+  try {
+    return execSync(`git ${cmd}`, { 
+      cwd: path.join(__dirname, '../..'),
+      encoding: 'utf8',
+      timeout: 10000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+  } catch (e) {
+    return '';
+  }
+}
+
+// Helper: List files in a git tree path
+function gitListFiles(ref, dirPath) {
+  const output = git(`ls-tree --name-only ${ref} ${dirPath}/`);
+  if (!output) return [];
+  return output.split('\n').filter(f => f && !f.endsWith('.gitkeep'));
+}
+
+// Helper: Read file content from git tree
+function gitReadFile(ref, filePath) {
+  return git(`show ${ref}:${filePath}`);
+}
+
+// Scan agent-output directories from GIT (not filesystem)
+// This prevents branch switching from affecting dashboard accuracy
+// Reads from: origin/main + all origin/agent/* branches
 function scanAgentOutputs() {
-  const AGENT_OUTPUT_DIR = path.join(DOCS_DIR, 'agent-output');
   const outputs = {
     reviews: [],
     completions: [],
     blocked: [],
-    docTracker: []
+    docTracker: [],
+    started: [],
+    findings: []
   };
   
   const subdirs = {
     'reviews': 'reviews',
     'completions': 'completions',
     'blocked': 'blocked',
-    'doc-tracker': 'docTracker'
+    'doc-tracker': 'docTracker',
+    'started': 'started',
+    'findings': 'findings'
   };
   
-  for (const [dirName, outputKey] of Object.entries(subdirs)) {
-    const dirPath = path.join(AGENT_OUTPUT_DIR, dirName);
+  // Fetch latest from origin (quick, ignore errors)
+  git('fetch origin --prune');
+  
+  // Get all branches to scan: origin/main + all agent branches
+  const agentBranchesRaw = git('branch -r --list "origin/agent/*"');
+  const agentBranches = agentBranchesRaw
+    ? agentBranchesRaw.split('\n').map(b => b.trim()).filter(b => b)
+    : [];
+  
+  const branchesToScan = ['origin/main', ...agentBranches];
+  
+  // Track seen files to avoid duplicates (prefer main, then by branch name)
+  const seenFiles = new Map();
+  
+  for (const branch of branchesToScan) {
+    for (const [dirName, outputKey] of Object.entries(subdirs)) {
+      const gitPath = `docs/agent-output/${dirName}`;
     
     try {
-      if (!fs.existsSync(dirPath)) continue;
-      
-      const files = fs.readdirSync(dirPath)
-        .filter(f => f.endsWith('.md') && f !== '.gitkeep' && f !== 'README.md');
-      
-      for (const file of files) {
-        const filePath = path.join(dirPath, file);
-        const stat = fs.statSync(filePath);
+        const files = gitListFiles(branch, gitPath);
         
-        try {
-          const content = fs.readFileSync(filePath, 'utf8');
-          outputs[outputKey].push({
+        for (const filePath of files) {
+          const file = path.basename(filePath);
+          if (!file.endsWith('.md') && !file.endsWith('.json')) continue;
+          if (file === 'README.md') continue;
+      
+          // Skip if we already have this file from a higher-priority branch
+          const fileKey = `${dirName}/${file}`;
+          if (seenFiles.has(fileKey)) continue;
+          
+          const content = gitReadFile(branch, filePath);
+          if (!content) continue;
+          
+          // Extract ticket ID from filename
+          const ticketMatch = file.match(/^([A-Z]+-\d+[a-z]?)/i);
+          const ticketId = ticketMatch 
+            ? ticketMatch[1].toUpperCase() 
+            : file.replace(/-\d{4}-\d{2}-\d{2}T\d+\.(md|json)$/, '').replace(/\.(md|json)$/, '');
+          
+          // Parse branch from completion file content
+          let fileBranch = branch.replace('origin/', '');
+          if (dirName === 'completions') {
+            const branchMatch = content.match(/\*\*Branch:\*\*\s*`?([^`\n]+)`?/);
+            if (branchMatch) fileBranch = branchMatch[1].trim();
+          }
+          
+          const entry = {
             fileName: file,
             filePath: `docs/agent-output/${dirName}/${file}`,
             content: content,
-            modifiedAt: stat.mtime.toISOString(),
-            // Extract ID from filename (e.g., "D-routing-rules-2025-12-04T1430.md" -> "D-routing-rules")
-            id: file.replace(/-\d{4}-\d{2}-\d{2}T\d+\.md$/, '').replace(/\.md$/, '')
-          });
-        } catch (e) {
-          console.error(`Error reading ${filePath}:`, e.message);
+            modifiedAt: new Date().toISOString(),
+            ticketId: ticketId,
+            branch: fileBranch,
+            sourceBranch: branch,
+            id: file.replace(/-\d{4}-\d{2}-\d{2}T\d+\.(md|json)$/, '').replace(/\.(md|json)$/, '')
+          };
+          
+          seenFiles.set(fileKey, entry);
+          outputs[outputKey].push(entry);
         }
+      } catch (e) {
+        // Directory doesn't exist on this branch, skip
       }
-      
-      // Sort by modification time (newest first)
-      outputs[outputKey].sort((a, b) => 
-        new Date(b.modifiedAt) - new Date(a.modifiedAt)
-      );
-      
-    } catch (e) {
-      console.error(`Error scanning ${dirPath}:`, e.message);
     }
   }
   
+  // Sort each output by ticketId for consistent ordering
+  for (const key of Object.keys(outputs)) {
+    outputs[key].sort((a, b) => a.ticketId.localeCompare(b.ticketId));
+  }
+  
+  console.log(`📊 Scanned ${branchesToScan.length} branches: ${outputs.completions.length} completions, ${outputs.started.length} started, ${outputs.blocked.length} blocked`);
+  
   return outputs;
+}
+
+// Build devStatus from actual agent output files (source of truth)
+// This prevents race conditions where agents update dev-status.json on their branch
+function buildDevStatusFromOutputs(agentOutputs) {
+  const completed = [];
+  const inProgress = [];
+  
+  // Build completed list from completion files
+  for (const completion of agentOutputs.completions) {
+    completed.push({
+      ticket_id: completion.ticketId,
+      branch: completion.branch || `agent/${completion.ticketId.toLowerCase()}`,
+      completed_at: completion.modifiedAt,
+      completion_file: completion.filePath
+    });
+  }
+  
+  // Build in_progress from started files (that don't have a matching completion)
+  const completedIds = new Set(completed.map(c => c.ticket_id));
+  for (const started of agentOutputs.started) {
+    if (!completedIds.has(started.ticketId)) {
+      // Try to parse JSON content for more details
+      let startedData = {};
+      try {
+        startedData = JSON.parse(started.content);
+      } catch (e) {
+        // Not JSON, use filename info
+      }
+      
+      inProgress.push({
+        ticket_id: started.ticketId,
+        branch: startedData.branch || `agent/${started.ticketId.toLowerCase()}`,
+        started_at: startedData.started_at || started.modifiedAt
+      });
+    }
+  }
+  
+  return {
+    meta: {
+      last_updated: new Date().toISOString(),
+      version: "2.1",
+      note: "Built from agent-output files (source of truth)"
+    },
+    in_progress: inProgress,
+    completed: completed,
+    retry_history: []
+  };
 }
 
 // Generate dev agent prompt from ticket data
@@ -299,7 +414,7 @@ function generateMissingPrompts() {
         fs.writeFileSync(promptPath, content);
         console.log(`✅ Generated prompt: dev-agent-${ticket.id}-v1.md`);
         created++;
-      } catch (e) {
+    } catch (e) {
         console.error(`Error writing prompt for ${ticket.id}:`, e.message);
       }
     }
@@ -329,11 +444,21 @@ function handleAPI(req, res, body) {
     }
     
     // Scan agent-output directories for per-agent files (auto-aggregation)
-    let agentOutputs = { reviews: [], completions: [], blocked: [], docTracker: [] };
+    let agentOutputs = { reviews: [], completions: [], blocked: [], docTracker: [], started: [], findings: [] };
     try {
       agentOutputs = scanAgentOutputs();
     } catch (e) {
       console.error('Error scanning agent outputs:', e.message);
+    }
+    
+    // Build devStatus from actual output files (source of truth)
+    // This prevents race conditions where agents update dev-status.json on their branch
+    let devStatus;
+    try {
+      devStatus = buildDevStatusFromOutputs(agentOutputs);
+    } catch (e) {
+      console.error('Error building devStatus:', e.message);
+      devStatus = readJSON('dev-status.json') || { in_progress: [], completed: [] };
     }
     
     const data = {
@@ -341,7 +466,7 @@ function handleAPI(req, res, body) {
       decisions: readJSON('decisions.json'),
       tickets: readJSON('tickets.json'),
       summary: readJSON('findings-summary.json'),
-      devStatus: readJSON('dev-status.json'),
+      devStatus: devStatus,
       featuresList,
       // Aggregated agent outputs (prevents race conditions with multiple agents)
       agentOutputs
@@ -393,6 +518,123 @@ function handleAPI(req, res, body) {
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/setup-worktrees - Create worktrees for multiple tickets
+  if (req.method === 'POST' && url === '/api/setup-worktrees') {
+    try {
+      const { ticketIds } = JSON.parse(body);
+      if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+        throw new Error('ticketIds must be a non-empty array');
+      }
+      
+      const results = [];
+      const SETUP_SCRIPT = path.join(__dirname, '../../scripts/setup-agent-worktree.sh');
+      const WORKTREE_BASE = path.join(__dirname, '../../../agent-worktrees');
+      
+      // Ensure worktree base directory exists
+      if (!fs.existsSync(WORKTREE_BASE)) {
+        fs.mkdirSync(WORKTREE_BASE, { recursive: true });
+      }
+      
+      for (const ticketId of ticketIds) {
+        const worktreePath = path.join(WORKTREE_BASE, ticketId);
+        
+        try {
+          // Run the setup script
+          const output = execSync(`bash "${SETUP_SCRIPT}" "${ticketId}"`, {
+            cwd: path.join(__dirname, '../..'),
+            encoding: 'utf8',
+            timeout: 60000, // 60 second timeout per worktree
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          
+          results.push({
+            ticketId,
+            success: true,
+            path: worktreePath,
+            message: 'Worktree created successfully'
+          });
+          console.log(`✅ Created worktree for ${ticketId}`);
+        } catch (scriptError) {
+          results.push({
+            ticketId,
+            success: false,
+            path: worktreePath,
+            error: scriptError.message || 'Script execution failed'
+          });
+          console.error(`❌ Failed to create worktree for ${ticketId}:`, scriptError.message);
+        }
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        success: results.every(r => r.success),
+        results,
+        worktreeBase: WORKTREE_BASE
+      }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/launch-agent - Create worktree and open Cursor in it
+  if (req.method === 'POST' && url === '/api/launch-agent') {
+    try {
+      const { ticketId } = JSON.parse(body);
+      if (!ticketId) {
+        throw new Error('ticketId is required');
+      }
+      
+      const SETUP_SCRIPT = path.join(__dirname, '../../scripts/setup-agent-worktree.sh');
+      const WORKTREE_BASE = path.join(__dirname, '../../../agent-worktrees');
+      const worktreePath = path.join(WORKTREE_BASE, ticketId);
+      
+      // Step 1: Create worktree
+      console.log(`🚀 Launching agent for ${ticketId}...`);
+      try {
+        execSync(`bash "${SETUP_SCRIPT}" "${ticketId}"`, {
+          cwd: path.join(__dirname, '../..'),
+          encoding: 'utf8',
+          timeout: 60000,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+        console.log(`✅ Worktree created for ${ticketId}`);
+      } catch (scriptError) {
+        // Worktree might already exist, continue anyway
+        console.log(`ℹ️ Worktree setup: ${scriptError.message}`);
+      }
+      
+      // Step 2: Open Cursor in the worktree
+      try {
+        // Use spawn instead of exec to not block, and detach so it persists
+        const { spawn } = require('child_process');
+        const cursorProcess = spawn('cursor', [worktreePath], {
+          detached: true,
+          stdio: 'ignore',
+          cwd: worktreePath
+        });
+        cursorProcess.unref(); // Allow the server to exit independently
+        console.log(`✅ Opened Cursor for ${ticketId} at ${worktreePath}`);
+      } catch (cursorError) {
+        console.error(`❌ Failed to open Cursor: ${cursorError.message}`);
+        throw new Error(`Failed to open Cursor: ${cursorError.message}`);
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        success: true,
+        ticketId,
+        worktreePath,
+        message: `Cursor opened at ${worktreePath}`
+      }));
     } catch (e) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
