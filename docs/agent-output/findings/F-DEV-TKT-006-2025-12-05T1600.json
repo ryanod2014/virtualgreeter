@@ -1,0 +1,14 @@
+{
+  "id": "F-DEV-TKT-006-1",
+  "source": "dev-agent-TKT-006",
+  "title": "Pre-existing type errors in billing test and workbench files",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/dashboard/src/app/api/billing/create-subscription/route.test.ts",
+  "line": 112,
+  "issue": "Multiple type errors exist in the codebase that block `pnpm typecheck` from passing: 1) route.test.ts has 9 instances of 'stripe is possibly null' (TS18047) at lines 112, 121, 153, 195, 200, 248, 278, 306, 311. 2) workbench-client.tsx has missing RecordingSettings properties (rna_timeout_seconds, max_call_duration_minutes) at line 38.",
+  "suggestion": "For route.test.ts: Add null checks or assertions for stripe variable. For workbench-client.tsx: Add the missing required properties rna_timeout_seconds and max_call_duration_minutes to the RecordingSettings object.",
+  "status": "pending",
+  "found_at": "2025-12-05T16:00:00Z"
+}
+
