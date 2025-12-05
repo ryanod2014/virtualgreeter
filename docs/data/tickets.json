@@ -3,7 +3,7 @@
     "last_updated": "2025-12-04",
     "version": "2.0",
     "schema": "docs/workflow/templates/ticket-schema.json",
-    "total_tickets": 47
+    "total_tickets": 48
   },
   "tickets": [
     {
@@ -36,26 +36,26 @@
       ],
       "fix_required": [
         "Add maskSensitiveFields() function to domSerializer.ts",
-        "Mask password fields with ••••••••",
+        "Mask password fields with \u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
         "Mask credit card inputs (input[autocomplete='cc-number'], input[type='tel'])",
         "Mask elements with data-sensitive='true' attribute"
       ],
       "acceptance_criteria": [
-        "Password input values show as •••••••• in agent viewer",
+        "Password input values show as \u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 in agent viewer",
         "Credit card fields (autocomplete='cc-number') show as masked",
         "Elements with data-sensitive='true' attribute are masked",
         "Regular form fields display normally (not masked)",
         "New unit test file: domSerializer.test.ts covers masking logic"
       ],
       "risks": [
-        "If sanitization regex too aggressive → masks non-sensitive content",
-        "If sanitization is bypassed → sensitive data leaks to agents",
+        "If sanitization regex too aggressive \u2192 masks non-sensitive content",
+        "If sanitization is bypassed \u2192 sensitive data leaks to agents",
         "Different form structures (React forms, vanilla HTML) may behave differently"
       ],
       "dev_checks": [
         "pnpm typecheck passes",
         "pnpm build passes",
-        "Manual: Create test.html with password field, type 'secret', verify serialized output shows ••••••••"
+        "Manual: Create test.html with password field, type 'secret', verify serialized output shows \u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
       ],
       "qa_notes": "Test with React form libraries (react-hook-form), vanilla HTML forms, and dynamic forms. Verify masked fields display correctly in agent's CobrowseViewer."
     },
@@ -103,8 +103,8 @@
         "Webhook properly handles the final cancellation event"
       ],
       "risks": [
-        "If Stripe call fails but DB updates → subscription cancelled locally but still billed",
-        "Need idempotency → user might click cancel multiple times",
+        "If Stripe call fails but DB updates \u2192 subscription cancelled locally but still billed",
+        "Need idempotency \u2192 user might click cancel multiple times",
         "Webhook must be verified to prevent spoofing"
       ],
       "dev_checks": [
@@ -197,7 +197,7 @@
       ],
       "risks": [
         "Stripe pause behavior varies by plan type - test thoroughly",
-        "If Stripe call fails but DB updates → inconsistent state"
+        "If Stripe call fails but DB updates \u2192 inconsistent state"
       ],
       "dev_checks": [
         "pnpm typecheck passes",
@@ -799,7 +799,7 @@
       "status": "ready",
       "difficulty": "medium",
       "source": "Finding D-organization-settings #3 [F-063]",
-      "issue": "When admin reduces retention from 90→30 days, behavior is unclear. Should be retroactive (delete old recordings) with clear warning.",
+      "issue": "When admin reduces retention from 90\u219230 days, behavior is unclear. Should be retroactive (delete old recordings) with clear warning.",
       "feature_docs": [
         "docs/features/admin/organization-settings.md",
         "docs/features/admin/recording-settings.md"
@@ -2113,6 +2113,51 @@
       "acceptance_criteria": [
         "Issue described in F-022 is resolved",
         "Change is tested and verified"
+      ]
+    },
+    {
+      "id": "SEC-001",
+      "title": "API Authentication Enforcement",
+      "priority": "critical",
+      "feature": "Security, Signaling Server",
+      "status": "done",
+      "difficulty": "medium",
+      "source": "Security Audit",
+      "issue": "The signaling server has routes and socket handlers that need proper authentication verification. /metrics endpoint has optional API key protection. Socket handlers verify agent tokens but some code paths may skip verification.",
+      "feature_docs": [],
+      "similar_code": [
+        "apps/server/src/lib/auth.ts - existing auth helpers"
+      ],
+      "files_to_modify": [
+        "apps/server/src/index.ts",
+        "apps/server/src/lib/auth.ts",
+        "apps/server/src/features/signaling/socket-handlers.ts"
+      ],
+      "out_of_scope": [],
+      "fix_required": [
+        "Audit all HTTP routes and enforce auth in production",
+        "Audit socket handlers for auth verification",
+        "Enforce METRICS_API_KEY in production with warning if missing",
+        "Add requireAgentAuth() helper for socket auth checks"
+      ],
+      "acceptance_criteria": [
+        "/metrics requires API key in production (401 without, 403 with wrong key)",
+        "Warning logged if METRICS_API_KEY not set in production",
+        "All agent socket operations verify socket.data.agentId is set",
+        "Security model documented in socket-handlers.ts",
+        "No breaking changes to existing functionality",
+        "Typecheck passes",
+        "Lint passes",
+        "Build passes"
+      ],
+      "risks": [
+        "Breaking existing auth flow",
+        "Locking out legitimate internal requests"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm lint passes",
+        "pnpm build passes"
       ]
     }
   ]

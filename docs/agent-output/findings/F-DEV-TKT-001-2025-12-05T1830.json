@@ -1,0 +1,14 @@
+{
+  "id": "F-DEV-TKT-001-1",
+  "source": "dev-agent-TKT-001",
+  "title": "Pre-existing typecheck errors in dashboard package",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/dashboard/src/",
+  "line": null,
+  "issue": "The dashboard package has pre-existing TypeScript errors that cause `pnpm typecheck` to fail at the monorepo level. Errors include: 1) Stripe null checks in route.test.ts (stripe is possibly null), 2) RecordingSettings type mismatch in workbench-client.tsx (missing rna_timeout_seconds and max_call_duration_minutes properties). These errors existed before TKT-001 changes.",
+  "suggestion": "Fix the TypeScript errors: 1) Add null checks for stripe variable in billing tests, 2) Update default RecordingSettings to include all required properties",
+  "status": "pending",
+  "found_at": "2025-12-05T18:25:00Z"
+}
+

@@ -12,27 +12,54 @@ The PM Dashboard server automatically aggregates these files when displaying dat
 
 ```
 docs/agent-output/
-├── reviews/          # Review agent findings
-├── completions/      # Dev agent completion reports
-├── blocked/          # Dev agent blocker reports (legacy - now use findings.json)
-└── doc-tracker/      # Doc agent completion entries
+├── started/          # Dev agent start signals (per-agent JSON files) - tracks active agents + file locks
+├── completions/      # Dev agent completion reports (per-agent MD files)
+├── blocked/          # Dev agent blocker reports (per-agent JSON files)
+├── findings/         # Dev agent out-of-scope findings (per-agent JSON files)
+├── reviews/          # Review agent findings (per-agent JSON files)
+├── doc-tracker/      # Doc agent completion entries (per-agent MD files)
+└── archive/          # Processed files moved here after PM review
 ```
 
 ## File Naming Convention
 
-Files should be named: `[ID]-[TIMESTAMP].md`
+Files should be named: `[ID]-[TIMESTAMP].ext`
 
 Examples:
-- `reviews/D-routing-rules-2025-12-04T1430.md`
-- `completions/TKT-001-2025-12-04T1500.md`
-- `doc-tracker/SA1-2025-12-04T1420.md`
+- `started/TKT-001-2025-12-04T1430.json` - Dev agent started work
+- `completions/TKT-001-2025-12-04T1500.md` - Dev agent completed
+- `blocked/BLOCKED-TKT-001-2025-12-04T1445.json` - Dev agent blocked
+- `findings/F-DEV-TKT-001-2025-12-04T1450.json` - Dev agent found issue
+- `reviews/D-routing-rules-2025-12-04T1430.md` - Review agent output
+- `doc-tracker/SA1-2025-12-04T1420.md` - Doc agent completed
 
 ## Lifecycle
 
-1. **Agent writes** → Creates file in appropriate subdirectory
-2. **Dashboard reads** → Auto-aggregates all files for display
-3. **PM processes** → Reviews via dashboard
-4. **PM archives** → Moves processed files to `docs/agent-output/archive/` or deletes
+### Dev Agent Lifecycle
+
+```
+Agent starts work → writes to started/TKT-XXX-[TIMESTAMP].json (includes file locks)
+       ↓
+Agent works on ticket...
+       ↓
+Agent completes → writes to completions/TKT-XXX-[TIMESTAMP].md
+       OR
+Agent blocked → writes to blocked/BLOCKED-TKT-XXX-[TIMESTAMP].json
+       OR
+Agent finds issue → writes to findings/F-DEV-TKT-XXX-[TIMESTAMP].json
+       ↓
+PM processes → archives start file + completion/blocker to archive/
+```
+
+### Stall Detection
+
+PM compares `started/` vs `completions/` + `blocked/`:
+- If start file exists but no completion/blocker after 4+ hours → Agent may be stalled
+- Check git branch activity to confirm
+
+### File Locks
+
+Files in `started/*.json` contain `files_locking` arrays. PM checks these before launching new agents to prevent conflicts.
 
 ## Why This Pattern?
 

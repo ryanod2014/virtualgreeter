@@ -13,6 +13,7 @@
 |------|---------|
 | `docs/data/tickets.json` | All tickets with full details (source of truth) |
 | `docs/data/findings.json` | Blocked dev agents (type: "blocker") awaiting decisions |
+| `docs/data/.agent-credentials.json` | Service logins & API keys for agents (gitignored) |
 | `docs/agent-output/completions/` | Dev agent completion reports (auto-aggregated) |
 | `docs/workflow/templates/ticket-schema.json` | Required ticket fields |
 | `docs/workflow/templates/dev-ticket.md` | Ticket creation template |
@@ -20,26 +21,136 @@
 
 ---
 
+## Pre-Launch Setup (One-Time)
+
+Before launching your first dev agents, ensure credentials are populated:
+
+### Populate Agent Credentials
+
+**File:** `docs/data/.agent-credentials.json` (gitignored)
+
+Dev agents may need to:
+- Log into Stripe/Supabase to get API keys
+- Access test accounts to verify features
+- Use external service credentials
+
+**Populate the file with:**
+
+1. **Service logins** (`services.*`) — Email/password for Stripe, Supabase, Vercel, etc.
+2. **Test accounts** (`test_accounts.*`) — Local/staging app credentials
+3. **Pre-fetched API keys** (`api_keys.*`) — Preferred: agents can use directly without browser navigation
+
+```bash
+# Check if credentials file exists
+cat docs/data/.agent-credentials.json
+
+# If empty or missing, copy from example and fill in:
+# (The file was created with a template structure)
+```
+
+**⚠️ Security Notes:**
+- This file is gitignored - NEVER commit it
+- For 2FA-protected services, pre-fetch API keys and put them in `api_keys.*`
+- Update `_LAST_UPDATED` when you modify credentials
+
+---
+
 ## PM Cycle Checklist
 
 Execute these steps **in order** every PM session:
 
-### Phase 1: Check Blocked Queue
+### Phase 1: Check Agent Status
 
-Blockers are now stored in `docs/data/findings.json` with `type: "blocker"`.
+#### 1.1 Check for Blocked Agents
+
+Blockers are in per-agent files. There are TWO types:
 
 ```bash
-# Check for blockers in findings.json
-cat docs/data/findings.json | grep -A5 '"type": "blocker"'
+# List all blockers
+ls docs/agent-output/blocked/
 
-# Or use the dashboard at http://localhost:3456
+# Clarification blockers (need decision)
+cat docs/agent-output/blocked/BLOCKED-TKT-*.json
+
+# Environmental blockers (need fix)
+cat docs/agent-output/blocked/ENV-TKT-*.json
 ```
 
-**For each blocked agent:**
+##### For CLARIFICATION Blockers (BLOCKED-TKT-*)
+
+Agent needs a decision on how to proceed.
+
 1. Present blocker to human with the agent's options + recommendation
 2. Wait for human decision
 3. Create continuation ticket with decision
-4. Move blocker to "Resolved" section
+4. Archive the blocker file to `docs/agent-output/archive/`
+
+##### For ENVIRONMENTAL Blockers (ENV-TKT-*)
+
+Agent hit a technical issue they can't solve (type error, pnpm fails, pre-existing bug, etc.)
+
+**Present to human with these options:**
+
+| Option | When to Use | PM Action |
+|--------|-------------|-----------|
+| **A) Human fixes it** | Simple fix (typo, missing env var) | Human fixes → PM creates continuation with "Issue resolved, continue" |
+| **B) Update ticket** | Agent needs specific guidance | PM adds fix instructions to ticket → Create new version (v2) |
+| **C) Reassign** | Needs different skill set | PM assigns to human dev or different agent |
+| **D) Cancel ticket** | Issue too complex, not worth fixing | PM cancels ticket, archives blocker |
+
+**Continuation ticket for environmental blockers:**
+
+```markdown
+## 🔧 Environment Issue Resolution
+
+**Original Issue:** [Copy from blocker]
+
+**Resolution:** [What was done to fix it]
+- [Specific fix 1]
+- [Specific fix 2]
+
+**What agent should do now:**
+1. Pull latest: `git pull origin [branch]`
+2. Reinstall deps: `pnpm install`
+3. Verify fix: [How to verify the issue is resolved]
+4. Continue from: [Where they left off]
+```
+
+Archive the blocker file to `docs/agent-output/archive/`
+
+#### 1.2 Check for Stalled Agents
+
+Agents signal start by writing to `docs/agent-output/started/`. Detect stalls:
+
+```bash
+# List started agents
+ls -la docs/agent-output/started/
+
+# Compare to completions - stalled = started but no completion after 4+ hours
+ls docs/agent-output/completions/
+```
+
+**Stall Detection Logic:**
+1. For each file in `started/`, check if matching completion exists in `completions/`
+2. If no completion AND started > 4 hours ago → Agent may be stalled
+3. Check git branch for activity: `git log agent/TKT-XXX --oneline -5 --since="4 hours ago"`
+4. If no recent commits → Investigate (agent may have crashed or gone silent)
+
+**For stalled agents:**
+1. Check if there's a blocker file they forgot to write
+2. If truly stalled, create continuation ticket with checkpoint from git history
+3. Archive the stale start file
+
+#### 1.3 Check File Locks
+
+Before launching new agents, check which files are locked:
+
+```bash
+# See all files currently locked by running agents
+cat docs/agent-output/started/*.json | jq '.files_locking[]'
+```
+
+**Rule:** Don't launch a ticket if its `files_to_modify` overlap with any locked files.
 
 **Continuation Ticket Format:**
 ```
@@ -56,13 +167,36 @@ Check for dev agent completion reports:
 
 ```bash
 ls docs/prompts/active/   # Active agents
-ls docs/agent-output/completions/  # Dev completion reports (auto-aggregated by dashboard)
+ls docs/agent-output/completions/  # Dev completion reports
 ```
 
-**For each COMPLETE status:**
-1. Move ticket to Review phase
-2. Create review-agent prompt (or mark for human QA)
-3. Extract any **Observations** → Add to triage queue
+**For each new completion file:**
+
+1. **Update `docs/data/dev-status.json`** (required for dashboard to show it):
+   ```json
+   {
+     "completed": [
+       {
+         "ticket_id": "SEC-001",
+         "branch": "agent/SEC-001-api-auth",
+         "started_at": "2025-12-05T12:00:00Z",
+         "completed_at": "2025-12-05T12:39:00Z",
+         "completion_file": "docs/agent-output/completions/SEC-001-*.md"
+       }
+     ]
+   }
+   ```
+
+2. Archive the agent's start file (if not already done by agent):
+   ```bash
+   mv docs/agent-output/started/TKT-XXX-*.json docs/agent-output/archive/
+   ```
+
+3. Move ticket to Review phase in `docs/data/tickets.json` (status: "review")
+
+4. Check for **Findings** in `docs/agent-output/findings/` — add to triage queue
+
+5. Create review-agent prompt (or mark for human QA)
 
 **Handling Observations:**
 If completion report has "Observations" section (issues noticed outside scope):
@@ -255,6 +389,82 @@ These tickets can run in parallel (no file conflicts):
 
 These must run sequentially (shared files):
 - TKT-002, TKT-030 (both touch settings/actions.ts)
+
+### ⚠️ Race Condition Mitigation
+
+**Problem:** If two agents start at the exact same moment, both might pass the file lock check before either writes their start file.
+
+**Mitigation:**
+1. **Launch agents with 5-10 second gaps** - don't paste all launch commands simultaneously
+2. **Check file conflicts in tickets.json before creating prompts** - PM's responsibility
+3. **If conflict detected after launch** - one agent will see the other's start file and stop
+
+**Launch Sequence:**
+```bash
+# Launch first agent, wait 5 seconds
+# Launch second agent, wait 5 seconds
+# Continue...
+```
+
+This gives each agent time to write their start file before the next agent checks for locks.
+```
+
+---
+
+### Phase 6: Handle Documentation Updates
+
+After a dev agent completes a ticket, handle re-documentation:
+
+#### 6.1 Check Completion Report for Documentation Impact
+
+Read the dev agent's completion report. Look for the "Documentation Impact" section.
+
+#### 6.2 Mark Affected Docs as Needing Re-Documentation
+
+For each affected doc, update `docs/data/doc-status.json`:
+
+```json
+{
+  "[feature-id]": {
+    "documented": false,
+    "needs_redoc": true,
+    "pending_tickets": ["TKT-XXX"],
+    "redoc_context": {
+      "branch": "[branch from completion report]",
+      "summary": "[from completion report]",
+      "files_changed": ["[from completion report]"],
+      "git_diff_cmd": "git diff main..[branch] -- [files]"
+    }
+  }
+}
+```
+
+#### 6.3 Create Re-Doc Agent Prompts
+
+For features needing re-documentation:
+
+**File:** `docs/prompts/active/redoc-agent-[FEATURE-ID].md`
+
+Use template: `docs/workflow/templates/redoc-agent.md`
+
+**Key:** Include the `git_diff_cmd` so doc agent reads actual code changes, not dev's summary.
+
+#### 6.4 Pipeline Order
+
+```
+Dev Completes → PM Marks Docs Stale → Doc Agent Re-Documents → QA Agent Tests (future)
+```
+
+Documentation informs QA. QA agents (future) will use updated docs for test context.
+
+#### 6.5 Quick Reference
+
+```bash
+# Check which docs need re-documentation
+cat docs/data/doc-status.json | jq '.features | to_entries[] | select(.value.needs_redoc == true) | .key'
+
+# After re-doc complete, mark as documented
+# Update doc-status.json: documented=true, needs_redoc=false, pending_tickets=[], redoc_context=null
 ```
 
 ---

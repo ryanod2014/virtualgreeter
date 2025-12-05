@@ -16,7 +16,7 @@ You are a Dev Agent. Your job is to implement **STRIPE-003: Fix Pause/Resume to 
 **Ticket:** STRIPE-003
 **Priority:** P0 (Ship Blocker - Users being charged while paused!)
 **Type:** Bug Fix
-**Branch:** `fix/STRIPE-003-pause-resume`
+**Branch:** `agent/STRIPE-003-pause-resume`
 **Version:** v1
 
 ---
@@ -57,7 +57,7 @@ From code review of `apps/dashboard/src/app/(app)/admin/settings/billing/actions
 |------|----------------|
 | `apps/dashboard/src/app/(app)/admin/settings/billing/actions.ts` | Add Stripe API calls to pauseAccount() and resumeAccount() |
 
-**⚠️ Only modify this file. Check FILE LOCKS in AGENT_TASKS.md before starting.**
+**⚠️ Only modify this file. Check FILE LOCKS in `docs/agent-output/started/` before starting.**
 
 ---
 
@@ -166,11 +166,14 @@ pnpm build
 
 ---
 
-## ⚠️ REQUIRED: Notify PM When Done
+## ⚠️ REQUIRED: Follow Dev Agent SOP
 
-**Append to `docs/agent-inbox/completions.md` when you start AND when you finish.**
+**All reporting is handled per the SOP:**
+- **Start:** Write to `docs/agent-output/started/STRIPE-003-[TIMESTAMP].json`
+- **Complete:** Write to `docs/agent-output/completions/STRIPE-003-[TIMESTAMP].md`
+- **Blocked:** Write to `docs/agent-output/blocked/BLOCKED-STRIPE-003-[TIMESTAMP].json`
 
-See `docs/workflow/DEV_AGENT_SOP.md` for the exact format.
+See `docs/workflow/DEV_AGENT_SOP.md` for exact formats.
 
 
 

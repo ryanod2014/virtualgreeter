@@ -1,0 +1,466 @@
+{
+  "meta": {
+    "last_updated": "2025-12-04",
+    "format_version": "1.0",
+    "purpose": "Track documentation freshness. When dev tickets complete, PM marks affected docs as needs_redoc=true with context for the re-doc agent."
+  },
+  "features": {
+    "widget-lifecycle": {
+      "doc_file": "docs/features/visitor/widget-lifecycle.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "video-sequencer": {
+      "doc_file": "docs/features/visitor/video-sequencer.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "visitor-call": {
+      "doc_file": "docs/features/visitor/visitor-call.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "call-reconnection": {
+      "doc_file": "docs/features/visitor/call-reconnection.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "cobrowse-sender": {
+      "doc_file": "docs/features/visitor/cobrowse-sender.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "public-feedback": {
+      "doc_file": "docs/features/visitor/public-feedback.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "mobile-gate": {
+      "doc_file": "docs/features/visitor/mobile-gate.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "bullpen-states": {
+      "doc_file": "docs/features/agent/bullpen-states.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "incoming-call": {
+      "doc_file": "docs/features/agent/incoming-call.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "rna-timeout": {
+      "doc_file": "docs/features/agent/rna-timeout.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "agent-active-call": {
+      "doc_file": "docs/features/agent/agent-active-call.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "cobrowse-viewer": {
+      "doc_file": "docs/features/agent/cobrowse-viewer.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "agent-stats-detail": {
+      "doc_file": "docs/features/agent/agent-stats-detail.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "video-recordings": {
+      "doc_file": "docs/features/agent/video-recordings.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "agent-call-logs": {
+      "doc_file": "docs/features/agent/agent-call-logs.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "agent-assignment": {
+      "doc_file": "docs/features/platform/agent-assignment.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "call-lifecycle": {
+      "doc_file": "docs/features/platform/call-lifecycle.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "visitor-reassignment": {
+      "doc_file": "docs/features/platform/visitor-reassignment.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "webrtc-signaling": {
+      "doc_file": "docs/features/platform/webrtc-signaling.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "heartbeat-staleness": {
+      "doc_file": "docs/features/platform/heartbeat-staleness.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "transcription-service": {
+      "doc_file": "docs/features/platform/transcription-service.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "pool-management": {
+      "doc_file": "docs/features/admin/pool-management.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "routing-rules": {
+      "doc_file": "docs/features/admin/routing-rules.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "tiered-routing": {
+      "doc_file": "docs/features/admin/tiered-routing.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "agent-management": {
+      "doc_file": "docs/features/admin/agent-management.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "widget-settings": {
+      "doc_file": "docs/features/admin/widget-settings.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "embed-code": {
+      "doc_file": "docs/features/admin/embed-code.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "call-logs": {
+      "doc_file": "docs/features/admin/call-logs.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "organization-settings": {
+      "doc_file": "docs/features/admin/organization-settings.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "blocklist-settings": {
+      "doc_file": "docs/features/admin/blocklist-settings.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "dispositions": {
+      "doc_file": "docs/features/admin/dispositions.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "recording-settings": {
+      "doc_file": "docs/features/admin/recording-settings.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "subscription-creation": {
+      "doc_file": "docs/features/billing/subscription-creation.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "seat-management": {
+      "doc_file": "docs/features/billing/seat-management.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "billing-frequency": {
+      "doc_file": "docs/features/billing/billing-frequency.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "pause-subscription": {
+      "doc_file": "docs/features/billing/pause-subscription.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "cancel-subscription": {
+      "doc_file": "docs/features/billing/cancel-subscription.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "payment-failure": {
+      "doc_file": "docs/features/billing/payment-failure.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "signup-flow": {
+      "doc_file": "docs/features/auth/signup-flow.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "login-flow": {
+      "doc_file": "docs/features/auth/login-flow.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "invite-accept": {
+      "doc_file": "docs/features/auth/invite-accept.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "password-reset": {
+      "doc_file": "docs/features/auth/password-reset.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "agent-api": {
+      "doc_file": "docs/features/api/agent-api.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "billing-api": {
+      "doc_file": "docs/features/api/billing-api.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "invites-api": {
+      "doc_file": "docs/features/api/invites-api.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "agent-stats": {
+      "doc_file": "docs/features/stats/agent-stats.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "coverage-stats": {
+      "doc_file": "docs/features/stats/coverage-stats.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "call-analytics": {
+      "doc_file": "docs/features/stats/call-analytics.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "uptime-monitoring": {
+      "doc_file": "docs/features/monitoring/UPTIME_MONITORING.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "error-tracking": {
+      "doc_file": "docs/features/monitoring/error-tracking.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "ellis-survey": {
+      "doc_file": "docs/features/feedback/ellis-survey.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "platform-dashboard": {
+      "doc_file": "docs/features/superadmin/platform-dashboard.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "cancellations-dashboard": {
+      "doc_file": "docs/features/superadmin/cancellations-dashboard.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "feedback-dashboard": {
+      "doc_file": "docs/features/superadmin/feedback-dashboard.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "organizations-manager": {
+      "doc_file": "docs/features/superadmin/organizations-manager.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "funnel-analytics": {
+      "doc_file": "docs/features/superadmin/funnel-analytics.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "impersonation": {
+      "doc_file": "docs/features/superadmin/impersonation.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    }
+  }
+}
+
