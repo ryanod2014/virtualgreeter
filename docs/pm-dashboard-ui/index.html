@@ -2860,19 +2860,30 @@ pnpm build`}
     // ================= NEW PIPELINE VIEW =================
     // Combines Feature Inventory + All Tickets + In Progress + For Review
 
-    function NewPipelineView({ tickets, devStatus, onSaveDevStatus, featuresList, findings }) {
+    function NewPipelineView({ tickets, devStatus, agentOutputs, onSaveDevStatus, featuresList, findings }) {
       const [pipelineTab, setPipelineTab] = useState('inventory');
       const [selectedTicket, setSelectedTicket] = useState(null);
       const [selectedReviewItem, setSelectedReviewItem] = useState(null);
+      const [selectedBlocker, setSelectedBlocker] = useState(null);
       const [filter, setFilter] = useState('all');
       const [selectedFeature, setSelectedFeature] = useState(null);
       
       // Ticket calculations
       const inProgressItems = devStatus?.in_progress || [];
       const completedItems = devStatus?.completed || [];
-      const blockedItems = devStatus?.blocked || [];
       const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id));
       const completedTicketIds = new Set(completedItems.map(c => c.ticket_id));
+      
+      // Blocked items from agent-output files
+      const blockedItems = (agentOutputs?.blocked || []).map(b => {
+        // Try to parse JSON content
+        try {
+          const parsed = JSON.parse(b.content);
+          return { ...parsed, fileName: b.fileName, filePath: b.filePath };
+        } catch (e) {
+          return { ticketId: b.ticketId, fileName: b.fileName, filePath: b.filePath, title: 'Parse error' };
+        }
+      });
       
       // Ready = status is 'ready' AND not in dev-status completed/in_progress
       const readyTickets = tickets.filter(t => 
@@ -2930,7 +2941,7 @@ pnpm build`}
       return (
         <div className="fade-in">
           {/* Summary Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
             <div 
               className="card" 
               onClick={() => setPipelineTab('inventory')}
@@ -2981,6 +2992,24 @@ pnpm build`}
             </div>
             <div 
               className="card" 
+              onClick={() => setPipelineTab('blocked')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer',
+                borderLeft: blockedItems.length > 0 ? '4px solid var(--critical)' : '4px solid var(--border)',
+                background: pipelineTab === 'blocked' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{ fontSize: '24px', fontWeight: 700, color: blockedItems.length > 0 ? 'var(--critical)' : 'var(--text-muted)' }}>
+                  {blockedItems.length}
+                </span>
+                {blockedItems.length > 0 && <span style={{ fontSize: '11px' }}>🚧</span>}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Blocked</div>
+            </div>
+            <div 
+              className="card" 
               onClick={() => setPipelineTab('review')}
               style={{ 
                 padding: '16px', 
@@ -3002,6 +3031,7 @@ pnpm build`}
               { id: 'inventory', label: 'Feature Inventory', count: FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
               { id: 'all', label: 'All Tickets', count: tickets.length, color: 'var(--text-primary)' },
               { id: 'progress', label: 'In Progress', count: inProgressItems.length, color: staleCount > 0 ? 'var(--medium)' : 'var(--success)', stale: staleCount },
+              { id: 'blocked', label: 'Blocked', count: blockedItems.length, color: 'var(--critical)' },
               { id: 'review', label: 'For Review', count: completedItems.length, color: 'var(--success)' }
             ].map(tab => (
               <button
@@ -3394,6 +3424,243 @@ pnpm build`}
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* BLOCKED TAB */}
+          {pipelineTab === 'blocked' && (
+            <div className="fade-in">
+              {blockedItems.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>✓</div>
+                  <div style={{ fontSize: '18px', fontWeight: 500 }}>No blocked agents</div>
+                  <div style={{ fontSize: '14px', marginTop: '8px' }}>Agents needing PM decisions will appear here</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ 
+                    padding: '16px 20px', 
+                    background: 'rgba(239,68,68,0.1)', 
+                    borderRadius: '12px', 
+                    marginBottom: '20px',
+                    border: '1px solid rgba(239,68,68,0.2)'
+                  }}>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--critical)' }}>
+                      🚧 {blockedItems.length} agent{blockedItems.length > 1 ? 's' : ''} blocked - awaiting your decision
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                      Review each blocker and provide a decision to unblock the agent
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gap: '16px' }}>
+                    {blockedItems.map((blocked, idx) => (
+                      <div 
+                        key={blocked.id || idx} 
+                        className="card" 
+                        style={{ 
+                          borderLeft: '4px solid var(--critical)',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => setSelectedBlocker(blocked)}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                          <div>
+                            <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                              {blocked.blocker_context?.ticket_id || blocked.ticketId || blocked.id}
+                            </code>
+                            <h3 style={{ fontSize: '16px', fontWeight: 600, marginTop: '4px' }}>
+                              {blocked.title || 'Blocked'}
+                            </h3>
+                            {blocked.blocker_context?.branch && (
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                Branch: <code style={{ color: 'var(--accent-bright)' }}>{blocked.blocker_context.branch}</code>
+                              </div>
+                            )}
+                          </div>
+                          <Badge type={blocked.type === 'environmental' ? 'medium' : 'critical'}>
+                            {blocked.type === 'environmental' ? 'ENV' : 'BLOCKER'}
+                          </Badge>
+                        </div>
+                        
+                        <div style={{ padding: '12px', background: 'var(--bg-elevated)', borderRadius: '8px', marginBottom: '12px' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            {blocked.category === 'clarification' ? 'Question:' : 'Issue:'}
+                          </div>
+                          <div style={{ fontSize: '14px', fontWeight: 500, lineHeight: '1.5' }}>
+                            {blocked.issue || blocked.question || 'No details provided'}
+                          </div>
+                        </div>
+                        
+                        {blocked.options && blocked.options.length > 0 && (
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                            {blocked.options.length} option{blocked.options.length > 1 ? 's' : ''} to choose from
+                          </div>
+                        )}
+                        
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                          Found: {blocked.found_at ? new Date(blocked.found_at).toLocaleString() : 'Unknown'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Blocker Modal */}
+                  {selectedBlocker && (
+                    <div className="modal-overlay" onClick={() => setSelectedBlocker(null)}>
+                      <div className="modal fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+                        <div className="modal-header">
+                          <div>
+                            <code style={{ color: 'var(--critical)', fontSize: '12px' }}>
+                              {selectedBlocker.blocker_context?.ticket_id || selectedBlocker.ticketId || selectedBlocker.id}
+                            </code>
+                            <h2 style={{ fontSize: '18px', fontWeight: 600, marginTop: '4px' }}>{selectedBlocker.title}</h2>
+                          </div>
+                          <button className="btn btn-sm btn-secondary" onClick={() => setSelectedBlocker(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                          {/* Issue Description */}
+                          <div style={{ padding: '16px', background: 'var(--bg-elevated)', borderRadius: '8px', marginBottom: '20px' }}>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              {selectedBlocker.category === 'clarification' ? 'Question:' : 'Issue:'}
+                            </div>
+                            <div style={{ fontSize: '15px', lineHeight: '1.6' }}>
+                              {selectedBlocker.issue || selectedBlocker.question}
+                            </div>
+                          </div>
+                          
+                          {/* Options */}
+                          {selectedBlocker.options && selectedBlocker.options.length > 0 && (
+                            <div style={{ marginBottom: '20px' }}>
+                              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Options:</div>
+                              <div style={{ display: 'grid', gap: '8px' }}>
+                                {selectedBlocker.options.map((opt, idx) => (
+                                  <div 
+                                    key={opt.id || idx}
+                                    style={{ 
+                                      padding: '12px 16px', 
+                                      background: opt.recommended ? 'rgba(99,102,241,0.1)' : 'var(--bg-elevated)', 
+                                      borderRadius: '8px',
+                                      border: opt.recommended ? '1px solid var(--accent)' : '1px solid var(--border)',
+                                      position: 'relative'
+                                    }}
+                                  >
+                                    {opt.recommended && (
+                                      <span style={{ 
+                                        position: 'absolute', 
+                                        top: '-8px', 
+                                        right: '12px', 
+                                        background: 'var(--accent)', 
+                                        color: 'white', 
+                                        padding: '2px 8px', 
+                                        fontSize: '10px', 
+                                        borderRadius: '4px',
+                                        fontWeight: 600
+                                      }}>
+                                        RECOMMENDED
+                                      </span>
+                                    )}
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                      <span style={{ 
+                                        display: 'inline-flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center',
+                                        width: '24px', 
+                                        height: '24px', 
+                                        background: 'var(--bg-surface)', 
+                                        borderRadius: '50%',
+                                        fontSize: '12px',
+                                        fontWeight: 600,
+                                        flexShrink: 0
+                                      }}>
+                                        {opt.id || idx + 1}
+                                      </span>
+                                      <div style={{ fontSize: '14px' }}>{opt.label}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Agent's Recommendation */}
+                          {selectedBlocker.recommendation && (
+                            <div style={{ 
+                              padding: '12px 16px', 
+                              background: 'rgba(99,102,241,0.08)', 
+                              borderRadius: '8px', 
+                              marginBottom: '20px',
+                              borderLeft: '3px solid var(--accent)'
+                            }}>
+                              <div style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 600, marginBottom: '4px' }}>
+                                Agent's Recommendation:
+                              </div>
+                              <div style={{ fontSize: '14px' }}>{selectedBlocker.recommendation}</div>
+                            </div>
+                          )}
+                          
+                          {/* Progress Context */}
+                          {selectedBlocker.blocker_context?.progress && (
+                            <div style={{ marginBottom: '20px' }}>
+                              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Progress Before Block:</div>
+                              <div style={{ display: 'grid', gap: '8px' }}>
+                                {selectedBlocker.blocker_context.progress.done?.length > 0 && (
+                                  <div>
+                                    <div style={{ fontSize: '12px', color: 'var(--success)', marginBottom: '4px' }}>✓ Completed:</div>
+                                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                      {selectedBlocker.blocker_context.progress.done.map((item, i) => (
+                                        <li key={i}>{item}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {selectedBlocker.blocker_context.progress.remaining?.length > 0 && (
+                                  <div>
+                                    <div style={{ fontSize: '12px', color: 'var(--critical)', marginBottom: '4px' }}>⏸ Remaining:</div>
+                                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                      {selectedBlocker.blocker_context.progress.remaining.map((item, i) => (
+                                        <li key={i}>{item}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* File Path */}
+                          <div style={{ 
+                            padding: '12px', 
+                            background: 'var(--bg-surface)', 
+                            borderRadius: '6px',
+                            marginBottom: '20px',
+                            fontSize: '12px'
+                          }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Blocker file: </span>
+                            <code style={{ color: 'var(--accent-bright)' }}>{selectedBlocker.filePath}</code>
+                          </div>
+                          
+                          {/* Actions */}
+                          <div style={{ 
+                            padding: '16px', 
+                            background: 'var(--bg-elevated)', 
+                            borderRadius: '8px',
+                            border: '1px dashed var(--border)'
+                          }}>
+                            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>To Resolve:</div>
+                            <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.8' }}>
+                              <li>Review the options above and make a decision</li>
+                              <li>Edit the blocker file to add your decision</li>
+                              <li>Create a continuation ticket for the agent</li>
+                              <li>Archive the blocker file to <code>docs/agent-output/archive/</code></li>
+                            </ol>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
