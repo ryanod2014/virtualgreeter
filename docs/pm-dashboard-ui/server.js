@@ -585,6 +585,63 @@ function handleAPI(req, res, body) {
     return true;
   }
   
+  // POST /api/launch-agent - Create worktree and open Cursor in it
+  if (req.method === 'POST' && url === '/api/launch-agent') {
+    try {
+      const { ticketId } = JSON.parse(body);
+      if (!ticketId) {
+        throw new Error('ticketId is required');
+      }
+      
+      const SETUP_SCRIPT = path.join(__dirname, '../../scripts/setup-agent-worktree.sh');
+      const WORKTREE_BASE = path.join(__dirname, '../../../agent-worktrees');
+      const worktreePath = path.join(WORKTREE_BASE, ticketId);
+      
+      // Step 1: Create worktree
+      console.log(`🚀 Launching agent for ${ticketId}...`);
+      try {
+        execSync(`bash "${SETUP_SCRIPT}" "${ticketId}"`, {
+          cwd: path.join(__dirname, '../..'),
+          encoding: 'utf8',
+          timeout: 60000,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+        console.log(`✅ Worktree created for ${ticketId}`);
+      } catch (scriptError) {
+        // Worktree might already exist, continue anyway
+        console.log(`ℹ️ Worktree setup: ${scriptError.message}`);
+      }
+      
+      // Step 2: Open Cursor in the worktree
+      try {
+        // Use spawn instead of exec to not block, and detach so it persists
+        const { spawn } = require('child_process');
+        const cursorProcess = spawn('cursor', [worktreePath], {
+          detached: true,
+          stdio: 'ignore',
+          cwd: worktreePath
+        });
+        cursorProcess.unref(); // Allow the server to exit independently
+        console.log(`✅ Opened Cursor for ${ticketId} at ${worktreePath}`);
+      } catch (cursorError) {
+        console.error(`❌ Failed to open Cursor: ${cursorError.message}`);
+        throw new Error(`Failed to open Cursor: ${cursorError.message}`);
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        success: true,
+        ticketId,
+        worktreePath,
+        message: `Cursor opened at ${worktreePath}`
+      }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
   // POST /api/decisions - Save decisions (with PM response preservation)
   if (req.method === 'POST' && url === '/api/decisions') {
     try {

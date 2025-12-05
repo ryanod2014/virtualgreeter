@@ -3734,6 +3734,46 @@ pnpm build`}
       const [savedNotes, setSavedNotes] = useState({});
       const [worktreeStatus, setWorktreeStatus] = useState(null); // null, 'creating', 'done', 'error'
       const [worktreeResults, setWorktreeResults] = useState([]);
+      const [launchingTicket, setLaunchingTicket] = useState(null); // ticket ID being launched
+      const [launchingAll, setLaunchingAll] = useState(false);
+      const [launchAllProgress, setLaunchAllProgress] = useState(0);
+      
+      // Launch a single agent: create worktree, open Cursor, copy prompt
+      const launchAgent = async (ticket) => {
+        setLaunchingTicket(ticket.id);
+        
+        try {
+          // Call API to create worktree and open Cursor
+          const response = await fetch('/api/launch-agent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticketId: ticket.id })
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            // Copy the prompt to clipboard
+            const prompt = `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${ticket.id}-v1.md`;
+            navigator.clipboard.writeText(prompt);
+            
+            // Mark as in progress
+            markInProgress(ticket);
+            
+            setCopied(ticket.id);
+            setTimeout(() => {
+              setCopied(null);
+              setLaunchingTicket(null);
+            }, 3000);
+          } else {
+            console.error('Launch failed:', result.error);
+            setLaunchingTicket(null);
+          }
+        } catch (err) {
+          console.error('Failed to launch agent:', err);
+          setLaunchingTicket(null);
+        }
+      };
       
       // Calculate undocumented and unreviewed features
       const undocumentedFeatures = useMemo(() => {
@@ -4179,7 +4219,57 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                           {worktreeStatus === 'creating' ? '⏳ Creating Worktrees...' : 
                            worktreeStatus === 'done' ? '✓ Worktrees Ready!' : 
                            worktreeStatus === 'error' ? '❌ Error (retry)' :
-                           `▶ Setup & Start All ${nextBatch.length}`}
+                           `▶ Setup Worktrees`}
+                        </button>
+                        <button 
+                          className={`btn ${launchingAll ? 'btn-warning' : 'btn-success'}`}
+                          disabled={launchingAll}
+                          onClick={async () => {
+                            setLaunchingAll(true);
+                            setLaunchAllProgress(0);
+                            
+                            // Launch each agent with a small delay to prevent overwhelming
+                            for (let i = 0; i < nextBatch.length; i++) {
+                              const ticket = nextBatch[i];
+                              setLaunchAllProgress(i + 1);
+                              
+                              try {
+                                await fetch('/api/launch-agent', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ ticketId: ticket.id })
+                                });
+                                
+                                // Small delay between launches
+                                await new Promise(r => setTimeout(r, 1000));
+                              } catch (err) {
+                                console.error(`Failed to launch ${ticket.id}:`, err);
+                              }
+                            }
+                            
+                            // Mark all as in progress
+                            const newInProgress = nextBatch.map(ticket => ({
+                              ticket_id: ticket.id,
+                              title: ticket.title,
+                              branch: `agent/${ticket.id.toLowerCase()}`,
+                              started_at: new Date().toISOString(),
+                              launch_notes: launchNotes[ticket.id] || null,
+                              worktree_path: `../agent-worktrees/${ticket.id}`
+                            }));
+                            onSaveDevStatus({ 
+                              ...devStatus, 
+                              in_progress: [...inProgressItems, ...newInProgress] 
+                            });
+                            
+                            // Copy all prompts to clipboard
+                            copyAllBatch();
+                            
+                            setLaunchingAll(false);
+                            setLaunchAllProgress(0);
+                          }}
+                        >
+                          {launchingAll ? `🚀 Launching ${launchAllProgress}/${nextBatch.length}...` : 
+                           `🚀 Launch All ${nextBatch.length} in Cursor`}
                         </button>
                       </div>
                     </div>
@@ -4434,15 +4524,18 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                                     <div style={{ marginTop: '16px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                                       <button 
                                         className="btn btn-secondary"
-                                        onClick={() => markInProgress(ticket)}
-                                      >
-                                        ▶ Mark In Progress
-                                      </button>
-                                      <button 
-                                        className={`btn ${copied === ticket.id ? 'btn-success' : 'btn-primary'}`}
                                         onClick={() => copyCommand(ticket.id, launchNotes[ticket.id])}
                                       >
-                                        {copied === ticket.id ? 'Copied!' : 'Copy Launch Command'}
+                                        {copied === ticket.id ? '✓ Copied!' : 'Copy Command'}
+                                      </button>
+                                      <button 
+                                        className={`btn ${launchingTicket === ticket.id ? 'btn-warning' : copied === ticket.id ? 'btn-success' : 'btn-primary'}`}
+                                        disabled={launchingTicket === ticket.id}
+                                        onClick={() => launchAgent(ticket)}
+                                      >
+                                        {launchingTicket === ticket.id ? '⏳ Launching...' : 
+                                         copied === ticket.id ? '✓ Cursor Opened! Paste prompt' : 
+                                         '🚀 Launch in Cursor'}
                                       </button>
                                     </div>
                                   </div>
