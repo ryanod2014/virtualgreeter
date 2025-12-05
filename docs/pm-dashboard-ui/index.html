@@ -4626,6 +4626,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
       const [tickets, setTickets] = useState([]);
       const [featuresList, setFeaturesList] = useState([]);
       const [devStatus, setDevStatus] = useState({ in_progress: [], completed: [] });
+      const [agentOutputs, setAgentOutputs] = useState({ blocked: [], completions: [], started: [], findings: [] });
       const [serverDecisions, setServerDecisions] = useState(null);
       const [loading, setLoading] = useState(true);
       const [lastRefresh, setLastRefresh] = useState(null);
@@ -4654,6 +4655,9 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
             }
             if (data.devStatus) {
               setDevStatus(data.devStatus);
+            }
+            if (data.agentOutputs) {
+              setAgentOutputs(data.agentOutputs);
             }
             if (data.featuresList) {
               setFeaturesList(data.featuresList);
@@ -4796,6 +4800,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                 {view === 'pipeline' && <NewPipelineView 
                   tickets={tickets} 
                   devStatus={devStatus}
+                  agentOutputs={agentOutputs}
                   onSaveDevStatus={saveDevStatus}
                   featuresList={featuresList}
                   findings={findings}
