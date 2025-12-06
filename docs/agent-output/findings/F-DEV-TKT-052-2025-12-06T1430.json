@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-052-1",
+  "source": "dev-agent-TKT-052",
+  "title": "Pre-existing type errors blocking build in test files",
+  "category": "bug",
+  "severity": "high",
+  "file": "apps/dashboard/src/features/workbench/workbench-client.tsx",
+  "line": 38,
+  "issue": "Dashboard build fails due to pre-existing type error in workbench-client.tsx line 38. The RecordingSettings type requires rna_timeout_seconds and max_call_duration_minutes fields, but the initial state object doesn't include them. Additionally, there are numerous pre-existing type errors in test files across widget, dashboard, and server packages that were introduced by recent test-lock commits.",
+  "suggestion": "Fix the workbench-client.tsx type error by adding the missing required fields to the initial state: rna_timeout_seconds: 300 (or appropriate default) and max_call_duration_minutes: 60 (or appropriate default). For the test file errors, either fix the type issues or update tsconfig to exclude test files from build-time type checking.",
+  "status": "pending",
+  "found_at": "2025-12-06T14:30:00Z"
+}
