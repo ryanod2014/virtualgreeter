@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TKT-052",
+  "branch": "agent/tkt-052",
+  "started_at": "2025-12-06T14:30:00Z",
+  "files_locking": [
+    "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx"
+  ]
+}
