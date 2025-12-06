@@ -238,7 +238,7 @@ sessionId = `s_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
 ### Security
 | Concern | Mitigation |
 |---------|------------|
-| Unauthorized access | Platform admin only (route protection assumed) |
+| Unauthorized access | **Multi-layer protection verified:** (1) Route-level: `/platform` layout checks `isPlatformAdmin` via `getCurrentUser()` at `apps/dashboard/src/app/(app)/platform/layout.tsx:17-20`, redirects non-admins to `/dashboard`; (2) Database-level: RLS policies on `funnel_events` and `organizations` tables use `is_platform_admin()` function (see `supabase/migrations/20251201000001_add_funnel_events.sql:38-48` and `20251129400000_fix_platform_admin_rls.sql:23-28`); (3) Data-level: `is_platform_admin` flag verified from `users.is_platform_admin` column |
 | Anonymous tracking | RLS allows anon/authenticated inserts (needed for pre-auth tracking) |
 | Read access | RLS policy restricts reads to platform admins only |
 | PII exposure | Visitor IDs are opaque, email only shown if in org |
