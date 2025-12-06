@@ -143,3 +143,4 @@ echo -e "${GREEN}Setup complete!${NC}"
 echo -e "To start working, run:"
 echo -e "  ${BLUE}cd $WORKTREE_DIR${NC}"
 
+

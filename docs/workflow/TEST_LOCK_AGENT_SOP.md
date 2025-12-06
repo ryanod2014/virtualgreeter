@@ -373,3 +373,4 @@ A: Read the feature documentation first. If still unclear, document the uncertai
 | `apps/server/src/features/routing/pool-manager.test.ts` | Complex state machine, multiple scenarios |
 | `apps/dashboard/src/app/api/billing/create-subscription/route.test.ts` | API route testing, Stripe mocking |
 | `apps/server/src/features/signaling/socket-handlers.test.ts` | Event-based testing |
+

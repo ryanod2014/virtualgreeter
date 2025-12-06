@@ -41,3 +41,4 @@ Coverage Stats shows when agents are available throughout the day/week, helping 
 
 - `apps/dashboard/src/lib/stats/coverage-stats.test.ts`
 - Completion report: `docs/agent-output/test-lock/STATS2-[TIMESTAMP].md`
+

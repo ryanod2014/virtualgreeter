@@ -575,3 +575,4 @@ describe("useIdleTimer - Idle Detection Behavior", () => {
     });
   });
 });
+

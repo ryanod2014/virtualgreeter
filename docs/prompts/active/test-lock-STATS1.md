@@ -42,3 +42,4 @@ Agent Stats displays individual agent performance metrics including calls handle
 
 - `apps/dashboard/src/lib/stats/agent-stats.test.ts`
 - Completion report: `docs/agent-output/test-lock/STATS1-[TIMESTAMP].md`
+

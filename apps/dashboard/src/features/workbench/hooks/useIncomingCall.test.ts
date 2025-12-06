@@ -532,3 +532,4 @@ describe("useIncomingCall Integration Scenarios", () => {
     expect(onNotificationClick.notificationClosed).toBe(true);
   });
 });
+

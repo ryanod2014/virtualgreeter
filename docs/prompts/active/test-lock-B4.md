@@ -50,3 +50,4 @@ Pause Subscription allows admins to temporarily pause their subscription, which 
 - `apps/dashboard/src/app/(dashboard)/settings/actions.test.ts` (pause tests)
 - `apps/dashboard/src/lib/stripe.test.ts` (pause tests)
 - Completion report: `docs/agent-output/test-lock/B4-[TIMESTAMP].md`
+

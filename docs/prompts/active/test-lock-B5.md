@@ -57,3 +57,4 @@ Cancel Subscription allows admins to cancel their paid subscription. Access shou
 - `apps/dashboard/src/app/(dashboard)/settings/CancelModal.test.tsx`
 - `apps/server/src/features/webhooks/stripe.test.ts`
 - Completion report: `docs/agent-output/test-lock/B5-[TIMESTAMP].md`
+

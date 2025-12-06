@@ -100,3 +100,4 @@ Check existing tests in `pool-manager.test.ts`. Add any missing behaviors:
 - [ ] Timeout behaviors tested with fake timers
 - [ ] Tests PASS (they test current behavior)
 - [ ] Followed existing mock patterns from existing tests
+

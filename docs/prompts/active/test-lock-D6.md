@@ -42,3 +42,4 @@ Embed Code provides admins with the JavaScript snippet to install the widget on 
 
 - `apps/dashboard/src/features/embed/EmbedCodeDisplay.test.tsx`
 - Completion report: `docs/agent-output/test-lock/D6-[TIMESTAMP].md`
+

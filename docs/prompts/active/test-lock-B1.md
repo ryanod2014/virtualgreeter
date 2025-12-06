@@ -121,3 +121,4 @@ Check existing tests in `route.test.ts`. Add any missing behaviors:
 - [ ] All code paths covered
 - [ ] Tests PASS (they test current behavior)
 - [ ] Followed existing mock patterns from route.test.ts
+

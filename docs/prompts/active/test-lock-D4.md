@@ -53,3 +53,4 @@ Agent Management allows admins to invite, edit, and remove agents from their org
 - `apps/dashboard/src/app/(dashboard)/agents/actions.test.ts`
 - `apps/dashboard/src/features/agents/InviteModal.test.tsx`
 - Completion report: `docs/agent-output/test-lock/D4-[TIMESTAMP].md`
+

@@ -50,3 +50,4 @@ Payment Failure handles what happens when a customer's payment fails. The system
 - `apps/server/src/features/webhooks/stripe.test.ts` (payment failure tests)
 - `apps/dashboard/src/components/PaymentBlocker.test.tsx` (if exists)
 - Completion report: `docs/agent-output/test-lock/B6-[TIMESTAMP].md`
+

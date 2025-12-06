@@ -57,3 +57,4 @@ Billing API provides endpoints for subscription management, seat updates, and St
 - `apps/dashboard/src/app/api/billing/seats/route.test.ts`
 - `apps/server/src/features/webhooks/stripe.test.ts`
 - Completion report: `docs/agent-output/test-lock/API2-[TIMESTAMP].md`
+

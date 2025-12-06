@@ -423,9 +423,20 @@
     },
     {
       "finding_id": "F-023",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "i believe we already d this in admin settings",
+          "timestamp": "2025-12-05T01:20:05.496Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "i believe we already d this in admin settings",
+        "timestamp": "2025-12-05T01:20:05.496Z"
+      }
     },
     {
       "finding_id": "F-024",
@@ -441,9 +452,20 @@
     },
     {
       "finding_id": "F-023",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "i believe we already d this in admin settings",
+          "timestamp": "2025-12-05T01:20:05.496Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "i believe we already d this in admin settings",
+        "timestamp": "2025-12-05T01:20:05.496Z"
+      }
     },
     {
       "finding_id": "F-026",
@@ -516,21 +538,42 @@
     },
     {
       "finding_id": "F-034",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Add explicit warning in UI when admin has empty allowlist: \"Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access.\"",
+        "recommended": true,
+        "timestamp": "2025-12-05T01:22:58.104Z"
+      }
     },
     {
       "finding_id": "F-035",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "this should be a setting they can choose in blocklist settings. it should be like a toggle, if cant determine lcocation block/allow. -- also we should somehow find what our faiilure rate is and disclose that in the ui so they can make a better deciisioni iff they want to toggle or not",
+          "timestamp": "2025-12-05T02:10:41.839Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "this should be a setting they can choose in blocklist settings. it should be like a toggle, if cant determine lcocation block/allow. -- also we should somehow find what our faiilure rate is and disclose that in the ui so they can make a better deciisioni iff they want to toggle or not",
+        "timestamp": "2025-12-05T02:10:41.840Z"
+      }
     },
     {
       "finding_id": "F-036",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-05T02:11:21.091Z"
+      }
     },
     {
       "finding_id": "F-037",
@@ -545,9 +588,20 @@
     },
     {
       "finding_id": "F-038",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "human",
+          "text": "when switching modes it shuld save their data from the other moode in case they switch back",
+          "timestamp": "2025-12-05T02:11:56.761Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "when switching modes it shuld save their data from the other moode in case they switch back",
+        "timestamp": "2025-12-05T02:11:56.761Z"
+      }
     },
     {
       "finding_id": "F-039",
@@ -569,21 +623,53 @@
     },
     {
       "finding_id": "F-042",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-05T02:12:02.967Z"
+      }
     },
     {
       "finding_id": "F-043",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "explain this to me simpler - when would issues occur",
+          "timestamp": "2025-12-05T02:12:42.649Z"
+        },
+        {
+          "role": "system",
+          "text": "Simple example: Say the server has DEFAULT_WIDGET_SETTINGS.buttonColor = 'blue', but the widget code has it as 'green'. When a new org loads with no saved settings, the server sends 'blue' but the widget shows 'green' until the first save. User sees a flash/change. The fix is just moving the constant to one shared file so both always agree. Low priority but easy fix - want me to create a ticket?",
+          "timestamp": "2025-12-05T22:37:45.132Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "explain this to me simpler - when would issues occur",
+        "timestamp": "2025-12-05T02:12:42.649Z"
+      }
     },
     {
       "finding_id": "F-044",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "whats the current ux? i thought they switch to custom all the settings are their org default and they can start changing them one at a time",
+          "timestamp": "2025-12-05T02:13:47.766Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "whats the current ux? i thought they switch to custom all the settings are their org default and they can start changing them one at a time",
+        "timestamp": "2025-12-05T02:13:47.766Z"
+      }
     },
     {
       "finding_id": "F-045",
@@ -623,15 +709,37 @@
     },
     {
       "finding_id": "F-051",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "i think we already have a ticket for this",
+          "timestamp": "2025-12-05T02:14:07.150Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "i think we already have a ticket for this",
+        "timestamp": "2025-12-05T02:14:07.150Z"
+      }
     },
     {
       "finding_id": "F-052",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "i think we already have a ticket for this",
+          "timestamp": "2025-12-05T02:14:27.136Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "i think we already have a ticket for this",
+        "timestamp": "2025-12-05T02:14:27.136Z"
+      }
     },
     {
       "finding_id": "F-053",
@@ -641,21 +749,36 @@
     },
     {
       "finding_id": "F-054",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-05T02:14:40.509Z"
+      }
     },
     {
       "finding_id": "F-055",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-05T02:14:45.218Z"
+      }
     },
     {
       "finding_id": "F-056",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-05T02:15:19.806Z"
+      }
     },
     {
       "finding_id": "F-189",
@@ -735,27 +858,65 @@
     },
     {
       "finding_id": "F-064",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "human",
+          "text": "show UTC in ui",
+          "timestamp": "2025-12-05T02:15:53.603Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "show UTC in ui",
+        "timestamp": "2025-12-05T02:15:53.603Z"
+      }
     },
     {
       "finding_id": "F-065",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "can we know on our end iiff iits working without looking inside facebook?",
+          "timestamp": "2025-12-05T02:16:40.194Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "can we know on our end iiff iits working without looking inside facebook?",
+        "timestamp": "2025-12-05T02:16:40.194Z"
+      }
     },
     {
       "finding_id": "F-066",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "human",
+          "text": "it should just be another stat card in admin call logs tab (where all the other stat cards are)",
+          "timestamp": "2025-12-05T02:17:41.833Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "it should just be another stat card in admin call logs tab (where all the other stat cards are)",
+        "timestamp": "2025-12-05T02:17:41.833Z"
+      }
     },
     {
       "finding_id": "F-067",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Add validation that requires Pixel ID when any Facebook event mappings are configured, or show a warning banner indicating events won't fire without Pixel ID.",
+        "recommended": true,
+        "timestamp": "2025-12-05T02:17:54.611Z"
+      }
     },
     {
       "finding_id": "F-125",
@@ -777,21 +938,48 @@
     },
     {
       "finding_id": "F-071",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "already have a ticket i think",
+          "timestamp": "2025-12-05T02:18:03.876Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "already have a ticket i think",
+        "timestamp": "2025-12-05T02:18:03.876Z"
+      }
     },
     {
       "finding_id": "F-072",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "already have this as a setting in admin settings",
+          "timestamp": "2025-12-05T02:18:34.072Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "already have this as a setting in admin settings",
+        "timestamp": "2025-12-05T02:18:34.072Z"
+      }
     },
     {
       "finding_id": "F-141",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-05T02:18:56.154Z"
+      }
     },
     {
       "finding_id": "F-074",
@@ -879,15 +1067,31 @@
     },
     {
       "finding_id": "F-088",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Prefer idle agents by only entering the least-connections path if no idle agents were found: `if (!bestAgent && load < lowestLoad)` or track `hasIdleCandidate` flag.",
+        "recommended": true,
+        "timestamp": "2025-12-05T02:19:33.480Z"
+      }
     },
     {
       "finding_id": "F-089",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "visitors should not be able to get assigned to agents who were not ini the pool of a page they landed in",
+          "timestamp": "2025-12-05T02:20:44.007Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "visitors should not be able to get assigned to agents who were not ini the pool of a page they landed in",
+        "timestamp": "2025-12-05T02:20:44.007Z"
+      }
     },
     {
       "finding_id": "F-090",
@@ -1213,9 +1417,14 @@
     },
     {
       "finding_id": "F-141",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-05T02:18:56.154Z"
+      }
     },
     {
       "finding_id": "F-142",
@@ -5712,6 +5921,23 @@
       "status": "pending",
       "messages": [],
       "decision": null
+    },
+    {
+      "finding_id": "BLOCKED-TKT-042-1",
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "what is industry best practice",
+          "timestamp": "2025-12-05T22:37:16.061Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "what is industry best practice",
+        "timestamp": "2025-12-05T22:37:16.064Z"
+      }
     }
   ]
 }

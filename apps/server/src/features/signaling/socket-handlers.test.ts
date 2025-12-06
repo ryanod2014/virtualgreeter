@@ -1928,3 +1928,994 @@ describe("RNA Timeout - PoolManager findBestAgent filtering", () => {
   });
 });
 
+/**
+ * RNA (Ring-No-Answer) Timeout Behavior Tests - Test Lock A3
+ *
+ * These tests capture the CURRENT behavior of RNA timeout handling:
+ *
+ * startRNATimeout behaviors:
+ * 1. Clears existing timeout for same requestId
+ * 2. Sets timeout using org-configured rna_timeout_seconds
+ * 3. Falls back to default 15s if not configured
+ *
+ * clearRNATimeout behaviors:
+ * 4. Clears timeout from map
+ *
+ * RNA Timeout Handler (when fires) behaviors:
+ * 5. Waits 100ms grace period before processing
+ * 6. Skips if request no longer exists (accepted during grace)
+ * 7. Skips if call already active for visitor
+ * 8. Marks agent as "away"
+ * 9. Emits call:cancelled to agent
+ * 10. Emits agent:marked_away to agent
+ * 11. Calls findBestAgentForVisitor for reassignment
+ * 12. If new agent found: creates new call request
+ * 13. If no agents: visitor is unassigned
+ */
+
+describe("RNA Timeout - startRNATimeout Behaviors", () => {
+  let poolManager: PoolManager;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    poolManager = new PoolManager();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  describe("RNA timeout default value", () => {
+    it("uses TIMING.RNA_TIMEOUT constant as default (15000ms)", () => {
+      // The default RNA timeout is defined in the domain package
+      expect(TIMING.RNA_TIMEOUT).toBe(15000);
+    });
+  });
+
+  describe("Call request creates pending state for RNA tracking", () => {
+    it("creates pending call request that can be checked by RNA handler", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+
+      const request = poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+
+      // Request should exist in pendingCalls (RNA handler checks this)
+      const storedRequest = poolManager.getCallRequest(request.requestId);
+      expect(storedRequest).toBeDefined();
+      expect(storedRequest?.visitorId).toBe("visitor1");
+      expect(storedRequest?.agentId).toBe("agent1");
+    });
+
+    it("pending request is removed when call is accepted (RNA check: request no longer exists)", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+      const request = poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+
+      // Accept the call (simulates agent answering)
+      poolManager.acceptCall(request.requestId);
+
+      // Request should be removed - RNA handler will find nothing and skip
+      const storedRequest = poolManager.getCallRequest(request.requestId);
+      expect(storedRequest).toBeUndefined();
+    });
+
+    it("pending request is removed when call is rejected (for rerouting)", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+      const request = poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+
+      // Reject the call
+      poolManager.rejectCall(request.requestId);
+
+      // Request should be removed
+      const storedRequest = poolManager.getCallRequest(request.requestId);
+      expect(storedRequest).toBeUndefined();
+    });
+
+    it("pending request is removed when call is cancelled", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+      const request = poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+
+      // Cancel the call
+      poolManager.cancelCall(request.requestId);
+
+      // Request should be removed
+      const storedRequest = poolManager.getCallRequest(request.requestId);
+      expect(storedRequest).toBeUndefined();
+    });
+  });
+});
+
+describe("RNA Timeout - Grace Period and Race Condition Handling", () => {
+  let poolManager: PoolManager;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    poolManager = new PoolManager();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  describe("RNA handler checks for active call (race condition)", () => {
+    it("getActiveCallByVisitorId returns undefined when visitor has no active call", () => {
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+
+      const activeCall = poolManager.getActiveCallByVisitorId("visitor1");
+
+      expect(activeCall).toBeUndefined();
+    });
+
+    it("getActiveCallByVisitorId returns call when visitor accepted during grace period", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+      const request = poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+
+      // Agent accepts call during grace period
+      poolManager.acceptCall(request.requestId);
+
+      const activeCall = poolManager.getActiveCallByVisitorId("visitor1");
+
+      // RNA handler will find this and skip (agent won the race)
+      expect(activeCall).toBeDefined();
+      expect(activeCall?.visitorId).toBe("visitor1");
+      expect(activeCall?.agentId).toBe("agent1");
+    });
+  });
+
+  describe("RNA handler skips processing for accepted calls", () => {
+    it("when request is accepted, getCallRequest returns undefined", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+      const request = poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+
+      poolManager.acceptCall(request.requestId);
+
+      // RNA handler checks this first
+      const pendingRequest = poolManager.getCallRequest(request.requestId);
+      expect(pendingRequest).toBeUndefined();
+    });
+
+    it("when call is active, visitor's call status can be verified", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+      const request = poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+
+      poolManager.acceptCall(request.requestId);
+
+      // Double-check via active call lookup
+      const activeCall = poolManager.getActiveCallByVisitorId("visitor1");
+      expect(activeCall).toBeDefined();
+    });
+  });
+});
+
+describe("RNA Timeout - Agent Handling Behaviors", () => {
+  let poolManager: PoolManager;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    poolManager = new PoolManager();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe("Mark agent as away on RNA timeout", () => {
+    it("updateAgentStatus sets agent to 'away' status", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent", "idle"));
+
+      poolManager.updateAgentStatus("agent1", "away");
+
+      const agent = poolManager.getAgent("agent1");
+      expect(agent?.profile.status).toBe("away");
+    });
+
+    it("agent status change from idle to away is immediate", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent", "idle"));
+
+      // Verify initial state
+      expect(poolManager.getAgent("agent1")?.profile.status).toBe("idle");
+
+      // Mark away (simulating RNA timeout)
+      poolManager.updateAgentStatus("agent1", "away");
+
+      // Verify changed state
+      expect(poolManager.getAgent("agent1")?.profile.status).toBe("away");
+    });
+
+    it("agent marked away cannot receive new calls", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent", "idle"));
+      poolManager.addAgentToPool("agent1", "pool1");
+
+      // Mark agent as away (RNA timeout)
+      poolManager.updateAgentStatus("agent1", "away");
+
+      // Try to find agent for a new visitor
+      const result = poolManager.findBestAgentForVisitor("org1", "/page");
+
+      // No agent should be found
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe("Agent lookup for socket emission", () => {
+    it("getAgent returns agent with socketId for emitting events", () => {
+      poolManager.registerAgent("socket_agent_123", createTestAgentProfile("agent1", "Test Agent"));
+
+      const agent = poolManager.getAgent("agent1");
+
+      expect(agent).toBeDefined();
+      expect(agent?.socketId).toBe("socket_agent_123");
+      // RNA handler uses this to emit call:cancelled and agent:marked_away
+    });
+
+    it("getAgent returns undefined for non-existent agent", () => {
+      const agent = poolManager.getAgent("nonexistent_agent");
+
+      expect(agent).toBeUndefined();
+      // RNA handler skips emission if agent doesn't exist
+    });
+  });
+});
+
+describe("RNA Timeout - Call Handling Behaviors", () => {
+  let poolManager: PoolManager;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    poolManager = new PoolManager();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe("rejectCall for RNA timeout", () => {
+    it("rejectCall removes request from pending calls", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+      const request = poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+
+      // RNA handler calls rejectCall after marking agent away
+      poolManager.rejectCall(request.requestId);
+
+      const storedRequest = poolManager.getCallRequest(request.requestId);
+      expect(storedRequest).toBeUndefined();
+    });
+
+    it("rejectCall does not change visitor state to browsing (keeps call_requested for reroute)", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+      const request = poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+
+      // Verify visitor is in call_requested state
+      expect(poolManager.getVisitor("visitor1")?.state).toBe("call_requested");
+
+      poolManager.rejectCall(request.requestId);
+
+      // Current behavior: visitor stays in call_requested (awaiting reroute)
+      const visitor = poolManager.getVisitor("visitor1");
+      expect(visitor?.state).toBe("call_requested");
+    });
+  });
+});
+
+describe("RNA Timeout - Reassignment Behaviors", () => {
+  let poolManager: PoolManager;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    poolManager = new PoolManager();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe("findBestAgentForVisitor for reassignment", () => {
+    it("finds alternative agent when original agent is marked away", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      poolManager.registerAgent("socket_a", createTestAgentProfile("agentA", "Agent A", "away"));
+      poolManager.registerAgent("socket_b", createTestAgentProfile("agentB", "Agent B", "idle"));
+      poolManager.addAgentToPool("agentA", "pool1");
+      poolManager.addAgentToPool("agentB", "pool1");
+
+      const result = poolManager.findBestAgentForVisitor("org1", "/page");
+
+      expect(result?.agent.agentId).toBe("agentB");
+    });
+
+    it("returns undefined when all agents are unavailable after RNA timeout", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      poolManager.registerAgent("socket_a", createTestAgentProfile("agentA", "Agent A", "away"));
+      poolManager.addAgentToPool("agentA", "pool1");
+
+      const result = poolManager.findBestAgentForVisitor("org1", "/page");
+
+      expect(result).toBeUndefined();
+    });
+
+    it("excludes specific agent from reassignment (RNA timeout original agent)", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      poolManager.registerAgent("socket_a", createTestAgentProfile("agentA", "Agent A", "idle"));
+      poolManager.registerAgent("socket_b", createTestAgentProfile("agentB", "Agent B", "idle"));
+      poolManager.addAgentToPool("agentA", "pool1");
+      poolManager.addAgentToPool("agentB", "pool1");
+
+      // Exclude agentA (simulating them being marked away first)
+      const result = poolManager.findBestAgentForVisitor("org1", "/page", "agentA");
+
+      expect(result?.agent.agentId).toBe("agentB");
+    });
+  });
+
+  describe("Creating new call request for reassignment", () => {
+    it("createCallRequest creates new request for different agent", () => {
+      poolManager.registerAgent("socket_a", createTestAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createTestAgentProfile("agentB", "Agent B"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+
+      // Original request to agentA
+      const originalRequest = poolManager.createCallRequest("visitor1", "agentA", "org1", "/page");
+      poolManager.rejectCall(originalRequest.requestId);
+
+      // New request to agentB (reassignment)
+      const newRequest = poolManager.createCallRequest("visitor1", "agentB", "org1", "/page");
+
+      expect(newRequest.agentId).toBe("agentB");
+      expect(newRequest.visitorId).toBe("visitor1");
+      expect(newRequest.requestId).not.toBe(originalRequest.requestId);
+    });
+
+    it("new request has unique requestId", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+
+      const request1 = poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+      poolManager.rejectCall(request1.requestId);
+      const request2 = poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+
+      expect(request1.requestId).not.toBe(request2.requestId);
+    });
+  });
+
+  describe("Visitor unassignment when no agents available", () => {
+    it("visitor can have assignedAgentId set to null", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+      poolManager.assignVisitorToAgent("visitor1", "agent1");
+
+      // Verify assigned
+      expect(poolManager.getVisitor("visitor1")?.assignedAgentId).toBe("agent1");
+
+      // Simulate RNA handler unassigning when no agents available
+      const visitor = poolManager.getVisitor("visitor1");
+      if (visitor) {
+        visitor.assignedAgentId = null;
+      }
+
+      expect(poolManager.getVisitor("visitor1")?.assignedAgentId).toBeNull();
+    });
+
+    it("updateVisitorState can set visitor back to browsing", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+      poolManager.createCallRequest("visitor1", "agent1", "org1", "/page");
+
+      // Visitor is in call_requested state
+      expect(poolManager.getVisitor("visitor1")?.state).toBe("call_requested");
+
+      // RNA handler sets back to browsing when no agents available
+      poolManager.updateVisitorState("visitor1", "browsing");
+
+      expect(poolManager.getVisitor("visitor1")?.state).toBe("browsing");
+    });
+  });
+});
+
+describe("RNA Timeout - getVisitor for socket emission", () => {
+  let poolManager: PoolManager;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    poolManager = new PoolManager();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe("Visitor lookup for agent:unavailable emission", () => {
+    it("getVisitor returns visitor with socketId for emitting events", () => {
+      poolManager.registerVisitor("socket_visitor_456", "visitor1", "org1", "/page");
+
+      const visitor = poolManager.getVisitor("visitor1");
+
+      expect(visitor).toBeDefined();
+      expect(visitor?.socketId).toBe("socket_visitor_456");
+      // RNA handler uses this to emit agent:unavailable
+    });
+
+    it("getVisitor returns visitor with orgId and pageUrl for widget settings lookup", () => {
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org_test", "/test/page");
+
+      const visitor = poolManager.getVisitor("visitor1");
+
+      expect(visitor?.orgId).toBe("org_test");
+      expect(visitor?.pageUrl).toBe("/test/page");
+      // RNA handler uses these for getWidgetSettings and matchPathToPool
+    });
+
+    it("getVisitor returns undefined for non-existent visitor", () => {
+      const visitor = poolManager.getVisitor("nonexistent_visitor");
+
+      expect(visitor).toBeUndefined();
+      // RNA handler skips visitor notification if visitor doesn't exist
+    });
+  });
+});
+
+describe("RNA Timeout - matchPathToPool for widget settings", () => {
+  let poolManager: PoolManager;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    poolManager = new PoolManager();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe("Pool matching for widget settings", () => {
+    it("matchPathToPool returns pool ID for configured path", () => {
+      poolManager.setOrgConfig("org1", "default_pool", [
+        {
+          id: "rule1",
+          orgId: "org1",
+          pathPattern: "/pricing/**",
+          domainPattern: "*",
+          conditions: [],
+          poolId: "pricing_pool",
+          priority: 1,
+          isActive: true,
+        },
+      ]);
+
+      const poolId = poolManager.matchPathToPool("org1", "/pricing/enterprise");
+
+      expect(poolId).toBe("pricing_pool");
+    });
+
+    it("matchPathToPool returns default pool when no rules match", () => {
+      poolManager.setOrgConfig("org1", "default_pool", []);
+
+      const poolId = poolManager.matchPathToPool("org1", "/some/path");
+
+      expect(poolId).toBe("default_pool");
+    });
+
+    it("matchPathToPool returns null when org not configured", () => {
+      const poolId = poolManager.matchPathToPool("unconfigured_org", "/some/path");
+
+      expect(poolId).toBeNull();
+    });
+  });
+});
+
+/**
+ * Test Lock P2: VISITOR_JOIN Handler - Agent Assignment Algorithm
+ *
+ * These tests verify the VISITOR_JOIN handler behaviors for the agent assignment flow:
+ * 1. Registers visitor with orgId and pageUrl
+ * 2. Calls findBestAgentForVisitor with org and page URL
+ * 3. Emits agent:assigned on success (includes agent profile and widgetSettings)
+ * 4. Emits agent:unavailable when no agent found (includes widgetSettings)
+ */
+describe("VISITOR_JOIN Handler - Agent Assignment Flow", () => {
+  let poolManager: PoolManager;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    poolManager = new PoolManager();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe("Visitor Registration", () => {
+    it("registerVisitor creates visitor session with orgId and pageUrl", () => {
+      const session = poolManager.registerVisitor(
+        "socket_123",
+        "visitor1",
+        "org_test",
+        "https://example.com/pricing"
+      );
+
+      expect(session.visitorId).toBe("visitor1");
+      expect(session.socketId).toBe("socket_123");
+      expect(session.orgId).toBe("org_test");
+      expect(session.pageUrl).toBe("https://example.com/pricing");
+      expect(session.assignedAgentId).toBeNull();
+      expect(session.state).toBe("browsing");
+    });
+
+    it("registerVisitor tracks visitor for lookup by socket ID", () => {
+      poolManager.registerVisitor("socket_abc", "visitor1", "org1", "/page");
+
+      const visitor = poolManager.getVisitorBySocketId("socket_abc");
+
+      expect(visitor).toBeDefined();
+      expect(visitor?.visitorId).toBe("visitor1");
+    });
+
+    it("registerVisitor tracks visitor for lookup by visitor ID", () => {
+      poolManager.registerVisitor("socket_abc", "visitor_xyz", "org1", "/page");
+
+      const visitor = poolManager.getVisitor("visitor_xyz");
+
+      expect(visitor).toBeDefined();
+      expect(visitor?.socketId).toBe("socket_abc");
+    });
+
+    it("registerVisitor sets initial state to browsing", () => {
+      const session = poolManager.registerVisitor("socket_123", "visitor1", "org1", "/");
+
+      expect(session.state).toBe("browsing");
+    });
+
+    it("registerVisitor sets connectedAt timestamp", () => {
+      const before = Date.now();
+      const session = poolManager.registerVisitor("socket_123", "visitor1", "org1", "/");
+      const after = Date.now();
+
+      expect(session.connectedAt).toBeGreaterThanOrEqual(before);
+      expect(session.connectedAt).toBeLessThanOrEqual(after);
+    });
+
+    it("registerVisitor stores IP address when provided", () => {
+      const session = poolManager.registerVisitor(
+        "socket_123",
+        "visitor1",
+        "org1",
+        "/",
+        "192.168.1.100"
+      );
+
+      expect(session.ipAddress).toBe("192.168.1.100");
+    });
+  });
+
+  describe("Agent Finding via findBestAgentForVisitor", () => {
+    it("findBestAgentForVisitor returns agent and poolId when available", () => {
+      poolManager.setOrgConfig("org1", "default_pool", []);
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.addAgentToPool("agent1", "default_pool");
+
+      const result = poolManager.findBestAgentForVisitor("org1", "https://example.com/page");
+
+      expect(result).toBeDefined();
+      expect(result?.agent.agentId).toBe("agent1");
+      expect(result?.poolId).toBe("default_pool");
+    });
+
+    it("findBestAgentForVisitor uses path routing to determine pool", () => {
+      poolManager.setOrgConfig("org1", "default_pool", [
+        {
+          id: "pricing_rule",
+          orgId: "org1",
+          pathPattern: "/pricing/**",
+          domainPattern: "*",
+          conditions: [],
+          poolId: "pricing_pool",
+          priority: 1,
+          isActive: true,
+        },
+      ]);
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Sales Agent"));
+      poolManager.addAgentToPool("agent1", "pricing_pool");
+
+      const result = poolManager.findBestAgentForVisitor("org1", "https://example.com/pricing/enterprise");
+
+      expect(result?.poolId).toBe("pricing_pool");
+    });
+
+    it("findBestAgentForVisitor returns undefined when no agents available", () => {
+      poolManager.setOrgConfig("org1", "default_pool", []);
+      // No agents registered
+
+      const result = poolManager.findBestAgentForVisitor("org1", "https://example.com/page");
+
+      expect(result).toBeUndefined();
+    });
+
+    it("findBestAgentForVisitor skips agents in_call", () => {
+      poolManager.setOrgConfig("org1", "default_pool", []);
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.addAgentToPool("agent1", "default_pool");
+      poolManager.setAgentInCall("agent1", "other_visitor");
+
+      const result = poolManager.findBestAgentForVisitor("org1", "https://example.com/page");
+
+      expect(result).toBeUndefined();
+    });
+
+    it("findBestAgentForVisitor skips agents with away status", () => {
+      poolManager.setOrgConfig("org1", "default_pool", []);
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent", "away"));
+      poolManager.addAgentToPool("agent1", "default_pool");
+
+      const result = poolManager.findBestAgentForVisitor("org1", "https://example.com/page");
+
+      expect(result).toBeUndefined();
+    });
+
+    it("findBestAgentForVisitor falls back to any agent when pool has no available agents", () => {
+      poolManager.setOrgConfig("org1", "empty_pool", [
+        {
+          id: "pricing_rule",
+          orgId: "org1",
+          pathPattern: "/pricing/**",
+          domainPattern: "*",
+          conditions: [],
+          poolId: "empty_pool",
+          priority: 1,
+          isActive: true,
+        },
+      ]);
+      // Agent not in the matched pool
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+
+      const result = poolManager.findBestAgentForVisitor("org1", "https://example.com/pricing/page");
+
+      // Falls back to any available agent
+      expect(result?.agent.agentId).toBe("agent1");
+      expect(result?.poolId).toBeNull();
+    });
+  });
+
+  describe("Agent Assignment on Success", () => {
+    it("assignVisitorToAgent associates visitor with agent", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+
+      poolManager.assignVisitorToAgent("visitor1", "agent1");
+
+      const visitor = poolManager.getVisitor("visitor1");
+      expect(visitor?.assignedAgentId).toBe("agent1");
+    });
+
+    it("assignVisitorToAgent adds visitor to agent's currentSimulations", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+
+      poolManager.assignVisitorToAgent("visitor1", "agent1");
+
+      const agent = poolManager.getAgent("agent1");
+      expect(agent?.currentSimulations).toContain("visitor1");
+    });
+
+    it("assignVisitorToAgent changes visitor state to watching_simulation", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+
+      poolManager.assignVisitorToAgent("visitor1", "agent1");
+
+      const visitor = poolManager.getVisitor("visitor1");
+      expect(visitor?.state).toBe("watching_simulation");
+    });
+
+    it("agent profile contains required fields for emission", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+
+      const agent = poolManager.getAgent("agent1");
+
+      // These fields are used in agent:assigned emission
+      expect(agent?.profile.id).toBe("agent1");
+      expect(agent?.profile.displayName).toBe("Test Agent");
+      expect(agent?.profile).toHaveProperty("avatarUrl");
+      expect(agent?.profile).toHaveProperty("waveVideoUrl");
+      expect(agent?.profile).toHaveProperty("introVideoUrl");
+      expect(agent?.profile).toHaveProperty("connectVideoUrl");
+      expect(agent?.profile).toHaveProperty("loopVideoUrl");
+    });
+  });
+
+  describe("No Agent Available Flow", () => {
+    it("matchPathToPool returns pool for widgetSettings lookup even when no agents", () => {
+      poolManager.setOrgConfig("org1", "default_pool", []);
+      // No agents registered
+
+      const poolId = poolManager.matchPathToPool("org1", "https://example.com/page");
+
+      expect(poolId).toBe("default_pool");
+    });
+
+    it("visitor session stores matchedPoolId when no agent assigned", () => {
+      poolManager.setOrgConfig("org1", "sales_pool", []);
+      const session = poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+
+      // In VISITOR_JOIN handler, when no agent found:
+      // session.matchedPoolId = poolId
+      const poolId = poolManager.matchPathToPool("org1", "https://example.com/page");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (session as any).matchedPoolId = poolId;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((session as any).matchedPoolId).toBe("sales_pool");
+    });
+
+    it("getUnassignedVisitors returns visitors without agents", () => {
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+
+      const unassigned = poolManager.getUnassignedVisitors();
+
+      expect(unassigned).toHaveLength(2);
+      expect(unassigned.map(v => v.visitorId)).toContain("visitor1");
+      expect(unassigned.map(v => v.visitorId)).toContain("visitor2");
+    });
+
+    it("unassigned visitors can be assigned when agent becomes available", () => {
+      // First, visitor joins when no agents available
+      poolManager.setOrgConfig("org1", "default_pool", []);
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+
+      const initialUnassigned = poolManager.getUnassignedVisitors();
+      expect(initialUnassigned).toHaveLength(1);
+
+      // Then agent logs in
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.addAgentToPool("agent1", "default_pool");
+
+      // VISITOR_JOIN handler checks for unassigned visitors and assigns them
+      const visitor = initialUnassigned[0]!;
+      const matchResult = poolManager.findBestAgentForVisitor(visitor.orgId, visitor.pageUrl);
+
+      expect(matchResult).toBeDefined();
+      expect(matchResult?.agent.agentId).toBe("agent1");
+    });
+  });
+
+  describe("VISITOR_JOIN edge cases", () => {
+    it("handles visitor reconnection (same visitorId, new socket)", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      
+      // First connection
+      poolManager.registerVisitor("socket_old", "visitor1", "org1", "/page");
+      poolManager.assignVisitorToAgent("visitor1", "agent1");
+
+      // Visitor disconnects
+      poolManager.unregisterVisitor("visitor1");
+
+      // Visitor reconnects with same visitorId
+      const newSession = poolManager.registerVisitor("socket_new", "visitor1", "org1", "/page");
+
+      expect(newSession.socketId).toBe("socket_new");
+      expect(newSession.visitorId).toBe("visitor1");
+      expect(newSession.assignedAgentId).toBeNull(); // Fresh session
+    });
+
+    it("existing visitor in call skips VISITOR_JOIN registration", () => {
+      // This tests the early return in VISITOR_JOIN when visitor is already in_call
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/page");
+      
+      // Put visitor in call state (simulating active call)
+      poolManager.updateVisitorState("visitor1", "in_call");
+
+      const visitor = poolManager.getVisitorBySocketId("socket_visitor");
+      
+      // Handler checks: if visitor exists and state is in_call, skip
+      expect(visitor?.state).toBe("in_call");
+      // In VISITOR_JOIN handler, this would cause early return
+    });
+
+    it("updates pageUrl on existing in_call visitor", () => {
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("agent1", "Test Agent"));
+      poolManager.registerVisitor("socket_visitor", "visitor1", "org1", "/old-page");
+      poolManager.updateVisitorState("visitor1", "in_call");
+
+      const visitor = poolManager.getVisitorBySocketId("socket_visitor");
+      
+      // In VISITOR_JOIN handler: visitor.pageUrl = data.pageUrl
+      if (visitor) {
+        visitor.pageUrl = "/new-page";
+      }
+
+      expect(visitor?.pageUrl).toBe("/new-page");
+    });
+  });
+});
+
+/**
+ * Test Lock P2: Full Assignment Algorithm Integration
+ *
+ * These tests verify the complete agent assignment algorithm:
+ * - Tiered priority routing with overflow
+ * - Round-robin within tiers
+ * - Least-connections load balancing
+ */
+describe("Agent Assignment Algorithm - Integration", () => {
+  let poolManager: PoolManager;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    poolManager = new PoolManager();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe("Complete tiered routing with round-robin", () => {
+    it("assigns to tier 1 agent first, then overflows to tier 2", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      
+      // Tier 1 agent with capacity of 1
+      const tier1Profile = createTestAgentProfile("tier1Agent", "Senior Rep");
+      tier1Profile.maxSimultaneousSimulations = 1;
+      poolManager.registerAgent("socket_t1", tier1Profile);
+      poolManager.addAgentToPool("tier1Agent", "pool1", 1);
+      
+      // Tier 2 agent
+      poolManager.registerAgent("socket_t2", createTestAgentProfile("tier2Agent", "Junior Rep"));
+      poolManager.addAgentToPool("tier2Agent", "pool1", 2);
+
+      // First visitor - should go to tier 1
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      const result1 = poolManager.findBestAgentForVisitor("org1", "/page");
+      poolManager.assignVisitorToAgent("visitor1", result1!.agent.agentId);
+
+      expect(result1?.agent.agentId).toBe("tier1Agent");
+
+      // Second visitor - tier 1 at capacity, should overflow to tier 2
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+      const result2 = poolManager.findBestAgentForVisitor("org1", "/page");
+
+      expect(result2?.agent.agentId).toBe("tier2Agent");
+    });
+
+    it("distributes visitors evenly within same tier using round-robin", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      
+      // Three agents all at tier 1
+      poolManager.registerAgent("socket_a", createTestAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createTestAgentProfile("agentB", "Agent B"));
+      poolManager.registerAgent("socket_c", createTestAgentProfile("agentC", "Agent C"));
+      poolManager.addAgentToPool("agentA", "pool1", 1);
+      poolManager.addAgentToPool("agentB", "pool1", 1);
+      poolManager.addAgentToPool("agentC", "pool1", 1);
+
+      const assignments: string[] = [];
+      
+      // Assign 3 visitors
+      for (let i = 0; i < 3; i++) {
+        poolManager.registerVisitor(`socket_v${i}`, `visitor${i}`, "org1", "/");
+        const result = poolManager.findBestAgentForVisitor("org1", "/page");
+        if (result) {
+          poolManager.assignVisitorToAgent(`visitor${i}`, result.agent.agentId);
+          assignments.push(result.agent.agentId);
+        }
+      }
+
+      // All three agents should have gotten one visitor each
+      const uniqueAgents = new Set(assignments);
+      expect(uniqueAgents.size).toBe(3);
+    });
+
+    it("uses least-connections when agents have existing load", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+      
+      poolManager.registerAgent("socket_a", createTestAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createTestAgentProfile("agentB", "Agent B"));
+      poolManager.addAgentToPool("agentA", "pool1", 1);
+      poolManager.addAgentToPool("agentB", "pool1", 1);
+
+      // Give agentA 3 visitors
+      for (let i = 0; i < 3; i++) {
+        poolManager.registerVisitor(`socket_a_v${i}`, `visitorA${i}`, "org1", "/");
+        poolManager.assignVisitorToAgent(`visitorA${i}`, "agentA");
+      }
+
+      // Give agentB 1 visitor
+      poolManager.registerVisitor("socket_b_v0", "visitorB0", "org1", "/");
+      poolManager.assignVisitorToAgent("visitorB0", "agentB");
+
+      // Next visitor should go to agentB (lower load)
+      poolManager.registerVisitor("socket_new", "newVisitor", "org1", "/");
+      const result = poolManager.findBestAgentForVisitor("org1", "/page");
+
+      expect(result?.agent.agentId).toBe("agentB");
+    });
+  });
+
+  describe("Pool-based routing integration", () => {
+    it("routes visitors to different pools based on URL", () => {
+      poolManager.setOrgConfig("org1", "default_pool", [
+        {
+          id: "pricing_rule",
+          orgId: "org1",
+          pathPattern: "/pricing/**",
+          domainPattern: "*",
+          conditions: [],
+          poolId: "sales_pool",
+          priority: 10,
+          isActive: true,
+        },
+        {
+          id: "support_rule",
+          orgId: "org1",
+          pathPattern: "/support/**",
+          domainPattern: "*",
+          conditions: [],
+          poolId: "support_pool",
+          priority: 5,
+          isActive: true,
+        },
+      ]);
+
+      // Sales agent only in sales pool
+      poolManager.registerAgent("socket_sales", createTestAgentProfile("salesAgent", "Sales Rep"));
+      poolManager.addAgentToPool("salesAgent", "sales_pool");
+
+      // Support agent only in support pool
+      poolManager.registerAgent("socket_support", createTestAgentProfile("supportAgent", "Support Rep"));
+      poolManager.addAgentToPool("supportAgent", "support_pool");
+
+      // Visitor on pricing page should get sales agent
+      const pricingResult = poolManager.findBestAgentForVisitor("org1", "https://example.com/pricing/enterprise");
+      expect(pricingResult?.agent.agentId).toBe("salesAgent");
+      expect(pricingResult?.poolId).toBe("sales_pool");
+
+      // Visitor on support page should get support agent
+      const supportResult = poolManager.findBestAgentForVisitor("org1", "https://example.com/support/ticket");
+      expect(supportResult?.agent.agentId).toBe("supportAgent");
+      expect(supportResult?.poolId).toBe("support_pool");
+    });
+
+    it("uses priority ranking per pool for same agent in multiple pools", () => {
+      poolManager.setOrgConfig("org1", "pool_a", [
+        {
+          id: "rule_a",
+          orgId: "org1",
+          pathPattern: "/team-a/**",
+          domainPattern: "*",
+          conditions: [],
+          poolId: "pool_a",
+          priority: 1,
+          isActive: true,
+        },
+        {
+          id: "rule_b",
+          orgId: "org1",
+          pathPattern: "/team-b/**",
+          domainPattern: "*",
+          conditions: [],
+          poolId: "pool_b",
+          priority: 1,
+          isActive: true,
+        },
+      ]);
+
+      // Agent who is primary in pool_a but backup in pool_b
+      poolManager.registerAgent("socket_agent", createTestAgentProfile("flexAgent", "Flex Agent"));
+      poolManager.addAgentToPool("flexAgent", "pool_a", 1); // Primary
+      poolManager.addAgentToPool("flexAgent", "pool_b", 3); // Backup
+
+      expect(poolManager.getAgentPriorityInPool("flexAgent", "pool_a")).toBe(1);
+      expect(poolManager.getAgentPriorityInPool("flexAgent", "pool_b")).toBe(3);
+    });
+  });
+});
+

@@ -59,3 +59,4 @@ Password Reset allows users to reset their password via email. Includes request 
 - `apps/dashboard/src/app/(auth)/forgot-password/page.test.tsx`
 - `apps/dashboard/src/app/(auth)/reset-password/page.test.tsx`
 - Completion report: `docs/agent-output/test-lock/AUTH4-[TIMESTAMP].md`
+
