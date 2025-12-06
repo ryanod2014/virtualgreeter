@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-004c-1",
+  "source": "dev-agent-TKT-004c",
+  "title": "Pre-existing TypeScript errors in server test files",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/server/src/features/billing/stripe-webhook-handler.test.ts",
+  "line": 24,
+  "issue": "Multiple pre-existing TypeScript errors in server test files that prevent build from passing. These include unused imports (webhookSecret, isSupabaseConfigured), unused variables (originalStripe, result, etc.), and type errors in test files like health.test.ts, pool-manager.test.ts, and socket-handlers.test.ts. While tests pass when run with vitest, the TypeScript compilation fails which prevents the build step from succeeding.",
+  "suggestion": "Fix pre-existing type errors in test files: 1) Remove unused imports and variables (webhookSecret, isSupabaseConfigured, originalStripe, result, etc.) 2) Add proper type assertions or fix the type errors in health.test.ts, pool-manager.test.ts, and socket-handlers.test.ts. Consider adding a CI check to prevent new type errors from being introduced.",
+  "status": "pending",
+  "found_at": "2025-12-06T10:16:00Z"
+}
