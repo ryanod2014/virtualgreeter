@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { AgentSidebar } from "@/features/workbench/agent-sidebar";
 import { useSignalingContext } from "@/features/signaling/signaling-provider";
 import { FeedbackButtons } from "@/features/feedback";
+import { PaymentBlocker } from "@/components/PaymentBlocker";
 import type { User, Organization, AgentProfile } from "@ghost-greeter/domain/database.types";
 
 interface DashboardLayoutClientProps {
@@ -31,8 +32,14 @@ export function DashboardLayoutClient({
     stats,
   } = useSignalingContext();
 
+  // Check if organization has payment issues
+  const isPastDue = organization.subscription_status === "past_due";
+
   return (
     <div className="min-h-screen bg-background dark relative overflow-hidden">
+      {/* Payment blocker - shows when subscription is past_due */}
+      {isPastDue && <PaymentBlocker isAdmin={isAdmin} />}
+
       {/* Background effects - matching landing page */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="glow-orb w-[600px] h-[600px] -top-[300px] left-1/2 -translate-x-1/2 bg-primary/15" />
