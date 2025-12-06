@@ -1,0 +1,10 @@
+{
+  "ticket_id": "TKT-014",
+  "branch": "agent/tkt-014",
+  "started_at": "2025-12-06T07:54:00Z",
+  "files_locking": [
+    "apps/widget/src/features/call/CallUI.tsx",
+    "apps/widget/src/features/call/RecordingBadge.tsx",
+    "apps/widget/src/styles.css"
+  ]
+}
