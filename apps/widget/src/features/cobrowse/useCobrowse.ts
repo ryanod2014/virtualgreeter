@@ -10,6 +10,63 @@ interface UseCobrowseOptions {
 }
 
 /**
+ * Compress HTML string using gzip compression
+ * Falls back to uncompressed if CompressionStream is not available
+ */
+async function compressHTML(html: string): Promise<{ compressed: string; isCompressed: boolean; originalSize: number; compressedSize: number }> {
+  const originalSize = new Blob([html]).size;
+
+  // Check if CompressionStream is available (modern browsers)
+  if (typeof CompressionStream === 'undefined') {
+    console.warn('[Cobrowse] CompressionStream not available, sending uncompressed');
+    return {
+      compressed: html,
+      isCompressed: false,
+      originalSize,
+      compressedSize: originalSize,
+    };
+  }
+
+  try {
+    // Create a blob from the HTML string
+    const blob = new Blob([html]);
+    const stream = blob.stream();
+
+    // Compress using gzip
+    const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
+
+    // Convert compressed stream to base64 string for transmission
+    const compressedBlob = await new Response(compressedStream).blob();
+    const arrayBuffer = await compressedBlob.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    // Convert to base64
+    let binary = '';
+    for (let i = 0; i < uint8Array.byteLength; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const compressed = btoa(binary);
+
+    const compressedSize = new Blob([compressed]).size;
+
+    return {
+      compressed,
+      isCompressed: true,
+      originalSize,
+      compressedSize,
+    };
+  } catch (err) {
+    console.error('[Cobrowse] Compression failed, sending uncompressed:', err);
+    return {
+      compressed: html,
+      isCompressed: false,
+      originalSize,
+      compressedSize: originalSize,
+    };
+  }
+}
+
+/**
  * useCobrowse - Captures DOM, mouse position, and scroll for co-browsing
  *
  * When in a call, this hook streams the visitor's screen to the agent:
@@ -34,7 +91,7 @@ export function useCobrowse({ socket, isInCall }: UseCobrowseOptions): void {
   /**
    * Capture DOM snapshot and send to agent
    */
-  const captureSnapshot = useCallback(() => {
+  const captureSnapshot = useCallback(async () => {
     if (!socketRef.current || !isActiveRef.current) return;
 
     try {
@@ -104,8 +161,22 @@ export function useCobrowse({ socket, isInCall }: UseCobrowseOptions): void {
       }
       lastSnapshotRef.current = snapshotKey;
 
+      // Compress the HTML
+      const { compressed, isCompressed, originalSize, compressedSize } = await compressHTML(html);
+
+      // Log if DOM is large (>500KB uncompressed)
+      if (originalSize > 500 * 1024) {
+        console.warn('[Cobrowse] Large DOM detected:', {
+          originalSize: `${Math.round(originalSize / 1024)}KB`,
+          compressedSize: `${Math.round(compressedSize / 1024)}KB`,
+          compressionRatio: `${Math.round((1 - compressedSize / originalSize) * 100)}%`,
+          url: window.location.href,
+        });
+      }
+
       const payload = {
-        html,
+        html: compressed,
+        isCompressed,
         url: window.location.href,
         title: document.title,
         viewport: {
