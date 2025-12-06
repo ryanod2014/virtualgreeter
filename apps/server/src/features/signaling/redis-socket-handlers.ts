@@ -59,6 +59,7 @@ import {
 import { recordEmbedVerification } from "../../lib/embed-tracker.js";
 import { recordPageview } from "../../lib/pageview-logger.js";
 import { getWidgetSettings } from "../../lib/widget-settings.js";
+import { getCallSettings } from "../../lib/call-settings.js";
 import { getClientIP, getLocationFromIP } from "../../lib/geolocation.js";
 import { isCountryBlocked } from "../../lib/country-blocklist.js";
 import { trackWidgetView, trackCallStarted } from "../../lib/greetnow-retargeting.js";
@@ -649,6 +650,9 @@ export function setupRedisSocketHandlers(io: AppServer, poolManager: RedisPoolMa
         return;
       }
 
+      // Fetch org call settings for recording status
+      const callSettings = await getCallSettings(request.orgId);
+
       const activeCall = await poolManager.acceptCall(data.requestId);
       if (!activeCall) {
         socket.emit(SOCKET_EVENTS.ERROR, {
@@ -679,6 +683,7 @@ export function setupRedisSocketHandlers(io: AppServer, poolManager: RedisPoolMa
           callId: activeCall.callId,
           agentId: request.agentId,
           reconnectToken: reconnectToken ?? "",
+          isRecordingEnabled: callSettings.is_recording_enabled,
         });
       }
 
