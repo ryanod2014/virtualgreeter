@@ -511,6 +511,38 @@ function handleAPI(req, res, body) {
     return true;
   }
   
+  // GET /api/file?path=... - Read a file's contents (for displaying reports)
+  if (req.method === 'GET' && url.startsWith('/api/file?')) {
+    try {
+      const params = new URLSearchParams(url.split('?')[1]);
+      const filePath = params.get('path');
+      
+      if (!filePath) {
+        throw new Error('Missing path parameter');
+      }
+      
+      // Security: Only allow reading from docs/ directory
+      if (!filePath.startsWith('docs/')) {
+        throw new Error('Can only read files from docs/ directory');
+      }
+      
+      // Resolve relative to project root (parent of pm-dashboard-ui)
+      const fullPath = path.join(__dirname, '../..', filePath);
+      
+      if (!fs.existsSync(fullPath)) {
+        throw new Error(`File not found: ${filePath}`);
+      }
+      
+      const content = fs.readFileSync(fullPath, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end(content);
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
   // POST /api/dev-status - Save dev status (blocked, in_progress, etc.)
   if (req.method === 'POST' && url === '/api/dev-status') {
     try {

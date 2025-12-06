@@ -783,10 +783,36 @@
     }
 
     function ReviewModal({ item, ticket, onClose, onApprove, onRequestFixes }) {
+      const [reportContent, setReportContent] = useState(null);
+      const [reportLoading, setReportLoading] = useState(false);
+      const [reportError, setReportError] = useState(null);
+      const [showReport, setShowReport] = useState(true);
+      
+      // Fetch report content when modal opens
+      useEffect(() => {
+        if (item?.completion_file) {
+          setReportLoading(true);
+          setReportError(null);
+          fetch(`/api/file?path=${encodeURIComponent(item.completion_file)}`)
+            .then(res => {
+              if (!res.ok) throw new Error('Failed to load report');
+              return res.text();
+            })
+            .then(content => {
+              setReportContent(content);
+              setReportLoading(false);
+            })
+            .catch(err => {
+              setReportError(err.message);
+              setReportLoading(false);
+            });
+        }
+      }, [item?.completion_file]);
+      
       if (!item || !ticket) return null;
       return (
         <div className="modal-overlay" onClick={onClose}>
-          <div className="modal fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+          <div className="modal fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <div className="modal-header" style={{ borderBottom: '3px solid var(--success)' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
@@ -800,7 +826,7 @@
               </div>
               <button className="btn btn-sm btn-secondary" onClick={onClose}>×</button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body" style={{ overflow: 'auto', flex: 1 }}>
               {/* Completion Info */}
               <div style={{ padding: '16px', background: 'rgba(16,185,129,0.1)', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)', marginBottom: '16px' }}>
                 <div style={{ fontSize: '12px', color: 'var(--success)', fontWeight: 600, marginBottom: '8px' }}>✅ Completion Details</div>
@@ -810,12 +836,61 @@
                 <div style={{ fontSize: '13px', marginBottom: '4px' }}>
                   <strong>Completed:</strong> {new Date(item.completed_at).toLocaleString()}
                 </div>
-                {item.completion_file && (
-                  <div style={{ fontSize: '13px' }}>
-                    <strong>Report:</strong> <code style={{ fontSize: '11px' }}>{item.completion_file}</code>
-                  </div>
-                )}
               </div>
+              
+              {/* Agent Report */}
+              {item.completion_file && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div 
+                    style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      padding: '12px 16px',
+                      background: 'var(--bg-elevated)',
+                      borderRadius: showReport ? '8px 8px 0 0' : '8px',
+                      cursor: 'pointer',
+                      border: '1px solid var(--border)'
+                    }}
+                    onClick={() => setShowReport(!showReport)}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '14px' }}>📄</span>
+                      <span style={{ fontSize: '13px', fontWeight: 600 }}>Agent Completion Report</span>
+                      <code style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{item.completion_file.split('/').pop()}</code>
+                    </div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{showReport ? '▼' : '▶'}</span>
+                  </div>
+                  {showReport && (
+                    <div style={{ 
+                      padding: '16px', 
+                      background: 'var(--bg-base)', 
+                      border: '1px solid var(--border)',
+                      borderTop: 'none',
+                      borderRadius: '0 0 8px 8px',
+                      maxHeight: '400px',
+                      overflow: 'auto'
+                    }}>
+                      {reportLoading && (
+                        <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Loading report...</div>
+                      )}
+                      {reportError && (
+                        <div style={{ color: 'var(--critical)', fontSize: '13px' }}>Error: {reportError}</div>
+                      )}
+                      {reportContent && (
+                        <pre style={{ 
+                          margin: 0, 
+                          whiteSpace: 'pre-wrap', 
+                          wordBreak: 'break-word',
+                          fontSize: '12px',
+                          lineHeight: '1.6',
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+                        }}>{reportContent}</pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div className="section">
                 <div className="section-title">Issue</div>
