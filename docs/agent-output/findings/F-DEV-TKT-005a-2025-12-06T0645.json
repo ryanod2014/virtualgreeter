@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-005a-1",
+  "source": "dev-agent-TKT-005a",
+  "title": "Pre-existing TypeScript errors in widget test files",
+  "category": "bug",
+  "severity": "high",
+  "file": "apps/widget/src/**/*.test.ts(x)",
+  "line": null,
+  "issue": "Multiple TypeScript errors exist in widget test files (useCobrowse.test.ts, useSignaling.test.ts, VideoSequencer.test.tsx, LiveCallView.test.tsx, useWebRTC.test.ts, main.test.ts, Widget.test.tsx). These errors include type mismatches with Mock types, possibly undefined objects, and Window type conversions. These are pre-existing errors not caused by TKT-005a changes. The errors prevent `pnpm typecheck` from passing.",
+  "suggestion": "Fix the 40+ TypeScript errors in widget test files. Common issues: 1) Mock type assignments to setTimeout/clearTimeout, 2) Objects possibly undefined, 3) Window type conversions. Consider running typecheck regularly in CI to catch these earlier.",
+  "status": "pending",
+  "found_at": "2025-12-06T06:45:25Z"
+}
