@@ -13,7 +13,7 @@ const DEFAULT_EXPIRATION = 3600; // 1 hour in seconds
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // Verify user is authenticated
     const { data: { user }, error: authError } = await supabase.auth.getUser();
