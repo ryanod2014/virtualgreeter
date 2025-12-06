@@ -4,6 +4,9 @@ import {
   getStoredWidgetState,
   clearStoredWidgetState,
   shouldSkipIntroForAgent,
+  storeActiveCall,
+  getStoredCall,
+  clearStoredCall,
 } from "./useSignaling";
 
 // Mock localStorage
@@ -362,6 +365,282 @@ describe("Widget State Persistence (P2-003)", () => {
       });
 
       expect(shouldSkip).toBe(false);
+    });
+  });
+});
+
+/**
+ * Call Reconnection Token Storage Tests (V4)
+ *
+ * Tests for call reconnection functionality that allows visitors to maintain
+ * active call state when navigating between pages on a website.
+ *
+ * Key behaviors tested:
+ * - storeActiveCall: Saves call data (reconnectToken, callId, agentId, orgId, timestamp)
+ * - getStoredCall: Retrieves and validates stored call (expiry, org match)
+ * - clearStoredCall: Removes call data from localStorage
+ */
+describe("Call Reconnection Token Storage (V4)", () => {
+  beforeEach(() => {
+    localStorageMock.clear();
+    vi.clearAllMocks();
+  });
+
+  describe("storeActiveCall", () => {
+    it("saves reconnectToken, callId, agentId, orgId, timestamp to localStorage", () => {
+      const callData = {
+        reconnectToken: "token-abc123",
+        callId: "call-456",
+        agentId: "agent-789",
+        orgId: "org-xyz",
+      };
+
+      storeActiveCall(callData);
+
+      expect(localStorageMock.setItem).toHaveBeenCalledTimes(1);
+      const storedValue = localStorageMock.setItem.mock.calls[0]?.[1];
+      const parsed = JSON.parse(storedValue);
+
+      expect(parsed.reconnectToken).toBe("token-abc123");
+      expect(parsed.callId).toBe("call-456");
+      expect(parsed.agentId).toBe("agent-789");
+      expect(parsed.orgId).toBe("org-xyz");
+      expect(parsed.timestamp).toBeDefined();
+      expect(typeof parsed.timestamp).toBe("number");
+    });
+
+    it("uses correct storage key (gg_active_call)", () => {
+      storeActiveCall({
+        reconnectToken: "token-123",
+        callId: "call-123",
+        agentId: "agent-123",
+        orgId: "org-123",
+      });
+
+      expect(localStorageMock.setItem).toHaveBeenCalledWith(
+        "gg_active_call",
+        expect.any(String)
+      );
+    });
+
+    it("adds current timestamp to stored data", () => {
+      const beforeTime = Date.now();
+
+      storeActiveCall({
+        reconnectToken: "token-123",
+        callId: "call-123",
+        agentId: "agent-123",
+        orgId: "org-123",
+      });
+
+      const afterTime = Date.now();
+      const storedValue = localStorageMock.setItem.mock.calls[0]?.[1];
+      const parsed = JSON.parse(storedValue);
+
+      expect(parsed.timestamp).toBeGreaterThanOrEqual(beforeTime);
+      expect(parsed.timestamp).toBeLessThanOrEqual(afterTime);
+    });
+
+    it("overwrites existing stored call data", () => {
+      storeActiveCall({
+        reconnectToken: "first-token",
+        callId: "first-call",
+        agentId: "first-agent",
+        orgId: "first-org",
+      });
+
+      storeActiveCall({
+        reconnectToken: "second-token",
+        callId: "second-call",
+        agentId: "second-agent",
+        orgId: "second-org",
+      });
+
+      expect(localStorageMock.setItem).toHaveBeenCalledTimes(2);
+      const lastStoredValue = localStorageMock.setItem.mock.calls[1]?.[1];
+      const parsed = JSON.parse(lastStoredValue);
+
+      expect(parsed.reconnectToken).toBe("second-token");
+      expect(parsed.callId).toBe("second-call");
+    });
+  });
+
+  describe("getStoredCall", () => {
+    it("returns null if no stored call exists", () => {
+      localStorageMock.getItem.mockReturnValueOnce(null);
+
+      const result = getStoredCall("org-123");
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null if stored call expired (>30 seconds)", () => {
+      const expiredCall = {
+        reconnectToken: "token-123",
+        callId: "call-123",
+        agentId: "agent-123",
+        orgId: "org-123",
+        timestamp: Date.now() - 31 * 1000, // 31 seconds ago (expired)
+      };
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(expiredCall));
+
+      const result = getStoredCall("org-123");
+
+      expect(result).toBeNull();
+      // Should also clear the expired call
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith("gg_active_call");
+    });
+
+    it("returns null if orgId doesn't match", () => {
+      const storedCall = {
+        reconnectToken: "token-123",
+        callId: "call-123",
+        agentId: "agent-123",
+        orgId: "org-original",
+        timestamp: Date.now(),
+      };
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(storedCall));
+
+      const result = getStoredCall("org-different");
+
+      expect(result).toBeNull();
+    });
+
+    it("returns valid call data if within expiry and matching org", () => {
+      const validCall = {
+        reconnectToken: "token-123",
+        callId: "call-123",
+        agentId: "agent-123",
+        orgId: "org-123",
+        timestamp: Date.now() - 10 * 1000, // 10 seconds ago (valid)
+      };
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(validCall));
+
+      const result = getStoredCall("org-123");
+
+      expect(result).toEqual(validCall);
+      expect(result?.reconnectToken).toBe("token-123");
+      expect(result?.callId).toBe("call-123");
+      expect(result?.agentId).toBe("agent-123");
+    });
+
+    it("returns call data at exactly 30 seconds (boundary test)", () => {
+      const boundaryCall = {
+        reconnectToken: "token-boundary",
+        callId: "call-boundary",
+        agentId: "agent-boundary",
+        orgId: "org-boundary",
+        timestamp: Date.now() - 29 * 1000, // 29 seconds ago (just within limit)
+      };
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(boundaryCall));
+
+      const result = getStoredCall("org-boundary");
+
+      expect(result).not.toBeNull();
+      expect(result?.callId).toBe("call-boundary");
+    });
+
+    it("returns null for malformed JSON in localStorage", () => {
+      localStorageMock.getItem.mockReturnValueOnce("not valid json{");
+
+      const result = getStoredCall("org-123");
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("clearStoredCall", () => {
+    it("removes call data from localStorage", () => {
+      clearStoredCall();
+
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith("gg_active_call");
+    });
+
+    it("uses correct storage key (gg_active_call)", () => {
+      clearStoredCall();
+
+      expect(localStorageMock.removeItem).toHaveBeenCalledTimes(1);
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith("gg_active_call");
+    });
+
+    it("does not throw when localStorage is empty", () => {
+      expect(() => clearStoredCall()).not.toThrow();
+      expect(localStorageMock.removeItem).toHaveBeenCalled();
+    });
+  });
+
+  describe("Call Reconnection Integration Scenarios", () => {
+    it("Scenario: Visitor navigates during active call - call data persists", () => {
+      // Page A: Call is accepted, token is stored
+      storeActiveCall({
+        reconnectToken: "nav-token",
+        callId: "nav-call",
+        agentId: "nav-agent",
+        orgId: "nav-org",
+      });
+
+      // Simulate page navigation (localStorage persists)
+      const storedValue = localStorageMock.setItem.mock.calls[0]?.[1];
+      localStorageMock.getItem.mockReturnValueOnce(storedValue);
+
+      // Page B: Retrieve stored call
+      const result = getStoredCall("nav-org");
+
+      expect(result).not.toBeNull();
+      expect(result?.reconnectToken).toBe("nav-token");
+      expect(result?.callId).toBe("nav-call");
+    });
+
+    it("Scenario: Different org site - ignores stored call from other site", () => {
+      // Site A: Store call for org-site-a
+      storeActiveCall({
+        reconnectToken: "site-a-token",
+        callId: "site-a-call",
+        agentId: "site-a-agent",
+        orgId: "org-site-a",
+      });
+
+      const storedValue = localStorageMock.setItem.mock.calls[0]?.[1];
+      localStorageMock.getItem.mockReturnValueOnce(storedValue);
+
+      // Site B: Try to retrieve for different org
+      const result = getStoredCall("org-site-b");
+
+      expect(result).toBeNull();
+    });
+
+    it("Scenario: Visitor away too long - call expires", () => {
+      // Store call
+      const expiredCall = {
+        reconnectToken: "expired-token",
+        callId: "expired-call",
+        agentId: "expired-agent",
+        orgId: "timeout-org",
+        timestamp: Date.now() - 35 * 1000, // 35 seconds ago
+      };
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(expiredCall));
+
+      // Try to retrieve after timeout
+      const result = getStoredCall("timeout-org");
+
+      expect(result).toBeNull();
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith("gg_active_call");
+    });
+
+    it("Scenario: Call ends normally - stored call is cleared", () => {
+      // Store call
+      storeActiveCall({
+        reconnectToken: "end-token",
+        callId: "end-call",
+        agentId: "end-agent",
+        orgId: "end-org",
+      });
+
+      // Call ends
+      clearStoredCall();
+
+      // Verify cleared
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith("gg_active_call");
     });
   });
 });

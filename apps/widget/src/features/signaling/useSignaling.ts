@@ -125,7 +125,7 @@ export function shouldSkipIntroForAgent(agent: {
   }
 }
 
-function storeActiveCall(data: Omit<StoredCallData, "timestamp">): void {
+export function storeActiveCall(data: Omit<StoredCallData, "timestamp">): void {
   try {
     const stored: StoredCallData = { ...data, timestamp: Date.now() };
     localStorage.setItem(CALL_STORAGE_KEY, JSON.stringify(stored));
@@ -135,7 +135,7 @@ function storeActiveCall(data: Omit<StoredCallData, "timestamp">): void {
   }
 }
 
-function getStoredCall(orgId: string): StoredCallData | null {
+export function getStoredCall(orgId: string): StoredCallData | null {
   try {
     const stored = localStorage.getItem(CALL_STORAGE_KEY);
     if (!stored) return null;
@@ -162,7 +162,7 @@ function getStoredCall(orgId: string): StoredCallData | null {
   }
 }
 
-function clearStoredCall(): void {
+export function clearStoredCall(): void {
   try {
     localStorage.removeItem(CALL_STORAGE_KEY);
     console.log("[Widget] 🗑️ Cleared stored call data");

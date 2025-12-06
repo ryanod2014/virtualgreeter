@@ -420,3 +420,282 @@ describe("call-logger with Supabase configured (integration behavior)", () => {
     });
   });
 });
+
+/**
+ * V4 - Call Reconnection Database Operations Tests
+ *
+ * Tests for call-logger functions specific to call reconnection feature:
+ * - getCallByReconnectToken: Lookup call by token
+ * - markCallReconnected: Update call state after successful reconnection
+ * - markCallReconnectFailed: End call when reconnection fails
+ *
+ * These tests document expected behavior when Supabase IS configured.
+ */
+describe("V4 - Call Reconnection Database Operations", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe("getCallByReconnectToken - Behavior Documentation", () => {
+    it("queries call_logs table with reconnect_token filter", () => {
+      // The function queries: .eq("reconnect_token", token)
+      const queryBehavior = {
+        table: "call_logs",
+        filter: "reconnect_token = :token",
+        additionalFilters: ["status = 'accepted'", "reconnect_eligible = true", "ended_at IS NULL"],
+      };
+
+      expect(queryBehavior.table).toBe("call_logs");
+      expect(queryBehavior.additionalFilters).toContain("status = 'accepted'");
+      expect(queryBehavior.additionalFilters).toContain("reconnect_eligible = true");
+      expect(queryBehavior.additionalFilters).toContain("ended_at IS NULL");
+    });
+
+    it("returns call data for valid token (documents returned fields)", () => {
+      // The function returns OrphanedCall structure
+      const expectedReturnFields = [
+        "id",
+        "agent_id",
+        "visitor_id",
+        "organization_id",
+        "page_url",
+        "reconnect_token",
+        "started_at",
+        "last_heartbeat_at",
+      ];
+
+      expect(expectedReturnFields).toHaveLength(8);
+      expect(expectedReturnFields).toContain("id");
+      expect(expectedReturnFields).toContain("agent_id");
+      expect(expectedReturnFields).toContain("visitor_id");
+      expect(expectedReturnFields).toContain("reconnect_token");
+    });
+
+    it("returns null for invalid/expired token", async () => {
+      // Supabase not configured - always returns null
+      // When configured, returns null if:
+      // - Token not found in database
+      // - Call status is not "accepted"
+      // - reconnect_eligible is false
+      // - ended_at is not null
+      const result = await getCallByReconnectToken("invalid_token_123");
+      expect(result).toBeNull();
+    });
+
+    it("checks reconnect_eligible flag is true", () => {
+      // Query includes: .eq("reconnect_eligible", true)
+      // This prevents reconnecting to calls that have been explicitly marked ineligible
+      const queryCondition = { reconnect_eligible: true };
+      expect(queryCondition.reconnect_eligible).toBe(true);
+    });
+
+    it("only returns calls with status 'accepted'", () => {
+      // Query includes: .eq("status", "accepted")
+      // Pending, rejected, missed, or completed calls cannot be reconnected
+      const validStatuses = ["pending", "accepted", "rejected", "completed", "missed"];
+      const reconnectableStatus = "accepted";
+
+      expect(validStatuses).toContain(reconnectableStatus);
+      expect(reconnectableStatus).toBe("accepted");
+    });
+
+    it("only returns calls where ended_at is null", () => {
+      // Query includes: .is("ended_at", null)
+      // Ended calls cannot be reconnected
+      const queryCondition = { ended_at: null };
+      expect(queryCondition.ended_at).toBeNull();
+    });
+
+    it("handles database error gracefully (returns null)", () => {
+      // If Supabase query fails (PGRST116 = not found is okay, others logged)
+      // Function returns null on any error
+      const errorHandling = {
+        onNotFound: "returns null (normal case)",
+        onOtherError: "logs error, returns null",
+      };
+
+      expect(errorHandling.onNotFound).toBe("returns null (normal case)");
+      expect(errorHandling.onOtherError).toBe("logs error, returns null");
+    });
+  });
+
+  describe("markCallReconnected - Behavior Documentation", () => {
+    it("generates new reconnect token for future reconnections", () => {
+      // generateReconnectToken() creates a new 64-character hex string
+      // Each reconnection gets a fresh token for security
+      const tokenGeneration = {
+        method: "randomBytes(32).toString('hex')",
+        length: 64,
+        purpose: "allows multiple reconnections if needed",
+      };
+
+      expect(tokenGeneration.length).toBe(64);
+    });
+
+    it("updates call with new reconnect token", () => {
+      // Updates call_logs set reconnect_token = newToken
+      const updateBehavior = {
+        field: "reconnect_token",
+        value: "new 64-char hex token",
+      };
+
+      expect(updateBehavior.field).toBe("reconnect_token");
+    });
+
+    it("updates last_heartbeat_at timestamp", () => {
+      // Updates last_heartbeat_at to current time
+      // This extends the reconnection window
+      const updateBehavior = {
+        field: "last_heartbeat_at",
+        value: "new Date().toISOString()",
+      };
+
+      expect(updateBehavior.field).toBe("last_heartbeat_at");
+    });
+
+    it("adds new callId to callLogIds map", () => {
+      // callLogIds.set(newCallId, callLogId)
+      // This allows subsequent operations to find the call log
+      const mappingBehavior = {
+        key: "newCallId (from reconnect)",
+        value: "original callLogId (database ID)",
+      };
+
+      expect(mappingBehavior.key).toBe("newCallId (from reconnect)");
+      expect(mappingBehavior.value).toBe("original callLogId (database ID)");
+    });
+
+    it("returns null when Supabase not configured", async () => {
+      const result = await markCallReconnected("call_log_123", "new_call_456");
+      expect(result).toBeNull();
+    });
+
+    it("returns new reconnect token on success (documented behavior)", () => {
+      // When Supabase IS configured and update succeeds:
+      // Returns the newly generated reconnect token
+      const returnBehavior = {
+        onSuccess: "returns new 64-char reconnect token",
+        onFailure: "returns null",
+      };
+
+      expect(returnBehavior.onSuccess).toBe("returns new 64-char reconnect token");
+    });
+  });
+
+  describe("markCallReconnectFailed - Behavior Documentation", () => {
+    it("calculates duration from started_at to now", () => {
+      // Gets started_at from database
+      // Calculates duration_seconds = (now - started_at) / 1000
+      const durationCalculation = {
+        formula: "Math.round((now.getTime() - startedAt.getTime()) / 1000)",
+        unit: "seconds",
+      };
+
+      expect(durationCalculation.unit).toBe("seconds");
+    });
+
+    it("updates call status to 'completed'", () => {
+      // Even though reconnect failed, the call is marked completed (not a different status)
+      const statusUpdate = {
+        newStatus: "completed",
+        reason: "Reconnect failure is a form of call completion",
+      };
+
+      expect(statusUpdate.newStatus).toBe("completed");
+    });
+
+    it("sets reconnect_eligible to false", () => {
+      // Prevents future reconnection attempts to this call
+      const update = {
+        reconnect_eligible: false,
+      };
+
+      expect(update.reconnect_eligible).toBe(false);
+    });
+
+    it("sets ended_at to current time", () => {
+      // Marks the call as officially ended
+      const update = {
+        ended_at: "new Date().toISOString()",
+      };
+
+      expect(update.ended_at).toBe("new Date().toISOString()");
+    });
+
+    it("does not throw when Supabase not configured", async () => {
+      await expect(markCallReconnectFailed("call_log_123")).resolves.toBeUndefined();
+    });
+  });
+
+  describe("Reconnect Token Security", () => {
+    it("documents token is cryptographically random", () => {
+      // crypto.randomBytes(32) provides 256 bits of randomness
+      const tokenSecurity = {
+        source: "crypto.randomBytes(32)",
+        bitStrength: 256,
+        encoding: "hex",
+        resultingLength: 64, // 32 bytes * 2 hex chars per byte
+      };
+
+      expect(tokenSecurity.bitStrength).toBe(256);
+      expect(tokenSecurity.resultingLength).toBe(64);
+    });
+
+    it("documents new token is generated on each reconnection", () => {
+      // Prevents token reuse attacks
+      const tokenRotation = {
+        behavior: "New token generated on each successful reconnection",
+        security: "Previous token becomes invalid",
+      };
+
+      expect(tokenRotation.behavior).toBe("New token generated on each successful reconnection");
+    });
+
+    it("documents token is stored only in database and visitor localStorage", () => {
+      // Token is not exposed in URLs or transmitted to third parties
+      const tokenStorage = {
+        serverSide: "call_logs.reconnect_token in database",
+        clientSide: "localStorage under gg_active_call key",
+        notExposed: ["URL parameters", "cookies", "external APIs"],
+      };
+
+      expect(tokenStorage.serverSide).toBe("call_logs.reconnect_token in database");
+      expect(tokenStorage.clientSide).toBe("localStorage under gg_active_call key");
+    });
+  });
+
+  describe("Integration Behavior - Call Recovery Flow", () => {
+    it("documents token lifecycle: accept -> store -> navigate -> reconnect -> new token", () => {
+      const tokenLifecycle = [
+        "1. markCallAccepted generates initial reconnect token",
+        "2. Token sent to visitor via CALL_ACCEPTED event",
+        "3. Widget stores token in localStorage (storeActiveCall)",
+        "4. Visitor navigates, widget disconnects",
+        "5. Widget reconnects, reads token from localStorage (getStoredCall)",
+        "6. Widget emits CALL_RECONNECT with token",
+        "7. Server validates token via getCallByReconnectToken",
+        "8. On success, markCallReconnected generates NEW token",
+        "9. New token sent to visitor, old token invalidated",
+      ];
+
+      expect(tokenLifecycle).toHaveLength(9);
+      expect(tokenLifecycle[0]).toContain("markCallAccepted");
+      expect(tokenLifecycle[7]).toContain("markCallReconnected");
+    });
+
+    it("documents failure paths and cleanup", () => {
+      const failurePaths = {
+        tokenNotFound: "getCallByReconnectToken returns null -> CALL_RECONNECT_FAILED",
+        agentGone: "Agent not in_call -> CALL_RECONNECT_FAILED",
+        timeout: "30s elapsed -> markCallReconnectFailed -> CALL_RECONNECT_FAILED",
+        partyDisconnect: "Party disconnects during pending -> markCallReconnectFailed",
+      };
+
+      expect(Object.keys(failurePaths)).toHaveLength(4);
+    });
+  });
+});

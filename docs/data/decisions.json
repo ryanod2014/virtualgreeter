@@ -634,7 +634,7 @@
     },
     {
       "finding_id": "F-043",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",

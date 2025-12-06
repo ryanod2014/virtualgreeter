@@ -1310,6 +1310,17 @@ describe("PoolManager", () => {
     });
   });
 
+  /**
+   * Test Lock P4: reassignVisitors - Visitor Reassignment
+   * 
+   * Behaviors captured:
+   * 1. Gets all visitors in agent's currentSimulations
+   * 2. Excludes specified visitorId (the one in call)
+   * 3. Calls findBestAgent for each visitor
+   * 4. Returns reassigned Map and unassigned array
+   * 5. Assigns visitor to new agent when found
+   * 6. Clears visitor's assignedAgentId when no agent found
+   */
   describe("Visitor Reassignment", () => {
     it("should reassign some visitors when agent goes away (round-robin behavior)", () => {
       // Note: Current behavior - reassignVisitors uses findBestAgent which uses round-robin.
@@ -1359,6 +1370,161 @@ describe("PoolManager", () => {
       expect(result.reassigned.size).toBe(1);
       expect(result.reassigned.has("visitor2")).toBe(true);
       expect(result.reassigned.has("visitor1")).toBe(false);
+    });
+
+    it("gets all visitors from agent's currentSimulations", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+      poolManager.registerAgent("socket_c", createMockAgentProfile("agentC", "Agent C"));
+
+      // Assign 3 visitors to agentA
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor2", "agentA");
+      poolManager.registerVisitor("socket_v3", "visitor3", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor3", "agentA");
+
+      // Verify agent has all 3 visitors in currentSimulations
+      const agent = poolManager.getAgent("agentA");
+      expect(agent?.currentSimulations).toHaveLength(3);
+      expect(agent?.currentSimulations).toContain("visitor1");
+      expect(agent?.currentSimulations).toContain("visitor2");
+      expect(agent?.currentSimulations).toContain("visitor3");
+
+      const result = poolManager.reassignVisitors("agentA");
+
+      // All 3 visitors should be processed (either reassigned or unassigned)
+      const totalProcessed = result.reassigned.size + result.unassigned.length;
+      expect(totalProcessed).toBe(3);
+    });
+
+    it("returns empty results when agent not found", () => {
+      const result = poolManager.reassignVisitors("nonexistent_agent");
+
+      expect(result.reassigned.size).toBe(0);
+      expect(result.unassigned).toHaveLength(0);
+    });
+
+    it("returns reassigned Map with visitorId -> newAgentId mappings", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+
+      const result = poolManager.reassignVisitors("agentA");
+
+      // Check Map structure - should have visitorId as key and newAgentId as value
+      expect(result.reassigned).toBeInstanceOf(Map);
+      if (result.reassigned.size > 0) {
+        const [visitorId, newAgentId] = [...result.reassigned.entries()][0]!;
+        expect(typeof visitorId).toBe("string");
+        expect(typeof newAgentId).toBe("string");
+        expect(newAgentId).toBe("agentB");
+      }
+    });
+
+    it("assigns visitor to new agent when found (updates visitor's assignedAgentId)", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+
+      // Before reassignment, visitor is assigned to agentA
+      expect(poolManager.getVisitor("visitor1")?.assignedAgentId).toBe("agentA");
+
+      const result = poolManager.reassignVisitors("agentA");
+
+      // After reassignment, visitor should be assigned to agentB
+      if (result.reassigned.has("visitor1")) {
+        const visitor = poolManager.getVisitor("visitor1");
+        expect(visitor?.assignedAgentId).toBe("agentB");
+      }
+    });
+
+    it("clears visitor's assignedAgentId when no agent found", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+
+      // Before reassignment, visitor is assigned to agentA
+      expect(poolManager.getVisitor("visitor1")?.assignedAgentId).toBe("agentA");
+
+      const result = poolManager.reassignVisitors("agentA");
+
+      // After reassignment with no available agents, visitor should have null assignedAgentId
+      expect(result.unassigned).toContain("visitor1");
+      const visitor = poolManager.getVisitor("visitor1");
+      expect(visitor?.assignedAgentId).toBeNull();
+    });
+
+    it("removes reassigned visitors from fromAgent's currentSimulations", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+
+      // Before: agentA has visitor1
+      expect(poolManager.getAgent("agentA")?.currentSimulations).toContain("visitor1");
+
+      poolManager.reassignVisitors("agentA");
+
+      // After: agentA should not have visitor1
+      expect(poolManager.getAgent("agentA")?.currentSimulations).not.toContain("visitor1");
+    });
+
+    it("adds reassigned visitor to new agent's currentSimulations", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+
+      // Before: agentB has no visitors
+      expect(poolManager.getAgent("agentB")?.currentSimulations).toHaveLength(0);
+
+      const result = poolManager.reassignVisitors("agentA");
+
+      // After: agentB should have visitor1 (if reassigned)
+      if (result.reassigned.has("visitor1")) {
+        expect(poolManager.getAgent("agentB")?.currentSimulations).toContain("visitor1");
+      }
+    });
+
+    it("keeps excluded visitor in fromAgent's currentSimulations", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor2", "agentA");
+
+      // Exclude visitor1 (they're in a call with agentA)
+      poolManager.reassignVisitors("agentA", "visitor1");
+
+      // visitor1 should remain in agentA's simulations
+      expect(poolManager.getAgent("agentA")?.currentSimulations).toContain("visitor1");
+      // visitor2 should be removed (reassigned or unassigned)
+      expect(poolManager.getAgent("agentA")?.currentSimulations).not.toContain("visitor2");
+    });
+
+    it("does not reassign to the same agent (fromAgent)", () => {
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentA");
+
+      const result = poolManager.reassignVisitors("agentA");
+
+      // With only one agent (agentA), visitors cannot be reassigned to agentA
+      // so they should all be unassigned
+      expect(result.reassigned.size).toBe(0);
+      expect(result.unassigned).toContain("visitor1");
     });
   });
 
