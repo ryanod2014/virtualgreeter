@@ -94,6 +94,94 @@ export function useCobrowse({ socket, isInCall }: UseCobrowseOptions): void {
         }
       });
 
+      // Handle iframe content
+      docClone.querySelectorAll("iframe").forEach((iframeClone) => {
+        // Get the original iframe from the real document
+        const originalIframe = Array.from(document.querySelectorAll("iframe")).find(
+          (iframe) => {
+            // Match by src, name, or position
+            const cloneSrc = iframeClone.getAttribute("src");
+            const cloneName = iframeClone.getAttribute("name");
+            const iframeSrc = iframe.getAttribute("src");
+            const iframeName = iframe.getAttribute("name");
+
+            if (cloneSrc && iframeSrc && cloneSrc === iframeSrc) return true;
+            if (cloneName && iframeName && cloneName === iframeName) return true;
+
+            return false;
+          }
+        );
+
+        try {
+          // Try to access same-origin iframe content
+          if (originalIframe?.contentDocument) {
+            const iframeDoc = originalIframe.contentDocument;
+
+            // Clone the iframe's document content
+            const iframeDocClone = iframeDoc.cloneNode(true) as Document;
+
+            // Apply same URL fixes to iframe content
+            const iframeBaseUrl = originalIframe.src ? new URL(originalIframe.src).origin : baseUrl;
+
+            iframeDocClone.querySelectorAll("img").forEach((img) => {
+              const src = img.getAttribute("src");
+              if (src && !src.startsWith("http") && !src.startsWith("data:")) {
+                try {
+                  img.setAttribute("src", new URL(src, iframeBaseUrl).href);
+                } catch {
+                  // Invalid URL, leave as-is
+                }
+              }
+            });
+
+            iframeDocClone.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+              const href = link.getAttribute("href");
+              if (href && !href.startsWith("http")) {
+                try {
+                  link.setAttribute("href", new URL(href, iframeBaseUrl).href);
+                } catch {
+                  // Invalid URL, leave as-is
+                }
+              }
+            });
+
+            // Store the serialized iframe content
+            const iframeHtml = iframeDocClone.documentElement.outerHTML;
+            iframeClone.setAttribute("srcdoc", iframeHtml);
+            iframeClone.removeAttribute("src"); // Use srcdoc instead
+          } else {
+            // Cross-origin iframe or inaccessible - show placeholder
+            throw new Error("Cannot access iframe content");
+          }
+        } catch (err) {
+          // Cross-origin or security error - replace with placeholder
+          const width = iframeClone.getAttribute("width") || "100%";
+          const height = iframeClone.getAttribute("height") || "200px";
+
+          // Create a styled div placeholder
+          const placeholder = docClone.createElement("div");
+          placeholder.setAttribute("style",
+            `display: flex; ` +
+            `align-items: center; ` +
+            `justify-content: center; ` +
+            `width: ${width}; ` +
+            `height: ${height}; ` +
+            `background: #f3f4f6; ` +
+            `border: 2px dashed #d1d5db; ` +
+            `color: #6b7280; ` +
+            `font-family: system-ui, -apple-system, sans-serif; ` +
+            `font-size: 14px; ` +
+            `text-align: center; ` +
+            `padding: 20px; ` +
+            `box-sizing: border-box;`
+          );
+          placeholder.textContent = "Embedded content - not visible to agent";
+
+          // Replace iframe with placeholder
+          iframeClone.parentNode?.replaceChild(placeholder, iframeClone);
+        }
+      });
+
       // Serialize to HTML
       const html = docClone.documentElement.outerHTML;
 
