@@ -1,6 +1,6 @@
 {
   "meta": {
-    "last_updated": "2025-12-04",
+    "last_updated": "2025-12-06",
     "version": "2.0",
     "schema": "docs/workflow/templates/ticket-schema.json",
     "total_tickets": 48
@@ -11,7 +11,7 @@
       "title": "Co-Browse Sensitive Data Sanitization",
       "priority": "critical",
       "feature": "Co-Browse (Viewer + Sender)",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Findings A-cobrowse-viewer #1, #2; V-cobrowse-sender #1 [F-227, F-003, F-228, F-655, F-745]",
       "issue": "Password fields, credit card numbers, and other sensitive data are captured in DOM snapshots and transmitted to agents during co-browse sessions. This exposes plaintext passwords, violates PCI compliance, and creates privacy risks.",
@@ -36,26 +36,26 @@
       ],
       "fix_required": [
         "Add maskSensitiveFields() function to domSerializer.ts",
-        "Mask password fields with \u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+        "Mask password fields with ••••••••",
         "Mask credit card inputs (input[autocomplete='cc-number'], input[type='tel'])",
         "Mask elements with data-sensitive='true' attribute"
       ],
       "acceptance_criteria": [
-        "Password input values show as \u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 in agent viewer",
+        "Password input values show as •••••••• in agent viewer",
         "Credit card fields (autocomplete='cc-number') show as masked",
         "Elements with data-sensitive='true' attribute are masked",
         "Regular form fields display normally (not masked)",
         "New unit test file: domSerializer.test.ts covers masking logic"
       ],
       "risks": [
-        "If sanitization regex too aggressive \u2192 masks non-sensitive content",
-        "If sanitization is bypassed \u2192 sensitive data leaks to agents",
+        "If sanitization regex too aggressive → masks non-sensitive content",
+        "If sanitization is bypassed → sensitive data leaks to agents",
         "Different form structures (React forms, vanilla HTML) may behave differently"
       ],
       "dev_checks": [
         "pnpm typecheck passes",
         "pnpm build passes",
-        "Manual: Create test.html with password field, type 'secret', verify serialized output shows \u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+        "Manual: Create test.html with password field, type 'secret', verify serialized output shows ••••••••"
       ],
       "qa_notes": "Test with React form libraries (react-hook-form), vanilla HTML forms, and dynamic forms. Verify masked fields display correctly in agent's CobrowseViewer."
     },
@@ -64,7 +64,7 @@
       "title": "Complete Stripe Subscription Cancellation",
       "priority": "critical",
       "feature": "Organization Settings, Cancel Subscription",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Findings D-organization-settings #1, #2; B-cancel-subscription #1 [F-061, F-062, F-117, F-118, F-315]",
       "issue": "When users cancel their subscription: 1) Code only sets plan='free' in Supabase, 2) Does NOT call Stripe API to cancel, 3) UI says 'access until end of billing period' but access is removed immediately. Customers may continue being charged by Stripe.",
@@ -103,8 +103,8 @@
         "Webhook properly handles the final cancellation event"
       ],
       "risks": [
-        "If Stripe call fails but DB updates \u2192 subscription cancelled locally but still billed",
-        "Need idempotency \u2192 user might click cancel multiple times",
+        "If Stripe call fails but DB updates → subscription cancelled locally but still billed",
+        "Need idempotency → user might click cancel multiple times",
         "Webhook must be verified to prevent spoofing"
       ],
       "dev_checks": [
@@ -119,7 +119,7 @@
       "title": "Update Cancellation Data Deletion Copy",
       "priority": "critical",
       "feature": "Cancel Subscription",
-      "status": "ready",
+      "status": "done",
       "difficulty": "easy",
       "source": "Finding B-cancel-subscription #2 [F-316]",
       "issue": "Cancel modal warns that data will be 'permanently deleted' but actual behavior just downgrades to free - no data is deleted. This is misleading.",
@@ -197,7 +197,7 @@
       ],
       "risks": [
         "Stripe pause behavior varies by plan type - test thoroughly",
-        "If Stripe call fails but DB updates \u2192 inconsistent state"
+        "If Stripe call fails but DB updates → inconsistent state"
       ],
       "dev_checks": [
         "pnpm typecheck passes",
@@ -211,7 +211,7 @@
       "title": "Add Auto-Resume Scheduler for Paused Subscriptions",
       "priority": "critical",
       "feature": "Pause Subscription",
-      "status": "ready",
+      "status": "done",
       "difficulty": "hard",
       "source": "Finding B-pause-subscription #2 (split from TKT-004)",
       "issue": "No auto-resume when pause_ends_at is reached - subscriptions stay paused forever.",
@@ -262,7 +262,7 @@
       "title": "Handle Stripe Pause/Resume Webhooks",
       "priority": "critical",
       "feature": "Pause Subscription",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding B-pause-subscription (split from TKT-004)",
       "issue": "No webhook handlers for Stripe pause/resume events - DB may get out of sync.",
@@ -310,7 +310,7 @@
       "title": "Widget and Agent Status for Paused Orgs",
       "priority": "high",
       "feature": "Pause Subscription",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding B-pause-subscription (split from TKT-004)",
       "issue": "Widget and agents remain active when org is paused - should be disabled.",
@@ -361,7 +361,7 @@
       "title": "Add past_due Status to TypeScript Types",
       "priority": "critical",
       "feature": "Payment Failure",
-      "status": "ready",
+      "status": "done",
       "difficulty": "easy",
       "source": "Finding B-payment-failure #2 (split from TKT-005)",
       "issue": "TypeScript type SubscriptionStatus missing 'past_due' - needed for payment failure handling.",
@@ -403,7 +403,7 @@
       "title": "Create Payment Failure Blocking Modal",
       "priority": "critical",
       "feature": "Payment Failure",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding B-payment-failure #2 (split from TKT-005)",
       "issue": "No UI feedback when payment fails - users don't know their account has issues.",
@@ -549,7 +549,7 @@
       "title": "Force Agents Offline on Payment Failure",
       "priority": "high",
       "feature": "Payment Failure",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding B-payment-failure #2 (split from TKT-005)",
       "issue": "Agents remain available when org has payment failure - widget shows them as options.",
@@ -598,7 +598,7 @@
       "title": "Fix Middleware Redirect for Unauthenticated Users",
       "priority": "critical",
       "feature": "Login Flow / Authentication",
-      "status": "ready",
+      "status": "done",
       "difficulty": "easy",
       "source": "Finding AUTH-login-flow #1 [F-631]",
       "issue": "Middleware code for protected routes has 'if (isProtectedPath && !user) { return }' but no redirect to login page. Unauthenticated users get blank/error page.",
@@ -645,7 +645,7 @@
       "title": "Enforce Pool Routing on Visitor Reassignment",
       "priority": "critical",
       "feature": "Visitor Reassignment",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding P-visitor-reassignment #1 [F-171]",
       "issue": "When a visitor is reassigned, findBestAgent() is called WITHOUT the pool ID. A visitor from 'Sales Pool' could be reassigned to 'Support Pool' agent. This defeats pool-based routing.",
@@ -746,7 +746,7 @@
       "title": "Email Invite Retry Mechanism",
       "priority": "high",
       "feature": "Agent Management (Invites)",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding D4-agent-management #3 [F-024]",
       "issue": "If Resend API fails to send invite email, invite is still created in DB. Admin has no visibility. Invitee waits for email that never arrives.",
@@ -799,7 +799,7 @@
       "status": "ready",
       "difficulty": "medium",
       "source": "Finding D-organization-settings #3 [F-063]",
-      "issue": "When admin reduces retention from 90\u219230 days, behavior is unclear. Should be retroactive (delete old recordings) with clear warning.",
+      "issue": "When admin reduces retention from 90→30 days, behavior is unclear. Should be retroactive (delete old recordings) with clear warning.",
       "feature_docs": [
         "docs/features/admin/organization-settings.md",
         "docs/features/admin/recording-settings.md"
@@ -849,7 +849,7 @@
       "title": "Recording Consent Indicator for Visitors",
       "priority": "high",
       "feature": "Recording Settings, Widget",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding D-recording-settings #1 [F-128, F-669]",
       "issue": "Visitors are recorded with NO indication. No 'This call may be recorded' message. Compliance risk for GDPR, CCPA, two-party consent states.",
@@ -901,7 +901,7 @@
       "title": "Secure Recording URLs with Signed Access",
       "priority": "high",
       "feature": "Recordings, Storage",
-      "status": "ready",
+      "status": "done",
       "difficulty": "hard",
       "source": "Finding A-agent-active-call #1 [F-161]",
       "issue": "Recording uploads go to public Supabase bucket with predictable URL patterns. Anyone who guesses the pattern can access recordings without auth. HIPAA/GDPR compliance risk.",
@@ -953,7 +953,7 @@
       "title": "WebRTC ICE Restart on Connection Failure",
       "priority": "high",
       "feature": "Agent Active Call, WebRTC",
-      "status": "ready",
+      "status": "done",
       "difficulty": "hard",
       "source": "Finding A-agent-active-call #2 [F-162]",
       "issue": "When WebRTC connection fails mid-call (network glitch, NAT timeout), agent must manually end and start new call. Customer may be lost.",
@@ -1007,7 +1007,7 @@
       "title": "Transcription Auto-Retry with Manual Fallback",
       "priority": "high",
       "feature": "Transcription Service",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding P-transcription-service #2 [F-196, F-317]",
       "issue": "When transcription fails (Deepgram error, timeout), there's no retry mechanism and no UI to manually retry. Failed transcriptions are stuck permanently.",
@@ -1059,7 +1059,7 @@
       "title": "Sync Incoming Call Countdown with RNA Timeout",
       "priority": "high",
       "feature": "Incoming Call",
-      "status": "ready",
+      "status": "done",
       "difficulty": "easy",
       "source": "Finding A-incoming-call #1 [F-219, F-356]",
       "issue": "Incoming call modal shows hardcoded 30-second countdown, but RNA timeout fires at 15 seconds (org-configured). Agents think they have more time and get unexpectedly marked away.",
@@ -1106,7 +1106,7 @@
       "title": "Enforce Seat Limit in API",
       "priority": "high",
       "feature": "Seat Management",
-      "status": "ready",
+      "status": "done",
       "difficulty": "easy",
       "source": "Finding B-seat-management #1 [F-252]",
       "issue": "UI caps seats at 50, but API has no validation. Direct API calls could set arbitrarily high seat counts, causing billing issues or system strain.",
@@ -1202,7 +1202,7 @@
       "title": "Visitor Call Reconnection Window",
       "priority": "high",
       "feature": "Visitor Call, Call Lifecycle",
-      "status": "ready",
+      "status": "done",
       "difficulty": "hard",
       "source": "Finding P-visitor-reassignment #2 [F-172]",
       "issue": "If visitor disconnects mid-call (browser crash, accidental close), call ends permanently. No way to rejoin. Different from TKT-016 (WebRTC) which handles network blips.",
@@ -1257,7 +1257,7 @@
       "title": "Fix Public Feedback Feature Documentation",
       "priority": "medium",
       "feature": "Public Feedback",
-      "status": "ready",
+      "status": "done",
       "difficulty": "easy",
       "source": "Finding V-public-feedback #1 [F-523]",
       "issue": "The 'Public Feedback' feature documentation describes it as 'Post-call feedback for visitors' but the actual feature is a UserVoice-style feature request voting system for authenticated dashboard users.",
@@ -1342,7 +1342,7 @@
       "title": "Graceful Call End on Agent Removal",
       "priority": "low",
       "feature": "Agent Management",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding D4-agent-management #1 [F-413]",
       "issue": "When admin removes an agent who's in an active call, the call continues. Creates confusing state - agent marked as 'removed' but still serving visitor.",
@@ -1391,7 +1391,7 @@
       "title": "Fix Uptime Monitoring Doc - Use Free Tier Settings",
       "priority": "low",
       "feature": "Uptime Monitoring",
-      "status": "ready",
+      "status": "done",
       "difficulty": "easy",
       "source": "Finding M-UPTIME_MONITORING #1 [F-643]",
       "issue": "The uptime monitoring setup doc says to use Better Uptime's free tier (3-minute checks) but configures monitors with 1-minute checks (paid tier). Contradictory.",
@@ -1478,7 +1478,7 @@
       "title": "Call Logs Pagination for Performance",
       "priority": "high",
       "feature": "Call Logs, Feedback Dashboard",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding F-356",
       "issue": "All call logs/feedback fetched at once with no pagination. Orgs will have 10,000s of call logs - will cause increasing latency and memory pressure.",
@@ -1526,7 +1526,7 @@
       "title": "Add Delete Confirmation for Pools",
       "priority": "high",
       "feature": "Pool Management",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding F-391",
       "issue": "Pools are deleted immediately without confirmation. Creates risk of accidental data loss - deletion cascades to all pool members and routing rules.",
@@ -1572,7 +1572,7 @@
       "title": "Verify Session Invalidation on Password Reset",
       "priority": "high",
       "feature": "Password Reset",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding F-581",
       "issue": "If user resets password due to account compromise, existing attacker sessions may remain valid. Supabase behavior not verified.",
@@ -1619,7 +1619,7 @@
       "title": "Add Save/Error Notifications for Pool Management",
       "priority": "high",
       "feature": "Pool Management",
-      "status": "ready",
+      "status": "done",
       "difficulty": "easy",
       "source": "Finding F-393",
       "issue": "Database save failures, server sync failures, and RLS permission denied all fail silently. Admins have no feedback when operations fail.",
@@ -1665,7 +1665,7 @@
       "title": "Exclude Dismissed Surveys from PMF Calculation",
       "priority": "high",
       "feature": "Ellis Survey",
-      "status": "ready",
+      "status": "done",
       "difficulty": "easy",
       "source": "Finding F-545",
       "issue": "When user dismisses survey, code sets disappointment_level: 'not_disappointed' as default. This skews PMF data negatively - dismissed surveys inflate 'not disappointed' count.",
@@ -1709,7 +1709,7 @@
       "title": "Handle Missing User Profile Row",
       "priority": "high",
       "feature": "Login Flow",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "source": "Finding F-632",
       "issue": "When user has auth.users record but no corresponding users table row, role query returns null and redirect logic fails. Users get stranded.",
@@ -1800,7 +1800,7 @@
       "priority": "medium",
       "difficulty": "medium",
       "feature": "Co-Browse Viewer",
-      "status": "ready",
+      "status": "done",
       "source": "Finding F-009",
       "issue": "Large DOM snapshots (>1MB) are sent uncompressed over WebSocket, causing latency and lag in agent co-browse view on complex pages. Mobile/slow connections suffer most.",
       "feature_docs": [
@@ -1852,7 +1852,7 @@
       "priority": "low",
       "difficulty": "easy",
       "feature": "Co-Browse Viewer",
-      "status": "ready",
+      "status": "done",
       "source": "Finding F-005",
       "issue": "Agent sees blank or stale view with no indication that co-browse is initializing. Creates confusion about whether feature is working.",
       "feature_docs": [
@@ -1895,7 +1895,7 @@
       "priority": "medium",
       "difficulty": "medium",
       "feature": "Co-Browse Viewer",
-      "status": "ready",
+      "status": "done",
       "source": "Finding F-007",
       "issue": "Embedded iframe content (payment forms, embedded apps, third-party widgets) appears as empty boxes in agent view. Cross-origin iframes cannot be captured, same-origin iframes are not being recursively captured.",
       "feature_docs": [
@@ -1943,7 +1943,7 @@
       "priority": "medium",
       "difficulty": "medium",
       "feature": "Call Logs",
-      "status": "ready",
+      "status": "done",
       "source": "Finding F-029",
       "issue": "CSV generation happens client-side and blocks the UI thread. Large exports (1000+ rows) may freeze the browser and show \"page unresponsive\" warnings.",
       "feature_docs": [
@@ -1989,7 +1989,7 @@
       "title": "Cancelled Calls Have No Audit Trail",
       "priority": "medium",
       "feature": "Call Logs",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "complexity": "medium",
       "risk": "medium",
@@ -2011,7 +2011,7 @@
       "title": "Platform Admin Route Protection Only \"Assumed\"",
       "priority": "high",
       "feature": "Funnel Analytics",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "complexity": "medium",
       "risk": "medium",
@@ -2033,7 +2033,7 @@
       "title": "Missing Incident Response Runbook",
       "priority": "high",
       "feature": "External Uptime Monitoring Setup",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "complexity": "medium",
       "risk": "medium",
@@ -2055,7 +2055,7 @@
       "title": "ip-api.com Rate Limit Risk at Scale",
       "priority": "high",
       "feature": "Blocklist Settings",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "complexity": "medium",
       "risk": "medium",
@@ -2077,7 +2077,7 @@
       "title": "URL Filter is Client-Side Only",
       "priority": "medium",
       "feature": "Call Logs",
-      "status": "ready",
+      "status": "done",
       "difficulty": "medium",
       "complexity": "medium",
       "risk": "medium",
@@ -2138,6 +2138,50 @@
         "pnpm lint passes",
         "pnpm build passes"
       ]
+    },
+    {
+      "id": "TKT-065",
+      "title": "Geo-Failure Handling Toggle in Blocklist Settings",
+      "priority": "medium",
+      "feature": "Blocklist Settings",
+      "status": "ready",
+      "difficulty": "medium",
+      "source": "Finding F-035",
+      "issue": "When geolocation fails, behavior differs by mode (blocklist=allow, allowlist=block). Admins have no control over this. Need a toggle to let admins choose what happens when location can't be determined, plus display geolocation failure rate so admins can make informed decisions.",
+      "feature_docs": [
+        "docs/features/admin/blocklist-settings.md"
+      ],
+      "similar_code": [],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(dashboard)/settings/blocklist/page.tsx",
+        "apps/server/src/features/blocklist/geoCheck.ts"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT change geolocation provider (that's TKT-062)",
+        "Do NOT modify other blocklist logic"
+      ],
+      "fix_required": [
+        "Add toggle to blocklist settings: 'When location cannot be determined: Allow / Block'",
+        "Store setting in org settings",
+        "Apply setting in geoCheck logic",
+        "Track and display geolocation failure rate percentage in UI"
+      ],
+      "acceptance_criteria": [
+        "Toggle appears in blocklist settings UI",
+        "Toggle default matches current behavior (blocklist=allow, allowlist=block)",
+        "Geolocation failures respect admin's toggle choice",
+        "Failure rate percentage displayed to help admin decide"
+      ],
+      "risks": [
+        "Changing default behavior could break existing orgs - default must match current behavior"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Toggle setting, verify visitor handling changes"
+      ],
+      "qa_notes": "Test with VPN/unknown IP to trigger geolocation failure. Verify toggle works in both modes."
     }
   ]
 }
