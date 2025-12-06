@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     // Verify agent belongs to this org
     const { data: agent } = await supabase
       .from("agent_profiles")
-      .select("id, user_id, organization_id, is_active")
+      .select("id, user_id, organization_id, is_active, status")
       .eq("id", agentProfileId)
       .eq("organization_id", profile.organization_id)
       .single();
@@ -42,6 +42,32 @@ export async function POST(request: NextRequest) {
 
     if (!agent.is_active) {
       return NextResponse.json({ error: "Agent already deactivated" }, { status: 400 });
+    }
+
+    // If agent is in a call, end it gracefully first
+    if (agent.status === "in_call") {
+      console.log(`[Remove Agent] Agent ${agentProfileId} is in a call, ending it first`);
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3001";
+      try {
+        const endCallResponse = await fetch(`${serverUrl}/api/agent/end-call`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ agentId: agentProfileId }),
+        });
+
+        if (!endCallResponse.ok) {
+          console.error("[Remove Agent] Failed to end agent's call:", await endCallResponse.text());
+          // Continue with removal even if call end fails
+        } else {
+          const result = await endCallResponse.json();
+          console.log(`[Remove Agent] Call end result:`, result);
+        }
+      } catch (error) {
+        console.error("[Remove Agent] Error ending agent's call:", error);
+        // Continue with removal even if call end fails
+      }
     }
 
     // Soft delete the agent
