@@ -26,7 +26,7 @@
       "suggested_fix": "Add monitoring for cache hit rate and DB query frequency. Document expected query volumes at different traffic levels to inform TTL selection. Consider making TTL configurable per-environment.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
+      "status": "pending",
       "ticket_id": null,
       "options": [
         {

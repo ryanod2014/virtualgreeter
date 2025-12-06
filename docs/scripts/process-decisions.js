@@ -205,6 +205,32 @@ function main() {
       continue;
     }
 
+    // Skip if thread has data mismatch warnings
+    const hasMismatch = thread.messages?.some(m => 
+      m.text?.toLowerCase().includes('mismatch') || 
+      m.text?.toLowerCase().includes('wrong finding')
+    );
+    if (hasMismatch) {
+      console.log(`⚠️  Skipped ${findingId}: Thread contains mismatch warning - needs manual review`);
+      continue;
+    }
+
+    // Validate decision option_label relates to finding content
+    if (thread.decision.option_label) {
+      const label = thread.decision.option_label.toLowerCase();
+      const title = (finding.title || '').toLowerCase();
+      const issue = (finding.issue || '').toLowerCase();
+      const findingText = title + ' ' + issue;
+      
+      // If option mentions specific tech/feature not in finding, it's a mismatch
+      const suspiciousTerms = ['sanitization', 'password', 'cache', 'ttl', 'webhook', 'stripe', 'auth'];
+      const mismatchTerm = suspiciousTerms.find(term => label.includes(term) && !findingText.includes(term));
+      if (mismatchTerm) {
+        console.log(`⚠️  Skipped ${findingId}: Decision mentions "${mismatchTerm}" but finding doesn't - possible mismatch`);
+        continue;
+      }
+    }
+
     // Skip if already has a ticket or was explicitly skipped
     if (finding.status === 'ticketed' || finding.status === 'skipped' || existingTicketSources.has(findingId)) {
       continue;

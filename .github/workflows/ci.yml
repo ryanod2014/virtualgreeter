@@ -325,9 +325,106 @@ jobs:
               sys.exit(0)
           PYTHON_EOF
 
+      # =========================================================================
+      # STEP 4: Write blocker file for PM agent (on regression)
+      # =========================================================================
+      - name: Write CI blocker for PM agent
+        if: always() && steps.scope-analysis.outcome == 'failure'
+        run: |
+          BRANCH_NAME="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          TICKET_ID=$(echo "$BRANCH_NAME" | grep -oiE 'tkt-[0-9]+[a-z]?' | head -1 | tr '[:lower:]' '[:upper:]')
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H%M")
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          
+          # Get attempt count from existing blockers
+          ATTEMPT=1
+          if [ -d "docs/agent-output/blocked" ]; then
+            EXISTING=$(ls docs/agent-output/blocked/CI-${TICKET_ID}-*.json 2>/dev/null | wc -l | tr -d ' ')
+            ATTEMPT=$((EXISTING + 1))
+          fi
+          
+          # Get files_to_modify from tickets.json
+          FILES_IN_SCOPE=$(python3 -c "
+          import json
+          with open('docs/data/tickets.json') as f:
+              data = json.load(f)
+          ticket = next((t for t in data.get('tickets', []) if t.get('id', '').upper() == '$TICKET_ID'), None)
+          if ticket:
+              print(json.dumps(ticket.get('files_to_modify', [])))
+          else:
+              print('[]')
+          " 2>/dev/null || echo "[]")
+          
+          # Get failing tests (from previous analysis)
+          FAILING_TESTS=$(cat all-test-output.txt | grep -E "^\s*FAIL\s+" | head -10 | sed 's/^[[:space:]]*//' || echo "Unknown")
+          
+          # Create blocker file
+          mkdir -p docs/agent-output/blocked
+          
+          cat > "docs/agent-output/blocked/CI-${TICKET_ID}-${TIMESTAMP}.json" <<EOF
+{
+  "id": "CI-${TICKET_ID}-${ATTEMPT}",
+  "type": "blocker",
+  "category": "ci_failure",
+  "source": "github_actions",
+  "severity": "critical",
+  "title": "CI Regression: Tests failed outside ticket scope",
+  "feature": "${TICKET_ID}",
+  "status": "pending",
+  "found_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "issue": "CI failed with test regression(s). Test(s) failed that are OUTSIDE the ticket's files_to_modify scope. This indicates the agent's changes broke something unrelated.",
+  "options": [
+    {
+      "id": 1,
+      "label": "Fix the regression — Create continuation ticket for agent to fix the broken code",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Expand scope — Add failing test's file to files_to_modify if change was intentional",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Test is wrong — The old test was incorrect, update the test",
+      "recommended": false
+    },
+    {
+      "id": 4,
+      "label": "Escalate to human — Too complex for agent to fix",
+      "recommended": false
+    }
+  ],
+  "recommendation": "Option 1 — Agent should fix the regression without breaking original feature",
+  "blocker_context": {
+    "ticket_id": "${TICKET_ID}",
+    "branch": "${BRANCH_NAME}",
+    "pr_number": ${PR_NUMBER:-0},
+    "attempt": ${ATTEMPT},
+    "ci_url": "${RUN_URL}",
+    "in_scope_files": ${FILES_IN_SCOPE},
+    "failing_tests_preview": "$(echo "$FAILING_TESTS" | head -5 | tr '\n' ' ')"
+  }
+}
+EOF
+          
+          echo "📝 Created blocker file: docs/agent-output/blocked/CI-${TICKET_ID}-${TIMESTAMP}.json"
+          cat "docs/agent-output/blocked/CI-${TICKET_ID}-${TIMESTAMP}.json"
+          
+          # Commit and push the blocker file
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/agent-output/blocked/
+          git commit -m "ci: Add blocker for ${TICKET_ID} - regression detected (attempt ${ATTEMPT})"
+          git push origin HEAD:${BRANCH_NAME}
+          
+          echo "✅ Blocker file committed to branch"
+
       - name: Fail if regressions detected
         if: always() && steps.scope-analysis.outcome == 'failure'
         run: |
           echo "❌ CI failed due to out-of-scope test regressions."
           echo "See the scope analysis above for details."
+          echo "📝 A blocker file has been created for PM agent to process."
           exit 1

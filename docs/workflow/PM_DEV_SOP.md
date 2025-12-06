@@ -74,6 +74,9 @@ cat docs/agent-output/blocked/BLOCKED-TKT-*.json
 
 # Environmental blockers (need fix)
 cat docs/agent-output/blocked/ENV-TKT-*.json
+
+# CI failure blockers (regression detected)
+cat docs/agent-output/blocked/CI-TKT-*.json
 ```
 
 ##### For CLARIFICATION Blockers (BLOCKED-TKT-*)
@@ -117,6 +120,48 @@ Agent hit a technical issue they can't solve (type error, pnpm fails, pre-existi
 ```
 
 Archive the blocker file to `docs/agent-output/archive/`
+
+##### For CI FAILURE Blockers (CI-TKT-*)
+
+CI detected a test regression — tests failed OUTSIDE the ticket's `files_to_modify` scope.
+
+**Auto-handling (if attempt < 3):**
+
+| Option | When to Use | PM Action |
+|--------|-------------|-----------|
+| **A) Fix regression** | Agent's changes broke something | Create continuation ticket to fix the regression |
+| **B) Expand scope** | Change was intentional but scope too narrow | Add file to `files_to_modify`, relaunch |
+| **C) Fix test** | Old test was wrong/outdated | Create ticket to update the test |
+| **D) Escalate** | Attempt >= 3 or too complex | Mark ticket "needs_human", notify human |
+
+**Continuation ticket for CI regressions:**
+
+```markdown
+## 🔧 CI Regression Fix
+
+**Branch:** `[branch]` (ALREADY EXISTS - do NOT create new branch)
+**PR:** #[pr_number] (already open)
+
+**What happened:**
+CI failed because your changes broke tests outside your ticket scope.
+
+**Failing test(s):**
+- [test file from blocker]
+
+**Your files_to_modify:**
+- [original scope files]
+
+**Your task:**
+1. Pull latest: `git pull origin [branch]`
+2. Review the failing test to understand what broke
+3. Fix your code to not break the failing test
+4. Do NOT break your original feature
+5. Push and CI will re-run automatically
+
+**Attempt:** [N] of 3
+```
+
+**Max attempts:** If attempt >= 3, escalate to human instead of creating another continuation.
 
 #### 1.2 Check for Stalled Agents
 

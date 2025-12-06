@@ -23,6 +23,11 @@
           "role": "system",
           "text": "📋 Thread closed (duplicate/data mismatch). F-001 (cache TTL) not addressed by this decision.",
           "timestamp": "2025-12-04T23:30:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "🧹 Thread reset - previous decision was for wrong finding (sanitization vs cache TTL mismatch). Ready for fresh review.",
+          "timestamp": "2025-12-06T22:00:00.000Z"
         }
       ],
       "decision": {
@@ -55,6 +60,11 @@
           "role": "system",
           "text": "📋 Thread closed (duplicate/data mismatch). F-001 (cache TTL) not addressed by this decision.",
           "timestamp": "2025-12-04T23:30:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "🧹 Thread reset - previous decision was for wrong finding (sanitization vs cache TTL mismatch). Ready for fresh review.",
+          "timestamp": "2025-12-06T22:00:00.000Z"
         }
       ],
       "decision": {
@@ -1995,6 +2005,11 @@
           "role": "system",
           "text": "📋 Thread closed (duplicate/data mismatch). F-001 (cache TTL) not addressed by this decision.",
           "timestamp": "2025-12-04T23:30:00.000Z"
+        },
+        {
+          "role": "system",
+          "text": "🧹 Thread reset - previous decision was for wrong finding (sanitization vs cache TTL mismatch). Ready for fresh review.",
+          "timestamp": "2025-12-06T22:00:00.000Z"
         }
       ],
       "decision": {
@@ -5938,6 +5953,18 @@
         "custom_note": "what is industry best practice",
         "timestamp": "2025-12-05T22:37:16.064Z"
       }
+    },
+    {
+      "finding_id": "BLOCKED-TKT-064-1",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "BLOCKED-TKT-063-1",
+      "status": "pending",
+      "messages": [],
+      "decision": null
     }
   ]
 }

@@ -238,8 +238,41 @@ def main():
     
     # Generate missing prompts
     created = 0
+    skipped = 0
     for ticket in missing:
-        prompt_path = os.path.join(PROMPTS_DIR, f"dev-agent-{ticket['id']}-v1.md")
+        ticket_id = ticket['id']
+        
+        # Validation: Skip tickets without files_to_modify
+        files = ticket.get('files_to_modify', ticket.get('files', []))
+        if not files:
+            print(f"⚠️  Skipped {ticket_id}: No files_to_modify specified - ticket needs PM review")
+            skipped += 1
+            continue
+        
+        # Validation: Check for fix_required/title mismatch (basic sanity check)
+        fix_required = ticket.get('fix_required', [])
+        title = ticket.get('title', '').lower()
+        issue = ticket.get('issue', '').lower()
+        ticket_text = title + ' ' + issue
+        
+        # Suspicious terms that should match between fix_required and ticket
+        suspicious_terms = ['sanitization', 'password', 'cache', 'ttl', 'webhook', 'stripe', 'auth', 'billing']
+        has_mismatch = False
+        for fix in fix_required:
+            fix_lower = fix.lower()
+            for term in suspicious_terms:
+                if term in fix_lower and term not in ticket_text:
+                    print(f"⚠️  Skipped {ticket_id}: fix_required mentions '{term}' but title/issue doesn't - possible data mismatch")
+                    has_mismatch = True
+                    break
+            if has_mismatch:
+                break
+        
+        if has_mismatch:
+            skipped += 1
+            continue
+        
+        prompt_path = os.path.join(PROMPTS_DIR, f"dev-agent-{ticket_id}-v1.md")
         content = generate_prompt(ticket)
         
         with open(prompt_path, 'w') as f:
@@ -249,6 +282,8 @@ def main():
         created += 1
     
     print()
+    if skipped > 0:
+        print(f"⚠️  Skipped {skipped} tickets due to validation issues - review manually")
     print(f"Done! Created {created} prompt files.")
 
 

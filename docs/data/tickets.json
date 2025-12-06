@@ -2073,27 +2073,6 @@
       ]
     },
     {
-      "id": "TKT-063",
-      "title": "5-Minute Cache TTL Trade-off Not Quantified",
-      "priority": "low",
-      "feature": "Decision Legend",
-      "status": "ready",
-      "difficulty": "medium",
-      "complexity": "medium",
-      "risk": "medium",
-      "source": "Finding F-001",
-      "issue": "Documentation asks \"Is 5-minute cache TTL optimal? Trade-off between freshness and DB load could be tuned.\" However, there's no data on actual query volume or cache hit rates to inform this decision. The 5-minute value appears arbitrary.",
-      "fix_required": [
-        "Implement strict sanitization (mask ALL sensitive fields)"
-      ],
-      "files": [],
-      "risk_notes": [],
-      "acceptance_criteria": [
-        "Issue described in F-001 is resolved",
-        "Change is tested and verified"
-      ]
-    },
-    {
       "id": "TKT-064",
       "title": "URL Filter is Client-Side Only",
       "priority": "medium",
