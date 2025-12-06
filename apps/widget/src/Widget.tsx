@@ -149,6 +149,7 @@ export function Widget({ config }: WidgetProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasCompletedIntroSequence, setHasCompletedIntroSequence] = useState(false);
   const [hasHadCall, setHasHadCall] = useState(false); // Track if visitor has had a call (enables minimize after)
+  const [isRecordingEnabled, setIsRecordingEnabled] = useState(false); // Track if recording is enabled for this org
 
   // Widget appearance settings (from server)
   const [widgetSettings, setWidgetSettings] = useState<WidgetSettings>(DEFAULT_WIDGET_SETTINGS);
@@ -371,7 +372,10 @@ export function Widget({ config }: WidgetProps) {
         setState("hidden");
       }
     },
-    onCallAccepted: () => setState("in_call"),
+    onCallAccepted: (data) => {
+      setState("in_call");
+      setIsRecordingEnabled(data.isRecordingEnabled);
+    },
     onCallRejected: () => {
       // Agent temporarily unavailable - visitor keeps waiting
       console.log("[Widget] Call rejected - but visitor keeps waiting");
@@ -1314,6 +1318,7 @@ export function Widget({ config }: WidgetProps) {
                 isConnected={webrtcConnected}
                 error={webrtcError}
                 onRetry={retryWebRTCConnection}
+                isRecordingEnabled={isRecordingEnabled}
               />
             ) : (
               <VideoSequencer
