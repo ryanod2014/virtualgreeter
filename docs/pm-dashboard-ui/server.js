@@ -486,6 +486,10 @@ function handleAPI(req, res, body) {
       devStatus = readJSON('dev-status.json') || { in_progress: [], completed: [] };
     }
     
+    // Read staging data for Cleanup Agent UI
+    const stagingData = readJSON('findings-staging.json');
+    const stagingCount = stagingData?.findings?.length || 0;
+    
     const data = {
       findings: readJSON('findings.json'),
       decisions: readJSON('decisions.json'),
@@ -494,7 +498,12 @@ function handleAPI(req, res, body) {
       devStatus: devStatus,
       featuresList,
       // Aggregated agent outputs (prevents race conditions with multiple agents)
-      agentOutputs
+      agentOutputs,
+      // Staging queue info for Cleanup Agent
+      staging: {
+        count: stagingCount,
+        bySeverity: stagingData?.summary || { critical: 0, high: 0, medium: 0, low: 0 }
+      }
     };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));

@@ -1349,10 +1349,10 @@ pnpm build`}
     // Unified inbox - blockers are now part of findings with type: "blocker"
     // Dev agent blockers from agent-output/blocked/ are shown FIRST
 
-    function InboxView({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs }) {
+    function InboxView({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs, staging }) {
       return (
         <div className="fade-in">
-          <TriageContent serverMode={serverMode} onSave={onSave} findingsData={findingsData} serverDecisions={serverDecisions} onDecisionsChange={onDecisionsChange} agentOutputs={agentOutputs} />
+          <TriageContent serverMode={serverMode} onSave={onSave} findingsData={findingsData} serverDecisions={serverDecisions} onDecisionsChange={onDecisionsChange} agentOutputs={agentOutputs} staging={staging} />
         </div>
       );
     }
@@ -1360,8 +1360,21 @@ pnpm build`}
     // ================= TRIAGE CONTENT =================
     // Renamed from TriageView to be embedded in InboxView
 
-    function TriageContent({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs }) {
+    function TriageContent({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs, staging }) {
       const [severityFilter, setSeverityFilter] = useState('all');
+      const [copyStatus, setCopyStatus] = useState(null);
+      
+      // Copy Cleanup Agent prompt to clipboard
+      const copyCleanupPrompt = () => {
+        const prompt = `You are a Cleanup Agent. Read docs/workflow/CLEANUP_AGENT_SOP.md then process next 10 HIGHEST priority from staging.`;
+        navigator.clipboard.writeText(prompt).then(() => {
+          setCopyStatus('copied');
+          setTimeout(() => setCopyStatus(null), 2000);
+        }).catch(() => {
+          setCopyStatus('error');
+          setTimeout(() => setCopyStatus(null), 2000);
+        });
+      };
       const [saveStatus, setSaveStatus] = useState(null);
       const [page, setPage] = useState(0);
       const PAGE_SIZE = 10;
@@ -1904,22 +1917,150 @@ pnpm build`}
               >
                 <Icons.clock /> History <span className="count">{stats.done}</span>
               </button>
+              {/* Staging Tab - shows raw findings waiting for cleanup */}
+              {staging?.count > 0 && (
+                <button 
+                  className={`tab ${severityFilter === 'staging' ? 'active' : ''}`} 
+                  onClick={() => { setSeverityFilter('staging'); setPage(0); }}
+                  style={{ 
+                    marginLeft: '12px',
+                    background: severityFilter === 'staging' ? 'rgba(168,85,247,0.15)' : undefined,
+                    borderColor: severityFilter === 'staging' ? '#a855f7' : undefined
+                  }}
+                >
+                  📦 Staging <span className="count" style={{ background: '#a855f7', color: 'white' }}>{staging.count}</span>
+                </button>
+              )}
             </div>
-            {!serverMode && (
-              <button className="btn btn-primary btn-sm" onClick={() => {
-                const json = JSON.stringify(decisions, null, 2);
-                navigator.clipboard.writeText(json);
-                alert('Decisions JSON copied!\n\nTip: Run "node docs/pm-dashboard-ui/server.js" for auto-save!');
-              }}><Icons.export /> Export</button>
-            )}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {/* Cleanup Agent Button */}
+              {staging?.count > 0 && (
+                <button 
+                  className="btn btn-sm"
+                  onClick={copyCleanupPrompt}
+                  style={{
+                    background: copyStatus === 'copied' ? 'var(--success)' : 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                    color: 'white',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Copy Cleanup Agent prompt to clipboard"
+                >
+                  {copyStatus === 'copied' ? '✓ Copied!' : '🧹 Launch Cleanup Agent'}
+                </button>
+              )}
+              {!serverMode && (
+                <button className="btn btn-primary btn-sm" onClick={() => {
+                  const json = JSON.stringify(decisions, null, 2);
+                  navigator.clipboard.writeText(json);
+                  alert('Decisions JSON copied!\n\nTip: Run "node docs/pm-dashboard-ui/server.js" for auto-save!');
+                }}><Icons.export /> Export</button>
+              )}
+            </div>
           </div>
 
-          {/* Findings List */}
-          {filtered.length === 0 ? (
+          {/* Staging View */}
+          {severityFilter === 'staging' && staging?.count > 0 ? (
+            <div className="card" style={{ padding: '40px', background: 'linear-gradient(135deg, rgba(168,85,247,0.1) 0%, rgba(124,58,237,0.05) 100%)' }}>
+              <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📦</div>
+                <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>Staging Queue</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                  Raw findings from agents waiting for cleanup before entering inbox
+                </p>
+              </div>
+              
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(4, 1fr)', 
+                gap: '16px', 
+                marginBottom: '32px',
+                maxWidth: '600px',
+                margin: '0 auto 32px'
+              }}>
+                <div style={{ 
+                  background: 'var(--critical-bg)', 
+                  border: '1px solid var(--critical)', 
+                  borderRadius: '12px', 
+                  padding: '16px', 
+                  textAlign: 'center' 
+                }}>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--critical)' }}>{staging.bySeverity?.critical || 0}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Critical</div>
+                </div>
+                <div style={{ 
+                  background: 'var(--high-bg)', 
+                  border: '1px solid var(--high)', 
+                  borderRadius: '12px', 
+                  padding: '16px', 
+                  textAlign: 'center' 
+                }}>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--high)' }}>{staging.bySeverity?.high || 0}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>High</div>
+                </div>
+                <div style={{ 
+                  background: 'var(--medium-bg)', 
+                  border: '1px solid var(--medium)', 
+                  borderRadius: '12px', 
+                  padding: '16px', 
+                  textAlign: 'center' 
+                }}>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--medium)' }}>{staging.bySeverity?.medium || 0}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Medium</div>
+                </div>
+                <div style={{ 
+                  background: 'var(--low-bg)', 
+                  border: '1px solid var(--low)', 
+                  borderRadius: '12px', 
+                  padding: '16px', 
+                  textAlign: 'center' 
+                }}>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--low)' }}>{staging.bySeverity?.low || 0}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Low</div>
+                </div>
+              </div>
+              
+              <div style={{ 
+                textAlign: 'center',
+                padding: '24px',
+                background: 'var(--bg-elevated)',
+                borderRadius: '12px',
+                border: '1px solid var(--border)'
+              }}>
+                <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                  <strong>{staging.count}</strong> findings need cleanup before human review
+                </div>
+                <button 
+                  className="btn"
+                  onClick={copyCleanupPrompt}
+                  style={{
+                    background: copyStatus === 'copied' ? 'var(--success)' : 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {copyStatus === 'copied' ? '✓ Copied to Clipboard!' : '🧹 Copy Cleanup Agent Prompt'}
+                </button>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>
+                  Paste into a new Cursor chat to launch the Cleanup Agent
+                </div>
+              </div>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
               <div style={{ marginBottom: '12px', color: 'var(--success)' }}><Icons.checkCircle /></div>
               <div style={{ color: 'var(--text-muted)' }}>
-                {severityFilter === 'done' ? 'No history yet' : severityFilter === 'answered' ? 'No answered findings yet' : `All ${severityFilter} priority findings are done!`}
+                {severityFilter === 'done' ? 'No history yet' : severityFilter === 'answered' ? 'No answered findings yet' : severityFilter === 'staging' ? 'Staging queue is empty!' : `All ${severityFilter} priority findings are done!`}
               </div>
             </div>
           ) : (
@@ -5534,6 +5675,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
       const [devStatus, setDevStatus] = useState({ in_progress: [], completed: [] });
       const [agentOutputs, setAgentOutputs] = useState({ blocked: [], completions: [], started: [], findings: [], testLock: [] });
       const [serverDecisions, setServerDecisions] = useState(null);
+      const [staging, setStaging] = useState({ count: 0, bySeverity: { critical: 0, high: 0, medium: 0, low: 0 } });
       const [loading, setLoading] = useState(true);
       const [lastRefresh, setLastRefresh] = useState(null);
 
@@ -5567,6 +5709,9 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
             }
             if (data.featuresList) {
               setFeaturesList(data.featuresList);
+            }
+            if (data.staging) {
+              setStaging(data.staging);
             }
             setLoading(false);
             setLastRefresh(new Date());
@@ -5713,6 +5858,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                   serverDecisions={serverDecisions}
                   onDecisionsChange={setServerDecisions}
                   agentOutputs={agentOutputs}
+                  staging={staging}
                 />}
                 {view === 'pipeline' && <NewPipelineView 
                   tickets={tickets} 
