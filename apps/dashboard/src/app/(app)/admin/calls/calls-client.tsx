@@ -122,6 +122,12 @@ interface Props {
   pageviewCount: number;
   coverageStats: CoverageStats;
   hourlyCoverage: HourlyStats[];
+  pagination: {
+    currentPage: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+  };
 }
 
 export function CallsClient({
@@ -135,6 +141,7 @@ export function CallsClient({
   pageviewCount,
   coverageStats,
   hourlyCoverage,
+  pagination,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -227,6 +234,17 @@ export function CallsClient({
     if (filters.minDuration) params.set("minDuration", filters.minDuration);
     if (filters.maxDuration) params.set("maxDuration", filters.maxDuration);
 
+    // Reset to page 1 when filters change
+    params.set("page", "1");
+    params.set("limit", pagination.limit.toString());
+
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const goToPage = (page: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("page", page.toString());
+    params.set("limit", pagination.limit.toString());
     router.push(`${pathname}?${params.toString()}`);
   };
 
@@ -244,6 +262,8 @@ export function CallsClient({
     const params = new URLSearchParams();
     params.set("from", dateRange.from.split("T")[0]);
     params.set("to", dateRange.to.split("T")[0]);
+    params.set("page", "1");
+    params.set("limit", pagination.limit.toString());
     router.push(`${pathname}?${params.toString()}`);
   };
 
@@ -953,6 +973,62 @@ export function CallsClient({
             <p className="text-muted-foreground">
               Try adjusting your filters or date range
             </p>
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {pagination.totalPages > 1 && (
+          <div className="border-t border-border/50 bg-muted/20 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{" "}
+                {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of{" "}
+                {pagination.totalCount} calls
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => goToPage(pagination.currentPage - 1)}
+                  disabled={pagination.currentPage === 1}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-border bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                    let pageNum: number;
+                    if (pagination.totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (pagination.currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (pagination.currentPage >= pagination.totalPages - 2) {
+                      pageNum = pagination.totalPages - 4 + i;
+                    } else {
+                      pageNum = pagination.currentPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => goToPage(pageNum)}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                          pagination.currentPage === pageNum
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-background hover:bg-muted"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => goToPage(pagination.currentPage + 1)}
+                  disabled={pagination.currentPage === pagination.totalPages}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-border bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -16,6 +16,8 @@ interface Props {
     minDuration?: string;
     maxDuration?: string;
     country?: string; // ISO country codes, comma-separated
+    page?: string; // Page number (1-indexed)
+    limit?: string; // Items per page (default: 50)
   }>;
 }
 
@@ -117,7 +119,20 @@ export default async function CallsPage({ searchParams }: Props) {
     }
   }
 
-  const { data: rawCalls } = await query.limit(500);
+  // Pagination parameters
+  const page = parseInt(params.page ?? "1");
+  const limit = parseInt(params.limit ?? "50");
+  const offset = (page - 1) * limit;
+
+  // Get total count for pagination (before applying limit/offset)
+  const { count: totalCount } = await supabase
+    .from("call_logs")
+    .select("*", { count: "exact", head: true })
+    .eq("organization_id", auth.organization.id)
+    .gte("created_at", fromDate.toISOString())
+    .lte("created_at", toDate.toISOString());
+
+  const { data: rawCalls } = await query.range(offset, offset + limit - 1);
 
   // Transform Supabase array relations to single objects
   const calls = rawCalls?.map((call) => ({
@@ -233,6 +248,9 @@ export default async function CallsPage({ searchParams }: Props) {
     toDate
   );
 
+  // Calculate total pages
+  const totalPages = totalCount ? Math.ceil(totalCount / limit) : 1;
+
   return (
     <CallsClient
       calls={calls ?? []}
@@ -252,6 +270,12 @@ export default async function CallsPage({ searchParams }: Props) {
         coverageRate,
       }}
       hourlyCoverage={hourlyCoverage}
+      pagination={{
+        currentPage: page,
+        limit: limit,
+        totalCount: totalCount ?? 0,
+        totalPages: totalPages,
+      }}
     />
   );
 }
