@@ -11,6 +11,45 @@ interface CobrowseViewerProps {
   selection: { text: string; rect: { x: number; y: number; width: number; height: number } | null } | null;
 }
 
+/**
+ * Decompress base64-encoded gzipped HTML string
+ * Returns the original HTML string or the input if not compressed
+ */
+async function decompressHTML(html: string, isCompressed?: boolean): Promise<string> {
+  if (!isCompressed) {
+    return html;
+  }
+
+  // Check if DecompressionStream is available (modern browsers)
+  if (typeof DecompressionStream === 'undefined') {
+    console.error('[CobrowseViewer] DecompressionStream not available, cannot decompress');
+    return html; // Return as-is, will likely fail to render
+  }
+
+  try {
+    // Decode base64 to binary
+    const binaryString = atob(html);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Decompress using gzip
+    const blob = new Blob([bytes]);
+    const stream = blob.stream();
+    const decompressedStream = stream.pipeThrough(new DecompressionStream('gzip'));
+
+    // Convert decompressed stream to text
+    const decompressedBlob = await new Response(decompressedStream).blob();
+    const decompressedText = await decompressedBlob.text();
+
+    return decompressedText;
+  } catch (err) {
+    console.error('[CobrowseViewer] Decompression failed:', err);
+    return html; // Return as-is, will likely fail to render
+  }
+}
+
 export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, selection }: CobrowseViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const viewportFrameRef = useRef<HTMLDivElement>(null);
@@ -86,49 +125,54 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
     if (!snapshot || !iframeRef.current) return;
 
     const iframe = iframeRef.current;
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    
-    if (!iframeDoc) return;
 
-    // Write the HTML content with strict view-only styles
-    iframeDoc.open();
-    iframeDoc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <base href="${new URL(snapshot.url).origin}">
-          <style>
-            /* Completely disable all interactions */
-            *, *::before, *::after {
-              pointer-events: none !important;
-              user-select: none !important;
-              cursor: default !important;
-            }
-            /* Disable scrolling completely - agent cannot scroll */
-            html, body {
-              overflow: hidden !important;
-              position: fixed !important;
-              width: 100% !important;
-              height: 100% !important;
-            }
-            /* Hide scrollbars */
-            html::-webkit-scrollbar, body::-webkit-scrollbar { display: none !important; }
-            html, body { scrollbar-width: none !important; }
-            /* Disable text selection */
-            html, body { -webkit-user-select: none !important; }
-            /* Disable all form interactions */
-            input, textarea, select, button { pointer-events: none !important; }
-            /* Disable links */
-            a { pointer-events: none !important; cursor: default !important; }
-          </style>
-        </head>
-        <body>
-          ${snapshot.html}
-        </body>
-      </html>
-    `);
-    iframeDoc.close();
-    setIsLoaded(true);
+    // Decompress and write HTML
+    (async () => {
+      const decompressedHTML = await decompressHTML(snapshot.html, snapshot.isCompressed);
+
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) return;
+
+      // Write the HTML content with strict view-only styles
+      iframeDoc.open();
+      iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <base href="${new URL(snapshot.url).origin}">
+            <style>
+              /* Completely disable all interactions */
+              *, *::before, *::after {
+                pointer-events: none !important;
+                user-select: none !important;
+                cursor: default !important;
+              }
+              /* Disable scrolling completely - agent cannot scroll */
+              html, body {
+                overflow: hidden !important;
+                position: fixed !important;
+                width: 100% !important;
+                height: 100% !important;
+              }
+              /* Hide scrollbars */
+              html::-webkit-scrollbar, body::-webkit-scrollbar { display: none !important; }
+              html, body { scrollbar-width: none !important; }
+              /* Disable text selection */
+              html, body { -webkit-user-select: none !important; }
+              /* Disable all form interactions */
+              input, textarea, select, button { pointer-events: none !important; }
+              /* Disable links */
+              a { pointer-events: none !important; cursor: default !important; }
+            </style>
+          </head>
+          <body>
+            ${decompressedHTML}
+          </body>
+        </html>
+      `);
+      iframeDoc.close();
+      setIsLoaded(true);
+    })();
   }, [snapshot]);
 
   // Apply scroll position by transforming the content (since we disabled native scrolling)

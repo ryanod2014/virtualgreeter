@@ -392,6 +392,7 @@ export interface ErrorPayload {
 // Co-browsing Payloads
 export interface CobrowseSnapshotPayload {
   html: string;
+  isCompressed?: boolean; // If true, html is base64-encoded gzipped data
   url: string;
   title: string;
   viewport: { width: number; height: number };
