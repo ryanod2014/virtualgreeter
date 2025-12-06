@@ -37,6 +37,7 @@ import type { WidgetSettings, WidgetSize, WidgetPosition, WidgetDevices, WidgetT
 import { useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { VALIDATION, validateNumber } from "@/lib/utils/validation";
+import { DeletePoolModal } from "@/features/pools/DeletePoolModal";
 
 // Signaling server URL for syncing config
 const SIGNALING_SERVER = process.env.NEXT_PUBLIC_SIGNALING_SERVER ?? "http://localhost:3001";
@@ -1531,6 +1532,7 @@ export function PoolsClient({
   const [editingScriptText, setEditingScriptText] = useState("");
   const [uploadingVideo, setUploadingVideo] = useState<{ poolId: string; type: "wave" | "intro" | "loop" } | null>(null);
   const [recordingVideo, setRecordingVideo] = useState<{ poolId: string; type: "wave" | "intro" | "loop" } | null>(null);
+  const [poolToDelete, setPoolToDelete] = useState<{ id: string; name: string; agentCount: number; routingRulesCount: number } | null>(null);
 
   const waveInputRef = useRef<HTMLInputElement>(null);
   const loopInputRef = useRef<HTMLInputElement>(null);
@@ -2144,7 +2146,12 @@ export function PoolsClient({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeletePool(pool.id);
+                        setPoolToDelete({
+                          id: pool.id,
+                          name: pool.name,
+                          agentCount: getMemberCount(pool),
+                          routingRulesCount: pool.pool_routing_rules.length,
+                        });
                       }}
                       className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                     >
@@ -2772,6 +2779,20 @@ export function PoolsClient({
           </div>
         )}
       </div>
+
+      {/* Delete Pool Confirmation Modal */}
+      <DeletePoolModal
+        isOpen={poolToDelete !== null}
+        onClose={() => setPoolToDelete(null)}
+        onConfirm={async () => {
+          if (poolToDelete) {
+            await handleDeletePool(poolToDelete.id);
+          }
+        }}
+        poolName={poolToDelete?.name ?? ""}
+        agentCount={poolToDelete?.agentCount ?? 0}
+        routingRulesCount={poolToDelete?.routingRulesCount ?? 0}
+      />
     </div>
   );
 }
