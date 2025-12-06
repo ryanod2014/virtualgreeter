@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-060-1",
+  "source": "dev-agent-TKT-060",
+  "title": "Pre-existing type errors in widget and server test files",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/widget/src/**/*.test.{ts,tsx}, apps/server/src/**/*.test.ts",
+  "line": 0,
+  "issue": "During TKT-060 verification, discovered 48 pre-existing TypeScript errors in test files across widget (22 errors) and server (26 errors) packages. These were introduced by recent commits ea324cb and 69ed232 that added test files. Errors include: possibly undefined objects, unused variables, type assertion issues, and missing properties. These cause both `pnpm typecheck` and `pnpm build` to fail.",
+  "suggestion": "Create a dedicated ticket to fix all test file type errors. Priority should be medium as these don't affect runtime but block CI/CD. Consider: (1) Fix type assertions and add proper null checks, (2) Remove unused variables, (3) Update test mocks to match type definitions, (4) Consider adding `// @ts-expect-error` for intentional test violations with explanations.",
+  "status": "pending",
+  "found_at": "2025-12-06T00:10:00Z"
+}
