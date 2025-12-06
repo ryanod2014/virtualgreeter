@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "preact/hooks";
+import { RecordingBadge } from "../call/RecordingBadge";
 
 interface LiveCallViewProps {
   localStream: MediaStream | null;
@@ -7,6 +8,7 @@ interface LiveCallViewProps {
   isConnected: boolean;
   error: string | null;
   onRetry?: () => void;
+  isRecordingEnabled?: boolean;
 }
 
 export function LiveCallView({
@@ -16,6 +18,7 @@ export function LiveCallView({
   isConnected,
   error,
   onRetry,
+  isRecordingEnabled = false,
 }: LiveCallViewProps) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -189,6 +192,9 @@ export function LiveCallView({
           Connected
         </div>
       )}
+
+      {/* Recording badge - only shows when call is connected and recording is enabled */}
+      {isConnected && !error && <RecordingBadge isRecording={isRecordingEnabled} />}
     </>
   );
 }
