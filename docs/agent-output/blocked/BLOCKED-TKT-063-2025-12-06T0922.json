@@ -1,0 +1,67 @@
+{
+  "id": "BLOCKED-TKT-063-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-063",
+  "severity": "critical",
+  "title": "Ticket specification contains incorrect fix_required field",
+  "feature": "Widget Settings",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-06T09:22:58Z",
+
+  "issue": "The ticket TKT-063 is about documenting whether the 5-minute cache TTL for widget settings is optimal. However, the 'fix_required' field in docs/data/tickets.json states 'Implement strict sanitization (mask ALL sensitive fields)' which is completely unrelated to cache TTL. The ticket lacks clear implementation guidance. The actual issue is from Finding F-001 which asks: 'Is 5-minute cache TTL optimal? Trade-off between freshness and DB load could be tuned.' But there are no specific files to modify, no clear implementation steps, and the acceptance criteria just says 'Issue described in F-001 is resolved' which is vague.",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Add monitoring/telemetry — Add code to track cache hit rates, query volumes, and measure actual impact. Would require modifying server code to add metrics collection.",
+      "recommended": false
+    },
+    {
+      "id": 2,
+      "label": "Make TTL configurable — Add environment variable to control cache TTL, allowing per-environment tuning. Would require modifying server code and adding config.",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Document trade-offs only — Add analysis to widget-settings.md explaining the 5-minute choice, trade-offs, and when to reconsider. No code changes needed.",
+      "recommended": true
+    },
+    {
+      "id": 4,
+      "label": "Cancel ticket — This is a 'low priority' finding asking an open question. It may not need implementation at all, just acknowledgment in docs.",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 3 because the finding is asking a question about whether the TTL is optimal, not requesting a code change. Adding documentation explaining the trade-off (freshness vs DB load), why 5 minutes was chosen, and criteria for reconsidering would resolve the 'not quantified' concern. This is a documentation ticket, not an implementation ticket.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-063",
+    "ticket_version": 1,
+    "branch": "agent/tkt-063",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Read Dev Agent SOP",
+        "Read ticket spec",
+        "Identified mismatch between ticket issue and fix_required",
+        "Located source finding in findings.json",
+        "Located related feature doc (widget-settings.md)",
+        "Found references to 5-minute cache TTL in section 10"
+      ],
+      "remaining": [
+        "Clarify what 'fix_required' should actually be ← BLOCKED HERE",
+        "Identify specific files to modify",
+        "Implement the fix",
+        "Test and verify"
+      ],
+      "stopped_at": {
+        "file": "docs/prompts/active/dev-agent-TKT-063-v1.md",
+        "line": 32,
+        "context": "Ticket says to modify '(see ticket for files)' but tickets.json shows 'files: []' and fix_required talks about sanitization instead of cache TTL"
+      },
+      "notes_for_next_agent": "The ticket has conflicting information. The 'issue' field correctly describes the cache TTL question from Finding F-001, but 'fix_required' incorrectly mentions sanitization. The feature doc at docs/features/admin/widget-settings.md section 10 contains the open question about 5-minute cache TTL being optimal. The actual implementation likely needs to either: (a) add documentation analyzing the trade-off, (b) add monitoring, or (c) make TTL configurable. Need PM to clarify which approach to take and update the ticket accordingly."
+    }
+  }
+}
