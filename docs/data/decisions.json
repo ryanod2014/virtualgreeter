@@ -649,7 +649,7 @@
     },
     {
       "finding_id": "F-043",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -900,7 +900,7 @@
     },
     {
       "finding_id": "F-065",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -5973,28 +5973,6 @@
       "decision": null
     },
     {
-      "finding_id": "BLOCKED-TKT-063-1",
-      "status": "resolved",
-      "messages": [],
-      "decision": {
-        "option_id": 3,
-        "option_label": "Document trade-offs only — Add analysis to widget-settings.md explaining the 5-minute choice, trade-offs, and when to reconsider. No code changes needed.",
-        "recommended": true,
-        "timestamp": "2025-12-06T10:45:42.123Z"
-      }
-    },
-    {
-      "finding_id": "BLOCKED-TKT-064-1",
-      "status": "resolved",
-      "messages": [],
-      "decision": {
-        "option_id": "skip",
-        "option_label": "Won't fix - acceptable risk",
-        "recommended": false,
-        "timestamp": "2025-12-06T10:47:54.555Z"
-      }
-    },
-    {
       "finding_id": "BLOCKED-TKT-042-1",
       "status": "in_discussion",
       "messages": [
@@ -6009,6 +5987,28 @@
         "option_label": "Custom response",
         "custom_note": "what is industry best practice",
         "timestamp": "2025-12-05T22:37:16.064Z"
+      }
+    },
+    {
+      "finding_id": "BLOCKED-TKT-064-1",
+      "status": "resolved",
+      "messages": [],
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix - acceptable risk",
+        "recommended": false,
+        "timestamp": "2025-12-06T10:47:54.555Z"
+      }
+    },
+    {
+      "finding_id": "BLOCKED-TKT-063-1",
+      "status": "resolved",
+      "messages": [],
+      "decision": {
+        "option_id": 3,
+        "option_label": "Document trade-offs only — Add analysis to widget-settings.md explaining the 5-minute choice, trade-offs, and when to reconsider. No code changes needed.",
+        "recommended": true,
+        "timestamp": "2025-12-06T10:45:42.123Z"
       }
     },
     {

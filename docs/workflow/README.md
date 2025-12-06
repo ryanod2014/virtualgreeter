@@ -7,38 +7,27 @@
 
 ## 🚀 Quick Start
 
-### Dev Workflow (Active)
+### Core Agents
 
-**Launch PM (Dev Mode):**
+| Agent | Purpose | Launch Command |
+|-------|---------|----------------|
+| **Dispatch** | Route blockers, create tickets, answer questions | `You are a Dispatch Agent. Read docs/workflow/DISPATCH_AGENT_SOP.md then execute.` |
+| **Triage** | Filter/dedupe raw findings before inbox | `You are a Triage Agent. Read docs/workflow/TRIAGE_AGENT_SOP.md then execute.` |
+| **Dev** | Implement tickets | `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-[ID].md` |
+| **Review** | Audit feature documentation | `You are a Review Agent. Read docs/workflow/REVIEW_AGENT_SOP.md then execute: docs/prompts/active/review-agent-[ID].md` |
+| **Doc** | Document features | `You are a Doc Agent. Read docs/workflow/DOC_AGENT_SOP.md then execute: docs/prompts/active/doc-agent-[ID].md` |
+| **Test Lock** | Lock test baselines for features | `You are a Test Lock Agent. Read docs/workflow/TEST_LOCK_AGENT_SOP.md then execute: docs/prompts/active/test-lock-[ID].md` |
+
+### PM Workflows
+
+**Dev Sprint Mode:**
 ```
 You are the PM. Read and execute docs/workflow/PM_DEV_SOP.md
 ```
 
-**Launch Dev Agent:**
-```
-You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-[ID].md
-```
-
-### Documentation/Review Workflow
-
-**Launch PM (Doc/Review Mode):**
+**Doc/Review Mode:**
 ```
 You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md
-```
-
-**Launch Doc Agent:**
-```
-You are a Doc Agent. Read docs/workflow/DOC_AGENT_SOP.md then execute: docs/prompts/active/doc-agent-[ID].md
-```
-
-**Launch Review Agent:**
-```
-You are a Review Agent. Read docs/workflow/REVIEW_AGENT_SOP.md then execute: docs/prompts/active/review-agent-[ID].md
-```
-
-**Launch Cleanup Agent:** (NEW - runs before human reviews findings)
-```
-You are a Cleanup Agent. Read docs/workflow/CLEANUP_AGENT_SOP.md then execute.
 ```
 
 ---
@@ -49,65 +38,128 @@ You are a Cleanup Agent. Read docs/workflow/CLEANUP_AGENT_SOP.md then execute.
 docs/
 ├── workflow/
 │   ├── README.md                ← You are here
+│   ├── DISPATCH_AGENT_SOP.md    ← 🆕 Route blockers, create tickets
+│   ├── TRIAGE_AGENT_SOP.md      ← 🆕 Dedup/validate raw findings
 │   ├── PM_DEV_SOP.md            ← PM workflow for dev sprints
 │   ├── PM_DOCS_SOP.md           ← PM workflow for doc/review sprints
 │   ├── DEV_AGENT_SOP.md         ← Dev agent instructions
 │   ├── DOC_AGENT_SOP.md         ← Doc agent instructions
 │   ├── REVIEW_AGENT_SOP.md      ← Review agent instructions
-│   ├── CLEANUP_AGENT_SOP.md     ← 🆕 Cleanup agent instructions (dedup/validate findings)
+│   ├── TEST_LOCK_AGENT_SOP.md   ← Test lock agent instructions
+│   ├── REGRESSION_HANDLING.md   ← How to handle CI failures
 │   └── templates/
 │       ├── ticket-schema.json   ← Required ticket fields (v2)
 │       ├── dev-ticket.md        ← Ticket creation template
 │       ├── doc-agent.md         ← Doc agent prompt template
 │       ├── review-agent.md      ← Review agent prompt template
+│       ├── test-lock-agent.md   ← Test lock agent template
 │       └── redoc-agent.md       ← Re-documentation agent template
 │
 ├── data/
 │   ├── tickets.json             ← All tickets (source of truth)
-│   ├── findings-staging.json    ← 🆕 Raw findings pending cleanup
-│   ├── findings.json            ← INBOX - cleaned findings for human review
-│   ├── findings-processed.json  ← 🆕 Audit trail of rejected/merged findings
+│   ├── findings-staging.json    ← Raw findings pending triage
+│   ├── findings.json            ← INBOX - triaged findings for human review
+│   ├── findings-processed.json  ← Audit trail of rejected/merged findings
 │   ├── decisions.json           ← Human decisions
+│   ├── dev-status.json          ← Dev pipeline status
 │   ├── doc-status.json          ← Documentation freshness tracking
 │   └── .agent-credentials.json  ← Service logins & API keys (gitignored)
 │
-├── DEV_BLOCKED.md               ← Blocked dev agents queue
-├── PM_DASHBOARD.md              ← Pipeline status dashboard
-├── TICKET_BACKLOG.md            ← Human-readable backlog
+├── agent-output/
+│   ├── started/                 ← Dev agent start signals + file locks
+│   ├── completions/             ← Dev agent completion reports
+│   ├── blocked/                 ← Blocker files (CI, clarification, env)
+│   ├── findings/                ← Dev agent out-of-scope findings
+│   ├── reviews/                 ← Review agent outputs
+│   ├── test-lock/               ← Test lock agent outputs
+│   └── archive/                 ← Processed blockers/outputs
 │
 └── prompts/
     ├── active/                  ← Active agent prompts
+    │   ├── dispatch-agent.md    ← 🆕 Dispatch agent prompt
+    │   ├── triage-agent.md      ← 🆕 Triage agent prompt
     │   ├── dev-agent-*.md
-    │   ├── doc-agent-*.md
-    │   └── review-agent-*.md
+    │   ├── review-agent-*.md
+    │   └── test-lock-*.md
     └── archive/                 ← Completed prompts
 ```
 
 ---
 
-## 🔄 Full Pipeline
+## 🔄 Agent Pipeline
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  DOCUMENTATION  │ → │     REVIEW      │ → │    CLEANUP      │ → │    QUESTIONS    │
-│   Doc Agents    │    │  Review Agents  │    │  Cleanup Agent  │    │  Human Decides  │
-│   ✅ Complete   │    │   ✅ Complete   │    │  Dedup/Validate │    │   ✅ Complete   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                                            │
-                                                                            ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│     MERGED      │ ← │     REVIEW      │ ← │   DEV AGENTS    │ ← │     TICKETS     │
-│  Human Merges   │    │  Human/QA Agent │    │  Execute Tickets │    │   PM Creates    │
-│                 │    │                 │    │  ⚡ READY       │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                      │
-                                                      ▼
-                                              ┌─────────────────┐
-                                              │    BLOCKED?     │
-                                              │  Human Decides  │
-                                              │  → Continuation │
-                                              └─────────────────┘
+                                    ┌─────────────────┐
+                                    │   Review Agent  │
+                                    │ (audits docs)   │
+                                    └────────┬────────┘
+                                             │ raw findings
+                                             ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         STAGING QUEUE                                │
+│                    docs/data/findings-staging.json                   │
+└────────────────────────────────┬────────────────────────────────────┘
+                                 │
+                                 ▼
+                      ┌──────────────────┐
+                      │   Triage Agent   │
+                      │ (dedup, filter)  │
+                      └────────┬─────────┘
+                               │ promoted findings
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                            INBOX                                     │
+│                     docs/data/findings.json                          │
+│                    (Human reviews here)                              │
+└────────────────────────────────┬────────────────────────────────────┘
+                                 │ human decisions
+                                 ▼
+                      ┌──────────────────┐
+                      │  Dispatch Agent  │
+                      │ (creates tickets)│
+                      └────────┬─────────┘
+                               │ tickets
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         TICKET QUEUE                                 │
+│                     docs/data/tickets.json                           │
+└────────────────────────────────┬────────────────────────────────────┘
+                                 │
+                                 ▼
+                        ┌────────────────┐
+                        │   Dev Agent    │
+                        │ (implements)   │
+                        └───────┬────────┘
+                                │ completes/blocks
+                        ┌───────┴───────┐
+                        ▼               ▼
+              ┌──────────────┐   ┌─────────────┐
+              │  Completed   │   │   Blocked   │
+              │  (review)    │   │   Queue     │
+              └──────────────┘   └──────┬──────┘
+                                        │
+                                        ▼
+                              ┌─────────────────┐
+                              │  Dispatch Agent │
+                              │ (routes/resolves│
+                              │  blockers)      │
+                              └─────────────────┘
 ```
+
+---
+
+## 🚧 Blocker Types
+
+| Prefix | Type | Auto-Handled? | Description |
+|--------|------|---------------|-------------|
+| `CI-TKT-*` | CI Failure | ✅ Yes (if clear regression) | Tests failed on agent branch |
+| `BLOCKED-TKT-*` | Clarification | ❌ No (needs human) | Agent has a question |
+| `ENV-TKT-*` | Environment | ❌ No (needs human) | Infra/credentials issue |
+
+**Dispatch Agent routes blockers:**
+- Clear regressions → Auto-create continuation ticket
+- Ambiguous → Route to inbox for human decision
+- Clarifications → Always to inbox
 
 ---
 
@@ -122,8 +174,6 @@ docs/
 | 🟡 Medium | 3 | Ready |
 | 🟢 Low | 2 | Ready |
 | **Total** | **40** | **Ready** |
-
-**Note:** Tickets TKT-004 and TKT-005 were split into smaller pieces (4a/b/c/d and 5a/b/c/d/e).
 
 ---
 
@@ -140,18 +190,17 @@ All tickets now include:
 
 ### When Agents Get Blocked
 
-1. Agent writes blocker to `docs/agent-output/blocked/BLOCKED-TKT-XXX-[TIMESTAMP].json` with:
-   - Progress checkpoint (commits, files, current state)
-   - Options with tradeoffs
-   - Recommendation
+1. Agent writes blocker to `docs/agent-output/blocked/[TYPE]-TKT-XXX-[TIMESTAMP].json`
 
-2. PM aggregates blockers and presents to human
+2. **Dispatch Agent** runs and:
+   - CI failures with clear regressions → auto-creates continuation ticket
+   - Unclear/clarification blockers → routes to inbox for human
 
-3. Human reviews and chooses option
+3. Human reviews (if needed) and provides decision
 
-4. PM creates continuation ticket with decision
+4. Dispatch Agent creates continuation ticket with context
 
-5. Agent resumes with full context
+5. Dev Agent resumes work
 
 ### Pipeline Order (Post-Dev)
 
@@ -162,23 +211,16 @@ Dev Completes Ticket
        ↓
 PM Reviews Completion Report
        ↓
-PM Marks Affected Docs as "needs_redoc" in doc-status.json
+Run Regression Tests (dashboard)
        ↓
-Doc Agent Re-Documents (reads CODE via git diff, not dev summary)
+If regressions → Dispatch Agent creates fix ticket
        ↓
-QA Agent Tests (future - uses updated docs for context)
+If passed → Human Reviews & Merges to main
        ↓
-Human Reviews & Merges to main
+PM marks affected docs as "needs_redoc"
        ↓
-PM Clears doc-status (documented=true, needs_redoc=false)
+Doc Agent re-documents (reads CODE, not summary)
 ```
-
-**Why Doc Before QA:**
-- Documentation captures the intended behavior from code
-- QA agents need accurate docs to know what to test
-- Docs serve as the "spec" that QA validates against
-
-**Note:** QA Agents are planned for future implementation. Currently human QA.
 
 ### Branch Strategy
 
@@ -198,21 +240,15 @@ main (production)
 
 | File | Purpose | Who Updates |
 |------|---------|-------------|
-| `docs/data/tickets.json` | All tickets (source of truth) | PM |
-| `docs/data/findings-staging.json` | Raw findings pending cleanup | Review/Dev Agents → Cleanup Agent |
-| `docs/data/findings.json` | INBOX - cleaned findings for human | Cleanup Agent |
-| `docs/data/findings-processed.json` | Audit trail of rejected/merged | Cleanup Agent |
+| `docs/data/tickets.json` | All tickets (source of truth) | Dispatch Agent |
+| `docs/data/findings-staging.json` | Raw findings pending triage | Review/Dev Agents |
+| `docs/data/findings.json` | INBOX - triaged findings | Triage Agent |
+| `docs/data/findings-processed.json` | Audit trail of rejected/merged | Triage Agent |
+| `docs/data/decisions.json` | Human decisions on findings | Human / Dispatch Agent |
+| `docs/data/dev-status.json` | Dev pipeline status | Dashboard / Agents |
 | `docs/data/doc-status.json` | Documentation freshness tracking | PM |
-| `docs/agent-output/started/` | Dev agent start signals + file locks (per-agent JSON) | Dev Agents |
-| `docs/agent-output/completions/` | Dev agent completion reports (per-agent MD) | Dev Agents |
-| `docs/agent-output/blocked/` | Dev agent blocker reports (per-agent JSON) | Dev Agents |
-| `docs/agent-output/findings/` | Dev agent out-of-scope findings (per-agent JSON) | Dev Agents |
-| `docs/PM_DASHBOARD.md` | Pipeline status | PM |
-| `docs/workflow/PM_DEV_SOP.md` | PM dev instructions | - |
-| `docs/workflow/DEV_AGENT_SOP.md` | Dev agent instructions | - |
-| `docs/workflow/CLEANUP_AGENT_SOP.md` | Cleanup agent instructions | - |
-| `docs/workflow/templates/ticket-schema.json` | Ticket requirements | - |
-| `docs/workflow/templates/redoc-agent.md` | Re-documentation agent template | - |
+| `docs/agent-output/blocked/` | Blocker files (CI, clarification, env) | Dev Agents / CI |
+| `docs/agent-output/completions/` | Dev agent completion reports | Dev Agents |
 
 ---
 
@@ -223,4 +259,4 @@ Previous workflow versions are in:
 docs/workflow/archive/
 ```
 
-These include the original Dev/QA/Review/Strategy agent SOPs before the v2 update.
+These include the original PM Agent, Cleanup Agent, and other deprecated SOPs.
