@@ -1,9 +1,0 @@
-{
-  "ticket_id": "TKT-005e",
-  "branch": "agent/tkt-005e",
-  "started_at": "2025-12-06T10:13:12Z",
-  "files_locking": [
-    "apps/server/src/features/agents/agentStatus.ts",
-    "apps/widget/src/Widget.tsx"
-  ]
-}
