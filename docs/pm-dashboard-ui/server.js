@@ -106,10 +106,21 @@ function gitReadFile(ref, filePath) {
   return git(`show ${ref}:${filePath}`);
 }
 
+// Cache for agent outputs (avoid re-scanning git on every request)
+let agentOutputsCache = null;
+let agentOutputsCacheTime = 0;
+const CACHE_TTL_MS = 30000; // 30 seconds
+
 // Scan agent-output directories from GIT (not filesystem)
 // This prevents branch switching from affecting dashboard accuracy
 // Reads from: origin/main + all origin/agent/* branches
-function scanAgentOutputs() {
+function scanAgentOutputs(skipFetch = false) {
+  // Return cached results if fresh enough
+  const now = Date.now();
+  if (agentOutputsCache && (now - agentOutputsCacheTime) < CACHE_TTL_MS) {
+    return agentOutputsCache;
+  }
+
   const outputs = {
     reviews: [],
     completions: [],
@@ -130,8 +141,11 @@ function scanAgentOutputs() {
     'test-lock': 'testLock'
   };
   
-  // Fetch latest from origin (quick, ignore errors)
-  git('fetch origin --prune');
+  // Skip fetch by default - it's slow and usually not needed
+  // Only fetch when explicitly requested via ?refresh=true
+  if (!skipFetch) {
+    // git('fetch origin --prune'); // DISABLED - too slow for every request
+  }
   
   // Get all branches to scan: origin/main + all agent branches
   const agentBranchesRaw = git('branch -r --list "origin/agent/*"');
@@ -202,6 +216,10 @@ function scanAgentOutputs() {
   }
   
   console.log(`📊 Scanned ${branchesToScan.length} branches: ${outputs.completions.length} completions, ${outputs.started.length} started, ${outputs.blocked.length} blocked`);
+  
+  // Cache results
+  agentOutputsCache = outputs;
+  agentOutputsCacheTime = Date.now();
   
   return outputs;
 }

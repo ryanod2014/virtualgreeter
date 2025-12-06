@@ -1648,9 +1648,14 @@ pnpm build`}
           // Count blockers separately (they show in Blockers tab)
           // Include both regular blockers (type: 'blocker') and dev blockers (type: 'dev-blocker' or _isDevBlocker)
           const isBlocker = f.type === 'blocker' || f.type === 'dev-blocker' || f._isDevBlocker;
-          if (isBlocker && f.status !== 'ticketed' && f.status !== 'skipped' && !isResolved && !hasResolutionMsg) {
+          // DEV BLOCKERS: Always show if file exists - ignore thread status
+          // The blocker file existing means the agent is still blocked, regardless of previous decisions
+          if (f._isDevBlocker && f.status !== 'ticketed' && f.status !== 'skipped') {
             blockers++;
-            // Dev blockers also show in All tab, so don't return early for them
+            // Dev blockers also show in All and Critical tabs
+          } else if (isBlocker && f.status !== 'ticketed' && f.status !== 'skipped' && !isResolved && !hasResolutionMsg) {
+            blockers++;
+            // Regular blockers respect thread status
             if (!f._isDevBlocker) return;
           }
           
@@ -1719,6 +1724,8 @@ pnpm build`}
           const pending = findings.filter(f => {
             if (f.type === 'blocker' && !f._isDevBlocker) return false; // Regular blockers shown separately, but dev blockers show here
             if (f.status === 'ticketed' || f.status === 'skipped') return false;
+            // Dev blockers always show if file exists (ignore thread status)
+            if (f._isDevBlocker) return true;
             return !isEffectivelyResolved(f);
           });
           
@@ -1757,10 +1764,13 @@ pnpm build`}
         }
         
         // Blockers filter - show type: "blocker" or "dev-blocker" items that need decision
+        // DEV BLOCKERS: Always show if file exists - the blocker file means agent is still blocked
         if (severityFilter === 'blockers') {
           return findings.filter(f => {
             if (f.type !== 'blocker' && f.type !== 'dev-blocker' && !f._isDevBlocker) return false;
             if (f.status === 'ticketed' || f.status === 'skipped') return false;
+            // Dev blockers always show if file exists (ignore thread status)
+            if (f._isDevBlocker) return true;
             return !isEffectivelyResolved(f);
           }).sort((a, b) => {
             // Dev blockers first
@@ -2223,13 +2233,25 @@ pnpm build`}
         (t.files_to_modify || []).forEach(f => filesInProgress.add(f));
       });
       
-      // Get tickets that are ready and not in progress
-      const availableTickets = readyTickets.filter(t => !inProgressTicketIds.has(t.id));
+      // ALSO get files locked by completed tickets (in review, not merged yet)
+      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id));
+      const filesInReview = new Set();
+      tickets.filter(t => completedTicketIds.has(t.id)).forEach(t => {
+        (t.files_to_modify || []).forEach(f => filesInReview.add(f));
+      });
+      
+      // Combine all locked files
+      const allLockedFiles = new Set([...filesInProgress, ...filesInReview]);
+      
+      // Get tickets that are ready and not in progress or completed
+      const availableTickets = readyTickets.filter(t => 
+        !inProgressTicketIds.has(t.id) && !completedTicketIds.has(t.id)
+      );
       
       // Calculate next batch - greedy algorithm to find non-conflicting tickets
       const calculateNextBatch = () => {
         const batch = [];
-        const batchFiles = new Set(filesInProgress); // Start with files already in progress
+        const batchFiles = new Set(allLockedFiles); // Start with ALL locked files (in progress + in review)
         
         // Sort by priority (critical first, then high, etc.)
         const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -2265,6 +2287,18 @@ pnpm build`}
             const sharedFiles = ticketFiles.filter(f => ipFiles.includes(f));
             if (sharedFiles.length > 0) {
               conflicts.push({ ticket_id: ip.ticket_id, files: sharedFiles, type: 'in_progress' });
+            }
+          }
+        });
+        
+        // Check against completed (in review) - these are unmerged!
+        completedItems.forEach(ci => {
+          const ciTicket = tickets.find(t => t.id === ci.ticket_id);
+          if (ciTicket) {
+            const ciFiles = ciTicket.files_to_modify || [];
+            const sharedFiles = ticketFiles.filter(f => ciFiles.includes(f));
+            if (sharedFiles.length > 0) {
+              conflicts.push({ ticket_id: ci.ticket_id, files: sharedFiles, type: 'in_review' });
             }
           }
         });
@@ -2598,7 +2632,11 @@ pnpm build`}
                               </div>
                               {conflicts.length > 0 && (
                                 <div style={{ fontSize: '11px', color: 'var(--critical)', marginTop: '4px' }}>
-                                  ⚠️ Conflicts with: {conflicts.map(c => c.ticket_id).join(', ')}
+                                  ⚠️ Conflicts with: {conflicts.map(c => 
+                                    c.type === 'in_review' ? `${c.ticket_id} (in review)` :
+                                    c.type === 'in_progress' ? `${c.ticket_id} (in progress)` :
+                                    c.ticket_id
+                                  ).join(', ')}
                                 </div>
                               )}
                             </div>
@@ -4200,6 +4238,17 @@ pnpm build`}
       const nextBatch = calculateNextBatch();
       const nextBatchIds = new Set(nextBatch.map(t => t.id));
       
+      // DEBUG: Log conflict calculation
+      console.log('[LaunchView DEBUG v2]', {
+        totalReady: readyTickets.length,
+        completedCount: completedItems.length,
+        completedIds: [...completedTicketIds],
+        lockedFilesCount: lockedFiles.size,
+        lockedFiles: [...lockedFiles].slice(0, 5),
+        nextBatchCount: nextBatch.length,
+        nextBatchIds: nextBatch.map(t => t.id)
+      });
+      
       const copyCommand = (id, additionalNotes = '') => {
         let cmd = `# IMPORTANT: First set up your isolated worktree!
 # Run: ./scripts/setup-agent-worktree.sh ${id}
@@ -5629,11 +5678,21 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
               <button className={`nav-item ${view === 'pipeline' ? 'active' : ''}`} onClick={() => setView('pipeline')}><Icons.pipeline /> Pipeline</button>
               <button className={`nav-item ${view === 'launch' ? 'active' : ''}`} onClick={() => setView('launch')}>
                 <Icons.launch /> Launch
-                {tickets.filter(t => t.status === 'ready').length > 0 && (
-                  <span style={{ marginLeft: '6px', padding: '2px 6px', background: 'var(--accent)', color: 'white', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>
-                    {tickets.filter(t => t.status === 'ready').length}
-                  </span>
-                )}
+                {(() => {
+                  // Calculate launchable tickets (ready, not in progress, not completed)
+                  const inProgressIds = new Set((devStatus?.in_progress || []).map(i => i.ticket_id?.toUpperCase()));
+                  const completedIds = new Set((devStatus?.completed || []).map(c => c.ticket_id?.toUpperCase()));
+                  const launchableCount = tickets.filter(t => 
+                    t.status === 'ready' && 
+                    !inProgressIds.has(t.id?.toUpperCase()) && 
+                    !completedIds.has(t.id?.toUpperCase())
+                  ).length;
+                  return launchableCount > 0 && (
+                    <span style={{ marginLeft: '6px', padding: '2px 6px', background: 'var(--accent)', color: 'white', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>
+                      {launchableCount}
+                    </span>
+                  );
+                })()}
               </button>
             </div>
           </header>

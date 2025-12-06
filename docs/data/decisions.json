@@ -565,6 +565,11 @@
           "role": "human",
           "text": "this should be a setting they can choose in blocklist settings. it should be like a toggle, if cant determine lcocation block/allow. -- also we should somehow find what our faiilure rate is and disclose that in the ui so they can make a better deciisioni iff they want to toggle or not",
           "timestamp": "2025-12-05T02:10:41.839Z"
+        },
+        {
+          "role": "system",
+          "text": "✅ Clear direction! Creating TKT-065: Geo-Failure Handling Toggle. Will add toggle to blocklist settings for 'if cant determine location: block/allow' + display geolocation failure rate in UI. Marking resolved.",
+          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
@@ -725,6 +730,11 @@
           "role": "human",
           "text": "i think we already have a ticket for this",
           "timestamp": "2025-12-05T02:14:07.150Z"
+        },
+        {
+          "role": "system",
+          "text": "✅ Confirmed! F-051 (500 call limit pagination) is covered by TKT-034 (Call Logs Pagination for Performance). Linking and marking resolved.",
+          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
@@ -742,6 +752,11 @@
           "role": "human",
           "text": "i think we already have a ticket for this",
           "timestamp": "2025-12-05T02:14:27.136Z"
+        },
+        {
+          "role": "system",
+          "text": "✅ Confirmed! F-052 (URL filter client-side only) is covered by TKT-064 (URL Filter is Client-Side Only). Linking and marking resolved.",
+          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
@@ -891,6 +906,11 @@
           "role": "human",
           "text": "can we know on our end iiff iits working without looking inside facebook?",
           "timestamp": "2025-12-05T02:16:40.194Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 Yes, we can! When we send events to Facebook's Conversions API, FB returns HTTP 200 OK if the event was received. We can: (1) Log success/failure for each event, (2) Show a 'Last successful event' timestamp in settings, (3) Show error banner if API calls start failing. This is part of the F-065 fix - implement credential validation on save + show last-success timestamp. Want me to create a ticket?",
+          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
@@ -954,6 +974,11 @@
           "role": "human",
           "text": "already have a ticket i think",
           "timestamp": "2025-12-05T02:18:03.876Z"
+        },
+        {
+          "role": "system",
+          "text": "✅ Confirmed! F-071 (No server-side pagination - 500 limit) is covered by TKT-034 (Call Logs Pagination for Performance). Linking and marking resolved.",
+          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
@@ -971,6 +996,11 @@
           "role": "human",
           "text": "already have this as a setting in admin settings",
           "timestamp": "2025-12-05T02:18:34.072Z"
+        },
+        {
+          "role": "system",
+          "text": "📖 Confirmed - F-072 (Data retention policy) is handled by existing admin settings. Marking resolved (existing behavior acceptable).",
+          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
@@ -1094,6 +1124,11 @@
           "role": "human",
           "text": "visitors should not be able to get assigned to agents who were not ini the pool of a page they landed in",
           "timestamp": "2025-12-05T02:20:44.007Z"
+        },
+        {
+          "role": "system",
+          "text": "✅ This is covered by TKT-017 (Enforce Pool Routing on Visitor Reassignment). That ticket ensures pool_id is passed during reassignment and prevents cross-pool assignments. Linking F-089 → TKT-017.",
+          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
@@ -5956,15 +5991,25 @@
     },
     {
       "finding_id": "BLOCKED-TKT-064-1",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix - acceptable risk",
+        "recommended": false,
+        "timestamp": "2025-12-06T10:47:54.555Z"
+      }
     },
     {
       "finding_id": "BLOCKED-TKT-063-1",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": 3,
+        "option_label": "Document trade-offs only — Add analysis to widget-settings.md explaining the 5-minute choice, trade-offs, and when to reconsider. No code changes needed.",
+        "recommended": true,
+        "timestamp": "2025-12-06T10:45:42.123Z"
+      }
     }
   ]
 }

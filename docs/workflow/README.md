@@ -36,6 +36,11 @@ You are a Doc Agent. Read docs/workflow/DOC_AGENT_SOP.md then execute: docs/prom
 You are a Review Agent. Read docs/workflow/REVIEW_AGENT_SOP.md then execute: docs/prompts/active/review-agent-[ID].md
 ```
 
+**Launch Cleanup Agent:** (NEW - runs before human reviews findings)
+```
+You are a Cleanup Agent. Read docs/workflow/CLEANUP_AGENT_SOP.md then execute.
+```
+
 ---
 
 ## 📁 Workflow Files
@@ -49,6 +54,7 @@ docs/
 │   ├── DEV_AGENT_SOP.md         ← Dev agent instructions
 │   ├── DOC_AGENT_SOP.md         ← Doc agent instructions
 │   ├── REVIEW_AGENT_SOP.md      ← Review agent instructions
+│   ├── CLEANUP_AGENT_SOP.md     ← 🆕 Cleanup agent instructions (dedup/validate findings)
 │   └── templates/
 │       ├── ticket-schema.json   ← Required ticket fields (v2)
 │       ├── dev-ticket.md        ← Ticket creation template
@@ -58,7 +64,9 @@ docs/
 │
 ├── data/
 │   ├── tickets.json             ← All tickets (source of truth)
-│   ├── findings.json            ← Review findings
+│   ├── findings-staging.json    ← 🆕 Raw findings pending cleanup
+│   ├── findings.json            ← INBOX - cleaned findings for human review
+│   ├── findings-processed.json  ← 🆕 Audit trail of rejected/merged findings
 │   ├── decisions.json           ← Human decisions
 │   ├── doc-status.json          ← Documentation freshness tracking
 │   └── .agent-credentials.json  ← Service logins & API keys (gitignored)
@@ -80,18 +88,18 @@ docs/
 ## 🔄 Full Pipeline
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  DOCUMENTATION  │ → │     REVIEW      │ → │    QUESTIONS    │
-│   Doc Agents    │    │  Review Agents  │    │  Human Decides  │
-│   ✅ Complete   │    │   ✅ Complete   │    │   ✅ Complete   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                      │
-                                                      ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│     MERGED      │ ← │     REVIEW      │ ← │   DEV AGENTS    │
-│  Human Merges   │    │  Human/QA Agent │    │  Execute Tickets │
-│                 │    │                 │    │  ⚡ READY       │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  DOCUMENTATION  │ → │     REVIEW      │ → │    CLEANUP      │ → │    QUESTIONS    │
+│   Doc Agents    │    │  Review Agents  │    │  Cleanup Agent  │    │  Human Decides  │
+│   ✅ Complete   │    │   ✅ Complete   │    │  Dedup/Validate │    │   ✅ Complete   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+                                                                            │
+                                                                            ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│     MERGED      │ ← │     REVIEW      │ ← │   DEV AGENTS    │ ← │     TICKETS     │
+│  Human Merges   │    │  Human/QA Agent │    │  Execute Tickets │    │   PM Creates    │
+│                 │    │                 │    │  ⚡ READY       │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
                                                       │
                                                       ▼
                                               ┌─────────────────┐
@@ -191,6 +199,9 @@ main (production)
 | File | Purpose | Who Updates |
 |------|---------|-------------|
 | `docs/data/tickets.json` | All tickets (source of truth) | PM |
+| `docs/data/findings-staging.json` | Raw findings pending cleanup | Review/Dev Agents → Cleanup Agent |
+| `docs/data/findings.json` | INBOX - cleaned findings for human | Cleanup Agent |
+| `docs/data/findings-processed.json` | Audit trail of rejected/merged | Cleanup Agent |
 | `docs/data/doc-status.json` | Documentation freshness tracking | PM |
 | `docs/agent-output/started/` | Dev agent start signals + file locks (per-agent JSON) | Dev Agents |
 | `docs/agent-output/completions/` | Dev agent completion reports (per-agent MD) | Dev Agents |
@@ -199,6 +210,7 @@ main (production)
 | `docs/PM_DASHBOARD.md` | Pipeline status | PM |
 | `docs/workflow/PM_DEV_SOP.md` | PM dev instructions | - |
 | `docs/workflow/DEV_AGENT_SOP.md` | Dev agent instructions | - |
+| `docs/workflow/CLEANUP_AGENT_SOP.md` | Cleanup agent instructions | - |
 | `docs/workflow/templates/ticket-schema.json` | Ticket requirements | - |
 | `docs/workflow/templates/redoc-agent.md` | Re-documentation agent template | - |
 
