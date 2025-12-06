@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-004b-1",
+  "source": "dev-agent-TKT-004b",
+  "title": "Pre-existing TypeScript build errors prevent clean build",
+  "category": "build",
+  "severity": "high",
+  "file": "apps/server/src",
+  "line": null,
+  "issue": "The server package has multiple pre-existing TypeScript errors that prevent `pnpm build` from passing. These include: missing '@ghost-greeter/domain' module declarations, unused variable warnings, type mismatches in test files, and implicit 'any' types. These errors existed before TKT-004b changes and are not caused by the auto-resume scheduler implementation.",
+  "suggestion": "Run a dedicated ticket to fix all TypeScript errors in the server package. Consider adding a CI check that blocks PRs with type errors. The errors are primarily in: pool-manager.ts, redis-pool-manager.ts, socket-handlers.ts, redis-socket-handlers.ts, and various test files.",
+  "status": "pending",
+  "found_at": "2025-12-06T10:15:00Z"
+}

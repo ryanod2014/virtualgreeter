@@ -1,0 +1,9 @@
+{
+  "ticket_id": "TKT-004b",
+  "branch": "agent/tkt-004b",
+  "started_at": "2025-12-06T10:11:00Z",
+  "files_locking": [
+    "apps/server/src/features/scheduler/resumePausedOrgs.ts",
+    "apps/server/src/index.ts"
+  ]
+}

@@ -35,6 +35,10 @@ import type {
   ServerToDashboardEvents,
 } from "@ghost-greeter/domain";
 import { handleStripeWebhook } from "./features/billing/stripe-webhook-handler.js";
+import {
+  startAutoResumeScheduler,
+  stopAutoResumeScheduler
+} from "./features/scheduler/resumePausedOrgs.js";
 
 // ============================================================================
 // CONFIGURATION
@@ -475,6 +479,9 @@ async function startServer() {
     console.log(`📡 Socket.io ready for connections`);
     console.log(`🔒 CORS enabled for: ${CORS_ORIGIN === true ? "all origins (production mode)" : ALLOWED_ORIGINS.join(", ")}`);
     console.log(`📦 State management: ${USE_REDIS ? "Redis (distributed)" : "In-memory (single instance)"}`);
+
+    // Start auto-resume scheduler for paused subscriptions
+    startAutoResumeScheduler();
   });
 
   // ============================================================================
@@ -483,18 +490,21 @@ async function startServer() {
 
   const shutdown = async (signal: string) => {
     console.log(`${signal} received, shutting down gracefully...`);
-    
+
     // Mark as shutting down so readiness probe returns 503
     markShuttingDown();
-    
+
+    // Stop auto-resume scheduler
+    stopAutoResumeScheduler();
+
     // Close Socket.io connections
     io.close();
-    
+
     // Close Redis connections if enabled
     if (USE_REDIS) {
       await closeRedis();
     }
-    
+
     // Close HTTP server
     httpServer.close(() => {
       console.log("Server closed");
