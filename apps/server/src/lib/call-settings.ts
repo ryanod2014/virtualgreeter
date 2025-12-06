@@ -12,6 +12,7 @@ import type { RecordingSettings } from "@ghost-greeter/domain";
 const DEFAULT_CALL_SETTINGS = {
   rna_timeout_seconds: 15, // 15 seconds default
   max_call_duration_minutes: 120, // 2 hours default
+  is_recording_enabled: false, // Recording disabled by default
 };
 
 // Cache for org call settings (expires after 60 seconds in dev, 5 minutes in prod)
@@ -21,6 +22,7 @@ const CACHE_TTL = process.env.NODE_ENV === 'production' ? 5 * 60 * 1000 : 60 * 1
 export interface CallSettings {
   rna_timeout_seconds: number;
   max_call_duration_minutes: number;
+  is_recording_enabled: boolean;
 }
 
 /**
@@ -54,10 +56,11 @@ export async function getCallSettings(orgId: string): Promise<CallSettings> {
     }
 
     const recordingSettings = data?.recording_settings as RecordingSettings | null;
-    
+
     const settings: CallSettings = {
       rna_timeout_seconds: recordingSettings?.rna_timeout_seconds ?? DEFAULT_CALL_SETTINGS.rna_timeout_seconds,
       max_call_duration_minutes: recordingSettings?.max_call_duration_minutes ?? DEFAULT_CALL_SETTINGS.max_call_duration_minutes,
+      is_recording_enabled: recordingSettings?.enabled ?? DEFAULT_CALL_SETTINGS.is_recording_enabled,
     };
     
     // Cache the result

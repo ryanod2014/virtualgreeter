@@ -744,6 +744,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
           callId: activeCall.callId,
           agentId: request.agentId,
           reconnectToken: reconnectToken ?? "", // Token for reconnecting after page navigation
+          isRecordingEnabled: callSettings.is_recording_enabled,
         });
       }
 

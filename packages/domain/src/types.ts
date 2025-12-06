@@ -308,6 +308,8 @@ export interface CallAcceptedPayload {
   agentId: string;
   /** Token for reconnecting to this call after page navigation or disconnect */
   reconnectToken: string;
+  /** Whether recording is enabled for this organization */
+  isRecordingEnabled: boolean;
 }
 
 export interface CallRejectedPayload {
