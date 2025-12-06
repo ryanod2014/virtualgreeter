@@ -496,6 +496,7 @@ function handleAPI(req, res, body) {
       tickets: readJSON('tickets.json'),
       summary: readJSON('findings-summary.json'),
       devStatus: devStatus,
+      docStatus: readJSON('doc-status.json'),
       featuresList,
       // Aggregated agent outputs (prevents race conditions with multiple agents)
       agentOutputs,

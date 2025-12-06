@@ -4236,7 +4236,7 @@ pnpm build`}
     // ================= LAUNCH VIEW =================
     // All agent commands in one place
 
-    function LaunchView({ tickets, devStatus, onSaveDevStatus, findings, serverDecisions, featuresList, agentOutputs }) {
+    function LaunchView({ tickets, devStatus, docStatus, onSaveDevStatus, findings, serverDecisions, featuresList, agentOutputs }) {
       const [copied, setCopied] = useState(null);
       // Auto-expand testlock if there are completions to show
       const hasTestLockCompletions = (agentOutputs?.testLock || []).length > 0;
@@ -4294,39 +4294,20 @@ pnpm build`}
       }, [featuresList]);
       
       const unreviewedFeatures = useMemo(() => {
-        // Features that are documented but have no findings (review agent hasn't run)
-        // Helper: normalize strings for comparison (strip hyphens, spaces, lowercase)
-        const normalize = (str) => (str || '').toLowerCase().replace(/[-\s]/g, '');
+        // Features that are documented but not marked as reviewed in doc-status.json
+        const docStatusFeatures = docStatus?.features || {};
         
         return (featuresList || []).filter(f => {
           if (!f.docPath) return false; // Must be documented first
-          const normalizedName = normalize(f.name);
-          const fileName = f.fileName?.replace('.md', '') || '';
-          const normalizedFileName = normalize(fileName);
           
-          // Check if any findings exist for this feature using multiple matching strategies:
-          // 1. Normalized feature name contains normalized file name (or vice versa)
-          // 2. Category field matches the file path pattern
-          // 3. Original substring match as fallback
-          const hasFindings = findings.some(finding => {
-            const normalizedFeature = normalize(finding.feature);
-            const normalizedCategory = normalize(finding.category);
-            
-            // Match by normalized feature name
-            if (normalizedFeature.includes(normalizedName) || normalizedName.includes(normalizedFeature)) return true;
-            if (normalizedFeature.includes(normalizedFileName) || normalizedFileName.includes(normalizedFeature)) return true;
-            
-            // Match by category (e.g., "A-cobrowse-viewer" matches "cobrowse-viewer.md")
-            if (normalizedCategory.includes(normalizedFileName) || normalizedFileName.includes(normalizedCategory)) return true;
-            
-            // Match by doc field
-            if (finding.doc && normalize(finding.doc).includes(normalizedName)) return true;
-            
-            return false;
-          });
-          return !hasFindings;
+          // Get the feature key from the file name (e.g., "widget-lifecycle.md" -> "widget-lifecycle")
+          const featureKey = f.fileName?.replace('.md', '') || '';
+          
+          // Check if this feature is marked as reviewed in doc-status.json
+          const featureStatus = docStatusFeatures[featureKey];
+          return !featureStatus?.reviewed;
         });
-      }, [featuresList, findings]);
+      }, [featuresList, docStatus]);
       
       // Ticket calculations
       const inProgressItems = devStatus?.in_progress || [];
@@ -5673,6 +5654,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
       const [tickets, setTickets] = useState([]);
       const [featuresList, setFeaturesList] = useState([]);
       const [devStatus, setDevStatus] = useState({ in_progress: [], completed: [] });
+      const [docStatus, setDocStatus] = useState({ features: {} });
       const [agentOutputs, setAgentOutputs] = useState({ blocked: [], completions: [], started: [], findings: [], testLock: [] });
       const [serverDecisions, setServerDecisions] = useState(null);
       const [staging, setStaging] = useState({ count: 0, bySeverity: { critical: 0, high: 0, medium: 0, low: 0 } });
@@ -5709,6 +5691,9 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
             }
             if (data.featuresList) {
               setFeaturesList(data.featuresList);
+            }
+            if (data.docStatus) {
+              setDocStatus(data.docStatus);
             }
             if (data.staging) {
               setStaging(data.staging);
@@ -5871,6 +5856,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                 {view === 'launch' && <LaunchView 
                   tickets={tickets}
                   devStatus={devStatus}
+                  docStatus={docStatus}
                   onSaveDevStatus={saveDevStatus}
                   findings={findings}
                   serverDecisions={serverDecisions}
