@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOM Serializer Masking Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    label {
+      font-weight: bold;
+    }
+    input, textarea {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <h1>DOM Serializer Masking Test</h1>
+  <p>Fill out the form below and click "Test Masking" to see how sensitive fields are masked.</p>
+
+  <form id="testForm">
+    <div>
+      <label for="username">Username (Regular):</label>
+      <input type="text" id="username" name="username" value="johndoe">
+    </div>
+
+    <div>
+      <label for="password">Password (Should be masked):</label>
+      <input type="password" id="password" name="password" value="secretPassword123">
+    </div>
+
+    <div>
+      <label for="email">Email (Regular):</label>
+      <input type="email" id="email" name="email" value="john@example.com">
+    </div>
+
+    <div>
+      <label for="ccNumber">Credit Card Number (Should be masked):</label>
+      <input type="text" id="ccNumber" name="ccNumber" autocomplete="cc-number" value="4111111111111111">
+    </div>
+
+    <div>
+      <label for="cvv">CVV (Should be masked):</label>
+      <input type="text" id="cvv" name="cvv" autocomplete="cc-csc" value="123">
+    </div>
+
+    <div>
+      <label for="phone">Phone with data-sensitive (Should be masked):</label>
+      <input type="text" id="phone" name="phone" data-sensitive="true" value="555-1234">
+    </div>
+
+    <div>
+      <label for="address">Address (Regular):</label>
+      <input type="text" id="address" name="address" value="123 Main St">
+    </div>
+
+    <div>
+      <label for="notes">Notes with data-sensitive (Should be masked):</label>
+      <textarea id="notes" data-sensitive="true" rows="3">Private confidential notes</textarea>
+    </div>
+
+    <button type="button" onclick="testMasking()">Test Masking</button>
+  </form>
+
+  <h2>Serialized DOM (After Masking):</h2>
+  <div id="result"></div>
+
+  <script type="module">
+    // Import the maskSensitiveFields function
+    import { maskSensitiveFields } from '../src/features/cobrowse/domSerializer.ts';
+
+    window.testMasking = function() {
+      // Clone the document
+      const docClone = document.cloneNode(true);
+
+      // Apply masking
+      maskSensitiveFields(docClone);
+
+      // Get the form from the clone
+      const formClone = docClone.getElementById('testForm');
+
+      // Extract values from the cloned form
+      const results = {
+        username: formClone.querySelector('#username').getAttribute('value'),
+        password: formClone.querySelector('#password').getAttribute('value'),
+        email: formClone.querySelector('#email').getAttribute('value'),
+        ccNumber: formClone.querySelector('#ccNumber').getAttribute('value'),
+        cvv: formClone.querySelector('#cvv').getAttribute('value'),
+        phone: formClone.querySelector('#phone').getAttribute('value'),
+        address: formClone.querySelector('#address').getAttribute('value'),
+        notes: formClone.querySelector('#notes').textContent
+      };
+
+      // Display results
+      const resultDiv = document.getElementById('result');
+      resultDiv.textContent = JSON.stringify(results, null, 2);
+
+      // Verify expected masking
+      const expectedMask = '••••••••';
+      const checks = {
+        'Password is masked': results.password === expectedMask,
+        'CC Number is masked': results.ccNumber === expectedMask,
+        'CVV is masked': results.cvv === expectedMask,
+        'Phone is masked': results.phone === expectedMask,
+        'Notes are masked': results.notes === expectedMask,
+        'Username is NOT masked': results.username === 'johndoe',
+        'Email is NOT masked': results.email === 'john@example.com',
+        'Address is NOT masked': results.address === '123 Main St'
+      };
+
+      console.log('Masking Test Results:', checks);
+
+      // Add visual feedback
+      const allPassed = Object.values(checks).every(v => v === true);
+      if (allPassed) {
+        resultDiv.style.backgroundColor = '#d4edda';
+        resultDiv.style.borderColor = '#c3e6cb';
+        resultDiv.insertAdjacentHTML('beforeend', '\n\n✅ All masking tests PASSED');
+      } else {
+        resultDiv.style.backgroundColor = '#f8d7da';
+        resultDiv.style.borderColor = '#f5c6cb';
+        resultDiv.insertAdjacentHTML('beforeend', '\n\n❌ Some masking tests FAILED:\n' +
+          Object.entries(checks).filter(([k, v]) => !v).map(([k]) => '- ' + k).join('\n'));
+      }
+    };
+  </script>
+</body>
+</html>

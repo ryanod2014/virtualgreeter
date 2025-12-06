@@ -1,0 +1,7 @@
+{
+  "agent_type": "qa-review",
+  "ticket_id": "TKT-001",
+  "started_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "branch": "agent/TKT-001-cobrowse-sanitization",
+  "status": "in_progress"
+}

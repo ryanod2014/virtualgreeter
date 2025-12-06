@@ -1,0 +1,10 @@
+{
+  "ticket_id": "TKT-001",
+  "branch": "agent/TKT-001-cobrowse-sanitization",
+  "started_at": "2025-12-05T14:30:00Z",
+  "files_locking": [
+    "apps/widget/src/features/cobrowse/domSerializer.ts",
+    "apps/widget/src/features/cobrowse/domSerializer.test.ts"
+  ]
+}
+
