@@ -1,0 +1,10 @@
+{
+  "ticket_id": "TKT-015",
+  "branch": "agent/tkt-015",
+  "started_at": "2025-12-06T08:00:00Z",
+  "files_locking": [
+    "apps/server/src/features/recordings/uploadRecording.ts",
+    "apps/server/src/features/recordings/getRecordingUrl.ts",
+    "apps/dashboard/src/features/recordings/RecordingPlayer.tsx"
+  ]
+}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useCallback, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 interface UseCallRecordingOptions {
   organizationId: string;
@@ -239,44 +238,29 @@ export function useCallRecording({
             return;
           }
 
-          // Upload to Supabase storage
-          const supabase = createClient();
-          const timestamp = Date.now();
-          const filePath = `${organizationId}/${storedCallLogId}_${timestamp}.webm`;
+          // Upload via API to private storage with randomized UUID
+          console.log("[Recording] Uploading via API...");
 
-          console.log("[Recording] Uploading to:", filePath);
+          const formData = new FormData();
+          formData.append("blob", blob);
+          formData.append("callLogId", storedCallLogId);
+          formData.append("contentType", mediaRecorder.mimeType);
 
-          const { error: uploadError } = await supabase.storage
-            .from("recordings")
-            .upload(filePath, blob, {
-              contentType: mediaRecorder.mimeType,
-              upsert: false,
-            });
+          const uploadResponse = await fetch("/api/recordings/upload", {
+            method: "POST",
+            body: formData,
+          });
 
-          if (uploadError) {
-            console.error("[Recording] Upload failed:", uploadError);
+          if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json();
+            console.error("[Recording] Upload failed:", errorData);
             setRecordingError("Failed to upload recording");
             resolve(null);
             return;
           }
 
-          // Get public URL
-          const { data: urlData } = supabase.storage
-            .from("recordings")
-            .getPublicUrl(filePath);
-
-          const recordingUrl = urlData.publicUrl;
-          console.log("[Recording] Recording uploaded:", recordingUrl);
-
-          // Update call log with recording URL
-          const { error: updateError } = await supabase
-            .from("call_logs")
-            .update({ recording_url: recordingUrl })
-            .eq("id", storedCallLogId);
-
-          if (updateError) {
-            console.error("[Recording] Failed to update call log:", updateError);
-          }
+          const { recordingId } = await uploadResponse.json();
+          console.log("[Recording] Recording uploaded with ID:", recordingId);
 
           // Trigger transcription processing in background (fire and forget)
           // This will transcribe and optionally generate AI summary based on org settings
@@ -294,7 +278,7 @@ export function useCallRecording({
             console.warn("[Recording] Failed to trigger transcription:", err);
           });
 
-          resolve(recordingUrl);
+          resolve(recordingId);
         } catch (err) {
           console.error("[Recording] Error processing recording:", err);
           setRecordingError("Failed to save recording");
