@@ -1,19 +1,209 @@
 {
   "meta": {
-    "last_updated": "2025-12-06",
-    "total_findings": 641,
-    "format_version": "1.0",
-    "description": "Raw findings from agents pending cleanup before promotion to inbox",
-    "migrated_from": "findings.json",
-    "migration_date": "2025-12-06T10:51:05.093Z"
+    "last_updated": "2025-12-04",
+    "total_findings": 778,
+    "format_version": "3.0",
+    "synced_from": "REVIEW_FINDINGS.md"
   },
   "summary": {
-    "critical": 0,
-    "high": 0,
-    "medium": 261,
-    "low": 380
+    "critical": 17,
+    "high": 49,
+    "medium": 329,
+    "low": 383,
+    "pending": 696,
+    "ticketed": 71,
+    "rejected": 0
   },
   "findings": [
+    {
+      "id": "F-001",
+      "feature": "Decision Legend",
+      "category": "decision-legend",
+      "title": "5-Minute Cache TTL Trade-off Not Quantified",
+      "severity": "low",
+      "location": "Section 10 - Open Questions #4",
+      "issue": "Documentation asks \"Is 5-minute cache TTL optimal? Trade-off between freshness and DB load could be tuned.\" However, there's no data on actual query volume or cache hit rates to inform this decision. The 5-minute value appears arbitrary.",
+      "suggested_fix": "Add monitoring for cache hit rate and DB query frequency. Document expected query volumes at different traffic levels to inform TTL selection. Consider making TTL configurable per-environment.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add monitoring for cache hit rate and DB query frequency. Document expected query volumes at different traffic levels to inform TTL selection. Consider making TTL configurable per-environment.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-227",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "Password Fields Captured in DOM Snapshots",
+      "severity": "critical",
+      "location": "Section 6 (Security), Section 7 (Identified Issues), Section 10 (Open Question #1), Special Focus section",
+      "issue": "Password field values are captured in DOM snapshots and transmitted to agents. The documentation explicitly flags this multiple times as 🔴 High risk: \"Passwords typed into `<input type=\"password\">` are in HTML\". While the field visually obscures the password, the `value` attribute may be present in the serialized DOM depending on how the site handles it.",
+      "suggested_fix": "Implement the documented recommendation: sanitize password inputs by replacing values with mask characters (`••••••••`) before serialization. Code sample already provided in doc.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-001",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement the documented recommendation: sanitize password inputs by replacing values with mask characters (`••••••••`) before serialization. Code sample already provided in doc.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-003",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "Credit Card and Other Sensitive Data Also Captured",
+      "severity": "critical",
+      "location": "Special Focus section \"Security considerations (passwords, sensitive data)\"",
+      "issue": "Beyond passwords, the documentation identifies additional security gaps: \"Credit card fields: Same issue as passwords\", \"Personal data: Any visible data on page is captured\", \"Session tokens: If displayed on page, captured\". These represent PCI compliance risks and privacy violations.",
+      "suggested_fix": "Extend sanitization to mask `input[type=\"tel\"]`, `input[autocomplete=\"cc-number\"]`, and elements marked with `data-sensitive=\"true\"`. Consider opt-in allowlisting instead of blocklisting for sensitive field detection.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-001",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Extend sanitization to mask `input[type=\"tel\"]`, `input[autocomplete=\"cc-number\"]`, and elements marked with `data-sensitive=\"true\"`. Consider opt-in allowlisting instead of blocklisting for sensitive field detection.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-004",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "No Visitor Opt-Out for Co-Browse",
+      "severity": "high",
+      "location": "Section 10 (Open Question #2)",
+      "issue": "Documentation explicitly asks \"Should there be a 'co-browse disabled' option?\" noting \"Some visitors might prefer privacy during calls\" and \"No toggle currently exists - cobrowse is automatic.\" Visitors have no control over screen sharing during calls, which may violate privacy expectations or regional regulations.",
+      "suggested_fix": "Add visitor-side toggle \"Allow screen viewing\" that defaults to enabled but can be disabled. Or add organization-level setting to disable co-browse entirely.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add visitor-side toggle \"Allow screen viewing\" that defaults to enabled but can be disabled. Or add organization-level setting to disable co-browse entirely.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-005",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "No Loading State for Agent Viewer",
+      "severity": "medium",
+      "location": "Section 5 (UI/UX Review, Accessibility), Section 7 (Identified Issues)",
+      "issue": "Multiple documentation sections flag this: \"Could show loading state\" (Section 5), \"Loading states | ⚠️ | No explicit 'Loading DOM...' state\" (Accessibility), and \"No loading state | Agent sees stale/blank before first snapshot | 🟡 Medium\" (Section 7). Agent may see a blank or stale view with no indication that co-browse is initializing.",
+      "suggested_fix": "Add \"Loading visitor's screen...\" placeholder with spinner while waiting for first snapshot. Show skeleton UI or previous snapshot with \"Updating...\" indicator during subsequent refreshes.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-052",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add \"Loading visitor's screen...\" placeholder with spinner while waiting for first snapshot. Show skeleton UI or previous snapshot with \"Updating...\" indicator during subsequent refreshes.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-006",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "Screen Reader Accessibility Not Implemented",
+      "severity": "medium",
+      "location": "Section 5 (Accessibility)",
+      "issue": "Documentation explicitly notes \"Screen reader | ⚠️ | Could add aria-label for viewer\". The co-browse viewer component lacks ARIA attributes, making it inaccessible to agents using assistive technology. This is a WCAG compliance gap.",
+      "suggested_fix": "Add aria-label to the viewer container describing its purpose, aria-live region for status updates (loading, connected, disconnected), and descriptive text for the cursor position and selection indicators.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add aria-label to the viewer container describing its purpose, aria-live region for status updates (loading, connected, disconnected), and descriptive text for the cursor position and selection indicators.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-007",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "Iframe Content Not Captured",
+      "severity": "medium",
+      "location": "Section 4 (Edge Case #4), Section 7 (Identified Issues), Section 10 (Open Question #3), Special Focus section",
+      "issue": "Documentation flags this as a known limitation across multiple sections. Embedded iframe content (payment forms, embedded apps, third-party widgets) appears as empty boxes in the agent's view. This significantly reduces the utility of co-browse when visitors interact with iframe-embedded content.",
+      "suggested_fix": "For same-origin iframes, attempt recursive DOM capture. For cross-origin iframes, show clear visual indicator \"Embedded content - not visible to agent\" instead of blank space. Document limitation prominently in admin setup.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-053",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "For same-origin iframes, attempt recursive DOM capture. For cross-origin iframes, show clear visual indicator \"Embedded content - not visible to agent\" instead of blank space. Document limitation prominently in admin setup.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-008",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "Canvas Elements Appear Blank",
+      "severity": "medium",
+      "location": "Section 4 (Edge Case #5), Section 7 (Identified Issues), Section 10 (Open Question #4), Special Focus section",
+      "issue": "Charts, graphs, and other canvas-rendered content show as blank boxes in the agent view. Documentation notes \"Canvas state not captured\" and asks \"Should canvas elements be converted to images?\" This limitation affects data visualization-heavy sites.",
+      "suggested_fix": "Use `canvas.toDataURL()` to capture canvas state as image and inject as `<img>` replacement in the snapshot. Accept increased payload size trade-off for important visual context.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Use `canvas.toDataURL()` to capture canvas state as image and inject as `<img>` replacement in the snapshot. Accept increased payload size trade-off for important visual context.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-009",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "Large DOM Snapshots May Cause Latency",
+      "severity": "medium",
+      "location": "Section 4 (Edge Case #2), Section 6 (Performance)",
+      "issue": "Documentation notes \"Large DOM (>1MB) | Complex page | Sent as-is, may lag | ⚠️ | No compression or chunking\" and \"Large DOM snapshots | No compression | 🟡 Medium\". Complex pages may experience significant latency or dropped updates, degrading the agent experience.",
+      "suggested_fix": "Implement gzip compression for DOM payloads. Consider chunked transmission for very large DOMs. Add DOM size monitoring to identify problematic pages.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-051",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement gzip compression for DOM payloads. Consider chunked transmission for very large DOMs. Add DOM size monitoring to identify problematic pages.",
+          "recommended": true
+        }
+      ]
+    },
     {
       "id": "F-010",
       "feature": "Co-Browse Viewer",
@@ -52,6 +242,132 @@
         {
           "id": "implement_fix",
           "label": "Add org-level setting for snapshot interval (500ms - 5000ms range) with 2000ms default. Document bandwidth implications for each setting.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-413",
+      "feature": "Agent Management",
+      "category": "D4",
+      "title": "Agent Removal Doesn't End Active Calls",
+      "severity": "high",
+      "location": "Section 4 (Edge Case #10), Section 7 (Identified Issues), Section 10 (Open Question #1)",
+      "issue": "When an admin removes an agent who is currently in a video call, the call continues until it naturally ends. This creates a confusing state where a \"removed\" agent is still actively serving a visitor. The visitor experience is maintained, but system state becomes inconsistent (agent marked as removed while still in `in_call` status).",
+      "suggested_fix": "Emit `call:end` event when removing an agent who is `in_call` status, with graceful handling for the visitor (e.g., \"Agent has ended the call\" message rather than abrupt disconnect).",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-010",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Emit `call:end` event when removing an agent who is `in_call` status, with graceful handling for the visitor (e.g., \"Agent has ended the call\" message rather than abrupt disconnect).",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-414",
+      "feature": "Agent Management",
+      "category": "D4",
+      "title": "Cannot Re-invite Previously Removed Users",
+      "severity": "medium",
+      "location": "Section 4 (Edge Case #21), Section 7 (Identified Issues), Section 10 (Open Question #2)",
+      "issue": "The system blocks re-inviting email addresses that belong to users with inactive `agent_profile` records. Error shown is \"User already exists in this organization.\" This prevents admins from bringing back former team members through the normal invite flow.",
+      "suggested_fix": "Add a \"Reactivate\" option for inactive agents in the UI, OR modify invite logic to check `is_active` status and allow re-invitation for deactivated users.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add a \"Reactivate\" option for inactive agents in the UI, OR modify invite logic to check `is_active` status and allow re-invitation for deactivated users.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-024",
+      "feature": "Agent Management",
+      "category": "D4",
+      "title": "Email Send Failure Is Silent",
+      "severity": "high",
+      "location": "Section 4 (Edge Case #20), Section 6 (Reliability), Section 7 (Identified Issues), Section 10 (Open Question #3)",
+      "issue": "If the Resend API fails to send the invite email, the invite record is still created in the database but the failure is only logged to console. The admin has no visibility that the invitee never received their email. The invitee is stuck waiting for an email that never arrives.",
+      "suggested_fix": "Either (a) rollback invite creation on email failure, OR (b) add retry mechanism with admin notification, OR (c) show warning toast \"Invite created but email may not have sent - check with invitee.\"",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-011",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either (a) rollback invite creation on email failure, OR (b) add retry mechanism with admin notification, OR (c) show warning toast \"Invite created but email may not have sent - check with invitee.\"",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-419",
+      "feature": "Agent Management",
+      "category": "D4",
+      "title": "Screen Reader Support Not Verified",
+      "severity": "medium",
+      "location": "Section 5 (Accessibility)",
+      "issue": "Documentation explicitly notes screen reader support as \"⚠️ Not explicitly verified.\" The agent management page includes interactive modals, form inputs, and status indicators that may not be accessible to users relying on assistive technology.",
+      "suggested_fix": "Conduct accessibility audit with screen reader (NVDA/VoiceOver). Ensure ARIA labels on modal triggers, proper focus management, and status announcements for async operations.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Conduct accessibility audit with screen reader (NVDA/VoiceOver). Ensure ARIA labels on modal triggers, proper focus management, and status announcements for async operations.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-016",
+      "feature": "Agent Management",
+      "category": "D4",
+      "title": "Missing Reactivation Flow for Non-Admin Users",
+      "severity": "medium",
+      "location": "Section 2 (Flows), Section 4 (Edge Cases)",
+      "issue": "The \"Add Myself (reactivate)\" flow documents how an admin can reactivate their own agent profile after removal. However, there's no documented flow for an admin to reactivate a DIFFERENT user who was previously removed. Combined with Finding #2, this means there's no way to bring back former agents.",
+      "suggested_fix": "Add \"Reactivate\" button/flow for inactive agents, similar to \"Add Myself (reactivate)\" but for other users. Would need to handle billing seat addition.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-052",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add \"Reactivate\" button/flow for inactive agents, similar to \"Add Myself (reactivate)\" but for other users. Would need to handle billing seat addition.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-017",
+      "feature": "Agent Management",
+      "category": "D4",
+      "title": "Stripe Downtime Lacks Retry Mechanism",
+      "severity": "medium",
+      "location": "Section 6 (Reliability), Section 10 (Open Question #5)",
+      "issue": "If Stripe is unavailable during invite creation, the invite fails and is rolled back. No retry mechanism exists. During Stripe outages, all agent invitations would fail even though the core invite functionality doesn't depend on Stripe.",
+      "suggested_fix": "Consider queuing billing updates for retry, or allow invite creation with \"billing_pending\" flag that syncs when Stripe recovers.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Consider queuing billing updates for retry, or allow invite creation with \"billing_pending\" flag that syncs when Stripe recovers.",
           "recommended": true
         }
       ]
@@ -120,6 +436,69 @@
       ]
     },
     {
+      "id": "F-021",
+      "feature": "Call Logs",
+      "category": "D-call-logs",
+      "title": "No Server-Side Pagination Limits Historical Data Access",
+      "severity": "medium",
+      "location": "Section 7 - Identified Issues table, row 1",
+      "issue": "Documentation explicitly states \"No server-side pagination | 500 record limit cuts off data\". Users cannot access historical data beyond the most recent 500 calls in any date range, which is a significant limitation for organizations with high call volumes.",
+      "suggested_fix": "Implement cursor-based pagination as already suggested in the doc.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-034",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement cursor-based pagination as already suggested in the doc.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-022",
+      "feature": "Call Logs",
+      "category": "D-call-logs",
+      "title": "URL Filter is Client-Side Only",
+      "severity": "medium",
+      "location": "Section 7 - Identified Issues table, row 2",
+      "issue": "Documentation states \"URL filter is client-side | Can't search >500 calls by URL\". The URL filter only works on already-fetched data, meaning users cannot reliably search for calls by URL across their full history.",
+      "suggested_fix": "Move URL filtering to server-side query as suggested in the doc.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Move URL filtering to server-side query as suggested in the doc.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-023",
+      "feature": "Call Logs",
+      "category": "D-call-logs",
+      "title": "Missing Data Retention Policy",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions, item 1",
+      "issue": "Documentation asks \"No explicit retention period found in code. Call logs appear to be kept indefinitely. Should there be automatic cleanup for older records?\" This represents both a storage cost concern and potential GDPR/privacy compliance gap.",
+      "suggested_fix": "Define and implement a data retention policy with configurable retention periods per organization.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Define and implement a data retention policy with configurable retention periods per organization.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-024",
       "feature": "Call Logs",
       "category": "D-call-logs",
@@ -136,6 +515,48 @@
         {
           "id": "implement_fix",
           "label": "Add polling interval or websocket subscription for new call notifications.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-025",
+      "feature": "Call Logs",
+      "category": "D-call-logs",
+      "title": "Cancelled Calls Have No Audit Trail",
+      "severity": "medium",
+      "location": "Section 2 - State Machine, \"pending --> [*]: Visitor cancels (record deleted)\" and Section 4, Edge Case #4",
+      "issue": "When a visitor cancels during ring, the call record is deleted entirely. This prevents admins from understanding visitor behavior patterns (e.g., how often do visitors cancel while waiting?). The deletion leaves no audit trail for debugging or analytics.",
+      "suggested_fix": "Consider soft-delete with status \"cancelled\" instead of hard delete, or at minimum log cancellation events separately.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-059",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Consider soft-delete with status \"cancelled\" instead of hard delete, or at minimum log cancellation events separately.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-026",
+      "feature": "Call Logs",
+      "category": "D-call-logs",
+      "title": "Table Rows Not Keyboard Navigable",
+      "severity": "medium",
+      "location": "Section 5 - Accessibility, \"Keyboard navigation: ⚠️ Table rows not focusable\"",
+      "issue": "Users who rely on keyboard navigation cannot focus or interact with table rows. Only filter inputs are focusable. This is an accessibility barrier.",
+      "suggested_fix": "Add tabindex and keyboard handlers to table rows, or implement a proper data grid component with ARIA grid roles.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add tabindex and keyboard handlers to table rows, or implement a proper data grid component with ARIA grid roles.",
           "recommended": true
         }
       ]
@@ -178,6 +599,27 @@
         {
           "id": "implement_fix",
           "label": "Add loading skeleton or spinner during server component transitions.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-029",
+      "feature": "Call Logs",
+      "category": "D-call-logs",
+      "title": "CSV Export May Freeze Browser",
+      "severity": "medium",
+      "location": "Section 6 - Performance, \"CSV generation | Client-side, may block UI | ⚠️ Large exports may freeze\"",
+      "issue": "CSV generation happens client-side and can block the UI thread for large exports. This creates a poor user experience and may cause the browser to show \"page unresponsive\" warnings.",
+      "suggested_fix": "Move CSV generation to a web worker or server-side endpoint that streams the download.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-054",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Move CSV generation to a web worker or server-side endpoint that streams the download.",
           "recommended": true
         }
       ]
@@ -246,6 +688,132 @@
       ]
     },
     {
+      "id": "F-033",
+      "feature": "Blocklist Settings",
+      "category": "D-blocklist-settings",
+      "title": "ip-api.com Rate Limit Risk at Scale",
+      "severity": "high",
+      "location": "Section 6 - Technical Concerns, Performance table row 4; Section 7 - Identified Issues",
+      "issue": "The geolocation service uses ip-api.com free tier which has a 45 requests/minute limit. Documentation flags this as a concern but no mitigation plan is documented. At scale (45+ unique visitors per minute), geolocation will fail and all visitors will be allowed through (fail-safe), bypassing blocklist entirely.",
+      "suggested_fix": "Document a concrete plan for scaling: either migrate to MaxMind/paid ip-api tier, or implement IP-based rate limiting with fallback handling.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Document a concrete plan for scaling: either migrate to MaxMind/paid ip-api tier, or implement IP-based rate limiting with fallback handling.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-034",
+      "feature": "Blocklist Settings",
+      "category": "D-blocklist-settings",
+      "title": "Empty Allowlist Behavior Could Be Confusing",
+      "severity": "medium",
+      "location": "Section 2 - State Machine, \"ALLOWLIST MODE\" box; Section 10 - Open Questions #6",
+      "issue": "Empty allowlist allows all visitors (lenient default), but admin might intuitively expect empty allowlist = \"allow nobody\" (block everyone). Open Question #6 already flags this as potentially confusing.",
+      "suggested_fix": "Add explicit warning in UI when admin has empty allowlist: \"Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access.\"",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add explicit warning in UI when admin has empty allowlist: \"Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access.\"",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-035",
+      "feature": "Blocklist Settings",
+      "category": "D-blocklist-settings",
+      "title": "Unknown Country Handling Differs Between Modes",
+      "severity": "medium",
+      "location": "Section 2 - State Machine",
+      "issue": "When geolocation fails, behavior differs by mode: Blocklist mode → ALLOWED (fail-safe), Allowlist mode → BLOCKED. This asymmetry could surprise admins. An allowlist admin might not realize that geolocation failures will block legitimate visitors from allowed countries.",
+      "suggested_fix": "Document this behavior prominently in the UI info box, especially for allowlist mode: \"Note: Visitors whose location cannot be determined will be blocked in allowlist mode.\"",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-065",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Document this behavior prominently in the UI info box, especially for allowlist mode: \"Note: Visitors whose location cannot be determined will be blocked in allowlist mode.\"",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-036",
+      "feature": "Blocklist Settings",
+      "category": "D-blocklist-settings",
+      "title": "Accessibility - Dropdown Requires Mouse Interaction",
+      "severity": "medium",
+      "location": "Section 5 - Accessibility, row 1",
+      "issue": "Documentation explicitly flags that \"Dropdown requires mouse interaction\" for keyboard navigation. Users who rely on keyboard navigation (accessibility requirement) cannot use the country selector.",
+      "suggested_fix": "Implement keyboard navigation for the dropdown: arrow keys to navigate, Enter to select, Escape to close, Tab to move between regions/countries.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement keyboard navigation for the dropdown: arrow keys to navigate, Enter to select, Escape to close, Tab to move between regions/countries.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-037",
+      "feature": "Blocklist Settings",
+      "category": "D-blocklist-settings",
+      "title": "Accessibility - Screen Reader Support Not Verified",
+      "severity": "medium",
+      "location": "Section 5 - Accessibility, row 2",
+      "issue": "Documentation states \"Screen reader support: ⚠️ Not verified\". This is a potential compliance issue (WCAG) and affects users who rely on assistive technology.",
+      "suggested_fix": "Audit the component with a screen reader (VoiceOver, NVDA). Ensure proper ARIA labels on mode selection, country dropdown, selected country badges, and action buttons.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Audit the component with a screen reader (VoiceOver, NVDA). Ensure proper ARIA labels on mode selection, country dropdown, selected country badges, and action buttons.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-038",
+      "feature": "Blocklist Settings",
+      "category": "D-blocklist-settings",
+      "title": "Mode Change Clears Country List Without Confirmation",
+      "severity": "medium",
+      "location": "Section 2 - Triggers & Events, \"Mode change\" row; Section 4 - Edge Cases #9 and #12",
+      "issue": "Switching between Blocklist and Allowlist modes clears the entire country list. While there's a \"clear warning in UI\" mentioned, if an admin accidentally clicks the wrong mode, they lose their entire list of selected countries. There's no confirmation dialog or undo functionality.",
+      "suggested_fix": "Add confirmation dialog when switching modes if list is non-empty: \"Switching modes will clear your current list of X countries. Continue?\" Or implement undo functionality.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add confirmation dialog when switching modes if list is non-empty: \"Switching modes will clear your current list of X countries. Continue?\" Or implement undo functionality.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-039",
       "feature": "Blocklist Settings",
       "category": "D-blocklist-settings",
@@ -304,6 +872,90 @@
         {
           "id": "implement_fix",
           "label": "Already documented appropriately. Consider future integration with VPN detection service if this becomes a significant issue for customers.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-042",
+      "feature": "Widget Settings",
+      "category": "D-widget-settings",
+      "title": "Screen Reader Support Not Verified",
+      "severity": "medium",
+      "location": "Section 5 - Accessibility, \"Screen reader support: ⚠️ Not explicitly verified\"",
+      "issue": "Documentation explicitly flags that screen reader support has not been verified. The Widget Settings UI includes multiple interactive elements (dropdowns, sliders, toggles, preview component) that need proper ARIA labels and announcements for accessibility compliance.",
+      "suggested_fix": "Conduct accessibility audit with screen readers (VoiceOver, NVDA). Ensure ARIA labels on all form controls, proper live regions for preview updates, and role attributes for the visual preview component.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Conduct accessibility audit with screen readers (VoiceOver, NVDA). Ensure ARIA labels on all form controls, proper live regions for preview updates, and role attributes for the visual preview component.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-043",
+      "feature": "Widget Settings",
+      "category": "D-widget-settings",
+      "title": "DEFAULT_WIDGET_SETTINGS Defined in Multiple Files",
+      "severity": "medium",
+      "location": "Section 3 - Key Functions/Components, row 4: \"DEFAULT_WIDGET_SETTINGS | Multiple files\"",
+      "issue": "The DEFAULT_WIDGET_SETTINGS constant is defined in multiple files rather than having a single source of truth. This creates risk of divergence if one file is updated and others are not, leading to inconsistent fallback behavior between server and widget.",
+      "suggested_fix": "Define DEFAULT_WIDGET_SETTINGS once in `packages/domain/src/types.ts` alongside the WidgetSettings type definition, and import it everywhere else.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Define DEFAULT_WIDGET_SETTINGS once in `packages/domain/src/types.ts` alongside the WidgetSettings type definition, and import it everywhere else.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-044",
+      "feature": "Widget Settings",
+      "category": "D-widget-settings",
+      "title": "Pool Settings Don't Support Partial Overrides",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions #2",
+      "issue": "Documentation explicitly asks \"Should pool settings support partial overrides?\" Currently pool settings fully replace org defaults, meaning an admin must re-configure ALL settings for a pool even if they only want to change one (e.g., different position but same theme). This creates maintenance burden and risk of divergence.",
+      "suggested_fix": "Implement merge strategy where pool settings can specify only the fields to override, with unspecified fields falling back to org defaults. Use null or undefined for \"inherit from org\" semantics.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement merge strategy where pool settings can specify only the fields to override, with unspecified fields falling back to org defaults. Use null or undefined for \"inherit from org\" semantics.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-045",
+      "feature": "Widget Settings",
+      "category": "D-widget-settings",
+      "title": "Cache Not Invalidated on Settings Save",
+      "severity": "low",
+      "location": "Section 7 - Identified Issues, row 1; Section 3 - Data Flow; Section 10 - Open Questions #1",
+      "issue": "When admin saves widget settings, the cache is NOT immediately invalidated. Settings may take up to 5 minutes to propagate to visitors. This creates a confusing admin experience where changes appear saved but don't take effect immediately.",
+      "suggested_fix": "Add cache invalidation endpoint that can be called on save, or implement pub/sub pattern where server listens for settings changes. At minimum, add UI feedback: \"Changes saved. May take up to 5 minutes to apply to all visitors.\"",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add cache invalidation endpoint that can be called on save, or implement pub/sub pattern where server listens for settings changes. At minimum, add UI feedback: \"Changes saved. May take up to 5 minutes to apply to all visitors.\"",
           "recommended": true
         }
       ]
@@ -414,6 +1066,48 @@
       ]
     },
     {
+      "id": "F-051",
+      "feature": "Agent Stats Dashboard",
+      "category": "A-agent-stats-dashboard",
+      "title": "500 Call Limit Prevents Access to Full History",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #5 (⚠️ flag), Section 6 - Performance, Section 7 - Identified Issues, Section 10 - Open Question #1",
+      "issue": "High-volume agents cannot access calls beyond the most recent 500 in any date range. The system shows \"(limit reached)\" message but provides no way to access older calls. This is particularly problematic for date ranges spanning months where an agent may have thousands of calls.",
+      "suggested_fix": "Implement cursor-based pagination to allow agents to load additional calls beyond the initial 500.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-034",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement cursor-based pagination to allow agents to load additional calls beyond the initial 500.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-052",
+      "feature": "Agent Stats Dashboard",
+      "category": "A-agent-stats-dashboard",
+      "title": "URL Filtering is Client-Side Only",
+      "severity": "medium",
+      "location": "Section 3 - Data Flow (URL Condition Filtering), Section 6 - Performance (⚠️), Section 10 - Open Question #2",
+      "issue": "URL conditions filtering happens after 500 calls are fetched. Agents cannot reliably search their full call history by URL patterns. For example, if an agent wants to find calls from a specific landing page but those calls are beyond the 500-call limit, they won't appear in results.",
+      "suggested_fix": "Move URL filtering to server-side query to filter before the 500 limit is applied.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-064",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Move URL filtering to server-side query to filter before the 500 limit is applied.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-053",
       "feature": "Agent Stats Dashboard",
       "category": "A-agent-stats-dashboard",
@@ -430,6 +1124,69 @@
         {
           "id": "implement_fix",
           "label": "Add a loading spinner or skeleton state during server component refetch.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-054",
+      "feature": "Agent Stats Dashboard",
+      "category": "A-agent-stats-dashboard",
+      "title": "Keyboard Navigation Not Fully Verified",
+      "severity": "medium",
+      "location": "Section 5 - Accessibility, row 1",
+      "issue": "Documentation explicitly states keyboard navigation is \"⚠️ Not fully verified\". Interactive elements like the date picker, filter dropdowns, recording play buttons, and expandable rows may not be fully accessible to keyboard-only users.",
+      "suggested_fix": "Audit and fix keyboard navigation: ensure Tab order is logical, Enter/Space activate buttons, Escape closes dropdowns, Arrow keys navigate within dropdowns.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Audit and fix keyboard navigation: ensure Tab order is logical, Enter/Space activate buttons, Escape closes dropdowns, Arrow keys navigate within dropdowns.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-055",
+      "feature": "Agent Stats Dashboard",
+      "category": "A-agent-stats-dashboard",
+      "title": "Screen Reader Support May Need ARIA Labels",
+      "severity": "medium",
+      "location": "Section 5 - Accessibility, row 2",
+      "issue": "Documentation notes \"Screen reader support: ⚠️ Table structure helps, but interactive elements may need ARIA\". The StatCards, expandable transcription/summary badges, and audio player controls may not announce properly to screen reader users.",
+      "suggested_fix": "Add appropriate ARIA labels: aria-label on icon buttons (play, download), aria-expanded on expandable rows, aria-live regions for dynamic stat updates.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add appropriate ARIA labels: aria-label on icon buttons (play, download), aria-expanded on expandable rows, aria-live regions for dynamic stat updates.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-056",
+      "feature": "Agent Stats Dashboard",
+      "category": "A-agent-stats-dashboard",
+      "title": "Video Modal May Not Trap Focus",
+      "severity": "medium",
+      "location": "Section 5 - Accessibility, row 5",
+      "issue": "Documentation flags \"Focus management: ⚠️ Modal should trap focus\". When the video recording modal opens, focus may not be trapped inside it, allowing keyboard users to tab to elements behind the modal, which is both confusing and an accessibility violation.",
+      "suggested_fix": "Implement focus trap in video modal: focus first focusable element on open, cycle focus within modal on Tab, return focus to trigger on close.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement focus trap in video modal: focus first focusable element on open, cycle focus within modal on Tab, return focus to trigger on close.",
           "recommended": true
         }
       ]
@@ -519,6 +1276,153 @@
       ]
     },
     {
+      "id": "F-061",
+      "feature": "Organization Settings",
+      "category": "D-organization-settings",
+      "title": "Stripe Cancellation Not Implemented",
+      "severity": "critical",
+      "location": "Section 10 - Open Questions, #4",
+      "issue": "The documentation states \"The current code only saves feedback and sets plan to 'free' in Supabase. The actual Stripe subscription cancellation appears to be a TODO comment.\" This means users who cancel may still be charged by Stripe even though the UI shows cancellation was successful.",
+      "suggested_fix": "Implement actual Stripe subscription cancellation via `stripe.subscriptions.cancel()` or `stripe.subscriptions.update()` with `cancel_at_period_end: true` in the `submitCancellationFeedback` server action.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-002",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement actual Stripe subscription cancellation via `stripe.subscriptions.cancel()` or `stripe.subscriptions.update()` with `cancel_at_period_end: true` in the `submitCancellationFeedback` server action.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-062",
+      "feature": "Organization Settings",
+      "category": "D-organization-settings",
+      "title": "Cancellation Grace Period Mismatch",
+      "severity": "critical",
+      "location": "Section 10 - Open Questions, #3; Section 3 - Data Flow, \"Cancel subscription\"",
+      "issue": "The cancel modal UI copy mentions \"access will continue until the end of your current billing period\" but the implementation immediately downgrades the plan to \"free\" (`Update org: plan = \"free\"`). This creates a mismatch between user expectation and actual behavior - users may lose access immediately despite being told they have time remaining.",
+      "suggested_fix": "Either update the UI copy to reflect immediate downgrade, or implement proper grace period logic that maintains access until `current_period_end` from Stripe subscription.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-002",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either update the UI copy to reflect immediate downgrade, or implement proper grace period logic that maintains access until `current_period_end` from Stripe subscription.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-063",
+      "feature": "Organization Settings",
+      "category": "D-organization-settings",
+      "title": "Recording Retention Policy Change Behavior Unclear",
+      "severity": "high",
+      "location": "Section 10 - Open Questions, #1",
+      "issue": "Documentation does not specify whether existing recordings are affected when `retention_days` is changed. If an admin reduces retention from 90 days to 30 days, it's unclear if recordings older than 30 days are immediately deleted or if the new policy only applies to new recordings.",
+      "suggested_fix": "Document the expected behavior explicitly. If retroactive deletion is intended, add a confirmation warning. If only new recordings are affected, document this clearly for admin understanding.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-013",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Document the expected behavior explicitly. If retroactive deletion is intended, add a confirmation warning. If only new recordings are affected, document this clearly for admin understanding.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-064",
+      "feature": "Organization Settings",
+      "category": "D-organization-settings",
+      "title": "Timezone Handling for Pause End Date",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions, #2",
+      "issue": "The `pause_ends_at` date is calculated server-side using JavaScript Date which uses UTC. When displayed to the user, this may not align with their local timezone, causing confusion about when the pause actually ends (e.g., \"Your account resumes on Dec 15\" might resume on Dec 14 or Dec 16 depending on timezone).",
+      "suggested_fix": "Either store and display dates in the organization's configured timezone, or clearly show the timezone in the UI (e.g., \"Dec 15, 2025 at 12:00 AM UTC\").",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either store and display dates in the organization's configured timezone, or clearly show the timezone in the UI (e.g., \"Dec 15, 2025 at 12:00 AM UTC\").",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-065",
+      "feature": "Organization Settings",
+      "category": "D-organization-settings",
+      "title": "Facebook Events Silent Failure on Invalid Credentials",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions, #6",
+      "issue": "There is no error handling or admin notification when Facebook access tokens expire or are revoked. Admins may think their conversion tracking is working when events are silently failing, leading to incorrect analytics and wasted ad spend.",
+      "suggested_fix": "Implement credential validation on save, periodic health checks, and admin notifications when FB API calls start failing.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement credential validation on save, periodic health checks, and admin notifications when FB API calls start failing.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-066",
+      "feature": "Organization Settings",
+      "category": "D-organization-settings",
+      "title": "Disposition Conversion Values Not Aggregated",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions, #5",
+      "issue": "Dispositions have a `value` field for conversion tracking, but the documentation notes \"the aggregation/reporting of these values is not implemented in the current codebase.\" Admins can set monetary values but cannot see total conversion value or ROI metrics anywhere.",
+      "suggested_fix": "Add a reporting view that aggregates disposition values by time period, agent, and disposition type to provide conversion analytics.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add a reporting view that aggregates disposition values by time period, agent, and disposition type to provide conversion analytics.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-067",
+      "feature": "Organization Settings",
+      "category": "D-organization-settings",
+      "title": "Facebook Settings Can Be Saved Without Pixel ID",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases, Row #15",
+      "issue": "Edge case #15 is marked with ⚠️: \"Save FB settings without pixel ID - Leave pixel ID empty - Can save but events won't fire - No validation error shown\". This allows admins to configure event mappings that will never work, without any feedback that their setup is incomplete.",
+      "suggested_fix": "Add validation that requires Pixel ID when any Facebook event mappings are configured, or show a warning banner indicating events won't fire without Pixel ID.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add validation that requires Pixel ID when any Facebook event mappings are configured, or show a warning banner indicating events won't fire without Pixel ID.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-125",
       "feature": "Organization Settings",
       "category": "D-organization-settings",
@@ -577,6 +1481,69 @@
         {
           "id": "implement_fix",
           "label": "Audit all custom components (dropdowns, modals, toggles) and add appropriate ARIA labels, roles, and live regions for state changes.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-071",
+      "feature": "Agent Call Logs",
+      "category": "A-agent-call-logs",
+      "title": "No Server-Side Pagination Limits Data Access",
+      "severity": "medium",
+      "location": "Section 7 - Identified Issues; Section 10 - Open Question #5",
+      "issue": "Documentation states \"No server-side pagination | 500 record limit cuts off data\". Agents with high call volumes cannot access their historical data beyond the most recent 500 calls in any date range. The \"(limit reached)\" message appears but provides no way to access older data.",
+      "suggested_fix": "Implement cursor-based pagination as already suggested in the doc.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-034",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement cursor-based pagination as already suggested in the doc.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-072",
+      "feature": "Agent Call Logs",
+      "category": "A-agent-call-logs",
+      "title": "Data Retention Policy Undefined",
+      "severity": "medium",
+      "location": "Section 10 - Open Question #2",
+      "issue": "Documentation asks \"Data retention for old calls? No explicit retention period found. Call logs appear to be kept indefinitely. Should there be limits for agent view?\" This represents potential storage cost concerns and possible GDPR/privacy compliance gaps.",
+      "suggested_fix": "Define and implement data retention policy with configurable periods.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Define and implement data retention policy with configurable periods.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-141",
+      "feature": "Agent Call Logs",
+      "category": "A-agent-call-logs",
+      "title": "Table Rows Not Keyboard Navigable",
+      "severity": "medium",
+      "location": "Section 5 - Accessibility",
+      "issue": "Documentation states \"Keyboard navigation: ⚠️ Table rows not focusable, filter inputs are\". Users who rely on keyboard navigation cannot interact with table rows to expand transcriptions, play recordings, or view call details.",
+      "suggested_fix": "Add tabindex and keyboard handlers to table rows, or implement a proper data grid component with ARIA grid roles.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add tabindex and keyboard handlers to table rows, or implement a proper data grid component with ARIA grid roles.",
           "recommended": true
         }
       ]
@@ -876,6 +1843,69 @@
       ]
     },
     {
+      "id": "F-088",
+      "feature": "Tiered Agent Assignment",
+      "category": "D-tiered-routing",
+      "title": "Algorithm May Select Busy Agent Over Idle Agent",
+      "severity": "medium",
+      "location": "Appendix: Algorithm Pseudocode, `findBestAgentInTier()` function (lines 347-377)",
+      "issue": "The pseudocode shows two selection strategies: round-robin for idle agents (via `oldestOrder`) and least-connections for busy agents (via `lowestLoad`). However, both paths update the same `bestAgent` variable. If an idle agent is processed first (updating `bestAgent`), then a busy agent with `load=1` is processed later, the condition `load < lowestLoad` (1 < Infinity) is true and overwrites `bestAgent` with the busy agent. This means an idle agent could lose to a busy agent despite being preferable.",
+      "suggested_fix": "Prefer idle agents by only entering the least-connections path if no idle agents were found: `if (!bestAgent && load < lowestLoad)` or track `hasIdleCandidate` flag.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Prefer idle agents by only entering the least-connections path if no idle agents were found: `if (!bestAgent && load < lowestLoad)` or track `hasIdleCandidate` flag.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-089",
+      "feature": "Tiered Agent Assignment",
+      "category": "D-tiered-routing",
+      "title": "Empty Pool Falls Back to Any Agent - May Violate Pool Intent",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases, row 10",
+      "issue": "Documentation flags with ⚠️ that when a pool has no agents, the system \"Falls back to any agent (null poolId)\" which \"May violate pool intent.\" For example, an Enterprise visitor routed to a pool with no agents could be assigned to a Sales pool agent, breaking the admin's intended segmentation.",
+      "suggested_fix": "Either (a) show \"no agents available\" for strict routing, or (b) add admin toggle for \"strict pool routing\" vs \"fallback allowed\", or (c) at minimum log when cross-pool fallback occurs for audit purposes.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-017",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either (a) show \"no agents available\" for strict routing, or (b) add admin toggle for \"strict pool routing\" vs \"fallback allowed\", or (c) at minimum log when cross-pool fallback occurs for audit purposes.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-090",
+      "feature": "Tiered Agent Assignment",
+      "category": "D-tiered-routing",
+      "title": "Database Slowness Causes Silent Degradation",
+      "severity": "medium",
+      "location": "Section 4 - Error States table, \"Database fetch fails\" row",
+      "issue": "Documentation notes: \"Database slow: Agent connects without pool memberships, may miss routed leads.\" When `fetchAgentPoolMemberships()` fails or times out, the agent connects but isn't properly added to pool routing. This is logged but otherwise silent - neither the agent nor admin knows there's a problem.",
+      "suggested_fix": "Add visible indicator to agent UI when pool memberships failed to load: \"Pool routing unavailable - please reconnect.\" Consider retry mechanism with exponential backoff.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add visible indicator to agent UI when pool memberships failed to load: \"Pool routing unavailable - please reconnect.\" Consider retry mechanism with exponential backoff.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-091",
       "feature": "Tiered Agent Assignment",
       "category": "D-tiered-routing",
@@ -934,6 +1964,111 @@
         {
           "id": "implement_fix",
           "label": "Track `lastAssignmentOrder` per (agentId, poolId) pair instead of just agentId. Low priority since impact is minor.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-094",
+      "feature": "Sites Setup",
+      "category": "D-sites-setup",
+      "title": "No Domain Validation - Anyone Can Use Any Org's Embed Code",
+      "severity": "medium",
+      "location": "Section 6 - Security (\"Domain spoofing\" row); Section 7 - Identified Issues; Section 10 - Open Questions #1",
+      "issue": "Documentation explicitly notes \"Domain spoofing | No validation - any domain can use any org's code\" in Security concerns. Any website owner could embed another organization's widget, potentially using their agent resources or skewing their analytics. The Open Questions section asks \"Should there be an allowed_origins feature?\"",
+      "suggested_fix": "Add optional `allowed_origins` setting in organization settings. When configured, server validates `pageUrl` origin against whitelist before allowing connection.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add optional `allowed_origins` setting in organization settings. When configured, server validates `pageUrl` origin against whitelist before allowing connection.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-095",
+      "feature": "Sites Setup",
+      "category": "D-sites-setup",
+      "title": "Infinite Verification Polling Without Backoff",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #15; Section 7 - Identified Issues; Section 10 - Open Questions #7",
+      "issue": "Dashboard polls every 5 seconds indefinitely until widget is verified. Quote from Edge Case #15: \"Polls forever until verified\" with ⚠️ flag. Open Question #7: \"Is infinite verification polling acceptable? Dashboard polls every 5 seconds forever until verified. Consider exponential backoff or a 'check again' button after timeout.\"",
+      "suggested_fix": "Implement exponential backoff after 5 minutes (5s → 10s → 30s → 60s), then stop polling and show \"Click to check again\" button.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement exponential backoff after 5 minutes (5s → 10s → 30s → 60s), then stop polling and show \"Click to check again\" button.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-096",
+      "feature": "Sites Setup",
+      "category": "D-sites-setup",
+      "title": "Pageview Tracking Requires Agent Online",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #8; Section 7 - Identified Issues; Section 10 - Open Questions #5",
+      "issue": "Edge Case #8 states: \"No agents online | Widget loads, no agent available | Pageview not tracked (agent_id required) | ⚠️ | Missed opportunity tracked instead\". This means organizations without 24/7 agent coverage will have inaccurate pageview counts. Open Question #5 confirms: \"pageview count may be inaccurate for orgs without 24/7 coverage.\"",
+      "suggested_fix": "Allow pageview recording without agent_id (make it nullable) OR track \"unassigned pageviews\" separately for accurate install verification.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Allow pageview recording without agent_id (make it nullable) OR track \"unassigned pageviews\" separately for accurate install verification.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-097",
+      "feature": "Sites Setup",
+      "category": "D-sites-setup",
+      "title": "HTTPS Site with HTTP ServerUrl Causes Mixed Content Block",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #20",
+      "issue": "Edge Case #20: \"HTTPS site with HTTP serverUrl | Protocol mismatch | Mixed content warning/block | ⚠️ | Must use HTTPS in prod\". If admin copies embed code from a dev environment with HTTP serverUrl and pastes it on a production HTTPS site, the widget will be blocked by the browser's mixed content policy. Admin gets no clear error message about why widget isn't working.",
+      "suggested_fix": "Add validation to embed code generation: if dashboard is on HTTPS, ensure serverUrl also uses HTTPS. Display warning if mismatch detected.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add validation to embed code generation: if dashboard is on HTTPS, ensure serverUrl also uses HTTPS. Display warning if mismatch detected.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-098",
+      "feature": "Sites Setup",
+      "category": "D-sites-setup",
+      "title": "Widget Blocked by Ad Blocker - No Admin Notification",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #6; Error States table (\"SCRIPT_BLOCKED\" row)",
+      "issue": "Edge Case #6: \"Widget blocked by ad blocker | Browser extension | Widget fails silently | ⚠️ | No admin notification\". Error States confirms: \"SCRIPT_BLOCKED | Ad blocker active | Nothing (widget hidden)\". Admin has no way to know if visitors aren't seeing the widget due to ad blockers, and visitors may not realize they need to whitelist the domain.",
+      "suggested_fix": "Document this limitation prominently in the setup instructions. Consider adding FAQ entry about ad blockers. Optionally track \"widget load attempts\" server-side to identify discrepancies.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Document this limitation prominently in the setup instructions. Consider adding FAQ entry about ad blockers. Optionally track \"widget load attempts\" server-side to identify discrepancies.",
           "recommended": true
         }
       ]
@@ -1065,6 +2200,69 @@
       ]
     },
     {
+      "id": "F-105",
+      "feature": "Routing Rules",
+      "category": "D-routing-rules",
+      "title": "No Manual Rule Priority Reordering in UI",
+      "severity": "medium",
+      "location": "Section 5 - UI/UX Review, Step 7; Section 7 - Identified Issues, row 1",
+      "issue": "Documentation explicitly states \"Admin reorders rules | Not supported | ❌ | Priority is set but manual reorder isn't exposed\". Admins cannot easily adjust rule priority order through drag-and-drop or visual controls, despite priority being the critical factor in determining which rule matches first.",
+      "suggested_fix": "Add drag-and-drop reorder in UI as documented in Section 7.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add drag-and-drop reorder in UI as documented in Section 7.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-106",
+      "feature": "Routing Rules",
+      "category": "D-routing-rules",
+      "title": "Pool Fallback Ignores Routing Intent",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #10; Section 7 - Identified Issues, row 3; Section 10 - Open Questions #2",
+      "issue": "When all agents in the matched pool are busy, the system falls back to ANY available agent from any pool. Quote: \"All agents in matched pool busy | Falls back to ANY available agent | ⚠️ | Design choice\". This breaks admin's routing intent - a visitor routed to \"Enterprise Pool\" could end up with a \"Sales Pool\" agent.",
+      "suggested_fix": "Add option for strict pool enforcement (no fallback) as documented. Show \"no agents available\" if strict mode is enabled and pool is empty.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add option for strict pool enforcement (no fallback) as documented. Show \"no agents available\" if strict mode is enabled and pool is empty.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-107",
+      "feature": "Routing Rules",
+      "category": "D-routing-rules",
+      "title": "SPA Navigation Doesn't Update Pool Routing",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions #4",
+      "issue": "Documentation asks \"How to handle SPA navigation? If visitor navigates within an SPA without page reload, `pageUrl` doesn't update unless widget explicitly re-joins.\" Visitors who navigate from /home to /pricing within a SPA remain routed to the pool that matched /home, even if /pricing has different routing rules.",
+      "suggested_fix": "Document this limitation prominently, or implement URL change listener in widget that triggers re-routing when pathname changes.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Document this limitation prominently, or implement URL change listener in widget that triggers re-routing when pathname changes.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-108",
       "feature": "Routing Rules",
       "category": "D-routing-rules",
@@ -1102,6 +2300,27 @@
         {
           "id": "implement_fix",
           "label": "Log malformed URL occurrences for debugging. Consider adding URL validation warning in dashboard if pageUrl patterns in call logs frequently show malformed values.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-110",
+      "feature": "Routing Rules",
+      "category": "D-routing-rules",
+      "title": "No Catch-All Pool Returns Null",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #9",
+      "issue": "Edge Case #9 documents \"No catch-all pool exists | Org missing catch-all | Returns `null`, agent from any pool | ⚠️ | Rare - auto-created\". While catch-all is auto-created, if it's accidentally deleted or missing due to data migration issues, the null return could cause undefined behavior in agent assignment.",
+      "suggested_fix": "Add defensive check that recreates catch-all pool if missing, or return explicit error state that triggers clear user messaging.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add defensive check that recreates catch-all pool if missing, or return explicit error state that triggers clear user messaging.",
           "recommended": true
         }
       ]
@@ -1233,6 +2452,48 @@
       ]
     },
     {
+      "id": "F-117",
+      "feature": "Organization Settings",
+      "category": "D8",
+      "title": "Stripe Cancellation May Not Actually Cancel Subscription",
+      "severity": "critical",
+      "location": "Section 10 - Open Questions #4",
+      "issue": "Documentation explicitly states: \"What triggers the actual Stripe cancellation? The current code only saves feedback and sets plan to 'free' in Supabase. The actual Stripe subscription cancellation appears to be a TODO comment.\" If users \"cancel\" but Stripe subscription isn't cancelled, they will continue to be charged. This is a billing and trust issue.",
+      "suggested_fix": "Implement actual Stripe subscription cancellation via `stripe.subscriptions.cancel()` or `stripe.subscriptions.update({ cancel_at_period_end: true })` when user confirms cancellation.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-002",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement actual Stripe subscription cancellation via `stripe.subscriptions.cancel()` or `stripe.subscriptions.update({ cancel_at_period_end: true })` when user confirms cancellation.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-118",
+      "feature": "Organization Settings",
+      "category": "D8",
+      "title": "Cancellation UI Copy Doesn't Match Implementation",
+      "severity": "high",
+      "location": "Section 10 - Open Questions #3; Section 3 - Data Flow (Cancel subscription flow)",
+      "issue": "The cancel modal tells users \"access will continue until the end of your current billing period\" but the code shows immediate plan downgrade to \"free\". Quote: \"The code shows immediate plan downgrade to 'free' but the cancel modal mentions 'access will continue until the end of your current billing period' - implementation may not match UI copy.\" Users are being misled about service continuity.",
+      "suggested_fix": "Either (a) implement actual grace period until billing period end, or (b) update UI copy to reflect immediate cancellation. The former is industry standard and more user-friendly.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-002",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either (a) implement actual grace period until billing period end, or (b) update UI copy to reflect immediate cancellation. The former is industry standard and more user-friendly.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-119",
       "feature": "Organization Settings",
       "category": "D8",
@@ -1270,6 +2531,48 @@
         {
           "id": "implement_fix",
           "label": "Store pause_ends_at in UTC, but display in user's local timezone with explicit timezone indicator: \"Pause ends Dec 15, 2025 at 12:00 AM PST\"",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-121",
+      "feature": "Organization Settings",
+      "category": "D8",
+      "title": "Disposition Values Not Used for Analytics",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions #5",
+      "issue": "Documentation notes: \"Are dispositions used for billing/analytics? The `value` field on dispositions suggests conversion tracking, but the aggregation/reporting of these values is not implemented in the current codebase.\" This is a half-built feature - admins configure values but can't see aggregated conversion data anywhere.",
+      "suggested_fix": "Either (a) implement disposition value reporting in call analytics, or (b) remove the value field if not planned for use, to avoid confusing admins.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either (a) implement disposition value reporting in call analytics, or (b) remove the value field if not planned for use, to avoid confusing admins.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-122",
+      "feature": "Organization Settings",
+      "category": "D8",
+      "title": "Facebook Credential Expiration Not Handled",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions #6",
+      "issue": "Quote: \"What happens to FB events if credentials become invalid? No visible error handling or notification to admins if their Facebook access token expires or is revoked.\" Facebook access tokens expire regularly. Events will silently fail, and admins tracking conversions won't know their data is incomplete.",
+      "suggested_fix": "Add periodic validation of FB credentials (on settings page load), and display warning if token is expired/invalid. Consider email notification when FB events start failing.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add periodic validation of FB credentials (on settings page load), and display warning if token is expired/invalid. Consider email notification when FB events start failing.",
           "recommended": true
         }
       ]
@@ -1359,6 +2662,69 @@
       ]
     },
     {
+      "id": "F-127",
+      "feature": "Organization Settings",
+      "category": "D8",
+      "title": "6-Month Offer Loss May Not Be Fully Understood",
+      "severity": "low",
+      "location": "Section 7 - Identified Issues; Section 4 - Edge Case #19",
+      "issue": "When leaving 6-month billing, users see a warning but may not fully understand the permanence: \"Warning: 6-month offer lost forever\". The offer is a promotional rate that cannot be recovered once abandoned.",
+      "suggested_fix": "Enhance warning modal with explicit pricing comparison: \"You currently pay $X/month. After switching to annual, you'll pay $Y/month. This promotional rate cannot be recovered if you switch.\"",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Enhance warning modal with explicit pricing comparison: \"You currently pay $X/month. After switching to annual, you'll pay $Y/month. This promotional rate cannot be recovered if you switch.\"",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-128",
+      "feature": "Recording Settings",
+      "category": "D-recording-settings",
+      "title": "No Visitor Consent Notification During Calls",
+      "severity": "high",
+      "location": "Section 7 - Identified Issues row 2; Section 10 - Open Questions #2",
+      "issue": "Documentation explicitly notes \"No recording indicator for visitors\" with Medium severity, and Open Question #2 asks \"Is there visitor consent notification? Only admin-side privacy warning; no automatic visitor notification.\" This is a significant compliance risk for GDPR, CCPA, and two-party consent states/countries. Visitors are being recorded without any indication.",
+      "suggested_fix": "Add visible \"This call may be recorded\" indicator to the visitor widget when recording is enabled. Consider audio announcement at call start.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-014",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add visible \"This call may be recorded\" indicator to the visitor widget when recording is enabled. Consider audio announcement at call start.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-129",
+      "feature": "Recording Settings",
+      "category": "D-recording-settings",
+      "title": "Recording Lost on Agent Page Refresh",
+      "severity": "medium",
+      "location": "Section 4 - Edge Case #20; Section 6 - Reliability; Section 7 - Identified Issues row 1",
+      "issue": "Documentation explicitly flags: \"Agent refreshes during recording → Recording lost → ⚠️ No recovery mechanism\". Edge Case #20 confirms this with warning status. If an agent accidentally refreshes or experiences a browser crash mid-call, the entire recording is lost with no recovery path.",
+      "suggested_fix": "Implement periodic chunk upload to storage (as suggested in doc) or use browser's beforeunload event to warn agents during active recording.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement periodic chunk upload to storage (as suggested in doc) or use browser's beforeunload event to warn agents during active recording.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-130",
       "feature": "Recording Settings",
       "category": "D-recording-settings",
@@ -1375,6 +2741,27 @@
         {
           "id": "implement_fix",
           "label": "Consider adding maximum recording duration (e.g., 4 hours) or file size warning, especially for organizations with high call volumes.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-131",
+      "feature": "Recording Settings",
+      "category": "D-recording-settings",
+      "title": "No GDPR-Compliant Data Export for Recordings",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions #7",
+      "issue": "Documentation explicitly states \"No dedicated export functionality\" for GDPR-compliant data export. Under GDPR Article 20, data subjects have the right to receive their personal data in a portable format. Visitors have no way to request copies of their recorded calls.",
+      "suggested_fix": "Implement data subject access request (DSAR) workflow, or at minimum document how admins can manually fulfill recording export requests.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement data subject access request (DSAR) workflow, or at minimum document how admins can manually fulfill recording export requests.",
           "recommended": true
         }
       ]
@@ -1543,6 +2930,48 @@
         {
           "id": "implement_fix",
           "label": "Add pause/resume recording controls to agent dashboard. When paused, display indicator to both agent and visitor.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-140",
+      "feature": "Agent Call Logs",
+      "category": "A-agent-call-logs",
+      "title": "No Server-Side Pagination Limits Historical Data Access",
+      "severity": "medium",
+      "location": "Section 7 - Identified Issues table, row 2",
+      "issue": "Documentation explicitly states \"No server-side pagination | 500 record limit cuts off data | 🟡 Medium\". Agents with high call volumes cannot access historical data beyond the most recent 500 calls within any date range. This creates a significant limitation for agents trying to review older calls or search across their full history.",
+      "suggested_fix": "Add cursor-based pagination as already suggested in the documentation.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add cursor-based pagination as already suggested in the documentation.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-141",
+      "feature": "Agent Call Logs",
+      "category": "A-agent-call-logs",
+      "title": "Table Rows Not Keyboard Navigable",
+      "severity": "medium",
+      "location": "Section 5 - Accessibility, \"Keyboard navigation\" bullet",
+      "issue": "Documentation explicitly flags \"⚠️ Table rows not focusable, filter inputs are\". Agents who rely on keyboard navigation cannot focus or navigate through the call table rows. Only filter inputs are accessible via keyboard, making the primary data display inaccessible to keyboard-only users.",
+      "suggested_fix": "Add `tabindex=\"0\"` to table rows, implement keyboard navigation handlers (arrow keys), and add visible focus indicators. Consider using proper ARIA grid roles.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add `tabindex=\"0\"` to table rows, implement keyboard navigation handlers (arrow keys), and add visible focus indicators. Consider using proper ARIA grid roles.",
           "recommended": true
         }
       ]
@@ -1758,6 +3187,48 @@
       ]
     },
     {
+      "id": "F-152",
+      "feature": "Idle Timer",
+      "category": "A-idle-timer",
+      "title": "Multiple Tab Activity Not Synchronized",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #10, Section 7 - Identified Issues, Section 10 - Open Question #4",
+      "issue": "Documentation explicitly flags this: \"Each tab has own timer\" and \"Only focused tab resets on activity\". Agents with multiple dashboard tabs open will only have the focused tab's timer reset on activity. An agent working in Tab A could go idle in Tab B and be marked away unexpectedly.",
+      "suggested_fix": "As doc suggests, implement SharedWorker or localStorage sync to coordinate activity across tabs. Alternatively, document this limitation prominently in agent onboarding.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "As doc suggests, implement SharedWorker or localStorage sync to coordinate activity across tabs. Alternatively, document this limitation prominently in agent onboarding.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-153",
+      "feature": "Idle Timer",
+      "category": "A-idle-timer",
+      "title": "Mobile Browser Worker Suspension",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #14, Section 7 - Identified Issues, Section 10 - Open Question #6",
+      "issue": "Documentation notes \"iOS/Android background - Browser may suspend Worker - ⚠️ Mobile behavior varies\". Mobile browsers may suspend Web Workers when backgrounded, causing idle detection to fail or delay. Server heartbeat staleness (2-min delay) is the only fallback.",
+      "suggested_fix": "Document mobile limitations clearly for agents. Consider implementing Service Worker or Push Notification based idle detection for mobile. Accept 2-min detection delay on mobile as known limitation.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Document mobile limitations clearly for agents. Consider implementing Service Worker or Push Notification based idle detection for mobile. Accept 2-min detection delay on mobile as known limitation.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-154",
       "feature": "Idle Timer",
       "category": "A-idle-timer",
@@ -1905,6 +3376,69 @@
       ]
     },
     {
+      "id": "F-161",
+      "feature": "Agent Active Call",
+      "category": "A-agent-active-call",
+      "title": "Recording URLs Are Potentially Guessable (Security Risk)",
+      "severity": "high",
+      "location": "Section 6 - Technical Concerns, Security bullet #4",
+      "issue": "Documentation states \"Recording uploads go to public Supabase bucket - URLs are guessable if you know the pattern.\" This means anyone who can guess the URL pattern could potentially access call recordings without authentication, creating a significant privacy and compliance risk (HIPAA, GDPR).",
+      "suggested_fix": "Move recordings to a private bucket with signed URLs that expire, or implement access control at the storage layer. Consider adding randomized UUIDs to paths rather than predictable patterns.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-015",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Move recordings to a private bucket with signed URLs that expire, or implement access control at the storage layer. Consider adding randomized UUIDs to paths rather than predictable patterns.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-162",
+      "feature": "Agent Active Call",
+      "category": "A-agent-active-call",
+      "title": "No WebRTC Reconnection on ICE Failure",
+      "severity": "high",
+      "location": "Section 4 - Edge Cases #2 (marked ⚠️) and Section 7 - Identified Issues row 1",
+      "issue": "Documentation explicitly flags \"Error state shown, connection retry not automatic\" for WebRTC failures and suggests \"Add ICE restart mechanism.\" When WebRTC connection fails mid-call (network glitch, NAT timeout), the agent must manually end the call and start a new one - potentially losing the customer.",
+      "suggested_fix": "Implement ICE restart mechanism per RTCPeerConnection.restartIce() API. Add automatic retry with exponential backoff before showing failure state.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-016",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement ICE restart mechanism per RTCPeerConnection.restartIce() API. Add automatic retry with exponential backoff before showing failure state.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-163",
+      "feature": "Agent Active Call",
+      "category": "A-agent-active-call",
+      "title": "Recording May Be Lost on Agent Disconnect",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #5 (marked ⚠️) and Section 7 - Identified Issues row 3",
+      "issue": "Documentation notes \"recording may be incomplete\" if agent disconnects mid-call. The recording upload only happens at call end, so if the agent's browser crashes or closes, the entire recording may be lost.",
+      "suggested_fix": "Consider chunked upload during call (every N minutes) or background service worker to queue uploads. At minimum, document the risk for agents handling sensitive calls.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Consider chunked upload during call (every N minutes) or background service worker to queue uploads. At minimum, document the risk for agents handling sensitive calls.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-164",
       "feature": "Agent Active Call",
       "category": "A-agent-active-call",
@@ -2047,6 +3581,48 @@
         {
           "id": "implement_fix",
           "label": "Implement TURN credential endpoint that returns short-lived credentials on demand, as metered.ca supports this pattern.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-171",
+      "feature": "Visitor Reassignment",
+      "category": "P-visitor-reassignment",
+      "title": "Pool Routing Ignored During Reassignment",
+      "severity": "high",
+      "location": "Section 6 - Technical Concerns, \"Known Issue: Pool Routing Ignored in Reassignment\"",
+      "issue": "Documentation explicitly flags that `reassignVisitors()` calls `findBestAgent()` without passing a pool ID. A visitor originally matched to \"Sales Pool\" via URL routing could be reassigned to an agent in \"Support Pool\" when their original agent becomes unavailable. This defeats the purpose of pool-based routing and could result in visitors speaking to agents without the right expertise.",
+      "suggested_fix": "Change to `findBestAgentForVisitor(visitor.orgId, visitor.pageUrl)` which respects pool routing and falls back to any agent if no pool agents available. Logged as Q-1202-001 in doc.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-017",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Change to `findBestAgentForVisitor(visitor.orgId, visitor.pageUrl)` which respects pool routing and falls back to any agent if no pool agents available. Logged as Q-1202-001 in doc.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-172",
+      "feature": "Visitor Reassignment",
+      "category": "P-visitor-reassignment",
+      "title": "Mid-Call Disconnect Ends Call Permanently with No Reconnection Option",
+      "severity": "high",
+      "location": "Section 7 - First Principles Review, Identified Issues row 2; Section 10 - Open Questions #2",
+      "issue": "When an agent disconnects mid-call (browser crash, network drop), the call ends immediately with no grace period or reconnection attempt. Visitor sees \"Call ended\" and must manually refresh and restart the entire call flow. Open Question #2 asks \"Should mid-call agent disconnect have a grace period?\" but this is currently not implemented. This creates a poor visitor experience especially for important conversations.",
+      "suggested_fix": "Add 10-second grace period for mid-call disconnects (matching pre-call behavior). If agent reconnects within window, resume call. If not, then end call with appropriate messaging.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-024",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add 10-second grace period for mid-call disconnects (matching pre-call behavior). If agent reconnects within window, resume call. If not, then end call with appropriate messaging.",
           "recommended": true
         }
       ]
@@ -2535,6 +4111,48 @@
       ]
     },
     {
+      "id": "F-196",
+      "feature": "Transcription Service",
+      "category": "P-transcription-service",
+      "title": "No Retry Button in UI for Failed Transcriptions",
+      "severity": "high",
+      "location": "Section 5 - UI/UX Review, Admin Call Logs step 6; Section 7 - Identified Issues table row 1",
+      "issue": "Documentation explicitly notes \"No retry button\" for failed transcriptions in the UI. When transcription fails (Deepgram error, timeout, etc.), users have no way to retry from the interface. They must wait for next recording or require \"manual intervention\" (not defined). This is confirmed in Section 7: \"Failed transcriptions stuck\" with suggested fix \"Add Retry button in UI\".",
+      "suggested_fix": "Add a \"Retry Transcription\" button on the call log row when `transcription_status = \"failed\"`. Button should call the same `/api/transcription/process` endpoint.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-018",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add a \"Retry Transcription\" button on the call log row when `transcription_status = \"failed\"`. Button should call the same `/api/transcription/process` endpoint.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-197",
+      "feature": "Transcription Service",
+      "category": "P-transcription-service",
+      "title": "Fire-and-Forget Pattern Loses Failures",
+      "severity": "medium",
+      "location": "Section 6 - Issue 2; Section 3 - Triggers & Events table row 1",
+      "issue": "Documentation acknowledges: \"The transcription trigger from `use-call-recording.ts` is fire-and-forget. If the API call fails, no record of the failure exists.\" This means a network glitch during the POST to `/api/transcription/process` results in a permanently untranscribed call with no indication of failure.",
+      "suggested_fix": "Either implement a queue/retry mechanism as suggested, or add a background job that identifies calls with recordings but no transcription status after X minutes.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either implement a queue/retry mechanism as suggested, or add a background job that identifies calls with recordings but no transcription status after X minutes.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-198",
       "feature": "Transcription Service",
       "category": "P-transcription-service",
@@ -2572,6 +4190,27 @@
         {
           "id": "implement_fix",
           "label": "Add \"Transcribe\" button for calls with `recording_url` but `transcription_status = null`.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-200",
+      "feature": "Transcription Service",
+      "category": "P-transcription-service",
+      "title": "Rate Limit Handling Undefined",
+      "severity": "medium",
+      "location": "Section 10 - Open Question #2",
+      "issue": "Open question states: \"No - each transcription is processed immediately on request. High volume could hit Deepgram rate limits.\" However, there's no documented behavior for what happens when rate limits are hit. Edge case matrix doesn't cover \"Deepgram rate limit exceeded\" scenario.",
+      "suggested_fix": "Document expected behavior when Deepgram rate limits are hit. Consider adding rate limiting on our side or queuing for high-volume orgs.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Document expected behavior when Deepgram rate limits are hit. Consider adding rate limiting on our side or queuing for high-volume orgs.",
           "recommended": true
         }
       ]
@@ -2955,6 +4594,27 @@
       ]
     },
     {
+      "id": "F-219",
+      "feature": "Incoming Call",
+      "category": "A-incoming-call",
+      "title": "Critical UI/Server Mismatch on Countdown Timer",
+      "severity": "high",
+      "location": "Section 3 - Timing Configuration, line 134; Section 5 - UX Audit row 2",
+      "issue": "The modal displays a hardcoded 30-second countdown (\"Request expires in 25s\" shown in wireframe), but the actual RNA timeout fires at 15 seconds (or org-configured value). Agents are misled into thinking they have more time than they actually do. When the countdown shows \"15 seconds remaining,\" the RNA timeout may have already fired, marking them away unexpectedly.",
+      "suggested_fix": "Fetch the org's actual RNA timeout value from `organizations.recording_settings.rna_timeout_seconds` and use that as the countdown duration in `incoming-call-modal.tsx`. Display a synchronized, accurate countdown.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-019",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Fetch the org's actual RNA timeout value from `organizations.recording_settings.rna_timeout_seconds` and use that as the countdown duration in `incoming-call-modal.tsx`. Display a synchronized, accurate countdown.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-220",
       "feature": "Incoming Call",
       "category": "A-incoming-call",
@@ -3102,6 +4762,48 @@
       ]
     },
     {
+      "id": "F-227",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "Password Fields Captured in DOM Snapshots",
+      "severity": "critical",
+      "location": "Section 6 - Technical Concerns > Security, Section 10 - Open Questions #1",
+      "issue": "Documentation explicitly flags that password input values are captured in DOM snapshots, creating a security/privacy risk. The doc notes: \"CRITICAL: Password fields are currently captured. The DOM snapshot includes form input values.\" This is marked with 🔴 High risk in the Security table. While a code fix is recommended in the doc, no evidence this fix has been implemented.",
+      "suggested_fix": "Implement the sanitization code already proposed in the documentation to mask password inputs before snapshot.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-001",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement the sanitization code already proposed in the documentation to mask password inputs before snapshot.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-228",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "Credit Card and Sensitive Fields Not Sanitized",
+      "severity": "high",
+      "location": "Section 6 - Technical Concerns > Security Gaps, lines 377-381",
+      "issue": "Security section identifies that credit card fields, personal data, and session tokens may be visible in DOM snapshots, but the recommended mitigations only show password masking. The comment \"Consider also masking: input[type='tel'], input[autocomplete='cc-number'], Elements with data-sensitive='true']\" is incomplete - no implementation for these is provided.",
+      "suggested_fix": "Extend sanitization to include credit card inputs, telephone inputs, and any elements marked with a data-sensitive attribute.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-001",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Extend sanitization to include credit card inputs, telephone inputs, and any elements marked with a data-sensitive attribute.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-229",
       "feature": "Co-Browse Viewer",
       "category": "A-cobrowse-viewer",
@@ -3181,6 +4883,27 @@
         {
           "id": "implement_fix",
           "label": "Consider implementing canvas.toDataURL() capture, or at minimum display a placeholder indicating \"Canvas content not available\".",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-233",
+      "feature": "Co-Browse Viewer",
+      "category": "A-cobrowse-viewer",
+      "title": "No Privacy Opt-Out for Visitors",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions #2",
+      "issue": "Open Questions asks \"Should there be a 'co-browse disabled' option?\" Documentation notes \"Some visitors might prefer privacy during calls. No toggle currently exists - cobrowse is automatic.\" This could be a privacy/compliance concern depending on jurisdiction (GDPR, etc.).",
+      "suggested_fix": "Consider adding visitor-side toggle to disable screen sharing, or at minimum document that cobrowse is mandatory and ensure terms of service reflect this.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Consider adding visitor-side toggle to disable screen sharing, or at minimum document that cobrowse is mandatory and ensure terms of service reflect this.",
           "recommended": true
         }
       ]
@@ -3312,6 +5035,48 @@
       ]
     },
     {
+      "id": "F-240",
+      "feature": "Subscription Creation",
+      "category": "B-subscription-creation",
+      "title": "Screen Reader Accessibility Not Verified for Stripe Elements",
+      "severity": "high",
+      "location": "Section 5 - UI/UX Review > Accessibility",
+      "issue": "Documentation explicitly states \"Screen reader support: ⚠️ Not fully verified for Stripe Elements\". This is a significant accessibility gap for a critical payment flow. Users with visual impairments may be unable to complete subscription creation.",
+      "suggested_fix": "Conduct accessibility audit with screen readers (NVDA, VoiceOver) on the Stripe Elements integration. Document any issues found and implement fixes. Add automated accessibility testing to CI.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Conduct accessibility audit with screen readers (NVDA, VoiceOver) on the Stripe Elements integration. Document any issues found and implement fixes. Add automated accessibility testing to CI.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-241",
+      "feature": "Subscription Creation",
+      "category": "B-subscription-creation",
+      "title": "Price ID Fallback Silently Downgrades to Monthly Pricing",
+      "severity": "high",
+      "location": "Section 4 - Edge Cases #18, Section 10 - Open Questions #6",
+      "issue": "When annual or 6-month price IDs aren't configured in environment, the system \"falls back to monthly price ID with a console warning\". This means a user explicitly selecting annual billing could be charged monthly rates without clear notification - a potential billing dispute issue and trust violation.",
+      "suggested_fix": "Make missing price ID a hard error that blocks subscription creation. Show user-facing error: \"Annual billing temporarily unavailable. Please contact support or select monthly billing.\"",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-020",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Make missing price ID a hard error that blocks subscription creation. Show user-facing error: \"Annual billing temporarily unavailable. Please contact support or select monthly billing.\"",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-242",
       "feature": "Subscription Creation",
       "category": "B-subscription-creation",
@@ -3328,6 +5093,27 @@
         {
           "id": "implement_fix",
           "label": "Clarify intended behavior in documentation. If unintended, fix logic to only show popup on initial monthly selection, not after changing from annual.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-243",
+      "feature": "Subscription Creation",
+      "category": "B-subscription-creation",
+      "title": "Race Condition Risk Between API Response and Webhook",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions #1",
+      "issue": "Documentation flags: \"What happens if webhook arrives before API response?\" While it notes the handler is \"idempotent (won't downgrade trialing to trialing)\", the concern is documented as \"worth monitoring\" without a concrete monitoring strategy.",
+      "suggested_fix": "Add explicit logging when webhook arrives before API response completes. Consider adding a small delay in webhook processing or using a state lock to prevent race conditions.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add explicit logging when webhook arrives before API response completes. Consider adding a small delay in webhook processing or using a state lock to prevent race conditions.",
           "recommended": true
         }
       ]
@@ -3501,6 +5287,48 @@
       ]
     },
     {
+      "id": "F-252",
+      "feature": "Seat Management",
+      "category": "B-seat-management",
+      "title": "Maximum Seat Limit Enforced Inconsistently Between UI and API",
+      "severity": "high",
+      "location": "Section 10 - Open Questions #1",
+      "issue": "Documentation explicitly states \"Currently capped at 50 in signup UI (`Math.min(prev + 1, 50)`) but not enforced in API\". This creates a security and consistency gap where direct API calls could set arbitrarily high seat counts, potentially causing billing issues or system strain.",
+      "suggested_fix": "Enforce maximum seat limit (50 or configurable per plan) in the API endpoints `/api/billing/seats` and `/api/billing/update-settings`. Return validation error if exceeded.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-022",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Enforce maximum seat limit (50 or configurable per plan) in the API endpoints `/api/billing/seats` and `/api/billing/update-settings`. Return validation error if exceeded.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-253",
+      "feature": "Seat Management",
+      "category": "B-seat-management",
+      "title": "Stripe-to-DB Update Not Atomic - Partial State Risk",
+      "severity": "high",
+      "location": "Section 6 - Reliability: \"Stripe updated before DB for seats route\"",
+      "issue": "Documentation acknowledges \"Stripe updated before DB for seats route\". If Stripe subscription update succeeds but the subsequent database update (`UPDATE organizations SET seat_count = ...`) fails, the system enters an inconsistent state where Stripe charges for seats not reflected in the app.",
+      "suggested_fix": "Implement compensating transaction pattern: if DB update fails, roll back Stripe change. Or use a two-phase approach with pending state. Add monitoring/alerting for DB write failures post-Stripe update.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-023",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement compensating transaction pattern: if DB update fails, roll back Stripe change. Or use a two-phase approach with pending state. Add monitoring/alerting for DB write failures post-Stripe update.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-254",
       "feature": "Seat Management",
       "category": "B-seat-management",
@@ -3643,6 +5471,27 @@
         {
           "id": "implement_fix",
           "label": "Add `invite_expiration_days` field to organizations table with default of 7. Allow admins to configure in Organization Settings.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-261",
+      "feature": "Billing Frequency",
+      "category": "B-billing-frequency",
+      "title": "No Grace Period for Permanent 6-Month Offer Loss",
+      "severity": "high",
+      "location": "Section 7 - Identified Issues, and Section 10 - Open Question #1",
+      "issue": "When a customer switches away from the 6-month billing plan, the `has_six_month_offer` flag is immediately and permanently set to `false`. There is no grace period, undo window, or confirmation delay. An accidental click followed by a confirmation could permanently lose a customer their 40% discount with no recourse. The document flags this as \"🟡 Medium\" but the permanent, irreversible nature makes this a significant customer satisfaction risk.",
+      "suggested_fix": "Implement a 24-48 hour grace period where the offer loss can be reverted, or require a secondary confirmation (e.g., email confirmation) before the offer is permanently removed.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement a 24-48 hour grace period where the offer loss can be reverted, or require a secondary confirmation (e.g., email confirmation) before the offer is permanently removed.",
           "recommended": true
         }
       ]
@@ -4089,6 +5938,69 @@
       ]
     },
     {
+      "id": "F-283",
+      "feature": "Pause Subscription",
+      "category": "B-pause-subscription",
+      "title": "No Stripe Integration - Billing Continues During Pause",
+      "severity": "critical",
+      "location": "Section 6 - Known Implementation Gaps, Issue 1",
+      "issue": "The `pauseAccount()` and `resumeAccount()` actions update the database but do NOT interact with Stripe. Documentation explicitly states \"Impact: 🔴 High - Customers will still be billed during 'pause'\". Code comments at `actions.ts:127-131` indicate this is TODO. This defeats the core purpose of the pause feature.",
+      "suggested_fix": "Implement Stripe `subscription.pause_collection` with `behavior: void` or one of the alternative approaches listed in Open Questions.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-004",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement Stripe `subscription.pause_collection` with `behavior: void` or one of the alternative approaches listed in Open Questions.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-284",
+      "feature": "Pause Subscription",
+      "category": "B-pause-subscription",
+      "title": "No Auto-Resume Functionality",
+      "severity": "critical",
+      "location": "Section 6 - Known Implementation Gaps, Issue 2; Section 2 - State Machine",
+      "issue": "There is no cron job, scheduled task, or webhook to automatically resume subscriptions when `pause_ends_at` is reached. State diagram explicitly marks auto-resume as \"(NOT YET IMPLEMENTED)\". The database has an index (`idx_organizations_pause_ends_at`) ready for this query, but no scheduler exists. Subscriptions will stay paused indefinitely.",
+      "suggested_fix": "Implement scheduled task using Supabase Edge Function, Railway cron, or Vercel cron as suggested in Open Questions.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-004",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement scheduled task using Supabase Edge Function, Railway cron, or Vercel cron as suggested in Open Questions.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-285",
+      "feature": "Pause Subscription",
+      "category": "B-pause-subscription",
+      "title": "Widget Not Disabled During Pause",
+      "severity": "high",
+      "location": "Section 6 - Known Implementation Gaps, Issue 3; Section 4 - Edge Case #16",
+      "issue": "Edge case #16 explicitly states \"Widget visibility during pause | Visitor loads site | **Widget still shows** - server doesn't check pause status | ❌ | TODO in code comments\". The VISITOR_JOIN handler in `socket-handlers.ts:97-209` does not check `subscription_status` before assigning agents. Paused organizations can still receive calls, negating the purpose of pausing.",
+      "suggested_fix": "Add `subscription_status` check in VISITOR_JOIN handler to reject/hide widget for paused organizations.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-004",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add `subscription_status` check in VISITOR_JOIN handler to reject/hide widget for paused organizations.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-286",
       "feature": "Pause Subscription",
       "category": "B-pause-subscription",
@@ -4294,6 +6206,90 @@
         {
           "id": "implement_fix",
           "label": "Consider implementing business rule limiting pauses (e.g., max 2 pauses per year, max 6 months total pause time per year).",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-296",
+      "feature": "Payment Failure",
+      "category": "B-payment-failure",
+      "title": "TypeScript Type Missing `past_due` Status",
+      "severity": "high",
+      "location": "Section 7 - Identified Issues, Section 8 - Code References, Section 10 - Open Questions #6",
+      "issue": "Documentation explicitly identifies that `packages/domain/src/database.types.ts` line 39 is missing `past_due` in the `SubscriptionStatus` type. The database migration adds `past_due` to the constraint, but the TypeScript type hasn't been updated. This will cause type errors when handling payment failures and could lead to runtime issues.",
+      "suggested_fix": "Update `packages/domain/src/database.types.ts` line 39 to: `export type SubscriptionStatus = \"active\" | \"paused\" | \"cancelled\" | \"trialing\" | \"past_due\";`",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Update `packages/domain/src/database.types.ts` line 39 to: `export type SubscriptionStatus = \"active\" | \"paused\" | \"cancelled\" | \"trialing\" | \"past_due\";`",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-297",
+      "feature": "Payment Failure",
+      "category": "B-payment-failure",
+      "title": "Zero User Feedback on Payment Failure",
+      "severity": "critical",
+      "location": "Section 5 - UI/UX Review, Section 7 - First Principles Review",
+      "issue": "Documentation clearly states that when payment fails: \"Admin unaware of payment issue\", \"No notification, email, or banner\", \"User never knew there was an issue\". Error States table shows all user-facing responses as \"**NOTHING**\". First Principles Review shows 5 out of 6 criteria failed (❌). This is a fundamental UX failure where users have no idea their subscription is at risk.",
+      "suggested_fix": "Implement at minimum: (1) Dashboard banner showing past-due status, (2) Email notification on `invoice.payment_failed`, (3) Toast/alert on login when `past_due`.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-005",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement at minimum: (1) Dashboard banner showing past-due status, (2) Email notification on `invoice.payment_failed`, (3) Toast/alert on login when `past_due`.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-298",
+      "feature": "Payment Failure",
+      "category": "B-payment-failure",
+      "title": "No Self-Service Payment Method Update",
+      "severity": "high",
+      "location": "Section 1 - User Goals, Section 4 - Edge Case #7, Section 5 - UI/UX Step 4",
+      "issue": "User Goals table shows \"Update payment method | ❌ NOT IMPLEMENTED - No self-service flow\". Edge Case #7 is marked ❌ incorrect behavior. Users \"Must contact support or use Stripe portal\" but there's no documented path to the Stripe billing portal for customers. This prevents users from recovering from payment failures on their own.",
+      "suggested_fix": "Add Stripe Customer Portal integration or implement custom payment method update flow in dashboard settings.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add Stripe Customer Portal integration or implement custom payment method update flow in dashboard settings.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-299",
+      "feature": "Payment Failure",
+      "category": "B-payment-failure",
+      "title": "Seat Addition During Past-Due May Cause Inconsistency",
+      "severity": "high",
+      "location": "Section 4 - Edge Case #8, Section 10 - Open Questions #7",
+      "issue": "Edge case #8 notes \"seats still added in DB\" when payment fails during seat addition, marked ⚠️ with note \"Seats may be inconsistent with Stripe quantity\". Open Questions #7 confirms this needs investigation. If admin adds seats, payment fails, and seats remain in DB but Stripe has different quantity, billing and access could be inconsistent.",
+      "suggested_fix": "Either: (1) Don't add seats to DB until Stripe invoice succeeds, or (2) Implement reconciliation on `invoice.payment_failed` to roll back seat changes.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either: (1) Don't add seats to DB until Stripe invoice succeeds, or (2) Implement reconciliation on `invoice.payment_failed` to roll back seat changes.",
           "recommended": true
         }
       ]
@@ -4614,6 +6610,69 @@
       ]
     },
     {
+      "id": "F-315",
+      "feature": "Cancel Subscription",
+      "category": "B-cancel-subscription",
+      "title": "Stripe Subscription Not Actually Cancelled",
+      "severity": "critical",
+      "location": "Section 6 - Technical Concerns > Potential Issues Found > Issue 1",
+      "issue": "The document explicitly states that the code contains TODO comments and does NOT call Stripe API to cancel subscriptions. Current behavior only downgrades plan to \"free\" while Stripe subscription may continue billing. Quote: \"Current behavior: Only downgrades plan to 'free', does NOT call Stripe API. Impact: Stripe subscription may continue billing.\"",
+      "suggested_fix": "Implement Stripe API call to cancel the subscription before/after downgrading the plan. This should be the highest priority fix as it causes financial harm to customers.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-002",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement Stripe API call to cancel the subscription before/after downgrading the plan. This should be the highest priority fix as it causes financial harm to customers.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-316",
+      "feature": "Cancel Subscription",
+      "category": "B-cancel-subscription",
+      "title": "Data Deletion Claims Are Misleading",
+      "severity": "critical",
+      "location": "Section 6 - Technical Concerns > Potential Issues Found > Issue 2",
+      "issue": "The UI shows a deletion warning listing \"All call recordings\", \"Call logs & history\", \"Analytics & stats\", \"Agent configurations\", and \"Routing rules\" as being permanently deleted. However, actual behavior just sets plan to \"free\" with no data deletion occurring. This is a trust issue and potential compliance concern.",
+      "suggested_fix": "Either implement actual data deletion with appropriate scheduling/retention, OR update the UI copy to accurately reflect that data is retained but access is limited.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-003",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either implement actual data deletion with appropriate scheduling/retention, OR update the UI copy to accurately reflect that data is retained but access is limited.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-317",
+      "feature": "Cancel Subscription",
+      "category": "B-cancel-subscription",
+      "title": "No Grace Period Implementation",
+      "severity": "high",
+      "location": "Section 6 - Technical Concerns > Potential Issues Found > Issue 4",
+      "issue": "The UI mentions \"access continues until end of billing period\" but there is no implementation: no `subscription_ends_at` field tracked, no access gating based on billing period end, and immediate downgrade to \"free\" plan occurs. Users expect to retain access until their paid period ends.",
+      "suggested_fix": "Track `subscription_ends_at`, schedule the actual downgrade for end of billing period, and gate access appropriately during the grace period.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-018",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Track `subscription_ends_at`, schedule the actual downgrade for end of billing period, and gate access appropriately during the grace period.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-318",
       "feature": "Cancel Subscription",
       "category": "B-cancel-subscription",
@@ -4840,6 +6899,27 @@
         {
           "id": "implement_fix",
           "label": "Implement feedback anonymization process that can strip user_id while retaining aggregated analytics value. Document data retention policy for cancellation feedback.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-329",
+      "feature": "B2B Retargeting Pixel",
+      "category": "SA-retargeting-analytics",
+      "title": "Silent Toggle Failure with No User Feedback",
+      "severity": "high",
+      "location": "Section 4 - Edge Cases, Row #13; Section 4 - Error States, \"Org toggle failure\"",
+      "issue": "When an org toggle fails due to network error, the documentation states: \"Error logged, UI not updated\" (⚠️ flagged) and Error States shows \"Toggle reverts (silently)\". The admin has no indication the toggle failed - they believe the org is enabled for B2B tracking when it's not, leading to missed retargeting events.",
+      "suggested_fix": "Show error toast when org toggle fails and ensure UI reflects actual state. Consider optimistic UI with rollback + error notification.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Show error toast when org toggle fails and ensure UI reflects actual state. Consider optimistic UI with rollback + error notification.",
           "recommended": true
         }
       ]
@@ -5118,6 +7198,48 @@
       ]
     },
     {
+      "id": "F-343",
+      "feature": "Cancellations Dashboard",
+      "category": "SA-cancellations-dashboard",
+      "title": "Keyboard Navigation Not Accessible",
+      "severity": "high",
+      "location": "Section 5 - Accessibility",
+      "issue": "Documentation states: \"Keyboard navigation: ⚠️ Tab buttons are not keyboard-focusable\". This means users who rely on keyboard navigation (including screen reader users and those with motor impairments) cannot switch between the four view modes (Overview, Responses, Cohorts, All Cancellations). This is an accessibility compliance issue.",
+      "suggested_fix": "Use proper `<button>` elements or add `tabIndex={0}` and `onKeyDown` handlers to the tab controls. Consider using a headless UI library like Radix Tabs for full accessibility.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Use proper `<button>` elements or add `tabIndex={0}` and `onKeyDown` handlers to the tab controls. Consider using a headless UI library like Radix Tabs for full accessibility.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-344",
+      "feature": "Cancellations Dashboard",
+      "category": "SA-cancellations-dashboard",
+      "title": "Screen Reader Support Missing",
+      "severity": "high",
+      "location": "Section 5 - Accessibility",
+      "issue": "Documentation states: \"Screen reader support: ⚠️ No ARIA labels on interactive elements\". The dashboard has many interactive elements (tabs, date picker, clickable rows, modal) without proper ARIA attributes. Screen reader users cannot understand the current state or navigate effectively.",
+      "suggested_fix": "Add `role=\"tablist\"`, `role=\"tab\"`, `aria-selected`, `aria-controls` to tabs. Add `aria-label` to date picker. Add `role=\"row\"` and descriptive labels to clickable cancellation rows. Ensure modal has `role=\"dialog\"` and `aria-modal=\"true\"`.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add `role=\"tablist\"`, `role=\"tab\"`, `aria-selected`, `aria-controls` to tabs. Add `aria-label` to date picker. Add `role=\"row\"` and descriptive labels to clickable cancellation rows. Ensure modal has `role=\"dialog\"` and `aria-modal=\"true\"`.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-345",
       "feature": "Cancellations Dashboard",
       "category": "SA-cancellations-dashboard",
@@ -5349,6 +7471,27 @@
       ]
     },
     {
+      "id": "F-356",
+      "feature": "Feedback Dashboard",
+      "category": "SA-feedback-dashboard",
+      "title": "No Pagination - Performance Degrades with Volume",
+      "severity": "high",
+      "location": "Section 4 - Edge Cases row 16 and Section 6 - Performance",
+      "issue": "Documentation explicitly flags multiple times: \"High volume (many items) | Scroll list | All items rendered | ⚠️ No virtualization\" and \"All feedback fetched at once | No pagination | ⚠️ Could be slow with many items\". As the platform grows, fetching all feedback items on every page load will cause increasing latency and memory pressure. This is marked as a medium issue in Identified Issues but given the cumulative nature, severity should be higher.",
+      "suggested_fix": "Implement server-side pagination with limit/offset. Add \"Load more\" or infinite scroll pattern. For immediate mitigation, add list virtualization (e.g., react-virtual) for client-side rendering.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-019",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement server-side pagination with limit/offset. Add \"Load more\" or infinite scroll pattern. For immediate mitigation, add list virtualization (e.g., react-virtual) for client-side rendering.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-357",
       "feature": "Feedback Dashboard",
       "category": "SA-feedback-dashboard",
@@ -5559,6 +7702,48 @@
       ]
     },
     {
+      "id": "F-367",
+      "feature": "Funnel Analytics",
+      "category": "SA-funnel-analytics",
+      "title": "Landing Page Tracking Not Implemented",
+      "severity": "high",
+      "location": "Section 10 - Open Questions #7; Section 2 - Funnel Stages",
+      "issue": "Open Question 7 explicitly states: \"Should the landing page tracker be added? Currently no `landing` events visible in tracked pages.\" The funnel diagram shows LANDING PAGE as the first step, but the Code References section shows no landing page tracking implementation. This means the funnel cannot show true landing→signup conversion rates or landing page drop-off.",
+      "suggested_fix": "Implement landing page tracking on the marketing site to capture the true top-of-funnel metrics and calculate accurate drop-off between landing and signup.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement landing page tracking on the marketing site to capture the true top-of-funnel metrics and calculate accurate drop-off between landing and signup.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-368",
+      "feature": "Funnel Analytics",
+      "category": "SA-funnel-analytics",
+      "title": "Platform Admin Route Protection Only \"Assumed\"",
+      "severity": "high",
+      "location": "Section 6 - Technical Concerns > Security",
+      "issue": "The security section states \"Platform admin only (route protection assumed)\" without verification. This is a critical analytics dashboard containing sensitive conversion and revenue data. Route protection should be explicitly verified, not assumed.",
+      "suggested_fix": "Verify and document the exact route protection mechanism (middleware, component check, RLS policy) that restricts `/platform/funnel` to platform admins only.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Verify and document the exact route protection mechanism (middleware, component check, RLS policy) that restricts `/platform/funnel` to platform admins only.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-369",
       "feature": "Funnel Analytics",
       "category": "SA-funnel-analytics",
@@ -5764,6 +7949,27 @@
         {
           "id": "implement_fix",
           "label": "Add a tracking health metric or error rate indicator to the funnel dashboard, or log failures to a monitoring system.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-379",
+      "feature": "Organizations Manager",
+      "category": "SA-organizations-manager",
+      "title": "Platform Admin Route Protection Unclear",
+      "severity": "high",
+      "location": "Section 10 - Open Questions #1; Section 6 - Security",
+      "issue": "Open question explicitly asks \"Is there route protection for platform admins?\" The documentation notes \"Page appears to be under `/platform/` route but access control not visible in code.\" Security section only mentions \"Platform admin route protection (assumed)\" without verification. This is a potential security gap - if route protection is missing, any authenticated user could access organization data.",
+      "suggested_fix": "Verify and document the middleware/auth guard that restricts `/platform/*` routes to platform admins only. If missing, implement it immediately.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Verify and document the middleware/auth guard that restricts `/platform/*` routes to platform admins only. If missing, implement it immediately.",
           "recommended": true
         }
       ]
@@ -6000,6 +8206,27 @@
       ]
     },
     {
+      "id": "F-391",
+      "feature": "Pool Management",
+      "category": "D-pool-management",
+      "title": "No Delete Confirmation for Pools",
+      "severity": "high",
+      "location": "Section 4 - Edge Cases #5; Section 5 - UI/UX Review Step 6; Section 7 - Identified Issues; Section 10 - Open Questions #1",
+      "issue": "Multiple sections document that pools are deleted immediately without confirmation. Edge Case #5 states \"Pool removed immediately (no confirmation)\" with ⚠️ warning. Section 7 lists \"No delete confirmation | Accidental deletion possible | 🟡 Medium\". Open Question #1 explicitly asks \"Should there be a delete confirmation?\" This creates significant risk of accidental data loss, especially since deletion cascades to all pool members and routing rules.",
+      "suggested_fix": "Add confirmation modal before pool deletion. Modal should clearly state what will be deleted (pool name, X routing rules, X agent assignments).",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add confirmation modal before pool deletion. Modal should clearly state what will be deleted (pool name, X routing rules, X agent assignments).",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-392",
       "feature": "Pool Management",
       "category": "D-pool-management",
@@ -6016,6 +8243,27 @@
         {
           "id": "implement_fix",
           "label": "Add inline edit capability for pool name. Double-click or edit icon on pool name to enable editing.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-393",
+      "feature": "Pool Management",
+      "category": "D-pool-management",
+      "title": "Silent Failures for Database and Server Operations",
+      "severity": "high",
+      "location": "Section 4 - Error States; Section 7 - Identified Issues",
+      "issue": "Error States table documents multiple silent failure modes: \"Database save fails | Network error on any save | Error in console (silent fail)\", \"Server sync fails | Signaling server unreachable | Console warning only\", \"RLS permission denied | Non-admin tries to modify | Operation fails silently\". Section 7 confirms \"Silent failures | Admin may not know save failed | 🟡 Medium\". Admins have no feedback when critical operations fail.",
+      "suggested_fix": "Implement toast notifications for all save/delete operations. Show success confirmation and error messages with retry options.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-043",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement toast notifications for all save/delete operations. Show success confirmation and error messages with retry options.",
           "recommended": true
         }
       ]
@@ -6420,6 +8668,69 @@
       ]
     },
     {
+      "id": "F-413",
+      "feature": "Agent Management",
+      "category": "D4",
+      "title": "Agent Removal Doesn't End Active Calls",
+      "severity": "high",
+      "location": "Section 4 - Edge Cases #10; Section 7 - Identified Issues; Section 10 - Open Questions #1",
+      "issue": "Multiple sections flag this: Edge Case #10 marks \"Remove agent in call\" with ⚠️ warning noting \"Call continues until natural end\". Section 7 explicitly lists \"Agent removal doesn't end active calls | Call continues after agent 'removed' | 🟡 Medium\". Open Question #1 states \"Should removing an agent terminate their active call? Currently soft delete doesn't emit any call:end event.\" This could lead to confusing state where a \"removed\" agent continues in an active call, and call logs may reference an agent that appears deleted.",
+      "suggested_fix": "Emit call:end event during agent removal to gracefully terminate active calls, or explicitly document the business decision that calls should complete naturally.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-010",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Emit call:end event during agent removal to gracefully terminate active calls, or explicitly document the business decision that calls should complete naturally.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-414",
+      "feature": "Agent Management",
+      "category": "D4",
+      "title": "Cannot Re-invite Previously Removed Users",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #21; Section 7 - Identified Issues; Section 10 - Open Questions #2",
+      "issue": "Edge Case #21 marks \"Re-invite removed user\" with ⚠️ warning stating \"Can't re-invite (by design)\". Section 7 lists \"Can't re-invite removed users | Users with inactive agent_profile can't be re-invited | 🟡 Medium\". Open Question #2 asks about how to handle this. The current behavior returns \"User already exists\" error, preventing admins from bringing back former team members through the normal invite flow.",
+      "suggested_fix": "Implement a reactivation flow for previously removed users, or add a \"Reinvite\" option that bypasses the user existence check for deactivated users.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement a reactivation flow for previously removed users, or add a \"Reinvite\" option that bypasses the user existence check for deactivated users.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-024",
+      "feature": "Agent Management",
+      "category": "D4",
+      "title": "Email Send Failure Is Silent",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #20; Section 7 - Identified Issues; Section 10 - Open Questions #3",
+      "issue": "Edge Case #20 marks \"Email send fails\" with ⚠️ warning noting \"Console warning only\". Section 7 states \"Email send failure silent | Invite created but invitee never notified | 🟡 Medium\". Open Question #3 asks \"Should email failures be more visible?\" The invite is created, billing seat is consumed, but the invitee never receives the email. Admin has no indication of delivery failure.",
+      "suggested_fix": "Add retry mechanism for email delivery, or display warning to admin if email send fails. Consider rollback of invite if email cannot be sent after retries.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-011",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add retry mechanism for email delivery, or display warning to admin if email send fails. Consider rollback of invite if email cannot be sent after retries.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-416",
       "feature": "Agent Management",
       "category": "D4",
@@ -6478,6 +8789,27 @@
         {
           "id": "implement_fix",
           "label": "Consider implementing CSV upload or bulk email input for enterprise-tier organizations. Low priority for current scale.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-419",
+      "feature": "Agent Management",
+      "category": "D4",
+      "title": "Screen Reader Support Not Verified",
+      "severity": "medium",
+      "location": "Section 5 - Accessibility",
+      "issue": "Documentation explicitly states \"Screen reader support: ⚠️ Not explicitly verified\". The agents page contains status indicators (colors), pending invite badges, seat allocation displays, and action buttons that may not have proper ARIA labels for screen reader users.",
+      "suggested_fix": "Conduct screen reader accessibility audit. Add ARIA labels to status colors, seat counts, and pending invite sections. Verify form labels in invite modal.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Conduct screen reader accessibility audit. Add ARIA labels to status colors, seat counts, and pending invite sections. Verify form labels in invite modal.",
           "recommended": true
         }
       ]
@@ -6835,6 +9167,48 @@
         {
           "id": "implement_fix",
           "label": "Cache failed lookups (null results) with a shorter TTL (e.g., 5 minutes) to allow faster retry. Keep successful lookups at 1-hour TTL for efficiency.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-437",
+      "feature": "Geolocation Service",
+      "category": "P-geolocation-service",
+      "title": "x-forwarded-for Header Trust Without Validation",
+      "severity": "medium",
+      "location": "Section 6 - Security (IP spoofing row); Section 10 - Open Questions #3",
+      "issue": "Security section notes \"IP spoofing via headers: Trusts x-forwarded-for (assumes trusted proxy)\". Open Question #3 explicitly asks \"Is x-forwarded-for trustworthy? Current implementation trusts the first IP in x-forwarded-for header. If not behind a trusted proxy, this could be spoofed. May need configuration option.\" If the server receives direct connections (not behind a trusted proxy), attackers could spoof their IP via header injection to bypass geo-blocking.",
+      "suggested_fix": "Add a configuration option to enable/disable trusting proxy headers based on deployment environment. When disabled, fall back to socket.address only. Document the security implications of each setting.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add a configuration option to enable/disable trusting proxy headers based on deployment environment. When disabled, fall back to socket.address only. Document the security implications of each setting.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-438",
+      "feature": "Geolocation Service",
+      "category": "P-geolocation-service",
+      "title": "Cache Not Shared Across Multiple Server Instances",
+      "severity": "medium",
+      "location": "Section 7 - Identified Issues",
+      "issue": "Section 7 lists \"Cache not shared across servers | Horizontal scaling = more API calls | 🟡 Medium\". When running multiple server instances (common in production for load balancing), each instance has its own in-memory cache. This means the same IP could trigger API lookups on each server instance, multiplying API usage and risking rate limits.",
+      "suggested_fix": "Implement a shared cache using Redis or similar for production deployments with multiple server instances. Keep in-memory cache for single-instance deployments.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement a shared cache using Redis or similar for production deployments with multiple server instances. Keep in-memory cache for single-instance deployments.",
           "recommended": true
         }
       ]
@@ -8394,6 +10768,27 @@
       ]
     },
     {
+      "id": "F-513",
+      "feature": "Signup Flow",
+      "category": "AUTH-signup-flow",
+      "title": "Client/Server Password Validation Mismatch",
+      "severity": "medium",
+      "location": "Section 3 - Password Requirements",
+      "issue": "Documentation states client-side validation requires 8 characters (`minLength={8}`) but \"Server-side: Supabase Auth default (minimum 6 characters)\". A user could potentially bypass client validation (developer tools, direct API call) and create an account with a 6-character password, violating the stated 8-character policy.",
+      "suggested_fix": "Configure Supabase Auth password policy to enforce minimum 8 characters server-side to match client-side validation. Alternatively, add server-side validation in a server action before calling Supabase.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Configure Supabase Auth password policy to enforce minimum 8 characters server-side to match client-side validation. Alternatively, add server-side validation in a server action before calling Supabase.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-514",
       "feature": "Signup Flow",
       "category": "AUTH-signup-flow",
@@ -8410,6 +10805,48 @@
         {
           "id": "implement_fix",
           "label": "Add E.164 phone format validation (e.g., +1-XXX-XXX-XXXX) or use a phone input library with country code selection. Validate both client-side and in the database trigger.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-515",
+      "feature": "Signup Flow",
+      "category": "AUTH-signup-flow",
+      "title": "Paywall Disabled Without Clear Timeline",
+      "severity": "medium",
+      "location": "Section 7 - Identified Issues, Section 10 - Open Question #2",
+      "issue": "Section 7 documents \"Paywall bypassed\" with note \"Comment says 'TODO: Re-enable paywall'\". Open Question #2 asks \"What's the timeline for enabling this?\". Users can sign up and use the product without hitting a paywall, potentially impacting revenue.",
+      "suggested_fix": "Define clear timeline for paywall re-enablement. Consider adding this to sprint backlog with specific acceptance criteria for when billing integration is complete.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Define clear timeline for paywall re-enablement. Consider adding this to sprint backlog with specific acceptance criteria for when billing integration is complete.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-516",
+      "feature": "Signup Flow",
+      "category": "AUTH-signup-flow",
+      "title": "Email Verification Not Checked Before Dashboard Access",
+      "severity": "high",
+      "location": "Section 4 - Edge Case #16, Email Verification Note, Section 10 - Open Question #1",
+      "issue": "Edge case #16 flagged with ⚠️ and the \"Email Verification Note\" explicitly states: \"If Supabase is configured to require email verification: User will be created but unverified. Middleware may still allow access (checks auth, not verification). This could be a security consideration.\" Unverified users could access the admin dashboard.",
+      "suggested_fix": "Clarify whether email verification is enabled in Supabase config. If enabled, update middleware to check verification status and redirect unverified users to a verification prompt page.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Clarify whether email verification is enabled in Supabase config. If enabled, update middleware to check verification status and redirect unverified users to a verification prompt page.",
           "recommended": true
         }
       ]
@@ -8536,6 +10973,69 @@
         {
           "id": "implement_fix",
           "label": "Add organization naming to onboarding flow, or show prompt in dashboard for users to customize organization name. Consider company name as signup field alternative.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-523",
+      "feature": "Public Feedback",
+      "category": "V-public-feedback",
+      "title": "Critical Prompt/Feature Name Mismatch",
+      "severity": "critical",
+      "location": "Section 10 - Open Questions #7; Section 1 Note",
+      "issue": "The prompt description states this is a \"Post-call feedback form for visitors. Collects ratings, comments, and satisfaction data after calls end.\" However, the actual implementation is a UserVoice/Canny-style feature request voting system and bug reporter for authenticated dashboard users (Agents/Admins), NOT website visitors or post-call surveys. This fundamental documentation mismatch could cause significant confusion during development, onboarding, or feature planning. The feature name \"Public Feedback\" is also misleading since it requires authentication.",
+      "suggested_fix": "Update all references to accurately describe this as \"Feature Request Voting & Bug Reporting System\" or similar. Clarify that \"public\" refers to cross-organization visibility, not anonymous access.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-007",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Update all references to accurately describe this as \"Feature Request Voting & Bug Reporting System\" or similar. Clarify that \"public\" refers to cross-organization visibility, not anonymous access.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-524",
+      "feature": "Public Feedback",
+      "category": "V-public-feedback",
+      "title": "Status Changes Don't Trigger Notifications",
+      "severity": "high",
+      "location": "Section 10 - Open Questions #5",
+      "issue": "Documentation explicitly states \"Should feature request status changes trigger notifications? Currently only replies and upvotes notify users; status changes (completed, declined) do not.\" This is a significant UX gap - users who submit feature requests have no way to know their request was implemented or declined without manually checking the feedback page.",
+      "suggested_fix": "Implement notifications for status changes, especially `completed` and `declined`. These are the outcomes users most want to know about.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement notifications for status changes, especially `completed` and `declined`. These are the outcomes users most want to know about.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-525",
+      "feature": "Public Feedback",
+      "category": "V-public-feedback",
+      "title": "Silent Error States for Vote and Fetch Failures",
+      "severity": "high",
+      "location": "Section 4 - Error States table",
+      "issue": "The error states table documents that \"Fetch items fails\" results in \"Console error, list may be empty\" and \"Vote fails\" results in \"Console error, UI may be stale\". Users receive no visible feedback when these operations fail - they just see an empty list or stale vote counts. This violates the principle of providing clear error feedback.",
+      "suggested_fix": "Add user-facing error toasts or inline error messages for fetch and vote failures. Show retry buttons where appropriate.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add user-facing error toasts or inline error messages for fetch and vote failures. Show retry buttons where appropriate.",
           "recommended": true
         }
       ]
@@ -8935,6 +11435,27 @@
         {
           "id": "implement_fix",
           "label": "Validate video format at upload time and either reject unsupported formats or transcode to universally-supported MP4/H.264. Display format requirements in upload UI.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-545",
+      "feature": "Ellis Survey",
+      "category": "FEEDBACK-ellis-survey",
+      "title": "Dismissal Tracked as \"not_disappointed\" Skews PMF Data",
+      "severity": "high",
+      "location": "Section 3 - Data Flow (USER DISMISSES), Section 10 - Open Question #1",
+      "issue": "When a user dismisses the survey, the code sets `disappointment_level: \"not_disappointed\"` as the default. Open Question #1 correctly identifies this: \"This seems to skew data negatively. Should it be null or a separate category?\" This design choice means dismissed surveys artificially inflate the \"not disappointed\" count, which is the least favorable PMF response. Any PMF calculation using this data will undercount true product-market fit.",
+      "suggested_fix": "Either (1) use a null/separate \"dismissed\" category for disappointment_level, or (2) exclude dismissed surveys from PMF percentage calculations. The database migration should be updated to allow NULL or add a \"dismissed\" enum value.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-045",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either (1) use a null/separate \"dismissed\" category for disappointment_level, or (2) exclude dismissed surveys from PMF percentage calculations. The database migration should be updated to allow NULL or add a \"dismissed\" enum value.",
           "recommended": true
         }
       ]
@@ -9423,6 +11944,27 @@
       ]
     },
     {
+      "id": "F-569",
+      "feature": "Invites API",
+      "category": "API-invites-api",
+      "title": "Revoke Flow Unconditionally Removes Billing Seat Regardless of Role",
+      "severity": "high",
+      "location": "Section 3 - Data Flow, \"ADMIN REVOKES INVITE\"",
+      "issue": "The documented revoke flow shows unconditional seat removal: `POST /api/billing/seats { action: \"remove\", quantity: 1 }` after deleting any invite. However, according to Section 2 and Section 3, only agent invites charge a seat at send time. Admin invites do not charge a seat until acceptance (and only if they choose to take calls). If an admin invite is revoked, the system would attempt to remove a seat that was never added, potentially causing billing discrepancies or API errors.",
+      "suggested_fix": "Add role check before seat removal: only call billing seats API if the revoked invite had `role = 'agent'`. Document this conditional logic explicitly.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add role check before seat removal: only call billing seats API if the revoked invite had `role = 'agent'`. Document this conditional logic explicitly.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-570",
       "feature": "Invites API",
       "category": "API-invites-api",
@@ -9649,6 +12191,27 @@
         {
           "id": "implement_fix",
           "label": "Add retry button in error toast notifications or implement automatic retry with exponential backoff for transient failures.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-581",
+      "feature": "Password Reset",
+      "category": "AUTH-password-reset",
+      "title": "Existing Sessions Not Invalidated on Password Reset",
+      "severity": "high",
+      "location": "Section 10 - Open Questions #2",
+      "issue": "Open Question #2 states: \"Are existing sessions invalidated on password reset? Code does not explicitly invalidate other sessions. Supabase may handle this, but behavior is not verified.\" If a user resets their password due to account compromise, active attacker sessions may remain valid, defeating the security purpose of the password reset.",
+      "suggested_fix": "Verify Supabase behavior regarding session invalidation on password change. If sessions persist, implement explicit invalidation of all other sessions when password is reset using Supabase session management APIs.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Verify Supabase behavior regarding session invalidation on password change. If sessions persist, implement explicit invalidation of all other sessions when password is reset using Supabase session management APIs.",
           "recommended": true
         }
       ]
@@ -10473,6 +13036,27 @@
       ]
     },
     {
+      "id": "F-621",
+      "feature": "Video Recordings",
+      "category": "A-video-recordings",
+      "title": "Visitor Not Notified of Recording",
+      "severity": "high",
+      "location": "Section 10 - Open Questions #3; Section 6 - Security (Privacy consent)",
+      "issue": "Open Question #3 asks \"Should visitors be notified they're being recorded? Currently no in-widget indicator.\" While Section 6 Security mentions \"Privacy warning shown in admin settings\", there is no indication to the actual visitor being recorded. This is a privacy compliance concern (GDPR, CCPA, state recording laws).",
+      "suggested_fix": "Add visible recording indicator in widget UI (red dot or \"Recording\" badge). Consider audio announcement at call start for two-party consent jurisdictions.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add visible recording indicator in widget UI (red dot or \"Recording\" badge). Consider audio announcement at call start for two-party consent jurisdictions.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-622",
       "feature": "Video Recordings",
       "category": "A-video-recordings",
@@ -10657,6 +13241,48 @@
         {
           "id": "implement_fix",
           "label": "Show recording indicator in agent UI during active calls. If recording fails to start, show warning toast: \"Recording failed - check browser permissions.\"",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-631",
+      "feature": "Login Flow",
+      "category": "AUTH-login-flow",
+      "title": "Incomplete Middleware Redirect for Unauthenticated Users",
+      "severity": "critical",
+      "location": "Section 3 - Data Flow, and Section 10 - Open Questions #1",
+      "issue": "The middleware code at `middleware.ts` lines 56-57 has `if (isProtectedPath && !user) { return }` but no redirect to login page. Documentation explicitly states: \"No user? Return (incomplete redirect logic - see issues)\" and \"Is this intentional or a bug?\" This creates a security gap where unauthenticated users on protected routes are not redirected.",
+      "suggested_fix": "Complete the middleware logic: `if (isProtectedPath && !user) { return NextResponse.redirect(new URL('/login', request.url)) }` to redirect unauthenticated users to the login page.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-006",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Complete the middleware logic: `if (isProtectedPath && !user) { return NextResponse.redirect(new URL('/login', request.url)) }` to redirect unauthenticated users to the login page.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-632",
+      "feature": "Login Flow",
+      "category": "AUTH-login-flow",
+      "title": "User with No Profile Row Causes Redirect Failure",
+      "severity": "high",
+      "location": "Section 4 - Edge Cases, Row #20",
+      "issue": "Edge case matrix shows: \"User with no profile row | Auth exists, no users row | Returns null, redirects fail | ⚠️ | May cause issues\". When a user has an auth.users record but no corresponding `users` table row, the role query returns null and redirect logic fails. This is a data integrity issue that can strand users.",
+      "suggested_fix": "Add defensive check after role query: if no profile row found, either create one with default role, show an error message, or redirect to a recovery flow. Consider RPC or trigger to ensure profile creation on signup.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add defensive check after role query: if no profile row found, either create one with default role, show an error message, or redirect to a recovery flow. Consider RPC or trigger to ensure profile creation on signup.",
           "recommended": true
         }
       ]
@@ -10872,6 +13498,27 @@
       ]
     },
     {
+      "id": "F-643",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
+      "title": "Free Tier vs 1-Minute Check Frequency Contradiction",
+      "severity": "critical",
+      "location": "Section \"Provider: Better Uptime\" vs Monitor 1 & 2 configurations",
+      "issue": "The document states under \"Better Uptime Free Tier\" that the free tier offers \"3-minute check frequency\", but Monitor 1 (Dashboard) and Monitor 2 (Signaling Server) are both configured with \"Check Frequency: 1 minute\". This is a direct contradiction - either these monitors will fail to create on the free tier, or the setup will unexpectedly incur costs.",
+      "suggested_fix": "Either update all monitors to 3-minute frequency to stay within free tier, or clarify that 1-minute checks require the $20/mo upgrade and update Cost Analysis section accordingly.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-008",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either update all monitors to 3-minute frequency to stay within free tier, or clarify that 1-minute checks require the $20/mo upgrade and update Cost Analysis section accordingly.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-644",
       "feature": "External Uptime Monitoring Setup",
       "category": "M-UPTIME_MONITORING",
@@ -10930,6 +13577,27 @@
         {
           "id": "implement_fix",
           "label": "Add a security note: \"The Supabase anon key is designed for public use and has RLS protection. Storing in Better Uptime is acceptable, but monitor Better Uptime security advisories.\"",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-647",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
+      "title": "Missing Incident Response Runbook",
+      "severity": "high",
+      "location": "Entire document",
+      "issue": "The document covers how to set up monitoring and receive alerts, but provides no guidance on what to do when an alert fires. There is no incident response runbook linking to debugging steps, rollback procedures, or escalation paths beyond \"call this number\". When a 3 AM alert wakes someone up, they need actionable next steps.",
+      "suggested_fix": "Add section \"Incident Response\" with: (1) Link to runbook for each service type, (2) Common causes and fixes, (3) Who can deploy fixes, (4) When to page vs investigate.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-061",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add section \"Incident Response\" with: (1) Link to runbook for each service type, (2) Common causes and fixes, (3) Who can deploy fixes, (4) When to page vs investigate.",
           "recommended": true
         }
       ]
@@ -11077,6 +13745,68 @@
         {
           "id": "implement_fix",
           "label": "Add SSL expiry alerts to all HTTPS monitors, or document why only Dashboard needs it (e.g., \"Railway and Supabase manage their own certs\").",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-655",
+      "feature": "External Uptime Monitoring Setup",
+      "category": "M-UPTIME_MONITORING",
+      "title": "Health Endpoint Response Format is Completely Wrong",
+      "severity": "critical",
+      "location": "Section \"Monitor 2: Signaling Server Health\" and \"Quick Reference - Health Check Response Format\"",
+      "issue": "The documentation claims the health endpoint returns `{\"status\": \"ok\", ...}` and configures Monitor 2 with `Expected Response Body Contains: \"ok\"` and `JSON Path: $.status Expected Value: ok`. However, the actual `/health` endpoint in `apps/server/src/index.ts` returns `{\"status\": \"healthy\" | \"unhealthy\" | \"degraded\", ...}`. This is a fundamental documentation error. If monitoring is configured as documented, Monitor 2 will immediately show the service as DOWN because the response contains \"healthy\" not \"ok\", causing false positive alerts from day one.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Update documentation to reflect actual response format - change all references of `\"status\": \"ok\"` to `\"status\": \"healthy\"` and update monitor configuration to validate for \"healthy\"",
+        "Update the server code to return `\"status\": \"ok\"` for backwards compatibility - not recommended as it breaks the semantic meaning of health states",
+        "Add a legacy compatibility endpoint `/health-legacy` that returns the old format - unnecessary complexity",
+        "Skip - not worth fixing"
+      ],
+      "agent_recommendation": "Option 1 - Documentation must match actual behavior. The monitor validation should check for `$.status = \"healthy\"` or simply validate HTTP 200 response.",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Update documentation to reflect actual response format - change all references of `\"status\": \"ok\"` to `\"status\": \"healthy\"` and update monitor configuration to validate for \"healthy\"",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Update the server code to return `\"status\": \"ok\"` for backwards compatibility - not recommended as it breaks the semantic meaning of health states",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Add a legacy compatibility endpoint `/health-legacy` that returns the old format - unnecessary complexity",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - not worth fixing",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-655",
+      "feature": "Co-Browse Sender",
+      "category": "V-cobrowse-sender",
+      "title": "Password Fields Captured in DOM Snapshots",
+      "severity": "critical",
+      "location": "Section 4 - Edge Cases Row 6; Section 6 - Security; Section 7 - Identified Issues; Section 10 - CRITICAL ISSUES REFERENCED",
+      "issue": "Documentation explicitly flags CRIT-A5-001: \"Password field visible - Value may be captured\" with red indicator. Section 6 Security confirms \"Password fields captured | CRIT-A5-001 - no sanitization | 🔴 Critical\". The `captureSnapshot()` function serializes the entire DOM including password field values, allowing agents to see visitor passwords.",
+      "suggested_fix": "As documented: \"Mask `<input type=\"password\">` values before serializing\". Add sanitization step in `captureSnapshot()` to replace password field values with asterisks or empty strings.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-001",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "As documented: \"Mask `<input type=\"password\">` values before serializing\". Add sanitization step in `captureSnapshot()` to replace password field values with asterisks or empty strings.",
           "recommended": true
         }
       ]
@@ -11350,6 +14080,27 @@
         {
           "id": "implement_fix",
           "label": "Implement resumable uploads using Supabase resumable upload API or chunked upload pattern. Consider splitting recordings into segments for very long calls.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-669",
+      "feature": "Co-Browse Sender",
+      "category": "V-cobrowse-sender",
+      "title": "Visitor Not Notified of Recording",
+      "severity": "high",
+      "location": "Section 10 - Open Questions #3; Section 6 - Security (Privacy consent)",
+      "issue": "Open Question #3 asks \"Should visitors be notified they're being recorded? Currently no in-widget indicator.\" While Section 6 Security mentions \"Privacy warning shown in admin settings\", there is no indication to the actual visitor being recorded. This is a privacy compliance concern (GDPR, CCPA, state recording laws).",
+      "suggested_fix": "Add visible recording indicator in widget UI (red dot or \"Recording\" badge). Consider audio announcement at call start for two-party consent jurisdictions.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-014",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add visible recording indicator in widget UI (red dot or \"Recording\" badge). Consider audio announcement at call start for two-party consent jurisdictions.",
           "recommended": true
         }
       ]
@@ -12174,6 +14925,27 @@
       ]
     },
     {
+      "id": "F-709",
+      "feature": "Call Analytics",
+      "category": "STATS-call-analytics",
+      "title": "Recording URL Expiration Causes Unrecoverable Data Loss",
+      "severity": "high",
+      "location": "Section 4 - Error States, Row 2",
+      "issue": "Error States table shows: \"Recording URL expired | Old S3 links | Video/audio won't play | No recovery (data lost)\". Signed S3 URLs have expiration times. Once expired, organizations permanently lose access to call recordings. This is a critical data retention issue, especially for compliance-sensitive industries.",
+      "suggested_fix": "Implement URL refresh mechanism that generates new signed URLs on demand. Store recording references (not signed URLs) in database and sign on access.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement URL refresh mechanism that generates new signed URLs on demand. Store recording references (not signed URLs) in database and sign on access.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-710",
       "feature": "Call Analytics",
       "category": "STATS-call-analytics",
@@ -12573,6 +15345,69 @@
       ]
     },
     {
+      "id": "F-729",
+      "feature": "Billing API",
+      "category": "API-billing-api",
+      "title": "State Machine Diagram Missing \"paused\" State",
+      "severity": "high",
+      "location": "Section 2 - State Machine and State Definitions",
+      "issue": "The State Definitions table includes a \"paused\" state with description \"Account paused by admin\" but this state is completely absent from the State Machine diagram. The diagram shows transitions between (none), trialing, active, past_due, and cancelled - but no paused state or any transitions to/from it. This creates confusion about whether paused is a valid state and how it integrates with the subscription lifecycle.",
+      "suggested_fix": "Either add \"paused\" to the state diagram with proper transitions (e.g., active → paused → active), or remove it from State Definitions if it's not actually implemented. If paused is separate from Stripe subscription state, document that clearly.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either add \"paused\" to the state diagram with proper transitions (e.g., active → paused → active), or remove it from State Definitions if it's not actually implemented. If paused is separate from Stripe subscription state, document that clearly.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-730",
+      "feature": "Billing API",
+      "category": "API-billing-api",
+      "title": "Unknown Stripe Status Defaults to \"active\" - Security Risk",
+      "severity": "high",
+      "location": "Section 4 - Edge Cases, Row 20",
+      "issue": "Edge case #20 states: \"Unknown Stripe status | subscription.updated | Defaults to 'active', logs warning | ⚠️ Conservative fallback\". Defaulting to \"active\" for unknown statuses is NOT conservative - it grants access when status is uncertain. An unknown status could indicate account suspension, fraud, or a new Stripe status not yet mapped. Granting active status by default could allow access to users who should be restricted.",
+      "suggested_fix": "Default unknown statuses to \"past_due\" or a new \"unknown\" status that restricts access while logging for investigation. Active should only be set for explicitly known good statuses.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "ticketed",
+      "ticket_id": "TKT-050",
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Default unknown statuses to \"past_due\" or a new \"unknown\" status that restricts access while logging for investigation. Active should only be set for explicitly known good statuses.",
+          "recommended": true
+        }
+      ]
+    },
+    {
+      "id": "F-731",
+      "feature": "Billing API",
+      "category": "API-billing-api",
+      "title": "Seat Removal Not Reducing Billing - User Expectation Mismatch",
+      "severity": "high",
+      "location": "Section 2 - Seat Management, Section 5 - Step 5",
+      "issue": "Documentation explicitly flags in Section 5: \"Remove team member | Seat freed (no billing change) | ⚠️ User may expect billing reduction\". The pre-paid model means admins who remove agents continue paying for those seats. This is counter-intuitive - users naturally expect that removing a seat reduces their bill. Without clear upfront explanation, this feels like being overcharged.",
+      "suggested_fix": "Add prominent UI messaging when removing an agent: \"Your seat count will remain at X. To reduce billing, go to Billing Settings and lower your seat count.\" Consider showing \"unused seats\" prominently in billing dashboard.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "skipped",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add prominent UI messaging when removing an agent: \"Your seat count will remain at X. To reduce billing, go to Billing Settings and lower your seat count.\" Consider showing \"unused seats\" prominently in billing dashboard.",
+          "recommended": true
+        }
+      ]
+    },
+    {
       "id": "F-732",
       "feature": "Billing API",
       "category": "API-billing-api",
@@ -12804,6 +15639,88 @@
       ]
     },
     {
+      "id": "F-227",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Password Fields Captured in DOM Snapshots",
+      "severity": "critical",
+      "location": "Section 4 Edge Case #7, Section 6 Security, Section 7 Identified Issues, Section 10 Open Question #1",
+      "issue": "Documentation explicitly flags: \"Password fields visible in DOM\" with 🔴 High severity. The DOM snapshot includes form input values. While `<input type=\"password\">` visually obscures the password, the `value` attribute is present in the serialized HTML. This is a privacy/security risk where agents could see visitor passwords.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement password sanitization as documented - add `input.setAttribute(\"value\", \"••••••••\")` for all password fields before serialization",
+        "Remove value attributes entirely from password fields - `input.removeAttribute(\"value\")`",
+        "Skip password field elements entirely from DOM snapshot",
+        "Skip - accept risk (not recommended for production)"
+      ],
+      "agent_recommendation": "Option 1 - Replace with masked value as documented, maintains visual context while protecting data",
+      "status": "ticketed",
+      "ticket_id": "TKT-001",
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement password sanitization as documented - add `input.setAttribute(\"value\", \"••••••••\")` for all password fields before serialization",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Remove value attributes entirely from password fields - `input.removeAttribute(\"value\")`",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Skip password field elements entirely from DOM snapshot",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - accept risk (not recommended for production)",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-745",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Sensitive Field Sanitization Incomplete",
+      "severity": "high",
+      "location": "Section 6 Security, \"Security Gaps\" subsection, \"Recommended Mitigations\" code block",
+      "issue": "The security section identifies multiple sensitive field types (credit cards, personal data, session tokens) but the recommended code fix only masks password inputs. The code comment mentions \"Consider also masking: input[type=\"tel\"], input[autocomplete=\"cc-number\"], Elements with data-sensitive=\"true\"\" but this is just a comment, not implemented guidance. Credit card fields could expose full card numbers to agents.",
+      "suggested_fix": "",
+      "agent_options": [
+        "Expand sanitization to include cc-number, tel, ssn, and autocomplete-sensitive fields in the documented fix",
+        "Create a configurable sanitization list per organization (allow admins to define sensitive selectors)",
+        "Document as known limitation and rely on customer-side sanitization via data-sensitive attribute",
+        "Skip - only mask passwords, accept risk for other fields"
+      ],
+      "agent_recommendation": "Option 1 - Include common sensitive field patterns in the standard sanitization; credit cards are too high risk to ignore",
+      "status": "ticketed",
+      "ticket_id": "TKT-001",
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Expand sanitization to include cc-number, tel, ssn, and autocomplete-sensitive fields in the documented fix",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Create a configurable sanitization list per organization (allow admins to define sensitive selectors)",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Document as known limitation and rely on customer-side sanitization via data-sensitive attribute",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - only mask passwords, accept risk for other fields",
+          "recommended": false
+        }
+      ]
+    },
+    {
       "id": "F-229",
       "feature": "Co-Browse Viewer",
       "category": "A5",
@@ -12881,6 +15798,47 @@
         {
           "id": "option_4",
           "label": "Skip - document as known limitation, iframes remain blank",
+          "recommended": false
+        }
+      ]
+    },
+    {
+      "id": "F-008",
+      "feature": "Co-Browse Viewer",
+      "category": "A5",
+      "title": "Canvas Elements Appear Blank",
+      "severity": "medium",
+      "location": "Section 4 Edge Case #5, Section 7 Identified Issues, Section 10 Open Question #4",
+      "issue": "Documentation shows: \"Visitor has canvas → Canvas shows blank → ⚠️\". Charts, graphs, and interactive visualizations using canvas are invisible to agents. Open Question #4 asks if canvas.toDataURL() should be used but notes it \"Would add significant complexity and size.\"",
+      "suggested_fix": "",
+      "agent_options": [
+        "Implement canvas.toDataURL() conversion before DOM serialization - convert canvas to inline image",
+        "Show placeholder for canvas elements with dimensions shown (\"Chart area: 400x300px\")",
+        "Make canvas capture optional/configurable per org (some sites are canvas-heavy)",
+        "Skip - document as known limitation, charts remain blank"
+      ],
+      "agent_recommendation": "Option 1 for simple canvases - toDataURL is straightforward and charts are high-value context for agents",
+      "status": "ticketed",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "option_1",
+          "label": "Implement canvas.toDataURL() conversion before DOM serialization - convert canvas to inline image",
+          "recommended": true
+        },
+        {
+          "id": "option_2",
+          "label": "Show placeholder for canvas elements with dimensions shown (\"Chart area: 400x300px\")",
+          "recommended": false
+        },
+        {
+          "id": "option_3",
+          "label": "Make canvas capture optional/configurable per org (some sites are canvas-heavy)",
+          "recommended": false
+        },
+        {
+          "id": "option_4",
+          "label": "Skip - document as known limitation, charts remain blank",
           "recommended": false
         }
       ]

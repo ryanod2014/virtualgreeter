@@ -275,8 +275,9 @@ If you've been stuck on a type error, lint error, or build error for **40 minute
 
 1. **STOP trying** — Don't spin endlessly
 2. **Commit your WIP** (even if broken): `git commit -m "WIP TKT-XXX: stuck on [error] - BLOCKED"`
-3. **Push your work**: `git push origin [branch-name]`
-4. **Report as environmental blocker** (see "Environmental Blockers" section below)
+3. **Report as environmental blocker** (see "Environmental Blockers" section below)
+
+> **Note:** Git push is handled automatically by the failsafe script when you finish.
 
 **Signs you should block:**
 - Same error for 40+ minutes
@@ -329,30 +330,10 @@ pnpm build      # Must pass
 
 ## Phase 6: SUBMIT FOR REVIEW
 
-### 6.1 Push Changes
+> **Note:** Git push is handled automatically by the failsafe script when you finish.
+> You don't need to push manually — just commit your changes and write your completion report.
 
-```bash
-git push origin [branch-name]
-```
-
-### 6.2 Verify Push Succeeded
-
-**Before writing completion report**, verify your push succeeded:
-
-```bash
-# Check that remote branch has your latest commit
-git log origin/[branch-name] --oneline -1
-
-# Should show your most recent commit
-# If it doesn't match your local HEAD, push failed - fix and retry
-```
-
-**If push failed:**
-- Check for auth issues, network problems, or branch protection
-- Resolve the issue and push again
-- Don't write completion report until push succeeds
-
-### 6.3 Archive Start File
+### 6.1 Archive Start File
 
 Move your start file to indicate you're done (prevents stale detection):
 
@@ -362,7 +343,7 @@ mv docs/agent-output/started/TKT-XXX-*.json docs/agent-output/archive/
 
 Or if you can't move files, note in your completion report that the start file should be archived.
 
-### 6.4 Update Dev Status (REQUIRED)
+### 6.2 Update Dev Status (REQUIRED)
 
 **Update `docs/data/dev-status.json`** to register your completion (required for dashboard):
 
@@ -387,7 +368,7 @@ Or if you can't move files, note in your completion report that the start file s
 
 **⚠️ Important:** Read the file first to preserve other entries. Don't overwrite the entire file.
 
-### 6.5 Write Completion Report
+### 6.3 Write Completion Report
 
 **IMPORTANT:** Write your completion report to a per-agent file to prevent conflicts with other dev agents.
 
@@ -484,10 +465,9 @@ git add .
 
 # Commit with WIP prefix
 git commit -m "WIP TKT-XXX: [what you were working on] - BLOCKED"
-
-# Push to preserve work
-git push origin [branch-name]
 ```
+
+> **Note:** Git push is handled automatically by the failsafe script when you finish.
 
 This ensures the next agent (or you in a continuation) can see exactly where you stopped.
 
@@ -830,7 +810,7 @@ git merge origin/main
 2. **Read the full spec** — Don't skim
 3. **Stay in scope** — Only modify listed files
 4. **Follow patterns** — Copy existing code style exactly
-5. **Check everything** — typecheck, lint, build before pushing
+5. **Check everything** — typecheck, lint, build before completing
 6. **Report blockers immediately** — Don't spin; STOP and write blocker to `docs/agent-output/blocked/`
 7. **Document progress** — Especially when blocked
 8. **Don't over-engineer** — Simple solutions for simple problems

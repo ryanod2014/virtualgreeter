@@ -1,7 +1,7 @@
 {
   "meta": {
     "last_updated": "2025-12-06",
-    "total_findings": 127,
+    "total_findings": 137,
     "format_version": "3.0",
     "synced_from": "REVIEW_FINDINGS.md",
     "note": "Pending findings moved to findings-staging.json for cleanup"
@@ -9,9 +9,9 @@
   "summary": {
     "critical": 2,
     "high": 0,
-    "medium": 21,
-    "low": 1,
-    "pending": 23,
+    "medium": 29,
+    "low": 3,
+    "pending": 33,
     "ticketed": 87,
     "skipped": 17
   },
@@ -2702,6 +2702,236 @@
       ],
       "cleanup_notes": "🚨 GO-LIVE BLOCKER: Race condition could cause billing state inconsistency",
       "go_live_blocker": true
+    },
+    {
+      "id": "F-200",
+      "feature": "Transcription Service",
+      "category": "P-transcription-service",
+      "title": "Rate Limit Handling Undefined",
+      "severity": "medium",
+      "location": "Section 10 - Open Question #2",
+      "issue": "Open question states: \"No - each transcription is processed immediately on request. High volume could hit Deepgram rate limits.\" However, there's no documented behavior for what happens when rate limits are hit. Edge case matrix doesn't cover \"Deepgram rate limit exceeded\" scenario.",
+      "suggested_fix": "Document expected behavior when Deepgram rate limits are hit. Consider adding rate limiting on our side or queuing for high-volume orgs.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Document expected behavior when Deepgram rate limits are hit. Consider adding rate limiting on our side or queuing for high-volume orgs.",
+          "recommended": true
+        }
+      ],
+      "cleanup_notes": "📢 PRE-MARKETING: Deepgram rate limits undefined - high volume will fail",
+      "pre_marketing_fix": true
+    },
+    {
+      "id": "F-140",
+      "feature": "Agent Call Logs",
+      "category": "A-agent-call-logs",
+      "title": "No Server-Side Pagination Limits Historical Data Access",
+      "severity": "medium",
+      "location": "Section 7 - Identified Issues table, row 2",
+      "issue": "Documentation explicitly states \"No server-side pagination | 500 record limit cuts off data | 🟡 Medium\". Agents with high call volumes cannot access historical data beyond the most recent 500 calls within any date range. This creates a significant limitation for agents trying to review older calls or search across their full history.",
+      "suggested_fix": "Add cursor-based pagination as already suggested in the documentation.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add cursor-based pagination as already suggested in the documentation.",
+          "recommended": true
+        }
+      ],
+      "cleanup_notes": "📢 PRE-MARKETING: 500 record limit cuts off agent data - pagination needed",
+      "pre_marketing_fix": true
+    },
+    {
+      "id": "F-438",
+      "feature": "Geolocation Service",
+      "category": "P-geolocation-service",
+      "title": "Cache Not Shared Across Multiple Server Instances",
+      "severity": "medium",
+      "location": "Section 7 - Identified Issues",
+      "issue": "Section 7 lists \"Cache not shared across servers | Horizontal scaling = more API calls | 🟡 Medium\". When running multiple server instances (common in production for load balancing), each instance has its own in-memory cache. This means the same IP could trigger API lookups on each server instance, multiplying API usage and risking rate limits.",
+      "suggested_fix": "Implement a shared cache using Redis or similar for production deployments with multiple server instances. Keep in-memory cache for single-instance deployments.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Implement a shared cache using Redis or similar for production deployments with multiple server instances. Keep in-memory cache for single-instance deployments.",
+          "recommended": true
+        }
+      ],
+      "cleanup_notes": "📢 PRE-MARKETING: Cache not shared across instances - scaling issues",
+      "pre_marketing_fix": true
+    },
+    {
+      "id": "F-122",
+      "feature": "Organization Settings",
+      "category": "D8",
+      "title": "Facebook Credential Expiration Not Handled",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions #6",
+      "issue": "Quote: \"What happens to FB events if credentials become invalid? No visible error handling or notification to admins if their Facebook access token expires or is revoked.\" Facebook access tokens expire regularly. Events will silently fail, and admins tracking conversions won't know their data is incomplete.",
+      "suggested_fix": "Add periodic validation of FB credentials (on settings page load), and display warning if token is expired/invalid. Consider email notification when FB events start failing.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add periodic validation of FB credentials (on settings page load), and display warning if token is expired/invalid. Consider email notification when FB events start failing.",
+          "recommended": true
+        }
+      ],
+      "cleanup_notes": "📢 PRE-MARKETING: FB token expiry not handled - silent tracking failure",
+      "pre_marketing_fix": true
+    },
+    {
+      "id": "F-121",
+      "feature": "Organization Settings",
+      "category": "D8",
+      "title": "Disposition Values Not Used for Analytics",
+      "severity": "medium",
+      "location": "Section 10 - Open Questions #5",
+      "issue": "Documentation notes: \"Are dispositions used for billing/analytics? The `value` field on dispositions suggests conversion tracking, but the aggregation/reporting of these values is not implemented in the current codebase.\" This is a half-built feature - admins configure values but can't see aggregated conversion data anywhere.",
+      "suggested_fix": "Either (a) implement disposition value reporting in call analytics, or (b) remove the value field if not planned for use, to avoid confusing admins.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Either (a) implement disposition value reporting in call analytics, or (b) remove the value field if not planned for use, to avoid confusing admins.",
+          "recommended": true
+        }
+      ],
+      "cleanup_notes": "📢 PRE-MARKETING: Disposition values half-built - admins see useless field",
+      "pre_marketing_fix": true
+    },
+    {
+      "id": "F-127",
+      "feature": "Organization Settings",
+      "category": "D8",
+      "title": "6-Month Offer Loss May Not Be Fully Understood",
+      "severity": "low",
+      "location": "Section 7 - Identified Issues; Section 4 - Edge Case #19",
+      "issue": "When leaving 6-month billing, users see a warning but may not fully understand the permanence: \"Warning: 6-month offer lost forever\". The offer is a promotional rate that cannot be recovered once abandoned.",
+      "suggested_fix": "Enhance warning modal with explicit pricing comparison: \"You currently pay $X/month. After switching to annual, you'll pay $Y/month. This promotional rate cannot be recovered if you switch.\"",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Enhance warning modal with explicit pricing comparison: \"You currently pay $X/month. After switching to annual, you'll pay $Y/month. This promotional rate cannot be recovered if you switch.\"",
+          "recommended": true
+        }
+      ],
+      "cleanup_notes": "📢 PRE-MARKETING: FB settings save without Pixel ID - silent failure",
+      "pre_marketing_fix": true
+    },
+    {
+      "id": "F-045",
+      "feature": "Widget Settings",
+      "category": "D-widget-settings",
+      "title": "Cache Not Invalidated on Settings Save",
+      "severity": "low",
+      "location": "Section 7 - Identified Issues, row 1; Section 3 - Data Flow; Section 10 - Open Questions #1",
+      "issue": "When admin saves widget settings, the cache is NOT immediately invalidated. Settings may take up to 5 minutes to propagate to visitors. This creates a confusing admin experience where changes appear saved but don't take effect immediately.",
+      "suggested_fix": "Add cache invalidation endpoint that can be called on save, or implement pub/sub pattern where server listens for settings changes. At minimum, add UI feedback: \"Changes saved. May take up to 5 minutes to apply to all visitors.\"",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add cache invalidation endpoint that can be called on save, or implement pub/sub pattern where server listens for settings changes. At minimum, add UI feedback: \"Changes saved. May take up to 5 minutes to apply to all visitors.\"",
+          "recommended": true
+        }
+      ],
+      "cleanup_notes": "📢 PRE-MARKETING: Widget settings 5-min cache delay causes confusion",
+      "pre_marketing_fix": true
+    },
+    {
+      "id": "F-110",
+      "feature": "Routing Rules",
+      "category": "D-routing-rules",
+      "title": "No Catch-All Pool Returns Null",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #9",
+      "issue": "Edge Case #9 documents \"No catch-all pool exists | Org missing catch-all | Returns `null`, agent from any pool | ⚠️ | Rare - auto-created\". While catch-all is auto-created, if it's accidentally deleted or missing due to data migration issues, the null return could cause undefined behavior in agent assignment.",
+      "suggested_fix": "Add defensive check that recreates catch-all pool if missing, or return explicit error state that triggers clear user messaging.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Add defensive check that recreates catch-all pool if missing, or return explicit error state that triggers clear user messaging.",
+          "recommended": true
+        }
+      ],
+      "cleanup_notes": "📢 PRE-MARKETING: Missing catch-all pool returns null - undefined behavior",
+      "pre_marketing_fix": true
+    },
+    {
+      "id": "F-152",
+      "feature": "Idle Timer",
+      "category": "A-idle-timer",
+      "title": "Multiple Tab Activity Not Synchronized",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #10, Section 7 - Identified Issues, Section 10 - Open Question #4",
+      "issue": "Documentation explicitly flags this: \"Each tab has own timer\" and \"Only focused tab resets on activity\". Agents with multiple dashboard tabs open will only have the focused tab's timer reset on activity. An agent working in Tab A could go idle in Tab B and be marked away unexpectedly.",
+      "suggested_fix": "As doc suggests, implement SharedWorker or localStorage sync to coordinate activity across tabs. Alternatively, document this limitation prominently in agent onboarding.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "As doc suggests, implement SharedWorker or localStorage sync to coordinate activity across tabs. Alternatively, document this limitation prominently in agent onboarding.",
+          "recommended": true
+        }
+      ],
+      "cleanup_notes": "📢 PRE-MARKETING: Multi-tab idle timers cause unexpected away status",
+      "pre_marketing_fix": true
+    },
+    {
+      "id": "F-153",
+      "feature": "Idle Timer",
+      "category": "A-idle-timer",
+      "title": "Mobile Browser Worker Suspension",
+      "severity": "medium",
+      "location": "Section 4 - Edge Cases #14, Section 7 - Identified Issues, Section 10 - Open Question #6",
+      "issue": "Documentation notes \"iOS/Android background - Browser may suspend Worker - ⚠️ Mobile behavior varies\". Mobile browsers may suspend Web Workers when backgrounded, causing idle detection to fail or delay. Server heartbeat staleness (2-min delay) is the only fallback.",
+      "suggested_fix": "Document mobile limitations clearly for agents. Consider implementing Service Worker or Push Notification based idle detection for mobile. Accept 2-min detection delay on mobile as known limitation.",
+      "agent_options": [],
+      "agent_recommendation": "",
+      "status": "pending",
+      "ticket_id": null,
+      "options": [
+        {
+          "id": "implement_fix",
+          "label": "Document mobile limitations clearly for agents. Consider implementing Service Worker or Push Notification based idle detection for mobile. Accept 2-min detection delay on mobile as known limitation.",
+          "recommended": true
+        }
+      ],
+      "cleanup_notes": "📢 PRE-MARKETING: Mobile browser suspends workers - unreliable idle detection",
+      "pre_marketing_fix": true
     }
   ]
 }

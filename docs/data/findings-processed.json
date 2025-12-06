@@ -1,12 +1,12 @@
 {
   "meta": {
     "last_updated": "2025-12-06",
-    "total_processed": 20,
+    "total_processed": 30,
     "format_version": "1.0",
     "description": "Audit trail of findings that were rejected, merged, or otherwise processed by Cleanup Agent"
   },
   "summary": {
-    "promoted": 20,
+    "promoted": 30,
     "rejected": 0,
     "merged": 0,
     "deferred_then_processed": 0
@@ -151,6 +151,76 @@
       "reason": "🚨 GO-LIVE BLOCKER: Race condition could cause billing state inconsistency",
       "processed_at": "2025-12-06T11:14:07.683Z",
       "batch": "cleanup-batch-002-go-live-blockers"
+    },
+    {
+      "id": "F-200",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Deepgram rate limits undefined - high volume will fail",
+      "processed_at": "2025-12-06T11:28:34.436Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-140",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: 500 record limit cuts off agent data - pagination needed",
+      "processed_at": "2025-12-06T11:28:34.438Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-438",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Cache not shared across instances - scaling issues",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-122",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: FB token expiry not handled - silent tracking failure",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-121",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Disposition values half-built - admins see useless field",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-127",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: FB settings save without Pixel ID - silent failure",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-045",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Widget settings 5-min cache delay causes confusion",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-110",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Missing catch-all pool returns null - undefined behavior",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-152",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Multi-tab idle timers cause unexpected away status",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-153",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Mobile browser suspends workers - unreliable idle detection",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
     }
   ]
 }

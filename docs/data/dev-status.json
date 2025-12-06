@@ -1,6 +1,6 @@
 {
   "meta": {
-    "last_updated": "2025-12-05T08:47:09.320Z",
+    "last_updated": "2025-12-06T03:43:16.762111Z",
     "version": "2.1",
     "note": "Built from agent-output files (source of truth)"
   },
@@ -77,6 +77,168 @@
       "branch": "main",
       "completed_at": "2025-12-05T08:46:05.294Z",
       "completion_file": "docs/agent-output/completions/TKT-062-2025-12-06T0600.md"
+    },
+    {
+      "ticket_id": "TKT-002",
+      "branch": "agent/tkt-002",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-002-auto.md"
+    },
+    {
+      "ticket_id": "TKT-004B",
+      "branch": "agent/tkt-004b",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-004B-auto.md"
+    },
+    {
+      "ticket_id": "TKT-004C",
+      "branch": "agent/tkt-004c",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-004C-auto.md"
+    },
+    {
+      "ticket_id": "TKT-005A",
+      "branch": "agent/tkt-005a",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-005A-auto.md"
+    },
+    {
+      "ticket_id": "TKT-005B",
+      "branch": "agent/tkt-005b",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-005B-auto.md"
+    },
+    {
+      "ticket_id": "TKT-008",
+      "branch": "agent/tkt-008",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-008-auto.md"
+    },
+    {
+      "ticket_id": "TKT-011",
+      "branch": "agent/tkt-011",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-011-auto.md"
+    },
+    {
+      "ticket_id": "TKT-014",
+      "branch": "agent/tkt-014",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-014-auto.md"
+    },
+    {
+      "ticket_id": "TKT-015",
+      "branch": "agent/tkt-015",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-015-auto.md"
+    },
+    {
+      "ticket_id": "TKT-024",
+      "branch": "agent/tkt-024",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-024-auto.md"
+    },
+    {
+      "ticket_id": "TKT-034",
+      "branch": "agent/tkt-034",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-034-auto.md"
+    },
+    {
+      "ticket_id": "TKT-038",
+      "branch": "agent/tkt-038",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-038-auto.md"
+    },
+    {
+      "ticket_id": "TKT-041",
+      "branch": "agent/tkt-041",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-041-auto.md"
+    },
+    {
+      "ticket_id": "TKT-043",
+      "branch": "agent/tkt-043",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-043-auto.md"
+    },
+    {
+      "ticket_id": "TKT-045",
+      "branch": "agent/tkt-045",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-045-auto.md"
+    },
+    {
+      "ticket_id": "TKT-047",
+      "branch": "agent/tkt-047",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-047-auto.md"
+    },
+    {
+      "ticket_id": "TKT-051",
+      "branch": "agent/tkt-051",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-051-auto.md"
+    },
+    {
+      "ticket_id": "TKT-052",
+      "branch": "agent/tkt-052",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-052-auto.md"
+    },
+    {
+      "ticket_id": "TKT-053",
+      "branch": "agent/tkt-053",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-053-auto.md"
+    },
+    {
+      "ticket_id": "TKT-054",
+      "branch": "agent/tkt-054",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-054-auto.md"
+    },
+    {
+      "ticket_id": "TKT-059",
+      "branch": "agent/tkt-059",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-059-auto.md"
+    },
+    {
+      "ticket_id": "TKT-060",
+      "branch": "agent/tkt-060",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-060-auto.md"
+    },
+    {
+      "ticket_id": "TKT-061",
+      "branch": "agent/tkt-061",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-061-auto.md"
+    },
+    {
+      "ticket_id": "TKT-063",
+      "branch": "agent/tkt-063",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-063-auto.md"
+    },
+    {
+      "ticket_id": "TKT-064",
+      "branch": "agent/tkt-064",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-064-auto.md"
+    },
+    {
+      "ticket_id": "TKT-005E",
+      "branch": "agent/tkt-005e",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-005E-auto.md"
+    },
+    {
+      "ticket_id": "TKT-010",
+      "branch": "agent/tkt-010",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-010-auto.md"
     }
   ],
   "retry_history": [],
@@ -93,7 +255,7 @@
       "passed": false,
       "passedCount": 4,
       "failedCount": 7,
-      "output": "eeter/dashboard:test:     \u001b[90m352| \u001b[39m  })\u001b[33m;\u001b[39m\n@ghost-greeter/dashboard:test: \n@ghost-greeter/dashboard:test: \u001b[31m\u001b[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯\u001b[22m\u001b[39m\n@ghost-greeter/dashboard:test: \n@ghost-greeter/dashboard:test: \u001b[2m Test Files \u001b[22m \u001b[1m\u001b[31m1 failed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[1m\u001b[32m7 passed\u001b[39m\u001b[22m\u001b[90m (8)\u001b[39m\n@ghost-greeter/dashboard:test: \u001b[2m      Tests \u001b[22m \u001b[1m\u001b[31m7 failed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[1m\u001b[32m169 passed\u001b[39m\u001b[22m\u001b[90m (176)\u001b[39m\n@ghost-greeter/dashboard:test: \u001b[2m   Start at \u001b[22m 01:46:38\n@ghost-greeter/dashboard:test: \u001b[2m   Duration \u001b[22m 6.36s\u001b[2m (transform 2.85s, setup 0ms, collect 4.79s, tests 1.21s, environment 3ms, prepare 4.93s)\u001b[22m\n@ghost-greeter/dashboard:test: \n@ghost-greeter/dashboard:test:  ELIFECYCLE  Test failed. See above for more details.\n@ghost-greeter/dashboard:test: ERROR: command finished with error: command (/Users/ryanodonnell/projects/Digital_greeter/apps/dashboard) /Users/ryanodonnell/Library/pnpm/.tools/pnpm/8.15.0/bin/pnpm run test exited (1)\n@ghost-greeter/dashboard#test: command (/Users/ryanodonnell/projects/Digital_greeter/apps/dashboard) /Users/ryanodonnell/Library/pnpm/.tools/pnpm/8.15.0/bin/pnpm run test exited (1)\n\n Tasks:    4 successful, 5 total\nCached:    2 cached, 5 total\n  Time:    10.996s \nFailed:    @ghost-greeter/dashboard#test\n\n ERROR  run failed: command  exited (1)\n ELIFECYCLE  Test failed. See above for more details.\nYour branch is up to date with 'origin/main'.\nOn branch main\nYour branch is up to date with 'origin/main'.\n\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n  (use \"git restore <file>...\" to discard changes in working directory)\n\tmodified:   docs/data/decisions.json\n\tmodified:   docs/data/dev-status.json\n\tmodified:   docs/pm-dashboard-ui/index.html\n\tmodified:   docs/pm-dashboard-ui/server.js\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")\nDropped refs/stash@{0} (ed64aebf3c21a15267cc9cbed08716d5cc013b4f)\n",
+      "output": "eeter/dashboard:test:     \u001b[90m352| \u001b[39m  })\u001b[33m;\u001b[39m\n@ghost-greeter/dashboard:test: \n@ghost-greeter/dashboard:test: \u001b[31m\u001b[2m\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af[7/7]\u23af\u001b[22m\u001b[39m\n@ghost-greeter/dashboard:test: \n@ghost-greeter/dashboard:test: \u001b[2m Test Files \u001b[22m \u001b[1m\u001b[31m1 failed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[1m\u001b[32m7 passed\u001b[39m\u001b[22m\u001b[90m (8)\u001b[39m\n@ghost-greeter/dashboard:test: \u001b[2m      Tests \u001b[22m \u001b[1m\u001b[31m7 failed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[1m\u001b[32m169 passed\u001b[39m\u001b[22m\u001b[90m (176)\u001b[39m\n@ghost-greeter/dashboard:test: \u001b[2m   Start at \u001b[22m 01:46:38\n@ghost-greeter/dashboard:test: \u001b[2m   Duration \u001b[22m 6.36s\u001b[2m (transform 2.85s, setup 0ms, collect 4.79s, tests 1.21s, environment 3ms, prepare 4.93s)\u001b[22m\n@ghost-greeter/dashboard:test: \n@ghost-greeter/dashboard:test: \u2009ELIFECYCLE\u2009 Test failed. See above for more details.\n@ghost-greeter/dashboard:test: ERROR: command finished with error: command (/Users/ryanodonnell/projects/Digital_greeter/apps/dashboard) /Users/ryanodonnell/Library/pnpm/.tools/pnpm/8.15.0/bin/pnpm run test exited (1)\n@ghost-greeter/dashboard#test: command (/Users/ryanodonnell/projects/Digital_greeter/apps/dashboard) /Users/ryanodonnell/Library/pnpm/.tools/pnpm/8.15.0/bin/pnpm run test exited (1)\n\n Tasks:    4 successful, 5 total\nCached:    2 cached, 5 total\n  Time:    10.996s \nFailed:    @ghost-greeter/dashboard#test\n\n ERROR  run failed: command  exited (1)\n\u2009ELIFECYCLE\u2009 Test failed. See above for more details.\nYour branch is up to date with 'origin/main'.\nOn branch main\nYour branch is up to date with 'origin/main'.\n\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n  (use \"git restore <file>...\" to discard changes in working directory)\n\tmodified:   docs/data/decisions.json\n\tmodified:   docs/data/dev-status.json\n\tmodified:   docs/pm-dashboard-ui/index.html\n\tmodified:   docs/pm-dashboard-ui/server.js\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")\nDropped refs/stash@{0} (ed64aebf3c21a15267cc9cbed08716d5cc013b4f)\n",
       "testedAt": "2025-12-05T08:46:45.747Z"
     }
   }

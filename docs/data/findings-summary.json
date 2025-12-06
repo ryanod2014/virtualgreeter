@@ -1,6 +1,6 @@
 {
   "meta": {
-    "last_updated": "2025-12-04",
+    "last_updated": "2025-12-06",
     "total_features": 61,
     "reviewed_features": 61,
     "total_findings": 778
@@ -20,9 +20,9 @@
     },
     "medium": {
       "total": 329,
-      "answered": 18,
-      "tickets_created": 13,
-      "pending": 311
+      "answered": 39,
+      "tickets_created": 28,
+      "pending": 290
     },
     "low": {
       "total": 383,

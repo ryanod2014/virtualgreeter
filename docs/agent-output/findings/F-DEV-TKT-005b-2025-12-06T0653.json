@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-005b-1",
+  "source": "dev-agent-TKT-005b",
+  "title": "Pre-existing TypeScript errors in widget and server test files",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/widget/src/**/*.test.ts, apps/server/src/**/*.test.ts",
+  "line": null,
+  "issue": "Multiple test files in widget and server packages have pre-existing TypeScript errors that prevent pnpm typecheck and pnpm build from passing. These errors include: type mismatches in mock objects, possibly undefined objects, unused variables, and missing type-only imports. Widget has ~40 errors across useCobrowse.test.ts, useSignaling.test.ts, VideoSequencer.test.tsx, LiveCallView.test.tsx, useWebRTC.test.ts, main.test.ts, and Widget.test.tsx. Server has ~25 errors across agentStatus.test.ts, stripe-webhook-handler.test.ts, pool-manager.test.ts, socket-handlers.test.ts, and health.test.ts.",
+  "suggestion": "These test files need TypeScript type fixes to allow builds to pass. This is blocking full CI/CD validation. Recommend creating tickets to fix test file type errors in both widget and server packages.",
+  "status": "pending",
+  "found_at": "2025-12-06T06:53:00Z"
+}
