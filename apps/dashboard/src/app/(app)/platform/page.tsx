@@ -43,8 +43,8 @@ export default async function PlatformOverviewPage() {
   ] = await Promise.all([
     // All organizations with MRR
     supabase.from("organizations").select("id, subscription_status, plan, seat_count, mrr, created_at"),
-    // PMF Survey responses
-    supabase.from("pmf_surveys").select("*").eq("dismissed", false),
+    // PMF Survey responses (exclude dismissed and null disappointment_level)
+    supabase.from("pmf_surveys").select("*").eq("dismissed", false).not("disappointment_level", "is", null),
     // All cancellations (for trend)
     supabase.from("cancellation_feedback").select("id, monthly_cost, created_at"),
     // New orgs this month

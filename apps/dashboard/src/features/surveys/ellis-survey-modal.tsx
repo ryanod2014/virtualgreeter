@@ -123,7 +123,7 @@ export function EllisSurveyModal({
         organization_id: organizationId,
         user_id: userId,
         user_role: userRole,
-        disappointment_level: "not_disappointed", // Default for dismissed
+        disappointment_level: null, // Null for dismissed to exclude from PMF calculation
         follow_up_text: null,
         triggered_by: triggeredBy,
         page_url: pageUrl,

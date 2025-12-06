@@ -34,7 +34,7 @@ export type FeedbackStatus = "open" | "in_progress" | "completed" | "closed" | "
 export type FeedbackPriority = "low" | "medium" | "high" | "critical";
 
 // PMF Survey types
-export type DisappointmentLevel = "very_disappointed" | "somewhat_disappointed" | "not_disappointed";
+export type DisappointmentLevel = "very_disappointed" | "somewhat_disappointed" | "not_disappointed" | null;
 
 export type SubscriptionStatus = "active" | "paused" | "cancelled" | "trialing";
 
