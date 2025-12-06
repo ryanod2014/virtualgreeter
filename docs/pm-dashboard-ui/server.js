@@ -559,6 +559,50 @@ function handleAPI(req, res, body) {
     return true;
   }
   
+  // POST /api/create-ci-blocker - Create a CI failure blocker file for PM to handle
+  if (req.method === 'POST' && url === '/api/create-ci-blocker') {
+    try {
+      const { ticketId, branch, failedTests, failedCount, output, attempt = 1 } = JSON.parse(body);
+      
+      if (!ticketId) {
+        throw new Error('ticketId is required');
+      }
+      
+      // Create blocker file in docs/agent-output/blocked/
+      const blockedDir = path.join(DOCS_DIR, 'agent-output', 'blocked');
+      if (!fs.existsSync(blockedDir)) {
+        fs.mkdirSync(blockedDir, { recursive: true });
+      }
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `CI-${ticketId}-${timestamp}.json`;
+      const filepath = path.join(blockedDir, filename);
+      
+      const blockerData = {
+        type: 'ci_failure',
+        ticket_id: ticketId,
+        branch: branch || `agent/${ticketId.toLowerCase()}`,
+        created_at: new Date().toISOString(),
+        attempt: attempt,
+        failed_tests: failedTests || [],
+        failed_count: failedCount || 0,
+        output: output ? output.substring(0, 5000) : '', // Limit output size
+        status: 'pending',
+        message: `CI detected ${failedCount || 0} test regression(s) outside ticket scope. PM should create continuation ticket.`
+      };
+      
+      fs.writeFileSync(filepath, JSON.stringify(blockerData, null, 2));
+      console.log(`✅ Created CI blocker: ${filename}`);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, file: filename }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
   // POST /api/blocked-decision - Record a decision on a blocked agent
   if (req.method === 'POST' && url === '/api/blocked-decision') {
     try {

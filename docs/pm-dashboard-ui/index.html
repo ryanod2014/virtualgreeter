@@ -4159,30 +4159,28 @@ pnpm build`}
                                     
                                     updateRegressionStatus(item.ticket_id, status);
                                     
-                                    // If there are unexpected failures, create a regression finding
+                                    // If there are unexpected failures, create a CI blocker for PM
                                     if (unexpectedFiles.length > 0) {
-                                      const findingId = `REG-${item.ticket_id}-${Date.now()}`;
-                                      const regressionFinding = {
-                                        id: findingId,
-                                        feature: ticket?.feature || 'Unknown',
-                                        category: 'regression',
-                                        title: `Regression: ${item.ticket_id} broke tests in ${unexpectedFiles.length} file(s)`,
-                                        severity: 'critical',
-                                        type: 'blocker',
-                                        location: unexpectedFiles.join(', '),
-                                        issue: `Ticket ${item.ticket_id} caused ${unexpectedFiles.length} test file(s) to fail that were NOT in the ticket's files_to_modify. This indicates a regression.\n\nFailed files:\n${unexpectedFiles.map(f => '- ' + f).join('\n')}\n\nOriginal ticket modified: ${ticketFiles.join(', ')}`,
-                                        suggested_fix: `Review the changes in ${item.ticket_id} and fix the regressions in: ${unexpectedFiles.join(', ')}`,
-                                        status: 'pending',
-                                        source_ticket: item.ticket_id,
-                                        created_at: new Date().toISOString()
-                                      };
-                                      
-                                      // Save to findings via API (we'll add this endpoint)
-                                      fetch('/api/add-finding', {
+                                      // Create CI blocker file so PM workflow picks it up
+                                      fetch('/api/create-ci-blocker', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(regressionFinding)
-                                      }).catch(err => console.error('Failed to create regression finding:', err));
+                                        body: JSON.stringify({
+                                          ticketId: item.ticket_id,
+                                          branch: item.branch,
+                                          failedTests: unexpectedFiles,
+                                          failedCount: unexpectedFiles.length,
+                                          output: result.output?.substring(0, 3000) || '',
+                                          attempt: 1
+                                        })
+                                      })
+                                      .then(res => res.json())
+                                      .then(data => {
+                                        if (data.success) {
+                                          console.log(`✅ Created CI blocker for ${item.ticket_id}: ${data.file}`);
+                                        }
+                                      })
+                                      .catch(err => console.error('Failed to create CI blocker:', err));
                                     }
                                   } catch (err) {
                                     updateRegressionStatus(item.ticket_id, { running: false, error: err.message });
