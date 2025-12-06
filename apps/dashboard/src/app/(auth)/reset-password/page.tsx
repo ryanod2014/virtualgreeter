@@ -104,6 +104,18 @@ function ResetPasswordContent() {
       return;
     }
 
+    // Invalidate all other sessions (except current) for security
+    // This ensures that if password was reset due to compromise,
+    // any attacker sessions on other devices are immediately logged out
+    const { error: signOutError } = await supabase.auth.signOut({
+      scope: 'others'
+    });
+
+    if (signOutError) {
+      // Log error but don't fail the password reset - password change succeeded
+      console.error('Failed to invalidate other sessions:', signOutError);
+    }
+
     setIsSuccess(true);
     setIsLoading(false);
 
