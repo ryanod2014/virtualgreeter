@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CobrowseSnapshotPayload } from "@ghost-greeter/domain";
-import { Monitor, MousePointer2, Eye, Lock, Smartphone, Tablet, MonitorIcon } from "lucide-react";
+import { Monitor, MousePointer2, Eye, Lock, Smartphone, Tablet, MonitorIcon, Loader2 } from "lucide-react";
 
 interface CobrowseViewerProps {
   snapshot: CobrowseSnapshotPayload | null;
@@ -17,6 +17,8 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [scale, setScale] = useState(1);
+  const [hasReceivedFirstSnapshot, setHasReceivedFirstSnapshot] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Debug logging
   useEffect(() => {
@@ -85,9 +87,19 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
   useEffect(() => {
     if (!snapshot || !iframeRef.current) return;
 
+    // Track first snapshot
+    if (!hasReceivedFirstSnapshot) {
+      setHasReceivedFirstSnapshot(true);
+    } else {
+      // Show updating indicator for subsequent updates
+      setIsUpdating(true);
+      const timer = setTimeout(() => setIsUpdating(false), 500);
+      return () => clearTimeout(timer);
+    }
+
     const iframe = iframeRef.current;
     const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    
+
     if (!iframeDoc) return;
 
     // Write the HTML content with strict view-only styles
@@ -129,7 +141,7 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
     `);
     iframeDoc.close();
     setIsLoaded(true);
-  }, [snapshot]);
+  }, [snapshot, hasReceivedFirstSnapshot]);
 
   // Apply scroll position by transforming the content (since we disabled native scrolling)
   useEffect(() => {
@@ -151,6 +163,22 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
     }
   }, [scrollPosition, snapshot?.viewport.width]);
 
+  // Show loading state while waiting for first snapshot
+  if (!snapshot && !hasReceivedFirstSnapshot) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[300px] bg-muted/50 rounded-xl border border-dashed border-border">
+        <Loader2 className="w-12 h-12 text-primary mb-4 animate-spin" />
+        <p className="text-foreground text-center font-medium">
+          Loading visitor's screen...
+        </p>
+        <p className="text-muted-foreground text-sm mt-2">
+          Waiting for first snapshot
+        </p>
+      </div>
+    );
+  }
+
+  // Show placeholder when no active call
   if (!snapshot) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[300px] bg-muted/50 rounded-xl border border-dashed border-border">
@@ -178,6 +206,12 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
             <Eye className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-primary">Live View</span>
           </div>
+          {isUpdating && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/20 rounded-full">
+              <Loader2 className="w-3 h-3 text-blue-400 animate-spin" />
+              <span className="text-xs font-medium text-blue-400">Updating...</span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 rounded-full">
             <Lock className="w-3 h-3 text-amber-400" />
             <span className="text-xs font-medium text-amber-400">View Only</span>
