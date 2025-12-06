@@ -1,0 +1,12 @@
+{
+  "ticket_id": "TKT-024",
+  "branch": "agent/tkt-024",
+  "started_at": "2025-12-06T08:48:00Z",
+  "files_locking": [
+    "apps/server/src/features/calls/callLifecycle.ts",
+    "apps/widget/src/features/call/useCallSession.ts",
+    "apps/widget/src/features/call/RejoinPrompt.tsx",
+    "apps/server/src/features/signaling/handleRejoin.ts",
+    "apps/server/src/features/signaling/socket-handlers.ts"
+  ]
+}
