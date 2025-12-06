@@ -69,8 +69,17 @@ export async function updateSession(request: NextRequest) {
       .select("role")
       .eq("id", user.id)
       .single();
-    
-    const isAdmin = profile?.role === "admin";
+
+    // Handle missing user profile (orphaned auth.users record)
+    if (!profile) {
+      console.error("[Middleware] Orphaned user detected - auth.users exists but no users table row:", {
+        userId: user.id,
+        email: user.email,
+      });
+      return NextResponse.redirect(new URL("/login?error=missing_profile", request.url));
+    }
+
+    const isAdmin = profile.role === "admin";
     const redirectUrl = isAdmin ? "/admin" : "/dashboard";
     return NextResponse.redirect(new URL(redirectUrl, request.url));
   }
