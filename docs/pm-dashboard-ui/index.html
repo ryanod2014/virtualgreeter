@@ -1439,9 +1439,9 @@ pnpm build`}
       const [severityFilter, setSeverityFilter] = useState('all');
       const [copyStatus, setCopyStatus] = useState(null);
       
-      // Copy Cleanup Agent prompt to clipboard
-      const copyCleanupPrompt = () => {
-        const prompt = `You are a Cleanup Agent. Read docs/workflow/CLEANUP_AGENT_SOP.md then process next 10 HIGHEST priority from staging.`;
+      // Copy Triage Agent prompt to clipboard
+      const copyTriagePrompt = () => {
+        const prompt = `You are a Triage Agent. Read docs/workflow/TRIAGE_AGENT_SOP.md then process next 10 HIGHEST priority from staging.`;
         navigator.clipboard.writeText(prompt).then(() => {
           setCopyStatus('copied');
           setTimeout(() => setCopyStatus(null), 2000);
@@ -1992,7 +1992,7 @@ pnpm build`}
               >
                 <Icons.clock /> History <span className="count">{stats.done}</span>
               </button>
-              {/* Staging Tab - shows raw findings waiting for cleanup */}
+              {/* Staging Tab - shows raw findings waiting for triage */}
               {staging?.count > 0 && (
                 <button 
                   className={`tab ${severityFilter === 'staging' ? 'active' : ''}`} 
@@ -2008,11 +2008,11 @@ pnpm build`}
               )}
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {/* Cleanup Agent Button */}
+              {/* Triage Agent Button */}
               {staging?.count > 0 && (
                 <button 
                   className="btn btn-sm"
-                  onClick={copyCleanupPrompt}
+                  onClick={copyTriagePrompt}
                   style={{
                     background: copyStatus === 'copied' ? 'var(--success)' : 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
                     color: 'white',
@@ -2022,9 +2022,9 @@ pnpm build`}
                     gap: '6px',
                     transition: 'all 0.2s'
                   }}
-                  title="Copy Cleanup Agent prompt to clipboard"
+                  title="Copy Triage Agent prompt to clipboard"
                 >
-                  {copyStatus === 'copied' ? '✓ Copied!' : '🧹 Launch Cleanup Agent'}
+                  {copyStatus === 'copied' ? '✓ Copied!' : '🏥 Launch Triage Agent'}
                 </button>
               )}
               {!serverMode && (
@@ -2044,7 +2044,7 @@ pnpm build`}
                 <div style={{ fontSize: '48px', marginBottom: '16px' }}>📦</div>
                 <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>Staging Queue</h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-                  Raw findings from agents waiting for cleanup before entering inbox
+                  Raw findings from agents waiting for triage before entering inbox
                 </p>
               </div>
               
@@ -2106,11 +2106,11 @@ pnpm build`}
                 border: '1px solid var(--border)'
               }}>
                 <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                  <strong>{staging.count}</strong> findings need cleanup before human review
+                  <strong>{staging.count}</strong> findings need triage before human review
                 </div>
                 <button 
                   className="btn"
-                  onClick={copyCleanupPrompt}
+                  onClick={copyTriagePrompt}
                   style={{
                     background: copyStatus === 'copied' ? 'var(--success)' : 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
                     color: 'white',
@@ -2124,10 +2124,10 @@ pnpm build`}
                     transition: 'all 0.2s'
                   }}
                 >
-                  {copyStatus === 'copied' ? '✓ Copied to Clipboard!' : '🧹 Copy Cleanup Agent Prompt'}
+                  {copyStatus === 'copied' ? '✓ Copied to Clipboard!' : '🏥 Copy Triage Agent Prompt'}
                 </button>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>
-                  Paste into a new Cursor chat to launch the Cleanup Agent
+                  Paste into a new Cursor chat to launch the Triage Agent
                 </div>
               </div>
             </div>
@@ -2279,7 +2279,7 @@ pnpm build`}
           <div className="section">
             <div className="section-title">PM Commands</div>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Copy these commands and paste into a <strong>new Cursor chat</strong>. The PM agent will generate batch commands for doc/review agents, or process your triage decisions.
+              Copy these commands and paste into a <strong>new Cursor chat</strong>. The Dispatch Agent will route blockers, create tickets, and answer questions.
             </p>
             
             <CommandBox label={PM_COMMANDS.processDecisions.label} command={PM_COMMANDS.processDecisions.command} description={PM_COMMANDS.processDecisions.description} />
@@ -4596,68 +4596,23 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
       
       const totalToProcess = pipelineStats.pendingResponses.length + pipelineStats.awaitingDecision.length + pipelineStats.pendingTickets.length;
       
-      // PM Command - unified
-      const pmCommand = {
-        label: 'Process Pipeline',
-        description: 'Respond to questions & create tickets',
-        command: `You are a PM agent. 
-
-**FIRST: Read and understand all existing tickets**
-- Read tickets.json completely before processing any findings
-- Understand what each ticket covers, its scope, and what findings it addresses
-- Keep this context in mind when evaluating new findings
-
-Read decisions.json and findings.json.
-
-THREE TASKS:
-
-1) RESPOND TO QUESTIONS (threads with decision.option_id = "custom" AND last message is human):
-   - Read the PM's question from the last human message
-   - Read the finding context (issue, options, suggested_fix)  
-   - Add your response as a new message: { role: "system", text: "[your answer]", timestamp: now }
-   - Keep answers concise and actionable with clear options
-
-2) CREATE TICKETS & RESOLVE THREADS (threads with decision != null AND status != "resolved"):
-   
-   **BEFORE CREATING ANY TICKET:**
-   - Compare the finding against ALL existing tickets you've read
-   - Ask: Is this already covered? Should this be merged into an existing ticket?
-   - If duplicate or overlap found:
-     - Add system message: "This appears covered by TKT-XXX: [title]. Link to existing, merge, or create new?"
-     - **DO NOT resolve the thread** - keep status as "in_discussion"
-     - **STOP processing this finding** - wait for PM response in next cycle
-   - To link (after PM confirms): Set finding.status = "ticketed", finding.ticket_id = "TKT-XXX" (no new ticket)
-   
-   **SKIP THESE (don't create tickets):**
-   - Skip phrases in custom_note: "skip", "dont need", "already have ticket", "already covered"
-   - Questions ending in "?" - these need answers first, not tickets
-   - "skip" or "won't fix" decisions
-   
-   **CREATE TICKETS FOR:**
-   - Clear "implement" decisions with NO existing coverage after manual review
-   - Set finding.status = "ticketed", finding.ticket_id = "TKT-XXX"
-   
-   **ALWAYS:**
-   - Set thread.status = "resolved" in decisions.json for ALL processed items
-   - Ensure finding.status is NEVER left as "pending" for resolved threads
-
-3) SYNC CHECK (run after all updates):
-   - Run: node docs/scripts/process-decisions.js
-   - This catches any inconsistencies between files
-
-Report: X questions answered, Y tickets created, Z items linked to existing, W items skipped.`
+      // Dispatch Agent Command - unified
+      const dispatchCommand = {
+        label: 'Launch Dispatch Agent',
+        description: 'Route blockers, create tickets, answer questions',
+        command: `You are a Dispatch Agent. Read docs/workflow/DISPATCH_AGENT_SOP.md then execute.`
       };
       
       const DOC_REVIEW_COMMANDS = {
         docSprint: {
           label: 'Launch Doc Sprint',
           description: 'Generate documentation for all features',
-          command: 'You are a PM agent. Read docs/workflow/PM_DOCS_SOP.md and execute doc-sprint mode. Generate doc-agent prompts for all undocumented features.'
+          command: 'You are the PM. Read docs/workflow/PM_DOCS_SOP.md and execute doc-sprint mode. Generate doc-agent prompts for all undocumented features.'
         },
         reviewSprint: {
           label: 'Launch Review Sprint', 
           description: 'Review all documented features for issues',
-          command: 'You are a PM agent. Read docs/workflow/PM_DOCS_SOP.md and execute review-sprint mode. Generate review-agent prompts for all documented features.'
+          command: 'You are the PM. Read docs/workflow/PM_DOCS_SOP.md and execute review-sprint mode. Generate review-agent prompts for all documented features.'
         }
       };
 
@@ -5151,7 +5106,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
             )}
           </div>
 
-          {/* PM Agent Section */}
+          {/* Dispatch Agent Section */}
           <div className="section" style={{ marginBottom: '32px' }}>
             <div 
               className="section-title" 
@@ -5166,7 +5121,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ color: 'var(--accent-bright)' }}><Icons.file /></span>
-                <span style={{ fontWeight: 600 }}>PM Agent</span>
+                <span style={{ fontWeight: 600 }}>Dispatch Agent</span>
                 <span style={{ 
                   padding: '3px 10px', 
                   background: totalToProcess > 0 ? 'var(--accent)' : 'var(--bg-elevated)', 
@@ -5219,22 +5174,22 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                 <div className="card" style={{ padding: '16px 20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '15px', fontWeight: 600 }}>{pmCommand.label}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{pmCommand.description}</div>
+                      <div style={{ fontSize: '15px', fontWeight: 600 }}>{dispatchCommand.label}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{dispatchCommand.description}</div>
                     </div>
                     <button 
-                      className={`btn ${copied === 'pm-command' ? 'btn-success' : 'btn-primary'}`}
+                      className={`btn ${copied === 'dispatch-command' ? 'btn-success' : 'btn-primary'}`}
                       onClick={() => {
-                        navigator.clipboard.writeText(pmCommand.command);
-                        setCopied('pm-command');
+                        navigator.clipboard.writeText(dispatchCommand.command);
+                        setCopied('dispatch-command');
                         setTimeout(() => setCopied(null), 2000);
                       }}
                     >
-                      {copied === 'pm-command' ? 'Copied!' : 'Copy Command'}
+                      {copied === 'dispatch-command' ? 'Copied!' : 'Copy Command'}
                     </button>
                   </div>
                   <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
-                    <code style={{ fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-word' }}>{pmCommand.command}</code>
+                    <code style={{ fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-word' }}>{dispatchCommand.command}</code>
                   </div>
                 </div>
               </div>
