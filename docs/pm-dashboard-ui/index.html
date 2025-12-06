@@ -3255,6 +3255,15 @@ pnpm build`}
         }
       });
       
+      // Separate CI blockers (regression failures) from other blockers
+      const ciBlockers = blockedItems.filter(b => b.type === 'ci_failure' || b.fileName?.startsWith('CI-'));
+      const ciBlockerTicketIds = new Set(ciBlockers.map(b => (b.ticket_id || b.ticketId || '').toUpperCase()));
+      
+      // Filter completed items - remove those with CI blockers (they need fixes first)
+      const completedItemsForReview = completedItems.filter(c => 
+        !ciBlockerTicketIds.has((c.ticket_id || '').toUpperCase())
+      );
+      
       // Ready = status is 'ready' AND not in dev-status completed/in_progress
       const readyTickets = tickets.filter(t => 
         t.status === 'ready' && 
@@ -3393,14 +3402,19 @@ pnpm build`}
               style={{ 
                 padding: '16px', 
                 cursor: 'pointer',
-                borderLeft: completedItems.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
+                borderLeft: completedItemsForReview.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
                 background: pipelineTab === 'review' ? 'var(--bg-elevated)' : undefined
               }}
             >
-              <div style={{ fontSize: '24px', fontWeight: 700, color: completedItems.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
-                {completedItems.length}
+              <div style={{ fontSize: '24px', fontWeight: 700, color: completedItemsForReview.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
+                {completedItemsForReview.length}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>For Review</div>
+              {ciBlockers.length > 0 && (
+                <div style={{ fontSize: '10px', color: 'var(--critical)', marginTop: '4px' }}>
+                  ⚠️ {ciBlockers.length} need fixes
+                </div>
+              )}
             </div>
           </div>
           
@@ -3411,7 +3425,7 @@ pnpm build`}
               { id: 'all', label: 'Pending', count: pendingTickets.length, color: 'var(--text-primary)' },
               { id: 'progress', label: 'In Progress', count: activeInProgressItems.length, color: 'var(--success)' },
               { id: 'blocked', label: 'Blocked', count: blockedItems.length, color: 'var(--critical)' },
-              { id: 'review', label: 'For Review', count: completedItems.length, color: 'var(--success)' },
+              { id: 'review', label: 'For Review', count: completedItemsForReview.length, color: 'var(--success)', ciBlocked: ciBlockers.length },
               { id: 'qa', label: 'QA Ready', count: Object.values(regressionStatus).filter(r => r.passed).length, color: '#a78bfa' }
             ].map(tab => (
               <button
@@ -4049,13 +4063,55 @@ pnpm build`}
           {/* FOR REVIEW TAB */}
           {pipelineTab === 'review' && (
             <div className="fade-in">
-              {completedItems.length === 0 ? (
+              {/* CI BLOCKERS - Tickets that need fix tickets before review */}
+              {ciBlockers.length > 0 && (
+                <div style={{ 
+                  padding: '16px 20px', 
+                  background: 'rgba(239,68,68,0.1)', 
+                  borderRadius: '12px', 
+                  marginBottom: '20px',
+                  border: '1px solid rgba(239,68,68,0.3)'
+                }}>
+                  <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--critical)' }}>
+                    ⚠️ {ciBlockers.length} ticket{ciBlockers.length > 1 ? 's' : ''} have regressions - need fix tickets
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    These tickets caused test failures outside their scope. Create continuation tickets to fix.
+                  </div>
+                  <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {ciBlockers.map(blocker => {
+                      const ticketId = blocker.ticket_id || blocker.ticketId;
+                      const ticket = tickets.find(t => t.id?.toUpperCase() === ticketId?.toUpperCase());
+                      return (
+                        <div 
+                          key={blocker.fileName}
+                          onClick={() => setSelectedBlocker(blocker)}
+                          style={{ 
+                            padding: '8px 12px', 
+                            background: 'var(--bg-elevated)', 
+                            borderRadius: '6px',
+                            border: '1px solid var(--critical)',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          <code style={{ color: 'var(--critical)' }}>{ticketId}</code>
+                          {' '}<span style={{ color: 'var(--text-muted)' }}>— {blocker.failed_count || 0} regressions</span>
+                          {ticket && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>{ticket.title}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              {completedItemsForReview.length === 0 && ciBlockers.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
                   <div style={{ marginBottom: '16px', color: 'var(--text-muted)' }}><Icons.file /></div>
                   <div style={{ fontSize: '18px', fontWeight: 500 }}>No completed work awaiting review</div>
                   <div style={{ fontSize: '14px', marginTop: '8px' }}>Completed dev agent work will appear here for QA review</div>
                 </div>
-              ) : (
+              ) : completedItemsForReview.length > 0 ? (
                 <div>
                   <div style={{ 
                     padding: '16px 20px', 
@@ -4065,7 +4121,7 @@ pnpm build`}
                     border: '1px solid rgba(16,185,129,0.2)'
                   }}>
                     <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      ✅ {completedItems.length} ticket{completedItems.length > 1 ? 's' : ''} ready for review
+                      ✅ {completedItemsForReview.length} ticket{completedItemsForReview.length > 1 ? 's' : ''} ready for review
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
                       Review the changes, run QA tests, then mark as done or request fixes
@@ -4073,7 +4129,7 @@ pnpm build`}
                   </div>
                   
                   <div className="ticket-grid">
-                    {completedItems.map(item => {
+                    {completedItemsForReview.map(item => {
                       const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
                       const regStatus = regressionStatus[item.ticket_id];
                       return (
@@ -4218,7 +4274,7 @@ pnpm build`}
                     />
                   )}
                 </div>
-              )}
+              ) : null}
             </div>
           )}
           

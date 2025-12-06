@@ -6010,6 +6010,12 @@
         "custom_note": "what is industry best practice",
         "timestamp": "2025-12-05T22:37:16.064Z"
       }
+    },
+    {
+      "finding_id": "CI-TKT-006",
+      "status": "pending",
+      "messages": [],
+      "decision": null
     }
   ]
 }
