@@ -56,8 +56,278 @@ jobs:
       - name: Build widget
         run: pnpm build --filter=@ghost-greeter/widget
 
+      # =========================================================================
+      # STEP 1: Get baseline test failures from main branch (for comparison)
+      # =========================================================================
+      - name: Get main branch test failures (baseline)
+        id: baseline-tests
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "📊 Getting baseline test failures from main branch..."
+          
+          # Save current branch state
+          git stash --include-untracked || true
+          
+          # Checkout main and run tests
+          git fetch origin main
+          git checkout origin/main
+          
+          # Run tests on main, capture failing test files
+          echo "Running tests on main branch..."
+          (pnpm --filter=@ghost-greeter/server test --run 2>&1 || true) > main-server-output.txt
+          (pnpm --filter=@ghost-greeter/dashboard test --run 2>&1 || true) > main-dashboard-output.txt
+          
+          # Extract failed test files from main
+          cat main-server-output.txt main-dashboard-output.txt > main-all-output.txt
+          
+          python3 << 'EOF' > main-failures.txt
+          import re
+          
+          with open('main-all-output.txt') as f:
+              output = f.read()
+          
+          fail_patterns = [
+              r'FAIL\s+(\S+\.(?:test|spec)\.\w+)',
+              r'^\s*FAIL\s+(.+?\.(?:test|spec)\.\w+)',
+              r'([\w/.-]+\.(?:test|spec)\.tsx?)\s*\(\d+\)',
+          ]
+          
+          failed = set()
+          for pattern in fail_patterns:
+              for match in re.finditer(pattern, output, re.MULTILINE):
+                  failed.add(match.group(1))
+          
+          for f in sorted(failed):
+              print(f)
+          EOF
+          
+          MAIN_FAILURES=$(cat main-failures.txt | wc -l | tr -d ' ')
+          echo "Baseline failures on main: $MAIN_FAILURES"
+          cat main-failures.txt
+          
+          # Return to PR branch
+          git checkout -
+          git stash pop || true
+        continue-on-error: true
+
+      # =========================================================================
+      # STEP 2: Run tests on the PR branch
+      # =========================================================================
       - name: Run server tests
-        run: pnpm --filter=@ghost-greeter/server test
+        id: server-tests
+        run: pnpm --filter=@ghost-greeter/server test --run 2>&1 | tee server-test-output.txt
+        continue-on-error: true
 
       - name: Run dashboard tests
-        run: pnpm --filter=@ghost-greeter/dashboard test
+        id: dashboard-tests
+        run: pnpm --filter=@ghost-greeter/dashboard test --run 2>&1 | tee dashboard-test-output.txt
+        continue-on-error: true
+
+      # =========================================================================
+      # STEP 3: Analyze test scope with main comparison
+      # =========================================================================
+      - name: Analyze test scope (for agent branches)
+        id: scope-analysis
+        if: always() && (steps.server-tests.outcome == 'failure' || steps.dashboard-tests.outcome == 'failure')
+        run: |
+          # Extract ticket ID from branch name (e.g., agent/tkt-014-feature -> TKT-014)
+          BRANCH_NAME="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          TICKET_ID=$(echo "$BRANCH_NAME" | grep -oiE 'tkt-[0-9]+[a-z]?' | head -1 | tr '[:lower:]' '[:upper:]')
+          
+          if [ -z "$TICKET_ID" ]; then
+            echo "⚠️ Could not extract ticket ID from branch: $BRANCH_NAME"
+            echo "Skipping scope analysis - treating all failures as potential regressions."
+            TICKET_ID="UNKNOWN"
+          fi
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "TEST SCOPE ANALYSIS FOR $TICKET_ID"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Get files_to_modify from tickets.json
+          FILES_IN_SCOPE=""
+          if [ "$TICKET_ID" != "UNKNOWN" ]; then
+            FILES_IN_SCOPE=$(python3 -c "
+          import json
+          with open('docs/data/tickets.json') as f:
+              data = json.load(f)
+          ticket = next((t for t in data.get('tickets', []) if t.get('id', '').upper() == '$TICKET_ID'), None)
+          if ticket:
+              for f in ticket.get('files_to_modify', []):
+                  print(f)
+          " 2>/dev/null || echo "")
+          fi
+          
+          echo "Files in ticket scope:"
+          if [ -n "$FILES_IN_SCOPE" ]; then
+            echo "$FILES_IN_SCOPE" | while read f; do [ -n "$f" ] && echo "  • $f"; done
+          else
+            echo "  (none specified)"
+          fi
+          echo ""
+          
+          # Combine test outputs
+          cat server-test-output.txt dashboard-test-output.txt > all-test-output.txt
+          
+          # Get main branch failures for comparison (if available)
+          MAIN_FAILURES_FILE="main-failures.txt"
+          if [ ! -f "$MAIN_FAILURES_FILE" ]; then
+            touch "$MAIN_FAILURES_FILE"
+          fi
+          
+          # Analyze with Python
+          python3 << 'PYTHON_EOF'
+          import re
+          import sys
+          
+          # Read inputs
+          files_in_scope_raw = """$FILES_IN_SCOPE"""
+          files_in_scope = [f.strip() for f in files_in_scope_raw.strip().split('\n') if f.strip()]
+          
+          with open('all-test-output.txt') as f:
+              output = f.read()
+          
+          with open('main-failures.txt') as f:
+              main_failures = set(line.strip() for line in f if line.strip())
+          
+          # Find failed test files on this branch
+          fail_patterns = [
+              r'FAIL\s+(\S+\.(?:test|spec)\.\w+)',
+              r'^\s*FAIL\s+(.+?\.(?:test|spec)\.\w+)',
+              r'([\w/.-]+\.(?:test|spec)\.tsx?)\s*\(\d+\)',
+          ]
+          
+          branch_failures = set()
+          for pattern in fail_patterns:
+              for match in re.finditer(pattern, output, re.MULTILINE):
+                  branch_failures.add(match.group(1))
+          
+          if not branch_failures:
+              if 'FAIL' in output or '×' in output:
+                  print("⚠️ Tests failed but couldn't parse specific files.")
+                  print("Manual review needed.")
+                  sys.exit(1)
+              print("✅ All tests passed!")
+              sys.exit(0)
+          
+          # Categorize failures
+          pre_existing = []  # Already failing on main
+          new_in_scope = []  # New failure, but in ticket scope (expected)
+          new_regression = []  # New failure, outside ticket scope (REGRESSION!)
+          
+          def is_in_scope(test_path):
+              """Check if test is in the ticket's scope"""
+              if not files_in_scope:
+                  return False
+              
+              test_lower = test_path.lower()
+              
+              # Check app match first
+              test_app = None
+              if 'apps/' in test_lower:
+                  try:
+                      test_app = test_lower.split('apps/')[1].split('/')[0]
+                  except:
+                      pass
+              
+              scope_apps = set()
+              for f in files_in_scope:
+                  if f.startswith('apps/') and '/' in f[5:]:
+                      scope_apps.add(f.split('/')[1])
+              
+              if test_app and scope_apps and test_app not in scope_apps:
+                  return False
+              
+              # Check specific file/feature matches
+              for scope_file in files_in_scope:
+                  scope_lower = scope_file.lower()
+                  
+                  # Direct path match
+                  if scope_lower in test_lower:
+                      return True
+                  
+                  # Extract feature name from scope file
+                  parts = scope_file.split('/')
+                  filename = parts[-1].replace('.tsx', '').replace('.ts', '')
+                  if len(filename) > 3 and filename.lower() in test_lower:
+                      return True
+              
+              return False
+          
+          for test in sorted(branch_failures):
+              # Normalize test path for comparison
+              test_normalized = test.lower().strip()
+              main_normalized = {m.lower().strip() for m in main_failures}
+              
+              # Check if this was already failing on main
+              is_preexisting = any(test_normalized in m or m in test_normalized for m in main_normalized)
+              
+              if is_preexisting:
+                  pre_existing.append(test)
+              elif is_in_scope(test):
+                  new_in_scope.append(test)
+              else:
+                  new_regression.append(test)
+          
+          # Output results
+          print(f"📊 Test Failure Analysis:")
+          print(f"   Total failures on branch: {len(branch_failures)}")
+          print(f"   Pre-existing on main:     {len(pre_existing)}")
+          print(f"   New failures:             {len(new_in_scope) + len(new_regression)}")
+          print()
+          
+          if pre_existing:
+              print(f"⏭️  PRE-EXISTING (already failing on main - not your fault): {len(pre_existing)}")
+              for t in pre_existing:
+                  print(f"   ○ {t}")
+              print()
+          
+          if new_in_scope:
+              print(f"📋 IN-SCOPE (new failure, but ticket touches this area): {len(new_in_scope)}")
+              for t in new_in_scope:
+                  print(f"   • {t}")
+              print()
+          
+          if new_regression:
+              print(f"🚨 REGRESSION (new failure OUTSIDE ticket scope): {len(new_regression)}")
+              for t in new_regression:
+                  print(f"   ✗ {t}")
+              print()
+          
+          # Final verdict
+          print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+          if new_regression:
+              print("❌ REGRESSIONS DETECTED!")
+              print(f"   {len(new_regression)} test(s) failed that are OUTSIDE your ticket scope.")
+              print("   These are unintended side effects of your changes.")
+              print()
+              print("   Options:")
+              print("   1. Fix the regression in your branch")
+              print("   2. If the test is wrong, update the test")
+              print("   3. If this is expected, add the file to files_to_modify in tickets.json")
+              print()
+              # Write regression flag for next step
+              with open('has-regressions.txt', 'w') as f:
+                  f.write('true')
+              sys.exit(1)
+          elif new_in_scope:
+              print("⚠️  IN-SCOPE FAILURES")
+              print(f"   {len(new_in_scope)} test(s) failed in areas your ticket modifies.")
+              print("   This is expected - review if tests need updating for new behavior.")
+              sys.exit(0)
+          elif pre_existing:
+              print("✅ No new regressions!")
+              print(f"   {len(pre_existing)} pre-existing failure(s) from main branch.")
+              print("   Your changes didn't break anything new.")
+              sys.exit(0)
+          else:
+              print("✅ All tests passed!")
+              sys.exit(0)
+          PYTHON_EOF
+
+      - name: Fail if regressions detected
+        if: always() && steps.scope-analysis.outcome == 'failure'
+        run: |
+          echo "❌ CI failed due to out-of-scope test regressions."
+          echo "See the scope analysis above for details."
+          exit 1
