@@ -487,6 +487,31 @@ const BADGE_STYLES = `
     background: var(--gg-success);
     border-radius: 50%;
   }
+
+  /* Recording badge */
+  .gg-recording-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(239, 68, 68, 0.2);
+    backdrop-filter: blur(8px);
+    padding: 6px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #ef4444;
+  }
+
+  .gg-recording-dot {
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    animation: gg-pulseSoft 2s ease-in-out infinite;
+  }
 `;
 
 /**
