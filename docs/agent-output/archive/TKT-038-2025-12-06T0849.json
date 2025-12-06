@@ -1,0 +1,10 @@
+{
+  "ticket_id": "TKT-038",
+  "branch": "agent/tkt-038",
+  "started_at": "2025-12-06T09:48:00Z",
+  "files_locking": [
+    "apps/dashboard/src/features/pools/PoolCard.tsx",
+    "apps/dashboard/src/features/pools/DeletePoolModal.tsx",
+    "apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx"
+  ]
+}
