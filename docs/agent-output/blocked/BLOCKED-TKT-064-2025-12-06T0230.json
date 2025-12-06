@@ -1,0 +1,59 @@
+{
+  "id": "BLOCKED-TKT-064-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-064",
+  "severity": "critical",
+  "title": "Ticket has no implementation details - appears to be explanation-only",
+  "feature": "Call Logs",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-06T02:30:00Z",
+
+  "issue": "TKT-064 was generated from finding F-022, but the human decision was 'explain this to me' (a custom response requesting explanation). The ticket's fix_required field contains ['Custom response', 'Note: explain this to me'] which is not an implementation specification. The ticket has no files to modify (files: []), no specific implementation requirements, and acceptance criteria that cannot be tested ('Issue described in F-022 is resolved'). According to the SOP section 1.2 Pre-Flight Validation, this ticket is missing: (1) specific file paths to modify, (2) clear implementation steps in fix_required, and (3) testable acceptance criteria. This appears to be a ticket generation error - the human wanted an explanation of the finding, not implementation work.",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Convert to Proper Implementation Ticket — Research call logs implementation, identify files to modify (likely dashboard query/filter code), and provide proper implementation spec including: specific files, server-side filtering approach, acceptance criteria with testable outcomes.",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Close as Invalid Ticket — Mark this ticket as invalid since the human only requested an explanation (which was already provided in the decision messages). Finding F-022 would remain in findings for future prioritization.",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Block Pending Human Clarification — Ask human directly: 'F-022 explains URL filtering is client-side only. Do you want this implemented (move to server-side), or was the explanation sufficient?' Then route to option 1 or 2 based on response.",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 1 because the finding describes a real issue (URL filtering limited to 500 calls). The explanation was given, but if the human wants it fixed, we need proper implementation details. A PM agent should research the call logs feature, identify affected files, and generate a proper dev ticket with specific implementation steps.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-064",
+    "ticket_version": 1,
+    "branch": "agent/tkt-064",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Read SOP",
+        "Read ticket spec",
+        "Investigated F-022 finding",
+        "Reviewed decision history"
+      ],
+      "remaining": [
+        "Pre-flight validation ← BLOCKED HERE (ticket fails validation)",
+        "Implementation (cannot start without valid spec)",
+        "Testing (no testable criteria defined)"
+      ],
+      "stopped_at": {
+        "file": "docs/prompts/active/dev-agent-TKT-064-v1.md",
+        "line": 31,
+        "context": "Reviewing 'Files to Modify' section which is empty, and 'What to Implement' section which contains only 'Custom response' and 'Note: explain this to me'"
+      },
+      "notes_for_next_agent": "The finding F-022 is valid and describes that URL filtering in call logs only works on client-side (limited to fetched data, max ~500 calls). The suggested fix in F-022 is to 'Move URL filtering to server-side query'. If implementation is desired, need to: (1) locate call logs query/filter code in dashboard, (2) understand current client-side filtering implementation, (3) design server-side query parameter, (4) update both backend API and frontend to support URL query param. This is likely related to F-021 (pagination) as mentioned in the decision system response."
+    }
+  }
+}
