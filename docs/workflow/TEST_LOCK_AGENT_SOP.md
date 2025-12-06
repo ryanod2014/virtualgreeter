@@ -23,8 +23,10 @@ You are NOT defining "correct." You are taking a **snapshot** of "what exists ri
 |------|---------|
 | `docs/features/[category]/[feature].md` | Feature documentation with code references |
 | `docs/workflow/templates/test-lock-agent.md` | Prompt template |
-| `apps/*/src/**/*.test.ts` | Where test files go (same dir as source) |
-| Existing tests | `apps/server/src/features/routing/pool-manager.test.ts` - reference for patterns |
+| `apps/*/src/**/*.test.ts` | Where server/logic test files go (same dir as source) |
+| `apps/*/src/**/*.test.tsx` | Where UI component test files go (same dir as source) |
+| Server test reference | `apps/server/src/features/routing/pool-manager.test.ts` |
+| UI test reference | `apps/dashboard/src/features/pools/DeletePoolModal.test.tsx` |
 
 ---
 
@@ -255,6 +257,288 @@ function createMockRequest(body: object): NextRequest {
 
 ---
 
+## UI Component Testing Patterns
+
+For React/Preact component tests (`.tsx` files), use these patterns:
+
+### Test Environment Setup
+
+Add this at the top of every UI test file:
+
+```typescript
+/**
+ * @vitest-environment jsdom
+ */
+```
+
+### Icon Mocking (lucide-react)
+
+Always mock icons to avoid rendering issues and simplify assertions:
+
+```typescript
+vi.mock("lucide-react", () => ({
+  Phone: () => <div data-testid="phone-icon" />,
+  PhoneOff: () => <div data-testid="phone-off-icon" />,
+  X: () => <div data-testid="x-icon" />,
+  Loader2: () => <div data-testid="loader-icon" />,
+  Video: () => <div data-testid="video-icon" />,
+  VideoOff: () => <div data-testid="video-off-icon" />,
+  Mic: () => <div data-testid="mic-icon" />,
+  MicOff: () => <div data-testid="mic-off-icon" />,
+  Monitor: () => <div data-testid="monitor-icon" />,
+  AlertTriangle: () => <div data-testid="alert-triangle-icon" />,
+  // Add other icons as needed
+}));
+```
+
+### UI Component Test Structure
+
+```typescript
+/**
+ * @vitest-environment jsdom
+ * 
+ * [ComponentName] Tests
+ * 
+ * Behaviors Tested:
+ * 1. [Display behavior 1]
+ * 2. [Display behavior 2]
+ * 3. [Action behavior 1]
+ * ...
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+
+// Mock icons BEFORE importing component
+vi.mock("lucide-react", () => ({ /* ... */ }));
+
+// Mock any other dependencies
+vi.mock("@/utils/someUtil", () => ({ /* ... */ }));
+
+import { MyComponent } from "./MyComponent";
+
+describe("MyComponent", () => {
+  // Default props that satisfy TypeScript and provide sensible defaults
+  const defaultProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    onSubmit: vi.fn(),
+    // ... other required props
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // ---------------------------------------------------------------------------
+  // DISPLAY BEHAVIORS
+  // ---------------------------------------------------------------------------
+  describe("Display", () => {
+    it("returns null when isOpen is false", () => {
+      const { container } = render(<MyComponent {...defaultProps} isOpen={false} />);
+      expect(container.firstChild).toBeNull();
+    });
+
+    it("shows modal content when isOpen is true", () => {
+      render(<MyComponent {...defaultProps} />);
+      expect(screen.getByText("Expected Title")).toBeInTheDocument();
+    });
+
+    it("displays truncated text with ellipsis for long values", () => {
+      render(<MyComponent {...defaultProps} title="Very long title that should be truncated" />);
+      const element = screen.getByText(/Very long title/);
+      expect(element).toHaveClass("truncate");
+    });
+
+    it("shows loading spinner when isLoading is true", () => {
+      render(<MyComponent {...defaultProps} isLoading={true} />);
+      expect(screen.getByTestId("loader-icon")).toBeInTheDocument();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // ACTION BEHAVIORS
+  // ---------------------------------------------------------------------------
+  describe("Actions", () => {
+    it("calls onClose when X button clicked", () => {
+      const onClose = vi.fn();
+      render(<MyComponent {...defaultProps} onClose={onClose} />);
+      
+      fireEvent.click(screen.getByRole("button", { name: /close/i }));
+      
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("calls onSubmit with form data when submitted", () => {
+      const onSubmit = vi.fn();
+      render(<MyComponent {...defaultProps} onSubmit={onSubmit} />);
+      
+      fireEvent.change(screen.getByRole("textbox"), { target: { value: "test input" } });
+      fireEvent.click(screen.getByRole("button", { name: /submit/i }));
+      
+      expect(onSubmit).toHaveBeenCalledWith({ value: "test input" });
+    });
+
+    it("disables submit button until form is valid", () => {
+      render(<MyComponent {...defaultProps} />);
+      
+      const submitButton = screen.getByRole("button", { name: /submit/i });
+      expect(submitButton).toBeDisabled();
+      
+      fireEvent.change(screen.getByRole("textbox"), { target: { value: "valid" } });
+      expect(submitButton).not.toBeDisabled();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // TIMER/COUNTDOWN BEHAVIORS
+  // ---------------------------------------------------------------------------
+  describe("Timer", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("decrements countdown every second", async () => {
+      render(<MyComponent {...defaultProps} initialSeconds={30} />);
+      
+      expect(screen.getByText("30")).toBeInTheDocument();
+      
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+      
+      expect(screen.getByText("29")).toBeInTheDocument();
+    });
+
+    it("calls onTimeout when countdown reaches zero", async () => {
+      const onTimeout = vi.fn();
+      render(<MyComponent {...defaultProps} initialSeconds={2} onTimeout={onTimeout} />);
+      
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
+      
+      expect(onTimeout).toHaveBeenCalledTimes(1);
+    });
+
+    it("clears timer on unmount", () => {
+      const { unmount } = render(<MyComponent {...defaultProps} />);
+      
+      unmount();
+      
+      // Advancing time should not cause errors
+      vi.advanceTimersByTime(5000);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // EDGE CASES
+  // ---------------------------------------------------------------------------
+  describe("Edge Cases", () => {
+    it("handles undefined optional props gracefully", () => {
+      render(<MyComponent {...defaultProps} optionalProp={undefined} />);
+      expect(screen.getByText("Default Value")).toBeInTheDocument();
+    });
+
+    it("handles empty array props", () => {
+      render(<MyComponent {...defaultProps} items={[]} />);
+      expect(screen.getByText("No items")).toBeInTheDocument();
+    });
+  });
+});
+```
+
+### Common UI Assertions
+
+```typescript
+// Presence
+expect(screen.getByText("Label")).toBeInTheDocument();
+expect(screen.queryByText("Hidden")).not.toBeInTheDocument();
+
+// Button states
+expect(button).toBeDisabled();
+expect(button).not.toBeDisabled();
+
+// CSS classes (for conditional styling)
+expect(element).toHaveClass("bg-green-500");
+expect(element).toHaveClass("opacity-50");
+
+// Styles (when needed)
+expect(element).toHaveStyle({ width: "100%" });
+
+// Focus
+expect(input).toHaveFocus();
+
+// Form values
+expect(input).toHaveValue("expected value");
+
+// Callbacks with arguments
+expect(mockFn).toHaveBeenCalledWith("arg1", { key: "value" });
+expect(mockFn).toHaveBeenCalledTimes(1);
+
+// Icons (when mocked with data-testid)
+expect(screen.getByTestId("phone-icon")).toBeInTheDocument();
+expect(screen.queryByTestId("phone-off-icon")).not.toBeInTheDocument();
+```
+
+### MediaStream Mocking (for video components)
+
+```typescript
+function createMockMediaStream(hasVideo = true, hasAudio = true): MediaStream {
+  const tracks: MediaStreamTrack[] = [];
+  
+  if (hasVideo) {
+    tracks.push({
+      kind: "video",
+      enabled: true,
+      stop: vi.fn(),
+    } as unknown as MediaStreamTrack);
+  }
+  
+  if (hasAudio) {
+    tracks.push({
+      kind: "audio",
+      enabled: true,
+      stop: vi.fn(),
+    } as unknown as MediaStreamTrack);
+  }
+  
+  return {
+    getTracks: () => tracks,
+    getVideoTracks: () => tracks.filter(t => t.kind === "video"),
+    getAudioTracks: () => tracks.filter(t => t.kind === "audio"),
+  } as unknown as MediaStream;
+}
+```
+
+### Testing Conditional Rendering
+
+```typescript
+// Test that component renders nothing under certain conditions
+it("returns null when visitor is not connected", () => {
+  const { container } = render(<CallControls connected={false} />);
+  expect(container.firstChild).toBeNull();
+});
+
+// Test conditional elements
+it("shows 'Recording' badge only when isRecording is true", () => {
+  const { rerender } = render(<CallStage isRecording={false} />);
+  expect(screen.queryByText("Recording")).not.toBeInTheDocument();
+  
+  rerender(<CallStage isRecording={true} />);
+  expect(screen.getByText("Recording")).toBeInTheDocument();
+});
+```
+
+---
+
 ## Output Format
 
 ### File Location
@@ -364,13 +648,36 @@ A: Document it in your completion report notes. Do NOT fix it. The test should c
 **Q: Code is too complex to understand**
 A: Read the feature documentation first. If still unclear, document the uncertainty and test what you can observe.
 
+**Q: UI component test says "document is not defined" or similar DOM errors**
+A: Add `/** @vitest-environment jsdom */` at the very top of the test file (before imports).
+
+**Q: Icons from lucide-react cause rendering issues**
+A: Mock lucide-react icons at the top of your test file. See the "UI Component Testing Patterns" section.
+
+**Q: Timer-based tests are flaky or slow**
+A: Use `vi.useFakeTimers()` in `beforeEach` and `vi.useRealTimers()` in `afterEach`. Use `act()` when advancing timers.
+
+**Q: How do I test a component that uses MediaStream?**
+A: Create a mock MediaStream object. See the "MediaStream Mocking" section for the pattern.
+
 ---
 
 ## Reference: Existing Tests
+
+### Server-Side / API Tests
 
 | Test File | Good Example Of |
 |-----------|-----------------|
 | `apps/server/src/features/routing/pool-manager.test.ts` | Complex state machine, multiple scenarios |
 | `apps/dashboard/src/app/api/billing/create-subscription/route.test.ts` | API route testing, Stripe mocking |
 | `apps/server/src/features/signaling/socket-handlers.test.ts` | Event-based testing |
+
+### UI Component Tests
+
+| Test File | Good Example Of |
+|-----------|-----------------|
+| `apps/dashboard/src/features/pools/DeletePoolModal.test.tsx` | Modal visibility, form validation, confirmation input, loading states |
+| `apps/dashboard/src/features/workbench/incoming-call-modal.test.tsx` | Timer/countdown testing, conditional badges, progress bar, icon switching |
+| `apps/dashboard/src/features/webrtc/active-call-stage.test.tsx` | MediaStream mocking, video controls, mute/unmute toggling, complex UI state |
+| `apps/dashboard/src/features/workbench/hooks/useIdleTimer.test.ts` | Custom hook testing, fake timers, Web Worker mocking, event listeners |
 

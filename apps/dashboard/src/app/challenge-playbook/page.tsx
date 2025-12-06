@@ -124,25 +124,29 @@ export default function ChallengePlaybookPage() {
         <article className="container mx-auto px-6 py-16">
           <div className="max-w-3xl mx-auto">
             
-            {/* Cohesive Lead - Great Leads style */}
-            <p className="text-xl md:text-2xl text-zinc-300 leading-relaxed mb-6">
-              Look, there&apos;s a reason Tony and I keep running these 3-day virtual challenges even though we could sell courses, run ads, or do a million other things.
+            {/* Lead */}
+            <p className="text-lg text-orange-500 font-medium mb-6">
+              Coaches, Consultants, Agency Owners:
             </p>
             
-            <p className="text-xl md:text-2xl text-white font-semibold leading-relaxed mb-6">
-              It&apos;s because nothing else comes close.
+            <p className="text-2xl md:text-3xl text-white font-bold leading-snug mb-4">
+              We guarantee you&apos;ll have at least 500 people at your next challenge—or your money back.
+            </p>
+            
+            <p className="text-xl text-zinc-300 leading-relaxed mb-8">
+              Even if no one&apos;s ever heard of you.
             </p>
             
             <p className="text-lg text-zinc-400 leading-relaxed mb-6">
-              We&apos;ve filled rooms of 500,000+ people, 8 events in a row. 70% of them weren&apos;t even on our list before they registered. They showed up as strangers and left as customers—not because we &ldquo;sold&rdquo; them, but because we spent 3 days actually helping them.
+              How? By giving you the exact playbook we use to fill rooms of 500,000+ people. The same system. Every step.
             </p>
             
             <p className="text-lg text-zinc-400 leading-relaxed mb-6">
-              That&apos;s the magic of a well-run challenge: <span className="text-white">you compress a year of trust-building into a single weekend.</span> By the time you make your offer, they already know you. They already like you. They already trust you.
+              Because here&apos;s the thing: <span className="text-white font-medium">nothing out-converts a well-run challenge.</span> It compresses a year of trust &amp; goodwill into 3 days.
             </p>
             
             <p className="text-lg text-zinc-400 leading-relaxed mb-8">
-              And now, for the first time ever, we&apos;re handing you the exact system we use to make it happen.
+              And for the first time, we&apos;re showing you exactly how to do it.
             </p>
 
             <div className="border-t border-zinc-800 my-12"></div>
