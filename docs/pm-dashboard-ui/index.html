@@ -4864,7 +4864,9 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
           'M1', 'M2',
           'P2', 'P3', 'P4', 'P5', 'P6',
           'STATS1', 'STATS2', 'STATS3',
-          'V1', 'V2', 'V3', 'V4', 'V5'
+          'UI1', 'UI2', 'UI3', 'UI4', 'UI5', 'UI6', 'UI7', 'UI8', 'UI9', 'UI10',
+          'V1', 'V2', 'V3', 'V4', 'V5',
+          'VALIDATE'
         ];
         const completedIds = new Set((agentOutputs?.testLock || []).map(t => {
           const match = (t.ticketId || t.id || '').match(/^([A-Z]+\d*)/i);
@@ -5160,7 +5162,9 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
                     'M1', 'M2',
                     'P2', 'P3', 'P4', 'P5', 'P6',
                     'STATS1', 'STATS2', 'STATS3',
-                    'V1', 'V2', 'V3', 'V4', 'V5'
+                    'UI1', 'UI2', 'UI3', 'UI4', 'UI5', 'UI6', 'UI7', 'UI8', 'UI9', 'UI10',
+                    'V1', 'V2', 'V3', 'V4', 'V5',
+                    'VALIDATE'
                   ];
                   
                   const pendingPrompts = allTestLockPrompts.filter(id => !completedIds.has(id));
