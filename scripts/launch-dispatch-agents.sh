@@ -52,9 +52,9 @@ for ((i=0; i<TOTAL; i++)); do
     BATCHES[$batch_idx]+="${BLOCKERS[$i]} "
 done
 
-# Function to get running dispatch agent count
+# Function to get running dispatch agent count (check for claude processes)
 get_running_count() {
-    tmux list-sessions 2>/dev/null | grep -c "dispatch-batch-" || echo 0
+    pgrep -f "dispatch-batch" 2>/dev/null | wc -l | tr -d ' '
 }
 
 # Function to launch a batch
@@ -73,7 +73,7 @@ launch_batch() {
 #!/bin/bash
 cd "$PROJECT_ROOT"
 
-claude --print "You are a Dispatch Agent processing a batch of blockers.
+claude --dangerously-skip-permissions --permission-mode bypassPermissions "You are a Dispatch Agent processing a batch of blockers.
 
 Read docs/workflow/DISPATCH_AGENT_SOP.md for context.
 
@@ -97,13 +97,10 @@ SCRIPT
     
     chmod +x "/tmp/dispatch-batch-$batch_num.sh"
     
-    # Kill existing session if any
-    tmux kill-session -t "$session" 2>/dev/null || true
-    
-    # Launch
-    tmux new-session -d -s "$session" "/tmp/dispatch-batch-$batch_num.sh"
-    
-    echo "   ✓ Launched session: $session"
+    # Launch in background with nohup (no interactive prompt needed)
+    nohup /tmp/dispatch-batch-$batch_num.sh > "/tmp/dispatch-batch-$batch_num.log" 2>&1 &
+    local pid=$!
+    echo "   ✓ Launched batch $batch_num (PID: $pid)"
 }
 
 # Launch batches with parallelism control
