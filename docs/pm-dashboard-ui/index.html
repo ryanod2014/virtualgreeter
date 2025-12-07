@@ -4670,6 +4670,7 @@ pnpm build`}
       
       // Ticket calculations
       const inProgressItems = devStatus?.in_progress || [];
+      const completedItems = devStatus?.completed || [];
       // Normalize to uppercase for case-insensitive matching
       const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id?.toUpperCase()));
       
