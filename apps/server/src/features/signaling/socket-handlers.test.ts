@@ -434,7 +434,7 @@ describe("Socket Handler - Country Blocking Integration", () => {
  */
 
 import { PoolManager } from "../routing/pool-manager.js";
-import type { AgentProfile, CallRequest, ActiveCall } from "@ghost-greeter/domain";
+import type { AgentProfile } from "@ghost-greeter/domain";
 import { TIMING } from "@ghost-greeter/domain";
 
 // Helper to create mock agent profile

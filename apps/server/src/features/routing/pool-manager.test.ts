@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { PoolManager } from "./pool-manager.js";
 import type { AgentProfile } from "@ghost-greeter/domain";
 
