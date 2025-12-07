@@ -749,6 +749,29 @@ function handleAPI(req, res, body) {
     let featuresList = [];
     try {
       featuresList = scanFeaturesDir(featuresDir);
+      
+      // If DB is available, merge in feature status from DB
+      if (dbModule) {
+        const dbFeatures = dbModule.features?.list?.() || [];
+        const dbFeatureMap = new Map(dbFeatures.map(f => [f.id, f]));
+        
+        featuresList = featuresList.map(f => {
+          const fileName = f.fileName?.replace('.md', '') || '';
+          const dbFeature = dbFeatureMap.get(fileName);
+          if (dbFeature) {
+            return {
+              ...f,
+              documented: !!dbFeature.documented,
+              reviewed: !!dbFeature.reviewed,
+              tested: !!dbFeature.tested,
+              last_documented: dbFeature.last_documented,
+              last_reviewed: dbFeature.last_reviewed,
+              last_tested: dbFeature.last_tested
+            };
+          }
+          return f;
+        });
+      }
     } catch (e) {
       console.error('Error scanning features:', e.message);
     }
@@ -1815,7 +1838,14 @@ function serveStatic(req, res) {
       res.writeHead(404);
       res.end('Not found');
     } else {
-      res.writeHead(200, { 'Content-Type': contentType });
+      // Prevent caching for HTML files
+      const headers = { 'Content-Type': contentType };
+      if (ext === '.html') {
+        headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+        headers['Pragma'] = 'no-cache';
+        headers['Expires'] = '0';
+      }
+      res.writeHead(200, headers);
       res.end(content);
     }
   });

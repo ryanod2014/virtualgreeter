@@ -5967,6 +5967,125 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
               </div>
             )}
           </div>
+
+          {/* QA Agents Section */}
+          <div className="section" style={{ marginBottom: '32px' }}>
+            <div 
+              className="section-title" 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                marginBottom: expandedSection === 'qa' ? '16px' : '0'
+              }}
+              onClick={() => setExpandedSection(expandedSection === 'qa' ? null : 'qa')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: 'var(--success)' }}><Icons.checkCircle /></span>
+                <span style={{ fontWeight: 600 }}>QA Agents</span>
+                {completedItems.length > 0 && (
+                  <span style={{ padding: '3px 10px', background: 'var(--success)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                    {completedItems.length} ready for QA
+                  </span>
+                )}
+              </div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'qa' ? '▼' : '▶'}</span>
+            </div>
+            
+            {expandedSection === 'qa' && (
+              <div className="fade-in">
+                {completedItems.length === 0 ? (
+                  <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '36px', marginBottom: '12px' }}>✅</div>
+                    <div style={{ fontSize: '16px', fontWeight: 500 }}>No tickets awaiting QA</div>
+                    <div style={{ fontSize: '13px', marginTop: '8px' }}>Dev agents need to complete work first</div>
+                  </div>
+                ) : (
+                  <>
+                    {/* QA Batch Header */}
+                    <div style={{ 
+                      padding: '16px 20px', 
+                      background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(59,130,246,0.1))',
+                      borderRadius: '12px', 
+                      marginBottom: '20px',
+                      border: '1px solid rgba(16,185,129,0.2)'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {completedItems.length} tickets ready for QA review
+                          </div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Each QA agent reviews one ticket's changes
+                          </div>
+                        </div>
+                        <button 
+                          className={`btn ${copied === 'all-qa' ? 'btn-success' : 'btn-primary'}`}
+                          onClick={() => {
+                            const commands = completedItems.map((item, idx) => {
+                              const ticketId = item.ticket_id;
+                              return `# QA Agent ${idx + 1}: ${ticketId}\nYou are a QA Agent. Read docs/workflow/QA_REVIEW_AGENT_SOP.md then execute: docs/prompts/active/qa-review-${ticketId}.md`;
+                            }).join('\n\n---\n\n');
+                            navigator.clipboard.writeText(commands);
+                            setCopied('all-qa');
+                            setTimeout(() => setCopied(null), 2000);
+                          }}
+                        >
+                          {copied === 'all-qa' ? 'Copied All!' : `Copy All ${completedItems.length}`}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* QA Ticket Cards */}
+                    <div style={{ display: 'grid', gap: '12px' }}>
+                      {completedItems.map((item, idx) => {
+                        const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
+                        return (
+                          <div key={item.ticket_id} className="card" style={{ padding: '16px', borderLeft: '4px solid var(--success)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                                  <code style={{ fontSize: '13px', fontWeight: 600, color: 'var(--success)' }}>{item.ticket_id}</code>
+                                  {ticket?.priority && (
+                                    <span style={{ 
+                                      fontSize: '10px', 
+                                      padding: '2px 6px', 
+                                      borderRadius: '4px',
+                                      background: ticket.priority === 'critical' ? 'var(--critical)' : 
+                                                  ticket.priority === 'high' ? 'var(--high)' : 
+                                                  ticket.priority === 'medium' ? 'var(--medium)' : 'var(--low)',
+                                      color: 'white'
+                                    }}>{ticket.priority}</span>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>{ticket?.title || item.title || 'Unknown'}</div>
+                                {ticket?.feature && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{ticket.feature}</div>}
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                                  Branch: <code>{item.branch}</code>
+                                </div>
+                              </div>
+                              <button 
+                                className={`btn btn-sm ${copied === `qa-${item.ticket_id}` ? 'btn-success' : 'btn-secondary'}`}
+                                onClick={() => {
+                                  const cmd = `You are a QA Agent. Read docs/workflow/QA_REVIEW_AGENT_SOP.md then execute: docs/prompts/active/qa-review-${item.ticket_id}.md`;
+                                  navigator.clipboard.writeText(cmd);
+                                  setCopied(`qa-${item.ticket_id}`);
+                                  setTimeout(() => setCopied(null), 2000);
+                                }}
+                              >
+                                {copied === `qa-${item.ticket_id}` ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       );
     }
