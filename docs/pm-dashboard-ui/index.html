@@ -1091,12 +1091,21 @@ pnpm build`}
           </div>
 
           {/* Issue */}
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.6' }}>{finding.issue}</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.6' }}>
+            {/* Handle both string and object issue formats */}
+            {typeof finding.issue === 'object' 
+              ? finding.issue?.description || finding.summary || JSON.stringify(finding.issue, null, 2)
+              : finding.issue || finding.summary}
+          </p>
           
           {/* Suggested Fix */}
           <div style={{ fontSize: '12px', padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: '8px', marginBottom: '12px', borderLeft: '3px solid var(--accent)' }}>
             <span style={{ color: 'var(--accent-bright)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Icons.lightbulb /> Suggested Fix:</span>
-            <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{finding.suggested_fix}</span>
+            <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>
+              {typeof finding.suggested_fix === 'object'
+                ? finding.suggested_fix?.description || JSON.stringify(finding.suggested_fix, null, 2)
+                : finding.suggested_fix}
+            </span>
           </div>
 
           {/* Combinable Findings Alert */}
@@ -3937,7 +3946,10 @@ pnpm build`}
                               {selectedBlocker.category === 'clarification' ? 'Question:' : 'Issue:'}
                             </div>
                             <div style={{ fontSize: '15px', lineHeight: '1.6' }}>
-                              {selectedBlocker.issue || selectedBlocker.question}
+                              {/* Handle both string and object issue formats */}
+                              {typeof selectedBlocker.issue === 'object' 
+                                ? selectedBlocker.issue?.description || selectedBlocker.summary || JSON.stringify(selectedBlocker.issue, null, 2)
+                                : selectedBlocker.issue || selectedBlocker.question || selectedBlocker.summary}
                             </div>
                           </div>
                           
@@ -3996,7 +4008,7 @@ pnpm build`}
                           )}
                           
                           {/* Agent's Recommendation */}
-                          {selectedBlocker.recommendation && (
+                          {(selectedBlocker.recommendation || selectedBlocker.recommendedFix) && (
                             <div style={{ 
                               padding: '12px 16px', 
                               background: 'rgba(99,102,241,0.08)', 
@@ -4007,7 +4019,14 @@ pnpm build`}
                               <div style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 600, marginBottom: '4px' }}>
                                 Agent's Recommendation:
                               </div>
-                              <div style={{ fontSize: '14px' }}>{selectedBlocker.recommendation}</div>
+                              <div style={{ fontSize: '14px' }}>
+                                {/* Handle both string and object recommendation formats */}
+                                {typeof selectedBlocker.recommendation === 'object'
+                                  ? selectedBlocker.recommendation?.description || JSON.stringify(selectedBlocker.recommendation, null, 2)
+                                  : typeof selectedBlocker.recommendedFix === 'object'
+                                    ? selectedBlocker.recommendedFix?.description || JSON.stringify(selectedBlocker.recommendedFix, null, 2)
+                                    : selectedBlocker.recommendation || selectedBlocker.recommendedFix}
+                              </div>
                             </div>
                           )}
                           
