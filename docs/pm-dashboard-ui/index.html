@@ -3695,27 +3695,27 @@ pnpm build`}
                                 }}>
                                   Documented
                                 </span>
-                                {/* Reviewed badge - green if review agent ran (findings exist) */}
+                                {/* Reviewed badge - use DB status if available, fallback to findings-based */}
                                 <span style={{ 
                                   padding: '4px 10px', 
                                   borderRadius: '6px', 
                                   fontSize: '11px', 
                                   fontWeight: 600,
-                                  background: reviewStatus.reviewed ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)', 
-                                  color: reviewStatus.reviewed ? 'var(--success)' : 'var(--accent)'
+                                  background: (f.reviewed || reviewStatus.reviewed) ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)', 
+                                  color: (f.reviewed || reviewStatus.reviewed) ? 'var(--success)' : 'var(--accent)'
                                 }}>
-                                  {reviewStatus.reviewed ? 'Reviewed' : 'Pending'}
+                                  {(f.reviewed || reviewStatus.reviewed) ? 'Reviewed' : 'Pending'}
                                 </span>
-                                {/* Tested badge - green if TEST LOCK agent has run */}
+                                {/* Tested badge - use DB status if available, fallback to test-lock mapping */}
                                 <span style={{ 
                                   padding: '4px 10px', 
                                   borderRadius: '6px', 
                                   fontSize: '11px', 
                                   fontWeight: 600,
-                                  background: isTested ? 'rgba(139,92,246,0.15)' : 'rgba(100,116,139,0.15)', 
-                                  color: isTested ? '#a78bfa' : 'var(--text-muted)'
+                                  background: (f.tested || isTested) ? 'rgba(139,92,246,0.15)' : 'rgba(100,116,139,0.15)', 
+                                  color: (f.tested || isTested) ? '#a78bfa' : 'var(--text-muted)'
                                 }}>
-                                  {isTested ? '🧪 Tested' : 'No Tests'}
+                                  {(f.tested || isTested) ? '🧪 Tested' : 'No Tests'}
                                 </span>
                                 {/* Findings count if any */}
                                 {reviewStatus.total > 0 && (
