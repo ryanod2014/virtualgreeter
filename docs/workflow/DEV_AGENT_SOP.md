@@ -5,15 +5,55 @@
 
 ---
 
-## 🔧 Agent CLI (Preferred Method)
+## 🚨 Session Management (REQUIRED)
 
-The `agent-cli.sh` script provides a clean interface to the workflow database. Use it instead of manually creating JSON files.
+**You MUST register your session with the workflow database.** This is how the system tracks running agents, prevents file conflicts, and enables recovery.
+
+### On Start (FIRST THING YOU DO)
+
+```bash
+# Register your session and get your SESSION_ID
+export AGENT_SESSION_ID=$(./scripts/agent-cli.sh start --ticket $TICKET_ID --type dev)
+echo "Session started: $AGENT_SESSION_ID"
+```
+
+### During Work (Every 10 Minutes)
+
+```bash
+# Send heartbeat to show you're still working
+./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
+```
+
+### On Completion
+
+```bash
+# Mark session complete with your report
+./scripts/agent-cli.sh complete --session $AGENT_SESSION_ID --report docs/agent-output/completions/$TICKET_ID.md
+```
+
+### On Blocked
+
+```bash
+# Report blocker and stop
+./scripts/agent-cli.sh block --session $AGENT_SESSION_ID --reason "Description of blocker" --type clarification
+```
+
+**Blocker types:** `clarification`, `environment`, `ci_failure`, `dependency`
+
+---
+
+## 🔧 Agent CLI Reference
+
+The `agent-cli.sh` script is the interface to the workflow database. **Always use it instead of manually creating JSON files.**
 
 **Location:** `scripts/agent-cli.sh`
 
-**Common Commands:**
+**All Commands:**
 ```bash
-# Send heartbeat (do this every 5-10 minutes of active work)
+# Start session (REQUIRED - do this first!)
+./scripts/agent-cli.sh start --ticket TKT-XXX --type dev
+
+# Send heartbeat (every 10 minutes)
 ./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
 
 # Mark session complete
@@ -31,8 +71,6 @@ The `agent-cli.sh` script provides a clean interface to the workflow database. U
 # Check running agents
 ./scripts/agent-cli.sh status
 ```
-
-**Note:** If CLI is not available, fall back to the manual JSON file approach described below.
 
 ---
 

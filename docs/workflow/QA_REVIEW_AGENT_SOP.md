@@ -6,15 +6,59 @@
 
 ---
 
-## 🔧 Agent CLI (Preferred Method)
+## 🚨 Session Management (REQUIRED)
 
-The `agent-cli.sh` script provides a clean interface to the workflow database.
+**You MUST register your session with the workflow database.** This tracks running QA agents and enables proper status reporting.
+
+### On Start (FIRST THING YOU DO)
+
+```bash
+# Register your QA session
+export AGENT_SESSION_ID=$(./scripts/agent-cli.sh start --ticket $TICKET_ID --type qa)
+echo "QA Session started: $AGENT_SESSION_ID"
+```
+
+### During Testing (Every 10 Minutes)
+
+```bash
+# Send heartbeat to show you're still testing
+./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
+```
+
+### On QA Pass
+
+```bash
+# Mark session complete with PASSED report
+./scripts/agent-cli.sh complete --session $AGENT_SESSION_ID --report docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md
+
+# Update ticket status to merged
+./scripts/agent-cli.sh update-ticket $TICKET_ID --status merged
+```
+
+### On QA Fail
+
+```bash
+# Mark session as blocked with failure report
+./scripts/agent-cli.sh block --session $AGENT_SESSION_ID --reason "Description of failures" --type qa_failure
+
+# Update ticket status
+./scripts/agent-cli.sh update-ticket $TICKET_ID --status qa_failed
+```
+
+---
+
+## 🔧 Agent CLI Reference
+
+The `agent-cli.sh` script is the interface to the workflow database.
 
 **Location:** `scripts/agent-cli.sh`
 
 **QA-Specific Commands:**
 ```bash
-# Send heartbeat (do this periodically during testing)
+# Start QA session (REQUIRED - do this first!)
+./scripts/agent-cli.sh start --ticket TKT-XXX --type qa
+
+# Send heartbeat (every 10 minutes)
 ./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
 
 # Mark QA as passed (session complete)

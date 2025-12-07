@@ -5,6 +5,50 @@
 
 ---
 
+## 🚨 Session Management (REQUIRED)
+
+**Register your session at the start:**
+
+```bash
+# Register dispatch session
+export AGENT_SESSION_ID=$(./scripts/agent-cli.sh start --type dispatch)
+echo "Dispatch Session started: $AGENT_SESSION_ID"
+```
+
+**Send heartbeats during long operations:**
+
+```bash
+./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
+```
+
+**On completion:**
+
+```bash
+./scripts/agent-cli.sh complete --session $AGENT_SESSION_ID --report docs/agent-output/dispatch-report.md
+```
+
+---
+
+## 🔧 CLI Commands for Ticket Operations
+
+**Update ticket status (preferred over editing JSON):**
+
+```bash
+# Update ticket status
+./scripts/agent-cli.sh update-ticket TKT-XXX --status ready
+
+# Common status values: draft, ready, in_progress, qa_pending, qa_failed, merged
+```
+
+**Create continuation ticket:**
+
+```bash
+# After creating the prompt file, update status via CLI
+./scripts/agent-cli.sh update-ticket TKT-XXX --status ready
+```
+
+---
+
 ## ⚡ Quick Decision Guide
 
 **Most blockers are auto-handled - NO human needed:**
@@ -135,7 +179,10 @@ Read the blocker JSON:
 [Original files_to_modify]
 ```
 
-2. Update ticket in `tickets.json`: set `status: "ready"` (so it shows in Launch view)
+2. Update ticket status via CLI:
+   ```bash
+   ./scripts/agent-cli.sh update-ticket TKT-XXX --status ready
+   ```
 3. Archive blocker: `mv docs/agent-output/blocked/QA-*.json docs/agent-output/archive/`
 4. Log: `"Auto-created TKT-XXX-v2 for QA rework"`
 
@@ -213,7 +260,10 @@ CI tests failed with [X] regressions outside your ticket scope.
 [Original files + regression test files]
 ```
 
-2. Update ticket in `tickets.json`: set `status: "ready"` (so it shows in Launch view)
+2. Update ticket status via CLI:
+   ```bash
+   ./scripts/agent-cli.sh update-ticket TKT-XXX --status ready
+   ```
 3. Archive blocker: `mv docs/agent-output/blocked/CI-TKT-*.json docs/agent-output/archive/`
 4. Log: `"Auto-created TKT-XXX-v2 for regression fix"`
 

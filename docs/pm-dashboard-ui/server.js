@@ -56,6 +56,57 @@ const MIME = {
   '.svg': 'image/svg+xml'
 };
 
+// Track last sync time to avoid redundant syncs
+let lastTicketsSyncTime = 0;
+const SYNC_COOLDOWN_MS = 60000; // Only sync once per minute
+
+// Sync tickets.json to database (ensures DB stays in sync with JSON changes)
+function syncTicketsToDb() {
+  if (!dbModule) return { synced: 0, created: 0, updated: 0, skipped: 0 };
+  
+  const now = Date.now();
+  if (now - lastTicketsSyncTime < SYNC_COOLDOWN_MS) {
+    return { synced: 0, skipped: 'cooldown' };
+  }
+  lastTicketsSyncTime = now;
+  
+  try {
+    const ticketsData = readJSON('tickets.json');
+    if (!ticketsData?.tickets) return { synced: 0, error: 'No tickets in JSON' };
+    
+    let created = 0, updated = 0, unchanged = 0;
+    
+    for (const ticket of ticketsData.tickets) {
+      try {
+        const existing = dbModule.tickets.get(ticket.id);
+        
+        if (!existing) {
+          // Create new ticket in DB
+          dbModule.tickets.create(ticket);
+          created++;
+        } else if (existing.status !== ticket.status) {
+          // Update if status changed (JSON is source of truth during migration)
+          dbModule.tickets.update(ticket.id, { status: ticket.status });
+          updated++;
+        } else {
+          unchanged++;
+        }
+      } catch (e) {
+        console.error(`Error syncing ticket ${ticket.id}:`, e.message);
+      }
+    }
+    
+    if (created > 0 || updated > 0) {
+      console.log(`📥 Synced tickets to DB: ${created} created, ${updated} updated, ${unchanged} unchanged`);
+    }
+    
+    return { synced: created + updated, created, updated, unchanged };
+  } catch (e) {
+    console.error('Error syncing tickets to DB:', e.message);
+    return { synced: 0, error: e.message };
+  }
+}
+
 // Read JSON file safely
 function readJSON(filename) {
   const filepath = path.join(DATA_DIR, filename);
@@ -258,6 +309,91 @@ function scanAgentOutputs(skipFetch = false) {
   // Cache results
   agentOutputsCache = outputs;
   agentOutputsCacheTime = Date.now();
+  
+  return outputs;
+}
+
+// Scan agent-output directories from LOCAL FILESYSTEM only (not git branches)
+// Used when DB is source of truth - we only need artifacts (QA results, test-lock, etc.)
+// This is much faster and avoids stale data from old git branches
+function scanAgentOutputsLocal() {
+  const AGENT_OUTPUT_DIR = path.join(DOCS_DIR, 'agent-output');
+  
+  const outputs = {
+    reviews: [],
+    completions: [],
+    blocked: [],
+    docTracker: [],
+    started: [],
+    findings: [],
+    testLock: [],
+    qaResults: []
+  };
+  
+  const subdirs = {
+    'reviews': 'reviews',
+    'completions': 'completions',
+    'blocked': 'blocked',
+    'doc-tracker': 'docTracker',
+    'started': 'started',
+    'findings': 'findings',
+    'test-lock': 'testLock',
+    'qa-results': 'qaResults'
+  };
+  
+  for (const [dirName, outputKey] of Object.entries(subdirs)) {
+    const dirPath = path.join(AGENT_OUTPUT_DIR, dirName);
+    
+    if (!fs.existsSync(dirPath)) continue;
+    
+    try {
+      const files = fs.readdirSync(dirPath);
+      
+      for (const file of files) {
+        if (!file.endsWith('.md') && !file.endsWith('.json')) continue;
+        if (file === 'README.md' || file === '.gitkeep') continue;
+        
+        const filePath = path.join(dirPath, file);
+        const stat = fs.statSync(filePath);
+        
+        // Extract ticket ID from filename
+        const ticketMatch = file.match(/([A-Z]+-\d+[a-zA-Z]?)/i);
+        const ticketId = ticketMatch 
+          ? ticketMatch[1].toUpperCase() 
+          : file.replace(/-\d{4}-\d{2}-\d{2}T\d+\.(md|json)$/, '').replace(/\.(md|json)$/, '');
+        
+        let content = '';
+        try {
+          content = fs.readFileSync(filePath, 'utf8');
+        } catch (e) {
+          // Skip unreadable files
+          continue;
+        }
+        
+        const entry = {
+          fileName: file,
+          filePath: `docs/agent-output/${dirName}/${file}`,
+          content: content,
+          modifiedAt: stat.mtime.toISOString(),
+          ticketId: ticketId,
+          branch: 'main',
+          sourceBranch: 'local',
+          id: file.replace(/-\d{4}-\d{2}-\d{2}T\d+\.(md|json)$/, '').replace(/\.(md|json)$/, '')
+        };
+        
+        outputs[outputKey].push(entry);
+      }
+    } catch (e) {
+      // Directory doesn't exist or can't be read, skip
+    }
+  }
+  
+  // Sort by ticketId for consistent ordering
+  for (const key of Object.keys(outputs)) {
+    outputs[key].sort((a, b) => a.ticketId.localeCompare(b.ticketId));
+  }
+  
+  console.log(`📂 Scanned local files: ${outputs.completions.length} completions, ${outputs.started.length} started, ${outputs.blocked.length} blocked, ${outputs.qaResults.length} QA results`);
   
   return outputs;
 }
@@ -592,19 +728,95 @@ function handleAPI(req, res, body) {
   const url = req.url;
   
   // GET /api/data - Load all data files (also generates missing prompts)
-  // Add ?source=db to use database instead of JSON files
+  // DB is now the source of truth for tickets and sessions when available
   if (req.method === 'GET' && url.startsWith('/api/data')) {
     const params = new URLSearchParams(url.split('?')[1] || '');
-    const useDB = params.get('source') === 'db' && dbModule;
+    const forceJson = params.get('source') === 'json';
     
-    // If using database, return DB data
-    if (useDB) {
+    // Auto-generate missing prompts on data load
+    const promptStats = generateMissingPrompts();
+    if (promptStats.created > 0) {
+      console.log(`📝 Generated ${promptStats.created} new prompts`);
+    }
+    
+    // Sync tickets.json to DB (keeps DB in sync during migration)
+    if (dbModule && !forceJson) {
+      syncTicketsToDb();
+    }
+    
+    // Scan features directory
+    const featuresDir = path.join(DOCS_DIR, 'features');
+    let featuresList = [];
+    try {
+      featuresList = scanFeaturesDir(featuresDir);
+    } catch (e) {
+      console.error('Error scanning features:', e.message);
+    }
+    
+    // Scan agent-output directories for artifacts (QA results, test-lock, etc.)
+    // These are still file-based as they are artifacts, not state
+    let agentOutputs = { reviews: [], completions: [], blocked: [], docTracker: [], started: [], findings: [], testLock: [] };
+    try {
+      // Only scan local files, not git branches (DB is source of truth for state)
+      agentOutputs = scanAgentOutputsLocal();
+    } catch (e) {
+      console.error('Error scanning agent outputs:', e.message);
+      // Fallback to empty if local scan fails
+    }
+    
+    // Read staging data for Cleanup Agent UI
+    const stagingData = readJSON('findings-staging.json');
+    const stagingCount = stagingData?.findings?.length || 0;
+    
+    // DB is the source of truth for tickets and sessions when available
+    if (dbModule && !forceJson) {
       try {
-        const data = dbModule.getDashboardData();
+        // Get tickets from DB (authoritative)
+        const dbTickets = dbModule.tickets.list();
         
-        // Add additional context
-        data.source = 'database';
-        data.dbAvailable = true;
+        // Get running sessions from DB (replaces devStatus.in_progress)
+        const runningSessions = dbModule.sessions.getRunning();
+        const stalledSessions = dbModule.sessions.getStalled();
+        
+        // Build devStatus from DB sessions
+        const devStatus = {
+          in_progress: runningSessions.map(s => ({
+            ticket_id: s.ticket_id,
+            branch: s.worktree_path ? `agent/${s.ticket_id.toLowerCase()}` : 'unknown',
+            started_at: s.started_at,
+            session_id: s.id
+          })),
+          completed: [], // Completion is tracked via ticket.status, not a separate list
+          stalled: stalledSessions.map(s => ({
+            ticket_id: s.ticket_id,
+            session_id: s.id,
+            last_heartbeat: s.last_heartbeat
+          })),
+          regression_results: readJSON('dev-status.json')?.regression_results || {}
+        };
+        
+        // Get active file locks from DB
+        const activeLocks = dbModule.locks.getActive();
+        
+        const data = {
+          findings: readJSON('findings.json'),
+          decisions: readJSON('decisions.json'),
+          tickets: { tickets: dbTickets }, // Format expected by UI
+          summary: readJSON('findings-summary.json'),
+          devStatus: devStatus,
+          docStatus: readJSON('doc-status.json'),
+          featuresList,
+          agentOutputs,
+          staging: {
+            count: stagingCount,
+            bySeverity: stagingData?.summary || { critical: 0, high: 0, medium: 0, low: 0 }
+          },
+          // DB state info
+          activeLocks,
+          runningSessions,
+          source: 'database',
+          dbAvailable: true
+        };
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(data));
@@ -615,34 +827,10 @@ function handleAPI(req, res, body) {
       }
     }
     
-    // Auto-generate missing prompts on data load
-    const promptStats = generateMissingPrompts();
-    if (promptStats.created > 0) {
-      console.log(`📝 Generated ${promptStats.created} new prompts`);
-    }
-    // Scan features directory
-    const featuresDir = path.join(DOCS_DIR, 'features');
-    let featuresList = [];
-    try {
-      featuresList = scanFeaturesDir(featuresDir);
-    } catch (e) {
-      console.error('Error scanning features:', e.message);
-    }
-    
-    // Scan agent-output directories for per-agent files (auto-aggregation)
-    let agentOutputs = { reviews: [], completions: [], blocked: [], docTracker: [], started: [], findings: [], testLock: [] };
-    try {
-      agentOutputs = scanAgentOutputs();
-    } catch (e) {
-      console.error('Error scanning agent outputs:', e.message);
-    }
-    
-    // Build devStatus from actual output files (source of truth)
-    // This prevents race conditions where agents update dev-status.json on their branch
+    // JSON fallback (when DB not available or forced)
     let devStatus;
     try {
       devStatus = buildDevStatusFromOutputs(agentOutputs);
-      // Also load regression_results from dev-status.json (persisted test results)
       const savedDevStatus = readJSON('dev-status.json');
       if (savedDevStatus?.regression_results) {
         devStatus.regression_results = savedDevStatus.regression_results;
@@ -652,10 +840,6 @@ function handleAPI(req, res, body) {
       devStatus = readJSON('dev-status.json') || { in_progress: [], completed: [] };
     }
     
-    // Read staging data for Cleanup Agent UI
-    const stagingData = readJSON('findings-staging.json');
-    const stagingCount = stagingData?.findings?.length || 0;
-    
     const data = {
       findings: readJSON('findings.json'),
       decisions: readJSON('decisions.json'),
@@ -664,17 +848,14 @@ function handleAPI(req, res, body) {
       devStatus: devStatus,
       docStatus: readJSON('doc-status.json'),
       featuresList,
-      // Aggregated agent outputs (prevents race conditions with multiple agents)
       agentOutputs,
-      // Staging queue info for Cleanup Agent
       staging: {
         count: stagingCount,
         bySeverity: stagingData?.summary || { critical: 0, high: 0, medium: 0, low: 0 }
       },
-      // Database availability info
       source: 'json',
       dbAvailable: !!dbModule,
-      dbHint: dbModule ? 'Add ?source=db to use database' : 'Database not initialized. Run: cd scripts/db && npm install && npm run init'
+      dbHint: dbModule ? 'DB available - using as source of truth' : 'Database not initialized. Run: cd scripts/db && npm install && npm run init'
     };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));

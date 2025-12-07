@@ -4595,7 +4595,7 @@ pnpm build`}
     // ================= LAUNCH VIEW =================
     // All agent commands in one place
 
-    function LaunchView({ tickets, devStatus, docStatus, onSaveDevStatus, findings, serverDecisions, featuresList, agentOutputs }) {
+    function LaunchView({ tickets, devStatus, docStatus, onSaveDevStatus, findings, serverDecisions, featuresList, agentOutputs, activeLocks = [], dbMode = false }) {
       const [copied, setCopied] = useState(null);
       // Auto-expand testlock if there are completions to show
       const hasTestLockCompletions = (agentOutputs?.testLock || []).length > 0;
@@ -4683,10 +4683,17 @@ pnpm build`}
       );
       
       const lockedFiles = new Set();
-      // Add files from in-progress tickets
-      tickets.filter(t => inProgressTicketIds.has(t.id?.toUpperCase())).forEach(t => {
-        (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
-      });
+      
+      // When using DB, use activeLocks from file_locks table (authoritative)
+      if (dbMode && activeLocks.length > 0) {
+        activeLocks.forEach(lock => lockedFiles.add(lock.file_path));
+      } else {
+        // Fallback: compute from in-progress tickets
+        tickets.filter(t => inProgressTicketIds.has(t.id?.toUpperCase())).forEach(t => {
+          (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
+        });
+      }
+      
       // Add files from tickets in "for_review" status - they're not merged yet!
       tickets.filter(t => t.status === 'for_review').forEach(t => {
         (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
@@ -4720,10 +4727,10 @@ pnpm build`}
       const nextBatchIds = new Set(nextBatch.map(t => t.id));
       
       // DEBUG: Log conflict calculation
-      console.log('[LaunchView DEBUG v2]', {
+      console.log('[LaunchView DEBUG v3]', {
         totalReady: readyTickets.length,
-        completedCount: completedItems.length,
-        completedIds: [...completedTicketIds],
+        inProgressCount: inProgressItems.length,
+        inProgressIds: [...inProgressTicketIds],
         lockedFilesCount: lockedFiles.size,
         lockedFiles: [...lockedFiles].slice(0, 5),
         nextBatchCount: nextBatch.length,
@@ -5964,14 +5971,17 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
     function App() {
       const [view, setView] = useState('inbox');
       const [serverMode, setServerMode] = useState(false);
+      const [dbMode, setDbMode] = useState(false); // True when using DB as source of truth
       const [findings, setFindings] = useState([]);
       const [tickets, setTickets] = useState([]);
       const [featuresList, setFeaturesList] = useState([]);
-      const [devStatus, setDevStatus] = useState({ in_progress: [], completed: [] });
+      const [devStatus, setDevStatus] = useState({ in_progress: [], completed: [], stalled: [] });
       const [docStatus, setDocStatus] = useState({ features: {} });
-      const [agentOutputs, setAgentOutputs] = useState({ blocked: [], completions: [], started: [], findings: [], testLock: [] });
+      const [agentOutputs, setAgentOutputs] = useState({ blocked: [], completions: [], started: [], findings: [], testLock: [], qaResults: [] });
       const [serverDecisions, setServerDecisions] = useState(null);
       const [staging, setStaging] = useState({ count: 0, bySeverity: { critical: 0, high: 0, medium: 0, low: 0 } });
+      const [runningSessions, setRunningSessions] = useState([]); // From DB agent_sessions
+      const [activeLocks, setActiveLocks] = useState([]); // From DB file_locks
       const [loading, setLoading] = useState(true);
       const [lastRefresh, setLastRefresh] = useState(null);
 
@@ -5987,6 +5997,9 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
             throw new Error('Server not available');
           })
           .then(data => {
+            // Track if we're using DB as source of truth
+            setDbMode(data.source === 'database');
+            
             if (data.findings?.findings) {
               setFindings(data.findings.findings);
               FINDINGS_DATA = data.findings.findings;
@@ -6012,11 +6025,19 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
             if (data.staging) {
               setStaging(data.staging);
             }
+            // DB-specific data
+            if (data.runningSessions) {
+              setRunningSessions(data.runningSessions);
+            }
+            if (data.activeLocks) {
+              setActiveLocks(data.activeLocks);
+            }
             setLoading(false);
             setLastRefresh(new Date());
           })
           .catch(() => {
             setServerMode(false);
+            setDbMode(false);
             setLoading(false);
             console.log('Server not available, using fallback data');
           });
@@ -6175,6 +6196,8 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
                   serverDecisions={serverDecisions}
                   featuresList={featuresList}
                   agentOutputs={agentOutputs}
+                  activeLocks={activeLocks}
+                  dbMode={dbMode}
                 />}
               </>
             )}
