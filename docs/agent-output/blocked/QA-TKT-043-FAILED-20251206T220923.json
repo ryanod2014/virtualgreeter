@@ -1,0 +1,22 @@
+{
+  "ticket_id": "TKT-043",
+  "ticket_title": "Add Save/Error Notifications for Pool Management",
+  "branch": "agent/tkt-043",
+  "blocked_at": "2025-12-07T05:15:20Z",
+  "blocker_type": "qa_failure",
+  "summary": "Pre-existing TypeScript errors in widget and server packages block build verification",
+  "failures": [
+    {
+      "category": "build",
+      "check": "pnpm typecheck",
+      "error": "38 TypeScript errors in @ghost-greeter/widget test files (unrelated to TKT-043)"
+    },
+    {
+      "category": "build",
+      "check": "pnpm build",
+      "error": "25 TypeScript errors in @ghost-greeter/server test files (unrelated to TKT-043)"
+    }
+  ],
+  "recommendation": "Fix pre-existing TypeScript errors in widget and server test files, or implement selective typecheck/build for only affected packages (dashboard). The TKT-043 changes themselves are correctly implemented and meet all acceptance criteria.",
+  "dispatch_action": "create_continuation_ticket"
+}

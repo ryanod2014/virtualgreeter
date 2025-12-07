@@ -1,0 +1,22 @@
+{
+  "ticket_id": "TKT-015",
+  "ticket_title": "Secure Recording URLs with Signed Access",
+  "branch": "agent/tkt-015",
+  "blocked_at": "2025-12-06T22:01:15Z",
+  "blocker_type": "qa_failure",
+  "summary": "Build failure: TypeScript import paths missing .js extension",
+  "failures": [
+    {
+      "category": "build",
+      "check": "pnpm build",
+      "error": "src/features/recordings/getRecordingUrl.ts(1,26): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean '../../lib/supabase.js'?"
+    },
+    {
+      "category": "build",
+      "check": "pnpm build",
+      "error": "src/features/recordings/uploadRecording.ts(2,26): error TS2835: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean '../../lib/supabase.js'?"
+    }
+  ],
+  "recommendation": "Fix TypeScript import paths in getRecordingUrl.ts and uploadRecording.ts by adding .js extensions to relative imports. Change 'from \"../../lib/supabase\"' to 'from \"../../lib/supabase.js\"' in both files.",
+  "dispatch_action": "create_continuation_ticket"
+}

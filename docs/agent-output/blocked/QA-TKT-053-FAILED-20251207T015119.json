@@ -1,0 +1,40 @@
+{
+  "ticket_id": "TKT-053",
+  "ticket_title": "Handle Iframe Content in Co-Browse",
+  "branch": "agent/tkt-053",
+  "blocked_at": "2025-12-07T01:51:19Z",
+  "blocker_type": "qa_failure",
+  "summary": "Critical bugs in iframe matching logic cause unnamed iframes to be incorrectly treated as cross-origin",
+  "failures": [
+    {
+      "category": "acceptance",
+      "criterion": "AC1: Same-origin iframe content is visible in agent view",
+      "expected": "Iframes without src/name attributes should have content captured via srcdoc",
+      "actual": "find() returns undefined for iframes without src/name, falls through to cross-origin handler, shows placeholder instead of content",
+      "evidence": "useCobrowse.ts:101-113 - No position-based fallback despite comment claiming 'Match by src, name, or position'. If iframe has no src AND no name, originalIframe is undefined, causing contentDocument access to fail."
+    },
+    {
+      "category": "acceptance",
+      "criterion": "AC1: Same-origin iframe content is visible in agent view",
+      "expected": "Multiple iframes with same src should all have content captured",
+      "actual": "find() returns first match only, subsequent iframes with same src fall through to cross-origin handler",
+      "evidence": "useCobrowse.ts:101 - Array.find() returns first match only, no index tracking to distinguish duplicate iframes"
+    },
+    {
+      "category": "regression",
+      "criterion": "AC1: Same-origin iframe content is visible (partial)",
+      "expected": "All relative URLs in iframe content resolved to absolute URLs",
+      "actual": "Only img and link tags fixed, script/video/audio/embed tags NOT fixed, may fail to load resources",
+      "evidence": "useCobrowse.ts:130-151 - Only querySelectorAll('img') and querySelectorAll('link[rel=\"stylesheet\"]'), missing script[src], video[src], audio[src], embed[src]"
+    },
+    {
+      "category": "regression",
+      "criterion": "AC1: Resource loading in iframe content",
+      "expected": "Relative URLs should resolve from correct base path",
+      "actual": "Uses .origin which loses path information, relative URLs may resolve incorrectly",
+      "evidence": "useCobrowse.ts:128 - new URL(originalIframe.src).origin loses path, should use full originalIframe.src"
+    }
+  ],
+  "recommendation": "Fix iframe matching to use index-based fallback, add index tracking for duplicates, expand URL fixing to all resource tags, use full URL for base path",
+  "dispatch_action": "create_continuation_ticket"
+}

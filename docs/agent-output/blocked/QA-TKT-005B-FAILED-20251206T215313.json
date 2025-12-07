@@ -1,0 +1,22 @@
+{
+  "ticket_id": "TKT-005B",
+  "ticket_title": "Create Payment Failure Blocking Modal",
+  "branch": "agent/tkt-005b",
+  "blocked_at": "2025-12-07T05:01:22Z",
+  "blocker_type": "qa_failure",
+  "summary": "TypeScript compilation failures: missing 'past_due' property in SubscriptionStatus mappings",
+  "failures": [
+    {
+      "category": "build",
+      "check": "pnpm typecheck",
+      "error": "Property 'past_due' is missing in type '{ active: string; trialing: string; paused: string; cancelled: string; }' but required in type 'Record<SubscriptionStatus, string>' at organizations-client.tsx:88"
+    },
+    {
+      "category": "build",
+      "check": "pnpm typecheck",
+      "error": "Property 'past_due' is missing in type '{ active: string; trialing: string; paused: string; cancelled: string; }' but required in type 'Record<SubscriptionStatus, string>' at retargeting-client.tsx:39"
+    }
+  ],
+  "recommendation": "Add 'past_due' property to STATUS_COLORS constants in organizations-client.tsx and retargeting-client.tsx to match the updated SubscriptionStatus type definition",
+  "dispatch_action": "create_continuation_ticket"
+}
