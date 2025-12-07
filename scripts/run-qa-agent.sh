@@ -205,8 +205,12 @@ fi
 
 print_info "Launching Claude Code in tmux: $SESSION_NAME"
 
+# Write prompt to file (avoids quoting issues)
+PROMPT_FILE="$LOG_DIR/qa-$TICKET_UPPER-prompt.txt"
+echo "$CLAUDE_PROMPT" > "$PROMPT_FILE"
+
 tmux new-session -d -s "$SESSION_NAME" \
-    "cd '$WORKTREE_DIR' && echo '=== QA Agent: $TICKET_UPPER ===' && echo 'Worktree: $WORKTREE_DIR' && echo 'Branch: $BRANCH' && echo '' && claude --dangerously-skip-permissions -p \"$CLAUDE_PROMPT\" 2>&1 | tee '$LOG_FILE'; echo ''; echo '=== QA Complete ==='; echo 'Report: $QA_RESULTS_DIR/QA-$TICKET_UPPER-*.md'; echo 'Press Enter to close...'; read"
+    "cd '$WORKTREE_DIR' && echo '=== QA Agent: $TICKET_UPPER ===' && echo 'Worktree: $WORKTREE_DIR' && echo 'Branch: $BRANCH' && echo '' && cat '$PROMPT_FILE' | claude --dangerously-skip-permissions > '$LOG_FILE' 2>&1; echo ''; echo '=== QA Complete ==='; cat '$LOG_FILE' | tail -50; echo ''; echo 'Full log: $LOG_FILE'; echo 'Report: $QA_RESULTS_DIR/QA-$TICKET_UPPER-*.md'; echo 'Press Enter to close...'; read"
 
 print_success "QA Agent launched: $SESSION_NAME"
 echo ""
