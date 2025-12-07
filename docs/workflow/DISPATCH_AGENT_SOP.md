@@ -135,7 +135,7 @@ Read the blocker JSON:
 [Original files_to_modify]
 ```
 
-2. Update ticket in `tickets.json`: set `status: "in_progress"`
+2. Update ticket in `tickets.json`: set `status: "ready"` (so it shows in Launch view)
 3. Archive blocker: `mv docs/agent-output/blocked/QA-*.json docs/agent-output/archive/`
 4. Log: `"Auto-created TKT-XXX-v2 for QA rework"`
 
@@ -213,7 +213,7 @@ CI tests failed with [X] regressions outside your ticket scope.
 [Original files + regression test files]
 ```
 
-2. Update ticket in `tickets.json`: set `status: "in_progress"`
+2. Update ticket in `tickets.json`: set `status: "ready"` (so it shows in Launch view)
 3. Archive blocker: `mv docs/agent-output/blocked/CI-TKT-*.json docs/agent-output/archive/`
 4. Log: `"Auto-created TKT-XXX-v2 for regression fix"`
 
