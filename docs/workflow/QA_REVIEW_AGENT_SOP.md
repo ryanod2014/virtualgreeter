@@ -398,7 +398,11 @@ git push origin main
 
 #### If BLOCKED:
 
-**Create file:** `docs/agent-output/blocked/QA-[TICKET-ID]-FAILED-[timestamp].json`
+> **CRITICAL:** You MUST create BOTH files below. The blocker JSON is required for the Dispatch Agent to auto-create continuation tickets.
+
+**1. Create blocker JSON (for Dispatch Agent):**
+
+**File:** `docs/agent-output/blocked/QA-[TICKET-ID]-FAILED-[timestamp].json`
 
 ```json
 {
@@ -422,7 +426,7 @@ git push origin main
 }
 ```
 
-**Then create human-readable report:**
+**2. Create human-readable report (for human review):**
 
 **File:** `docs/agent-output/qa-results/QA-[TICKET-ID]-FAILED-[timestamp].md`
 

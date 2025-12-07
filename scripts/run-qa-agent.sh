@@ -151,13 +151,17 @@ $AC
 
 3. **Verify each acceptance criterion**
 
-4. **Write your QA report to the MAIN REPO:**
-   - If PASS: $QA_RESULTS_DIR/QA-$TICKET_UPPER-PASSED-$TIMESTAMP.md
-   - If FAIL: $QA_RESULTS_DIR/QA-$TICKET_UPPER-FAILED-$TIMESTAMP.md
+4. **If PASS - Write report to MAIN REPO:**
+   - File: $QA_RESULTS_DIR/QA-$TICKET_UPPER-PASSED-$TIMESTAMP.md
+   - Include the selective merge command (see below)
 
-5. **DO NOT modify any files in the main repo except your QA report**
+5. **If FAIL - Create BOTH files in MAIN REPO:**
+   - Blocker JSON: $MAIN_REPO/docs/agent-output/blocked/QA-$TICKET_UPPER-FAILED-$TIMESTAMP.json
+   - Report MD: $QA_RESULTS_DIR/QA-$TICKET_UPPER-FAILED-$TIMESTAMP.md
 
-6. **If tests PASS, include this merge command in your report:**
+6. **DO NOT modify any files in the main repo except your QA outputs**
+
+7. **If tests PASS, include this merge command in your report:**
    \`\`\`bash
    cd $MAIN_REPO
    git fetch origin main
@@ -169,6 +173,28 @@ $AC
    git commit -m 'feat: $TICKET_UPPER - $TITLE'
    git push origin main
    \`\`\`
+
+## If FAILED - Blocker JSON Template:
+
+\`\`\`json
+{
+  \"ticket_id\": \"$TICKET_UPPER\",
+  \"ticket_title\": \"$TITLE\",
+  \"branch\": \"$BRANCH\",
+  \"blocked_at\": \"[ISO timestamp]\",
+  \"blocker_type\": \"qa_failure\",
+  \"summary\": \"[One-line summary of failure]\",
+  \"failures\": [
+    {
+      \"category\": \"build|acceptance|regression|browser\",
+      \"check\": \"[Which check failed]\",
+      \"error\": \"[Error message]\"
+    }
+  ],
+  \"recommendation\": \"[What needs to be fixed]\",
+  \"dispatch_action\": \"create_continuation_ticket\"
+}
+\`\`\`
 
 ## Report Template:
 
