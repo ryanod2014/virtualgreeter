@@ -3347,16 +3347,15 @@ pnpm build`}
         !ciBlockerTicketIds.has((c.ticket_id || '').toUpperCase())
       );
       
-      // Ready = status is 'ready' AND not in dev-status completed/in_progress
+      // Ready = status is 'ready' in tickets.json (source of truth)
+      // Only filter by in_progress (actively being worked on now)
       const readyTickets = tickets.filter(t => 
         t.status === 'ready' && 
-        !completedTicketIds.has(t.id?.toUpperCase()) && 
         !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
-      // Pending tickets = NOT in progress or completed (for All Tickets tab)
+      // Pending tickets = NOT in progress (for All Tickets tab)
       const pendingTickets = tickets.filter(t => 
-        !completedTicketIds.has(t.id?.toUpperCase()) && 
         !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
@@ -4671,15 +4670,15 @@ pnpm build`}
       
       // Ticket calculations
       const inProgressItems = devStatus?.in_progress || [];
-      const completedItems = devStatus?.completed || [];
       // Normalize to uppercase for case-insensitive matching
       const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id?.toUpperCase()));
-      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id?.toUpperCase()));
       
-      // Ready = status is 'ready' AND not in dev-status completed/in_progress
+      // Ready = status is 'ready' in tickets.json (source of truth)
+      // NOTE: We no longer filter by completed - if a ticket's status is "ready", 
+      // it means it needs dev work (e.g., v2 rework after QA failure)
+      // Only filter by in_progress (currently actively being worked on)
       const readyTickets = tickets.filter(t => 
         t.status === 'ready' && 
-        !completedTicketIds.has(t.id?.toUpperCase()) && 
         !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
@@ -4688,8 +4687,8 @@ pnpm build`}
       tickets.filter(t => inProgressTicketIds.has(t.id?.toUpperCase())).forEach(t => {
         (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
       });
-      // Add files from completed (for review) tickets - they're not merged yet!
-      tickets.filter(t => completedTicketIds.has(t.id?.toUpperCase())).forEach(t => {
+      // Add files from tickets in "for_review" status - they're not merged yet!
+      tickets.filter(t => t.status === 'for_review').forEach(t => {
         (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
       });
       
@@ -6124,13 +6123,12 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
               <button className={`nav-item ${view === 'launch' ? 'active' : ''}`} onClick={() => setView('launch')}>
                 <Icons.launch /> Launch
                 {(() => {
-                  // Calculate launchable tickets (ready, not in progress, not completed)
+                  // Calculate launchable tickets (ready in tickets.json, not actively in progress)
+                  // tickets.json status is source of truth - if status is "ready", it needs dev work
                   const inProgressIds = new Set((devStatus?.in_progress || []).map(i => i.ticket_id?.toUpperCase()));
-                  const completedIds = new Set((devStatus?.completed || []).map(c => c.ticket_id?.toUpperCase()));
-                  const launchableCount = tickets.filter(t => 
-                    t.status === 'ready' && 
-                    !inProgressIds.has(t.id?.toUpperCase()) && 
-                    !completedIds.has(t.id?.toUpperCase())
+                  const launchableCount = tickets.filter(t =>
+                    t.status === 'ready' &&
+                    !inProgressIds.has(t.id?.toUpperCase())
                   ).length;
                   return launchableCount > 0 && (
                     <span style={{ marginLeft: '6px', padding: '2px 6px', background: 'var(--accent)', color: 'white', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>

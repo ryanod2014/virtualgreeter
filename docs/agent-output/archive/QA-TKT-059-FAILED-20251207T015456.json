@@ -1,0 +1,41 @@
+{
+  "ticket_id": "TKT-059",
+  "ticket_title": "Cancelled Calls Have No Audit Trail",
+  "branch": "agent/tkt-059",
+  "blocked_at": "2025-12-07T01:56:22Z",
+  "blocker_type": "qa_failure",
+  "summary": "Missing database migration: CHECK constraint rejects status='cancelled'",
+  "failures": [
+    {
+      "category": "database_schema",
+      "criterion": "Database schema must support cancelled status",
+      "expected": "Database CHECK constraint allows status IN ('pending', 'accepted', 'rejected', 'completed', 'missed', 'cancelled')",
+      "actual": "CHECK constraint only allows status IN ('pending', 'accepted', 'rejected', 'completed', 'missed') - will reject 'cancelled' with constraint violation",
+      "evidence": "File: supabase/migrations/20251125200000_initial_schema.sql:107\nCurrent: CHECK (status IN ('pending', 'accepted', 'rejected', 'completed', 'missed'))\nNo migration exists to add 'cancelled' to this constraint.\nCode attempts to UPDATE with status='cancelled' at:\n- apps/server/src/lib/call-logger.ts:319\n- Called from socket-handlers.ts:391 and redis-socket-handlers.ts:357"
+    },
+    {
+      "category": "acceptance",
+      "criterion": "Issue described in F-025 is resolved",
+      "expected": "Cancelled calls preserved in database with status='cancelled'",
+      "actual": "Code change correct but runtime will fail - database constraint violation prevents UPDATE, original bug persists",
+      "evidence": "TypeScript code correctly updated (call-logger.ts:11, 319-321) but cannot execute successfully without database migration"
+    },
+    {
+      "category": "test_coverage",
+      "criterion": "Change is tested and verified",
+      "expected": "Unit tests verify markCallCancelled creates cancelled records",
+      "actual": "No unit tests exist for call-logger.ts, no tests added for this ticket",
+      "evidence": "No file exists at apps/server/src/lib/call-logger.test.ts\nCannot verify fix without database migration anyway"
+    }
+  ],
+  "recommendation": "Create continuation ticket to: (1) Add database migration to update CHECK constraint, (2) Add unit tests for call-logger.ts, (3) Verify full integration with actual database",
+  "required_fixes": [
+    "Add migration: supabase/migrations/YYYYMMDDHHMMSS_add_cancelled_status.sql to ALTER CHECK constraint",
+    "Add unit tests in apps/server/src/lib/call-logger.test.ts",
+    "Test with actual Supabase database to verify constraint accepts 'cancelled'",
+    "Consider making markCallCancelled return Promise<boolean> so callers can handle errors"
+  ],
+  "severity": "critical",
+  "estimated_fix_time_minutes": 30,
+  "dispatch_action": "create_continuation_ticket"
+}

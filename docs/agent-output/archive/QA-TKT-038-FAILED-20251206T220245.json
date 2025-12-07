@@ -1,0 +1,17 @@
+{
+  "ticket_id": "TKT-038",
+  "ticket_title": "Add Delete Confirmation for Pools",
+  "branch": "agent/tkt-038",
+  "blocked_at": "2025-12-06T22:21:00Z",
+  "blocker_type": "qa_failure",
+  "summary": "Build fails due to pre-existing type error in workbench-client.tsx",
+  "failures": [
+    {
+      "category": "build",
+      "check": "pnpm build",
+      "error": "Type error in workbench-client.tsx:38:81 - RecordingSettings type missing rna_timeout_seconds and max_call_duration_minutes properties"
+    }
+  ],
+  "recommendation": "This is a pre-existing issue not introduced by TKT-038. The TKT-038 implementation (DeletePoolModal and pools-client changes) is correct and meets all acceptance criteria. Fix the workbench-client.tsx type error, or use selective merge to cherry-pick only TKT-038 files.",
+  "dispatch_action": "create_continuation_ticket"
+}
