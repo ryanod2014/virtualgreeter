@@ -3416,6 +3416,21 @@ pnpm build`}
                 </div>
               )}
             </div>
+            <div 
+              className="card" 
+              onClick={() => setPipelineTab('merged')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer',
+                borderLeft: (devStatus?.merged || []).length > 0 ? '4px solid #22c55e' : '4px solid var(--border)',
+                background: pipelineTab === 'merged' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ fontSize: '24px', fontWeight: 700, color: (devStatus?.merged || []).length > 0 ? '#22c55e' : 'var(--text-muted)' }}>
+                {(devStatus?.merged || []).length}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Merged</div>
+            </div>
           </div>
           
           {/* Tab Navigation */}
@@ -3426,6 +3441,7 @@ pnpm build`}
               { id: 'progress', label: 'In Progress', count: activeInProgressItems.length, color: 'var(--success)' },
               { id: 'blocked', label: 'Blocked', count: blockedItems.length, color: 'var(--critical)' },
               { id: 'review', label: 'For Review', count: completedItemsForReview.length, color: 'var(--success)', ciBlocked: ciBlockers.length },
+              { id: 'merged', label: 'Merged', count: (devStatus?.merged || []).length, color: '#22c55e' },
               { id: 'qa', label: 'QA Ready', count: Object.values(regressionStatus).filter(r => r.passed).length, color: '#a78bfa' }
             ].map(tab => (
               <button
@@ -4275,6 +4291,128 @@ pnpm build`}
                   )}
                 </div>
               ) : null}
+            </div>
+          )}
+          
+          {/* MERGED TAB */}
+          {pipelineTab === 'merged' && (
+            <div className="fade-in">
+              {(() => {
+                const mergedItems = devStatus?.merged || [];
+                
+                if (mergedItems.length === 0) {
+                  return (
+                    <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                      <div style={{ marginBottom: '16px', fontSize: '48px' }}>🎉</div>
+                      <div style={{ fontSize: '18px', fontWeight: 500 }}>No tickets have been merged yet</div>
+                      <div style={{ fontSize: '14px', marginTop: '8px' }}>
+                        Tickets that pass QA and get merged to main will appear here
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div>
+                    <div style={{ 
+                      padding: '16px 20px', 
+                      background: 'rgba(34,197,94,0.1)', 
+                      borderRadius: '12px', 
+                      marginBottom: '20px',
+                      border: '1px solid rgba(34,197,94,0.2)'
+                    }}>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        🎉 {mergedItems.length} ticket{mergedItems.length > 1 ? 's' : ''} QA'd and merged to main
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        These tickets have passed QA testing and are now in production.
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {mergedItems.map(item => {
+                        const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
+                        return (
+                          <div 
+                            key={item.ticket_id} 
+                            className="card"
+                            style={{ 
+                              borderLeft: '4px solid #22c55e',
+                              padding: '16px'
+                            }}
+                          >
+                            {/* Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                  <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.ticket_id}</code>
+                                  <span className="badge" style={{ color: '#22c55e', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>✅ Merged</span>
+                                  {ticket && <span className={`badge badge-${ticket.priority}`}>{ticket.priority}</span>}
+                                </div>
+                                <div style={{ fontSize: '16px', fontWeight: 600 }}>{ticket?.title || 'Unknown Ticket'}</div>
+                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{ticket?.feature || ''}</div>
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'right' }}>
+                                <div>Merged: {item.merged_at ? new Date(item.merged_at).toLocaleDateString() : 'Unknown'}</div>
+                                <div style={{ color: '#22c55e' }}>Branch: {item.branch}</div>
+                              </div>
+                            </div>
+                            
+                            {/* QA Summary */}
+                            {item.report_summary && (
+                              <div style={{ 
+                                padding: '12px', 
+                                background: 'rgba(34,197,94,0.05)', 
+                                borderRadius: '8px',
+                                marginBottom: '12px',
+                                fontSize: '13px',
+                                color: 'var(--text-secondary)'
+                              }}>
+                                <div style={{ fontWeight: 600, marginBottom: '4px', color: '#22c55e' }}>📋 QA Summary</div>
+                                {item.report_summary}
+                              </div>
+                            )}
+                            
+                            {/* Test Results & Acceptance Criteria */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                              {/* Tests */}
+                              {item.test_results && item.test_results.length > 0 && (
+                                <div style={{ fontSize: '12px' }}>
+                                  <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--text-muted)' }}>Tests</div>
+                                  {item.test_results.map((t, i) => (
+                                    <div key={i} style={{ color: t.includes('✅') ? '#22c55e' : t.includes('❌') ? 'var(--critical)' : 'var(--text-secondary)', marginBottom: '2px' }}>
+                                      {t}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Acceptance Criteria */}
+                              {item.acceptance_criteria && item.acceptance_criteria.length > 0 && (
+                                <div style={{ fontSize: '12px' }}>
+                                  <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--text-muted)' }}>Acceptance Criteria</div>
+                                  {item.acceptance_criteria.map((c, i) => (
+                                    <div key={i} style={{ color: c.includes('✅') ? '#22c55e' : c.includes('❌') ? 'var(--critical)' : 'var(--text-secondary)', marginBottom: '2px' }}>
+                                      {c}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Report Link */}
+                            {item.qa_report && (
+                              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)', fontSize: '11px', color: 'var(--text-muted)' }}>
+                                📄 Full report: <code>{item.qa_report}</code>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
           
