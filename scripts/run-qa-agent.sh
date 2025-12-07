@@ -236,7 +236,7 @@ PROMPT_FILE="$LOG_DIR/qa-$TICKET_UPPER-prompt.txt"
 echo "$CLAUDE_PROMPT" > "$PROMPT_FILE"
 
 tmux new-session -d -s "$SESSION_NAME" \
-    "cd '$WORKTREE_DIR' && echo '=== QA Agent: $TICKET_UPPER ===' && echo 'Worktree: $WORKTREE_DIR' && echo 'Branch: $BRANCH' && echo '' && cat '$PROMPT_FILE' | claude --dangerously-skip-permissions > '$LOG_FILE' 2>&1; echo ''; echo '=== QA Complete ==='; cat '$LOG_FILE' | tail -50; echo ''; echo 'Full log: $LOG_FILE'; echo 'Report: $QA_RESULTS_DIR/QA-$TICKET_UPPER-*.md'; echo 'Press Enter to close...'; read"
+    "cd '$WORKTREE_DIR' && echo '=== QA Agent: $TICKET_UPPER ===' && echo 'Worktree: $WORKTREE_DIR' && echo 'Branch: $BRANCH' && echo '' && cat '$PROMPT_FILE' | claude --dangerously-skip-permissions > '$LOG_FILE' 2>&1; echo '=== QA Complete ===' >> '$LOG_FILE'"
 
 print_success "QA Agent launched: $SESSION_NAME"
 echo ""
