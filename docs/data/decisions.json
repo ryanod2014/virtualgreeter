@@ -649,7 +649,7 @@
     },
     {
       "finding_id": "F-043",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -724,7 +724,7 @@
     },
     {
       "finding_id": "F-051",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -738,15 +738,15 @@
         }
       ],
       "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "i think we already have a ticket for this",
-        "timestamp": "2025-12-05T02:14:07.150Z"
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-06T21:04:20.597Z"
       }
     },
     {
       "finding_id": "F-052",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -760,10 +760,10 @@
         }
       ],
       "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "i think we already have a ticket for this",
-        "timestamp": "2025-12-05T02:14:27.136Z"
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-06T21:04:27.562Z"
       }
     },
     {
@@ -900,7 +900,7 @@
     },
     {
       "finding_id": "F-065",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -968,7 +968,7 @@
     },
     {
       "finding_id": "F-071",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -982,10 +982,10 @@
         }
       ],
       "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "already have a ticket i think",
-        "timestamp": "2025-12-05T02:18:03.876Z"
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-06T21:04:30.625Z"
       }
     },
     {
@@ -5973,28 +5973,6 @@
       "decision": null
     },
     {
-      "finding_id": "BLOCKED-TKT-063-1",
-      "status": "resolved",
-      "messages": [],
-      "decision": {
-        "option_id": 3,
-        "option_label": "Document trade-offs only — Add analysis to widget-settings.md explaining the 5-minute choice, trade-offs, and when to reconsider. No code changes needed.",
-        "recommended": true,
-        "timestamp": "2025-12-06T10:45:42.123Z"
-      }
-    },
-    {
-      "finding_id": "BLOCKED-TKT-064-1",
-      "status": "resolved",
-      "messages": [],
-      "decision": {
-        "option_id": "skip",
-        "option_label": "Won't fix - acceptable risk",
-        "recommended": false,
-        "timestamp": "2025-12-06T10:47:54.555Z"
-      }
-    },
-    {
       "finding_id": "BLOCKED-TKT-042-1",
       "status": "in_discussion",
       "messages": [
@@ -6012,7 +5990,359 @@
       }
     },
     {
+      "finding_id": "BLOCKED-TKT-064-1",
+      "status": "resolved",
+      "messages": [],
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix - acceptable risk",
+        "recommended": false,
+        "timestamp": "2025-12-06T10:47:54.555Z"
+      }
+    },
+    {
+      "finding_id": "BLOCKED-TKT-063-1",
+      "status": "resolved",
+      "messages": [],
+      "decision": {
+        "option_id": 3,
+        "option_label": "Document trade-offs only — Add analysis to widget-settings.md explaining the 5-minute choice, trade-offs, and when to reconsider. No code changes needed.",
+        "recommended": true,
+        "timestamp": "2025-12-06T10:45:42.123Z"
+      }
+    },
+    {
       "finding_id": "CI-TKT-006",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-SEC-001-FAILED-20251206T211532",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-003-FAILED-20251206T211538",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-007-FAILED-20251206T211556",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-003-FAILED-20251207T011248",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-004B-FAILED-20251206T215253",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-004d-FAILED-20251207T011621",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-005B-FAILED-20251206T215313",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-005b-FAILED-20251207T011936",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-005e-FAILED-20251207T012214",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-010-FAILED-20251207T012516",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-011-FAILED-20251207T021500",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-014-FAILED-20251207T030000",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-015-FAILED-20251206T220115",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-016-FAILED-20251207T012942",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-017-FAILED-20251207T013500",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-018-FAILED-20251207T013008",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-022-FAILED-20251207T013228",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-034-FAILED-20251207T013812",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-038-FAILED-20251206T220245",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-043-FAILED-20251206T220923",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-043-FAILED-20251207T013938",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-045-FAILED-20251207T014050",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-051-FAILED-20251206T222002",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-053-FAILED-20251207T015119",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-059-FAILED-20251206T223702",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-059-FAILED-20251207T015456",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-060-FAILED-20251207T020312",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-061-FAILED-20251206T224059",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-063-FAILED-20251206T224523",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "QA-TKT-064-FAILED-20251206T224812",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "SEC-001",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-003",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-004B",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-004D",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-005B",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-005E",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-006",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-007",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-010",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-011",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-014",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-015",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-016",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-017",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-018",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-022",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-034",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-038",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-043",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-045",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-051",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-053",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-059",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-060",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-061",
       "status": "pending",
       "messages": [],
       "decision": null

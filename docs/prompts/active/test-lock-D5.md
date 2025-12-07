@@ -50,3 +50,4 @@ Widget Settings allows admins to configure the appearance and behavior of the vi
 - `apps/server/src/lib/widget-settings.test.ts`
 - Completion report: `docs/agent-output/test-lock/D5-[TIMESTAMP].md`
 
+

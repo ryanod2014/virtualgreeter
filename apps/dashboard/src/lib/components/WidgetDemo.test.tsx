@@ -663,3 +663,4 @@ describe("WidgetDemo - Phase Captions", () => {
     expect(getCaptionForPhase("reset")).toBe("");
   });
 });
+

@@ -1,0 +1,70 @@
+You are a QA Review Agent testing ticket TKT-016.
+
+## Ticket: WebRTC ICE Restart on Connection Failure
+## Branch: agent/tkt-016-webrtc-ice-restart
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-016
+
+## Acceptance Criteria:
+- ICE failure triggers automatic restart attempt
+- Up to 3 restart attempts before showing error
+- User sees 'Reconnecting...' status during attempts
+- If all attempts fail, graceful error message shown
+- Reconnection events logged for debugging
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-016
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-016
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **Write your QA report to the MAIN REPO:**
+   - If PASS: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-016-PASSED-20251206T211602.md
+   - If FAIL: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-016-FAILED-20251206T211602.md
+
+5. **DO NOT modify any files in the main repo except your QA report**
+
+6. **If tests PASS, include this merge command in your report:**
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   # Cherry-pick ONLY the ticket's files:
+   git checkout origin/agent/tkt-016-webrtc-ice-restart -- apps/dashboard/src/features/call/useWebRTC.ts apps/widget/src/features/call/useWebRTC.ts apps/server/src/features/signaling/handleIceRestart.ts
+   git add apps/dashboard/src/features/call/useWebRTC.ts apps/widget/src/features/call/useWebRTC.ts apps/server/src/features/signaling/handleIceRestart.ts
+   git commit -m 'feat: TKT-016 - WebRTC ICE Restart on Connection Failure'
+   git push origin main
+   ```
+
+## Report Template:
+
+# QA Review: TKT-016
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** TKT-016 - WebRTC ICE Restart on Connection Failure
+**Branch:** agent/tkt-016-webrtc-ice-restart
+**Tested:** 2025-12-06
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

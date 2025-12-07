@@ -122,3 +122,4 @@ expect(confirmLabel).toBeInTheDocument();
 **The test file must pass `pnpm test` on first try without any manual fixes.**
 
 If tests fail due to selector issues, the SOP needs updating before running more batches.
+

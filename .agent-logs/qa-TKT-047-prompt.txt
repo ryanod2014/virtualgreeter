@@ -1,0 +1,95 @@
+You are a QA Review Agent testing ticket TKT-047.
+
+## Ticket: Handle Missing User Profile Row
+## Branch: agent/tkt-047
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-047
+
+## Acceptance Criteria:
+- User with no profile row sees clear error message
+- Error suggests contacting support
+- Orphaned user is logged for admin investigation
+- Normal users unaffected
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-047
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-047
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **If PASS - Write report to MAIN REPO:**
+   - File: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-047-PASSED-20251206T221209.md
+   - Include the selective merge command (see below)
+
+5. **If FAIL - Create BOTH files in MAIN REPO:**
+   - Blocker JSON: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-047-FAILED-20251206T221209.json
+   - Report MD: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-047-FAILED-20251206T221209.md
+
+6. **DO NOT modify any files in the main repo except your QA outputs**
+
+7. **If tests PASS, include this merge command in your report:**
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   # Cherry-pick ONLY the ticket's files:
+   git checkout origin/agent/tkt-047 -- apps/dashboard/middleware.ts apps/dashboard/src/lib/auth.ts
+   git add apps/dashboard/middleware.ts apps/dashboard/src/lib/auth.ts
+   git commit -m 'feat: TKT-047 - Handle Missing User Profile Row'
+   git push origin main
+   ```
+
+## If FAILED - Blocker JSON Template:
+
+```json
+{
+  "ticket_id": "TKT-047",
+  "ticket_title": "Handle Missing User Profile Row",
+  "branch": "agent/tkt-047",
+  "blocked_at": "[ISO timestamp]",
+  "blocker_type": "qa_failure",
+  "summary": "[One-line summary of failure]",
+  "failures": [
+    {
+      "category": "build|acceptance|regression|browser",
+      "check": "[Which check failed]",
+      "error": "[Error message]"
+    }
+  ],
+  "recommendation": "[What needs to be fixed]",
+  "dispatch_action": "create_continuation_ticket"
+}
+```
+
+## Report Template:
+
+# QA Review: TKT-047
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** TKT-047 - Handle Missing User Profile Row
+**Branch:** agent/tkt-047
+**Tested:** 2025-12-06
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

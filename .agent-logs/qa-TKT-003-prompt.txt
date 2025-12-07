@@ -1,0 +1,68 @@
+You are a QA Review Agent testing ticket TKT-003.
+
+## Ticket: Update Cancellation Data Deletion Copy
+## Branch: agent/TKT-003-cancel-copy
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-003
+
+## Acceptance Criteria:
+- Cancel modal shows updated retention language
+- No mention of 'immediate' or 'permanent' deletion
+- Modal text matches exact copy provided in fix_required
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-003
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-003
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **Write your QA report to the MAIN REPO:**
+   - If PASS: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-003-PASSED-20251206T211538.md
+   - If FAIL: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-003-FAILED-20251206T211538.md
+
+5. **DO NOT modify any files in the main repo except your QA report**
+
+6. **If tests PASS, include this merge command in your report:**
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   # Cherry-pick ONLY the ticket's files:
+   git checkout origin/agent/TKT-003-cancel-copy -- apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx
+   git add apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx
+   git commit -m 'feat: TKT-003 - Update Cancellation Data Deletion Copy'
+   git push origin main
+   ```
+
+## Report Template:
+
+# QA Review: TKT-003
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** TKT-003 - Update Cancellation Data Deletion Copy
+**Branch:** agent/TKT-003-cancel-copy
+**Tested:** 2025-12-06
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

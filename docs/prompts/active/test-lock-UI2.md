@@ -106,3 +106,4 @@ Admin settings client components handle organization configuration: billing, rec
 - [ ] One behavior per `it()` block
 - [ ] Test Display, Actions, and Edge Cases
 - [ ] All tests PASS (they test current behavior)
+

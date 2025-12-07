@@ -51,3 +51,4 @@ Error tracking is primarily configuration. Tests should verify config values and
 - `apps/server/sentry.server.config.test.ts`
 - Completion report: `docs/agent-output/test-lock/M2-[TIMESTAMP].md`
 
+

@@ -678,3 +678,4 @@ describe("HealthResult structure", () => {
     }
   });
 });
+

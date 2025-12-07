@@ -115,3 +115,4 @@ These components handle the core real-time functionality: socket connections, da
 - [ ] One behavior per `it()` block
 - [ ] Test Display, Actions, and Edge Cases
 - [ ] All tests PASS (they test current behavior)
+

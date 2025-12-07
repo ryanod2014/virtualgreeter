@@ -51,3 +51,4 @@ Payment Failure handles what happens when a customer's payment fails. The system
 - `apps/dashboard/src/components/PaymentBlocker.test.tsx` (if exists)
 - Completion report: `docs/agent-output/test-lock/B6-[TIMESTAMP].md`
 
+

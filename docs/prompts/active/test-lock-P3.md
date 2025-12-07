@@ -101,3 +101,4 @@ Check existing tests in `pool-manager.test.ts`. Add any missing behaviors:
 - [ ] Tests PASS (they test current behavior)
 - [ ] Followed existing mock patterns from existing tests
 
+

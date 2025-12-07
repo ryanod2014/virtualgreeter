@@ -95,3 +95,4 @@ Email/password login using Supabase authentication, including form validation, s
 - [ ] Followed existing mock patterns
 - [ ] Specific test names (not "works correctly")
 
+

@@ -51,3 +51,4 @@ Invite Accept handles the flow when an invited user clicks their invite link and
 - `apps/dashboard/src/app/(auth)/invite/[token]/page.test.tsx`
 - Completion report: `docs/agent-output/test-lock/AUTH3-[TIMESTAMP].md`
 
+

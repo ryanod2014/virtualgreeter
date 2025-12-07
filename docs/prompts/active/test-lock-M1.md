@@ -47,3 +47,4 @@ This feature is primarily external configuration (Better Uptime). Focus on the h
 - `apps/server/src/lib/health.test.ts`
 - Completion report: `docs/agent-output/test-lock/M1-[TIMESTAMP].md`
 
+

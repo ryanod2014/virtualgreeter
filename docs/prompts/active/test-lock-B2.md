@@ -98,3 +98,4 @@ Seat management enables admins to add and remove agent seats with automatic Stri
 - [ ] Followed existing mock patterns
 - [ ] Specific test names (not "works correctly")
 
+

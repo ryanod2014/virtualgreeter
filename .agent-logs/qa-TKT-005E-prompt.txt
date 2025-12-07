@@ -1,0 +1,95 @@
+You are a QA Review Agent testing ticket TKT-005E.
+
+## Ticket: Force Agents Offline on Payment Failure
+## Branch: agent/tkt-005e
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-005E
+
+## Acceptance Criteria:
+- All agents forced offline when org status becomes past_due
+- Agents cannot toggle to 'available' while past_due
+- Widget shows 'no agents available' for past_due orgs
+- When payment resolved, agents can go available again
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-005E
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-005E
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **If PASS - Write report to MAIN REPO:**
+   - File: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-005E-PASSED-20251206T224832.md
+   - Include the selective merge command (see below)
+
+5. **If FAIL - Create BOTH files in MAIN REPO:**
+   - Blocker JSON: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-005E-FAILED-20251206T224832.json
+   - Report MD: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-005E-FAILED-20251206T224832.md
+
+6. **DO NOT modify any files in the main repo except your QA outputs**
+
+7. **If tests PASS, include this merge command in your report:**
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   # Cherry-pick ONLY the ticket's files:
+   git checkout origin/agent/tkt-005e -- apps/server/src/features/agents/agentStatus.ts apps/widget/src/Widget.tsx
+   git add apps/server/src/features/agents/agentStatus.ts apps/widget/src/Widget.tsx
+   git commit -m 'feat: TKT-005E - Force Agents Offline on Payment Failure'
+   git push origin main
+   ```
+
+## If FAILED - Blocker JSON Template:
+
+```json
+{
+  "ticket_id": "TKT-005E",
+  "ticket_title": "Force Agents Offline on Payment Failure",
+  "branch": "agent/tkt-005e",
+  "blocked_at": "[ISO timestamp]",
+  "blocker_type": "qa_failure",
+  "summary": "[One-line summary of failure]",
+  "failures": [
+    {
+      "category": "build|acceptance|regression|browser",
+      "check": "[Which check failed]",
+      "error": "[Error message]"
+    }
+  ],
+  "recommendation": "[What needs to be fixed]",
+  "dispatch_action": "create_continuation_ticket"
+}
+```
+
+## Report Template:
+
+# QA Review: TKT-005E
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** TKT-005E - Force Agents Offline on Payment Failure
+**Branch:** agent/tkt-005e
+**Tested:** 2025-12-06
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

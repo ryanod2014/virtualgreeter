@@ -1,0 +1,69 @@
+You are a QA Review Agent testing ticket TKT-004D.
+
+## Ticket: Widget and Agent Status for Paused Orgs
+## Branch: agent/tkt-004d-paused-org-status
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-004D
+
+## Acceptance Criteria:
+- Widget shows 'temporarily unavailable' message for paused orgs
+- All agents forced to 'offline' when org pauses
+- Agents cannot toggle to 'available' while paused
+- When org resumes, agents can go available again
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-004D
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-004D
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **Write your QA report to the MAIN REPO:**
+   - If PASS: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-004D-PASSED-20251206T211544.md
+   - If FAIL: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-004D-FAILED-20251206T211544.md
+
+5. **DO NOT modify any files in the main repo except your QA report**
+
+6. **If tests PASS, include this merge command in your report:**
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   # Cherry-pick ONLY the ticket's files:
+   git checkout origin/agent/tkt-004d-paused-org-status -- apps/widget/src/Widget.tsx apps/server/src/features/agents/agentStatus.ts apps/server/src/lib/organization.ts
+   git add apps/widget/src/Widget.tsx apps/server/src/features/agents/agentStatus.ts apps/server/src/lib/organization.ts
+   git commit -m 'feat: TKT-004D - Widget and Agent Status for Paused Orgs'
+   git push origin main
+   ```
+
+## Report Template:
+
+# QA Review: TKT-004D
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** TKT-004D - Widget and Agent Status for Paused Orgs
+**Branch:** agent/tkt-004d-paused-org-status
+**Tested:** 2025-12-06
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

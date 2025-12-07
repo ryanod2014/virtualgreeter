@@ -108,3 +108,4 @@ Platform client components are superadmin-level views for managing organizations
 - [ ] One behavior per `it()` block
 - [ ] Test Display, Actions, and Edge Cases
 - [ ] All tests PASS (they test current behavior)
+

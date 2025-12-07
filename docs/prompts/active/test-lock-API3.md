@@ -58,3 +58,4 @@ Invites API provides endpoints for creating, listing, and managing agent invites
 - `apps/dashboard/src/app/api/invites/[id]/resend/route.test.ts`
 - Completion report: `docs/agent-output/test-lock/API3-[TIMESTAMP].md`
 
+

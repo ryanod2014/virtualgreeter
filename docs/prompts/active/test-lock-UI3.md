@@ -98,3 +98,4 @@ Admin feature clients handle core admin functionality: call logs, agent details,
 - [ ] One behavior per `it()` block
 - [ ] Test Display, Actions, and Edge Cases
 - [ ] All tests PASS (they test current behavior)
+
