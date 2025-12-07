@@ -119,7 +119,7 @@ Once configured, you'll have access to:
 
 ---
 
-## Process (6 Steps)
+## Process (7 Steps)
 
 ### Step 0: Signal Start (REQUIRED)
 
@@ -174,9 +174,114 @@ git pull origin [branch-name]
 
 ---
 
-### Step 2: Generate Test Checklist
+### Step 2: Design Your Testing Protocol (THINK FIRST)
 
-Create a comprehensive checklist based on ticket + your tools:
+**Before you run any tests, STOP and THINK.** Design a comprehensive testing strategy.
+
+#### 2.1 Analyze What You're Testing
+
+Ask yourself:
+- **What is this feature?** (UI component, API endpoint, background job, etc.)
+- **What user flows does it affect?** (List all paths a user could take)
+- **What could go wrong?** (Error states, edge cases, race conditions)
+- **What are the acceptance criteria really testing?**
+
+#### 2.2 Inventory Your Testing Tools
+
+| Tool | Use For | Available? |
+|------|---------|------------|
+| `pnpm test` | Unit tests | ✅ Always |
+| `pnpm typecheck` | Type safety | ✅ Always |
+| `pnpm build` | Build verification | ✅ Always |
+| `pnpm dev` | Running the app | Depends on build |
+| Playwright MCP | Browser testing | If dev server runs |
+| `curl` | API testing | ✅ Always |
+| Code inspection | Logic verification | ✅ Always |
+| `grep`/`rg` | Pattern searching | ✅ Always |
+
+#### 2.3 Design Your Test Matrix
+
+For EACH acceptance criterion, document:
+
+```markdown
+## Test Protocol for [TICKET-ID]
+
+### Acceptance Criterion 1: [AC text]
+
+**How I will verify this:**
+1. [Primary method - e.g., Browser test with Playwright]
+2. [Fallback method - e.g., Code inspection if browser unavailable]
+3. [Evidence I'll collect - e.g., Screenshots, console output]
+
+**Happy path test:**
+- User action: [what user does]
+- Expected result: [what should happen]
+- How to verify: [specific tool/method]
+
+**Edge cases to test:**
+1. [Edge case 1] - Expected: [result]
+2. [Edge case 2] - Expected: [result]
+3. [Edge case 3] - Expected: [result]
+
+**Adversarial tests:**
+1. [Try to break it by...] - Should: [expected behavior]
+2. [Try to break it by...] - Should: [expected behavior]
+```
+
+#### 2.4 Plan for Blocked Paths
+
+If browser testing is blocked (build fails), plan alternatives:
+
+| If Blocked By | Alternative Verification |
+|---------------|-------------------------|
+| Build fails (PRE-EXISTING on main) | Code inspection + logic verification |
+| Build fails (NEW - ticket caused it) | FAIL the ticket immediately |
+| Dev server won't start | Code inspection + unit test coverage check |
+| Playwright MCP unavailable | Manual curl/API tests + code inspection |
+| Auth required | Check auth logic in code + API tests |
+
+**IMPORTANT:** Pre-existing build failures that exist on main branch are NOT the ticket's fault. You should:
+1. Verify the errors exist on BOTH main AND the feature branch
+2. If same errors on both → proceed with code-based verification
+3. If NEW errors only on feature branch → FAIL the ticket
+
+#### 2.5 Document Your Protocol
+
+Before proceeding, write out your complete test plan:
+
+```markdown
+## My Testing Protocol for [TICKET-ID]
+
+### Available Tools:
+- [List what you can use]
+
+### Blocked Tools (and why):
+- [List what you can't use and why]
+
+### For Each AC:
+| AC | Primary Test | Fallback Test | Evidence |
+|----|--------------|---------------|----------|
+| AC1 | Browser test | Code inspection | Screenshot/Code snippet |
+| AC2 | API test | Code inspection | Response/Code snippet |
+
+### Edge Cases I Will Test:
+1. [Case] → Method: [how]
+2. [Case] → Method: [how]
+
+### Adversarial Tests I Will Try:
+1. [Attack] → Expected defense: [what]
+2. [Attack] → Expected defense: [what]
+
+### My Pass/Fail Criteria:
+- PASS if: [conditions]
+- FAIL if: [conditions]
+```
+
+---
+
+### Step 3: Generate Test Checklist
+
+Create a comprehensive checklist based on your protocol:
 
 ```markdown
 ## QA Checklist: [TICKET-ID]
@@ -239,9 +344,9 @@ Create a comprehensive checklist based on ticket + your tools:
 
 ---
 
-### Step 3: Execute Build Verification
+### Step 4: Execute Build Verification
 
-These tests MUST pass. Any failure = immediate BLOCKED status.
+Run build checks and **compare results between main and feature branch**.
 
 ```bash
 # Install dependencies
@@ -249,27 +354,58 @@ pnpm install
 
 # Type checking
 pnpm typecheck
-# Expected: 0 errors
+# Expected: 0 errors (or same as main)
 
 # Linting
 pnpm lint
-# Expected: 0 errors
+# Expected: 0 errors (or same as main)
 
 # Build
 pnpm build
-# Expected: Successful build
+# Expected: Successful build (or same as main)
 
 # Unit tests
 pnpm test
-# Expected: All tests pass
+# Expected: All tests pass (or same as main)
 ```
 
-**If ANY of these fail:**
-→ Go to Step 6: Report BLOCKED
+#### Handling Build Failures
+
+**CRITICAL: Not all build failures are the ticket's fault!**
+
+```bash
+# Step 1: Run checks on feature branch, note any failures
+pnpm typecheck 2>&1 | tee /tmp/feature-typecheck.log
+
+# Step 2: Check if same errors exist on main
+git stash  # Save any local changes
+git checkout main
+pnpm typecheck 2>&1 | tee /tmp/main-typecheck.log
+git checkout -  # Go back to feature branch
+git stash pop  # Restore changes
+
+# Step 3: Compare results
+diff /tmp/main-typecheck.log /tmp/feature-typecheck.log
+```
+
+| Scenario | Action |
+|----------|--------|
+| **Errors on feature ONLY** | ❌ FAIL - Ticket introduced errors |
+| **Same errors on main AND feature** | ⚠️ PRE-EXISTING - Proceed with testing |
+| **More errors on feature than main** | ❌ FAIL - Ticket made it worse |
+| **Fewer errors on feature than main** | ✅ Ticket fixed some issues |
+
+**If errors are PRE-EXISTING:**
+1. Document them in your report as "pre-existing, not caused by this ticket"
+2. Proceed to Step 5 using code inspection and available tools
+3. Do NOT fail the ticket for issues it didn't cause
+
+**If errors are NEW (introduced by ticket):**
+→ FAIL the ticket, go to Step 7: Report BLOCKED
 
 ---
 
-### Step 4: Execute Acceptance Criteria Tests
+### Step 5: Execute Acceptance Criteria Tests
 
 For each acceptance criterion in the ticket, verify it's satisfied.
 
@@ -346,7 +482,7 @@ For database changes:
 
 ---
 
-### Step 5: Make Decision
+### Step 6: Make Decision
 
 Based on your testing:
 
@@ -365,7 +501,7 @@ Based on your testing:
 
 ---
 
-### Step 6: Report Results
+### Step 7: Report Results
 
 #### If APPROVED:
 

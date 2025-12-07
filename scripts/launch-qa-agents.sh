@@ -405,6 +405,14 @@ SCREENSHOTS ARE MANDATORY:
 
 If you skip browser testing or screenshots, your QA is INVALID and will be rejected.
 
+EXCEPTION: If browser testing is BLOCKED by pre-existing build failures
+(errors that exist on main branch too), you may PASS based on thorough
+code inspection. But you MUST:
+1. Verify errors exist on BOTH main and feature branch
+2. Document this in your report
+3. Still verify all acceptance criteria via code inspection
+4. Confirm no NEW errors were introduced by this ticket
+
 ═══════════════════════════════════════════════════════════════
 ADVERSARIAL TESTING - TRY TO BREAK IT
 ═══════════════════════════════════════════════════════════════
@@ -428,14 +436,30 @@ If you ONLY test the happy path, your QA is INCOMPLETE.
 TESTING STEPS
 ═══════════════════════════════════════════════════════════════
 
-1. READ the ticket spec from docs/data/tickets.json
-2. READ the dev completion report from docs/agent-output/completions/
-3. Run build verification: pnpm install && pnpm typecheck && pnpm lint && pnpm build && pnpm test
-4. Start dev server: pnpm dev (wait for it to be ready)
-5. BROWSER TEST the happy path with screenshots
-6. BROWSER TEST edge cases and try to break it
-7. Document ALL findings with evidence
-8. Make PASS/FAIL decision
+PHASE 1: UNDERSTAND & PLAN (Do this BEFORE running any tests)
+1. READ the full SOP: docs/workflow/QA_REVIEW_AGENT_SOP.md
+2. READ the ticket spec from docs/data/tickets.json  
+3. READ the dev completion report from docs/agent-output/completions/
+4. DESIGN YOUR TESTING PROTOCOL:
+   - List ALL acceptance criteria
+   - For EACH criterion: How will you verify it? What tools will you use?
+   - List ALL edge cases you will test
+   - List ALL adversarial attacks you will try
+   - Plan your fallback if browser testing is blocked
+
+PHASE 2: BUILD VERIFICATION
+5. Run: pnpm install && pnpm typecheck && pnpm lint && pnpm build && pnpm test
+6. IF BUILD FAILS: Check if same errors exist on main branch
+   - Same errors on main = PRE-EXISTING, proceed with code verification
+   - New errors only on feature = FAIL the ticket
+
+PHASE 3: EXECUTE YOUR TEST PROTOCOL
+7. Start dev server: pnpm dev (if build passed)
+8. Execute each test in your protocol with evidence
+9. BROWSER TEST the happy path with screenshots
+10. BROWSER TEST edge cases and try to break it
+11. Document ALL findings with evidence
+12. Make PASS/FAIL decision based on YOUR protocol criteria
 
 If PASS:
   - Write PASS report to: $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md
