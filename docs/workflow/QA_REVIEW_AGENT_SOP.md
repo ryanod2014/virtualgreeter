@@ -234,11 +234,26 @@ If browser testing is blocked (build fails), plan alternatives:
 
 | If Blocked By | Alternative Verification |
 |---------------|-------------------------|
-| Build fails (PRE-EXISTING on main) | Code inspection + logic verification |
+| Build fails (PRE-EXISTING on main) | **TRY pnpm dev ANYWAY** - it often works! |
 | Build fails (NEW - ticket caused it) | FAIL the ticket immediately |
 | Dev server won't start | Code inspection + unit test coverage check |
 | Playwright MCP unavailable | Manual curl/API tests + code inspection |
 | Auth required | Check auth logic in code + API tests |
+
+**⚠️ IMPORTANT: `pnpm dev` does NOT depend on `pnpm typecheck` or `pnpm build`!**
+
+Even if typecheck/build fails, **ALWAYS TRY running `pnpm dev`**:
+
+```bash
+# Even if these fail:
+pnpm typecheck  # ❌ 39 errors (pre-existing)
+pnpm build      # ❌ fails (pre-existing)
+
+# This will likely STILL WORK:
+pnpm dev        # ✅ Starts dashboard:3000, widget:5173, server:3001
+```
+
+The dev servers use runtime transpilation (tsx, vite, next) that doesn't require a clean typecheck. Only skip browser testing if `pnpm dev` actually fails to start.
 
 **IMPORTANT:** Pre-existing build failures that exist on main branch are NOT the ticket's fault. You should:
 1. Verify the errors exist on BOTH main AND the feature branch
