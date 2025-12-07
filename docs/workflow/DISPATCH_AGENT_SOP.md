@@ -5,6 +5,21 @@
 
 ---
 
+## ⚡ Quick Decision Guide
+
+**Most blockers are auto-handled - NO human needed:**
+
+| Blocker Type | Action | Human Needed? |
+|--------------|--------|---------------|
+| `QA-*-FAILED-*` | Auto-create continuation ticket | ❌ NO |
+| `CI-TKT-*` | Auto-create continuation ticket | ❌ NO |
+| `BLOCKED-TKT-*` | Route to inbox | ✅ YES |
+| `ENV-TKT-*` | Route to inbox | ✅ YES |
+
+**Only clarifications and environment issues need human decisions.** Everything else gets auto-processed into continuation tickets for dev agents to pick up.
+
+---
+
 ## Your Role
 
 You are the **central orchestrator** of the PM workflow. You:
@@ -40,13 +55,91 @@ ls docs/agent-output/blocked/
 
 For each blocker file, determine its type from the filename prefix:
 
-| Prefix | Type | Description |
-|--------|------|-------------|
-| `CI-TKT-*` | CI Failure | Tests failed on agent branch |
-| `BLOCKED-TKT-*` | Clarification | Agent has a question |
-| `ENV-TKT-*` | Environment | Infra/credentials issue |
+| Prefix | Type | Auto-Handle? | Description |
+|--------|------|--------------|-------------|
+| `QA-*-FAILED-*` | QA Failure | ✅ YES | QA found issues, needs dev rework |
+| `CI-TKT-*` | CI Failure | ✅ YES | Tests failed on agent branch |
+| `BLOCKED-TKT-*` | Clarification | ❌ NO | Agent has a question (needs human) |
+| `ENV-TKT-*` | Environment | ❌ NO | Infra/credentials issue (needs human) |
 
 ### Step 1.2: Route Each Blocker
+
+#### QA Failures (QA-*-FAILED-*) - AUTO-HANDLE
+
+**These are the most common blockers.** QA agent found issues with dev work - auto-create continuation ticket.
+
+Read the blocker JSON:
+```json
+{
+  "ticket_id": "TKT-003",
+  "blocker_type": "qa_failure",
+  "summary": "Dev agent claimed to update copy but made ZERO actual changes",
+  "failures": [...],
+  "recommendation": "COMPLETE REWORK REQUIRED - Dev agent must actually implement..."
+}
+```
+
+**Decision Logic - NO HUMAN NEEDED:**
+```
+1. QA found clear failures → Auto-create continuation ticket
+2. Include QA's recommendation in the continuation
+3. Archive the blocker
+4. Dev agent will pick up the continuation
+```
+
+**Auto-Create QA Continuation Ticket:**
+
+1. Create prompt file: `docs/prompts/active/dev-agent-TKT-XXX-v2.md`
+
+```markdown
+# Dev Agent Continuation: TKT-XXX-v2
+
+> **Type:** Continuation (QA FAILED)
+> **Original Ticket:** TKT-XXX  
+> **Branch:** `[branch from blocker]` (ALREADY EXISTS - do NOT create new branch)
+
+---
+
+## ❌ QA FAILED - Rework Required
+
+**QA Summary:**
+[Copy summary from blocker]
+
+**Failures Found:**
+[List failures from blocker.failures]
+
+**What You Must Fix:**
+[Copy recommendation from blocker]
+
+---
+
+## Your Task
+
+1. Checkout existing branch: `git checkout [branch]`
+2. Pull latest: `git pull origin [branch]`
+3. Read the QA failure report carefully
+4. Fix ALL issues identified by QA
+5. Verify with grep/code inspection BEFORE claiming completion
+6. Push for re-QA
+
+---
+
+## Original Acceptance Criteria
+
+[Copy from original ticket]
+
+---
+
+## Files in Scope
+
+[Original files_to_modify]
+```
+
+2. Update ticket in `tickets.json`: set `status: "in_progress"`
+3. Archive blocker: `mv docs/agent-output/blocked/QA-*.json docs/agent-output/archive/`
+4. Log: `"Auto-created TKT-XXX-v2 for QA rework"`
+
+---
 
 #### CI Failures (CI-TKT-*)
 
@@ -272,11 +365,18 @@ This catches any inconsistencies between files.
 
 **Run:** [timestamp]
 
-### Blockers Processed
+### Blockers Auto-Processed (No Human Needed)
 | Blocker | Action | Result |
 |---------|--------|--------|
-| CI-TKT-006 | Auto-continuation | Created TKT-006-v2 |
-| BLOCKED-TKT-063 | Routed to inbox | Awaiting human decision |
+| QA-TKT-003-FAILED | Auto-continuation | Created TKT-003-v2 for QA rework |
+| QA-TKT-005E-FAILED | Auto-continuation | Created TKT-005E-v2 for QA rework |
+| CI-TKT-006 | Auto-continuation | Created TKT-006-v2 for regression fix |
+
+### Blockers Routed to Inbox (Human Needed)
+| Blocker | Reason | Status |
+|---------|--------|--------|
+| BLOCKED-TKT-063 | Clarification needed | Awaiting human decision |
+| ENV-TKT-070 | Environment issue | Awaiting human intervention |
 
 ### Questions Answered
 | Thread | Summary |
@@ -304,49 +404,52 @@ This catches any inconsistencies between files.
 ## Blocker Routing Decision Tree
 
 ```
-                    ┌─────────────────┐
-                    │  Read Blocker   │
-                    └────────┬────────┘
-                             │
-            ┌────────────────┼────────────────┐
-            ▼                ▼                ▼
-      ┌──────────┐    ┌──────────┐    ┌──────────┐
-      │ CI-TKT-* │    │BLOCKED-* │    │ ENV-TKT-*│
-      └────┬─────┘    └────┬─────┘    └────┬─────┘
-           │               │               │
-           ▼               │               │
-    ┌──────────────┐       │               │
-    │ Compare to   │       │               │
-    │ ticket scope │       │               │
-    └──────┬───────┘       │               │
-           │               │               │
-     ┌─────┴─────┐         │               │
-     ▼           ▼         │               │
-┌─────────┐ ┌─────────┐    │               │
-│ Outside │ │ Inside  │    │               │
-│ scope   │ │ scope   │    │               │
-└────┬────┘ └────┬────┘    │               │
-     │           │         │               │
-     ▼           ▼         ▼               ▼
-┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-│ AUTO:    │ │ AUTO:    │ │ INBOX:   │ │ INBOX:   │
-│ Create   │ │ "Fix     │ │ Human    │ │ Human    │
-│ fix tkt  │ │ tests"   │ │ decision │ │ needed   │
-└──────────┘ └──────────┘ └──────────┘ └──────────┘
+                         ┌─────────────────┐
+                         │  Read Blocker   │
+                         └────────┬────────┘
+                                  │
+         ┌────────────────────────┼────────────────────────┐
+         ▼                        ▼                        ▼
+   ┌───────────┐           ┌───────────┐           ┌───────────┐
+   │ QA-*-FAIL │           │ CI-TKT-*  │           │BLOCKED-*  │
+   │           │           │           │           │ ENV-TKT-* │
+   └─────┬─────┘           └─────┬─────┘           └─────┬─────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+   ┌───────────┐          ┌───────────┐           ┌───────────┐
+   │  AUTO:    │          │ Compare   │           │  INBOX:   │
+   │  Create   │          │ to scope  │           │  Human    │
+   │  rework   │          └─────┬─────┘           │  needed   │
+   │  ticket   │          ┌─────┴─────┐           └───────────┘
+   └───────────┘          ▼           ▼
+                    ┌─────────┐ ┌─────────┐
+                    │ Outside │ │ Inside  │
+                    └────┬────┘ └────┬────┘
+                         ▼           ▼
+                    ┌─────────┐ ┌─────────┐
+                    │  AUTO:  │ │  AUTO:  │
+                    │  fix    │ │  "Fix   │
+                    │  regr.  │ │  tests" │
+                    └─────────┘ └─────────┘
 ```
+
+**Key Principle:** Only BLOCKED-* and ENV-* go to inbox. Everything else is auto-handled.
 
 ---
 
 ## Checklist Before Finishing
 
 - [ ] All blockers in `blocked/` folder processed
+- [ ] **QA failures: AUTO-created continuation tickets (no human needed)**
 - [ ] CI blockers: continuation tickets created OR routed to inbox
-- [ ] Clarification blockers: decision threads created
+- [ ] Clarification blockers: decision threads created (human needed)
+- [ ] Environment blockers: routed to inbox (human needed)
 - [ ] All questions in threads answered
 - [ ] No duplicate tickets created
 - [ ] `decisions.json` threads marked resolved where appropriate
 - [ ] `findings.json` statuses updated (ticketed/skipped)
 - [ ] `tickets.json` updated with new tickets
+- [ ] Archived processed blockers to `docs/agent-output/archive/`
 - [ ] Sync check passed
 - [ ] Report generated
 
