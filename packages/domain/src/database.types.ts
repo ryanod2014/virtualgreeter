@@ -200,6 +200,7 @@ export interface Database {
           default_widget_settings: WidgetSettings;
           blocked_countries: string[]; // ISO 3166-1 alpha-2 country codes (e.g., ['CN', 'RU'])
           country_list_mode: CountryListMode; // 'blocklist' = block listed countries, 'allowlist' = only allow listed countries
+          geo_failure_handling: 'allow' | 'block'; // How to handle visitors when geolocation fails (default: blocklist='allow', allowlist='block')
           // Stripe billing fields
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
