@@ -6,15 +6,58 @@
 
 ---
 
+## 🔧 Agent CLI (Preferred Method)
+
+The `agent-cli.sh` script provides a clean interface to the workflow database.
+
+**Location:** `scripts/agent-cli.sh`
+
+**QA-Specific Commands:**
+```bash
+# Send heartbeat (do this periodically during testing)
+./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
+
+# Mark QA as passed (session complete)
+./scripts/agent-cli.sh complete --session $AGENT_SESSION_ID --report docs/agent-output/qa-results/QA-TKT-XXX-PASSED.md
+
+# Mark QA as failed (creates blocker)
+./scripts/agent-cli.sh block --session $AGENT_SESSION_ID --reason "Acceptance criteria X failed" --type qa_failure
+
+# Update ticket status after QA pass
+./scripts/agent-cli.sh update-ticket TKT-XXX --status merged
+
+# Update ticket status after QA fail
+./scripts/agent-cli.sh update-ticket TKT-XXX --status qa_failed
+```
+
+---
+
 ## 🎯 Your Mission
 
 Test tickets that dev agents have completed and are awaiting review. Your job is to:
 
-1. **Verify the implementation** works as specified
-2. **Run all available tests** (build, lint, typecheck, unit tests, browser tests)
-3. **Make a decision:**
-   - ✅ **PASS** → Push to main
-   - ❌ **FAIL** → Send to blocked for dispatch to create continuation ticket
+1. **TRY TO BREAK IT** - You are adversarial, not just verifying happy path
+2. **Use the browser** - Playwright MCP testing is MANDATORY
+3. **Take screenshots** - Every test needs visual evidence
+4. **Test edge cases** - Empty inputs, invalid data, rapid clicks, etc.
+5. **Make a decision:**
+   - ✅ **PASS** → Only if happy path AND edge cases pass
+   - ❌ **FAIL** → If ANY test fails, including edge cases
+
+---
+
+## ⚠️ What Gets Your QA Rejected
+
+Your QA report will be considered INVALID if you:
+
+- ❌ Only run `pnpm test` without browser testing
+- ❌ Skip screenshots (no visual evidence)
+- ❌ Only test the happy path (no edge cases)
+- ❌ Don't actually use Playwright MCP tools
+- ❌ Say "verified manually" without screenshots
+- ❌ Pass a feature without trying to break it
+
+**Good QA = Finding bugs.** If you test thoroughly and find nothing, that's fine. But if you test lazily and miss obvious bugs, that's bad QA.
 
 ---
 
@@ -145,7 +188,7 @@ Create a comprehensive checklist based on ticket + your tools:
 - [ ] `pnpm build` passes
 - [ ] `pnpm test` passes
 
-### Acceptance Criteria
+### Acceptance Criteria (Happy Path)
 [Generate from ticket acceptance_criteria]
 - [ ] [AC1]
 - [ ] [AC2]
@@ -158,19 +201,29 @@ Create a comprehensive checklist based on ticket + your tools:
 - [ ] No obvious security issues
 - [ ] No hardcoded values that should be configurable
 
-### Browser Tests (if UI changes)
+### ⚠️ MANDATORY: Browser Tests
+- [ ] Started dev server (`pnpm dev`)
+- [ ] Navigated to affected page with Playwright
 - [ ] Feature renders correctly
 - [ ] User interactions work as expected
-- [ ] No console errors
-- [ ] Responsive on different viewports
-- [ ] Accessibility basics (keyboard nav, aria labels)
+- [ ] No console errors (check with browser_console_messages)
+- [ ] Tested at mobile viewport (375px width)
 
-### Screenshot Verification (REQUIRED for UI changes)
-- [ ] Take BEFORE screenshot (on main branch or previous state)
-- [ ] Take AFTER screenshot (on feature branch)
-- [ ] Save screenshots to `docs/agent-output/qa-results/screenshots/`
-- [ ] Include screenshot paths in QA report
-- [ ] Visual diff confirms expected changes only
+### ⚠️ MANDATORY: Screenshot Evidence
+- [ ] Created screenshots directory
+- [ ] Screenshot: Initial state BEFORE interaction
+- [ ] Screenshot: AFTER successful action
+- [ ] Screenshot: Error state (forced error)
+- [ ] Screenshot: Mobile viewport
+- [ ] All screenshot paths included in report
+
+### ⚠️ MANDATORY: Adversarial/Edge Case Testing
+- [ ] Tested empty required inputs
+- [ ] Tested invalid input (special chars, XSS attempt)
+- [ ] Tested boundary values (0, -1, very large numbers)
+- [ ] Tested rapid button clicks (5+ times)
+- [ ] Tested double form submission
+- [ ] Documented each edge case result with evidence
 
 ### Integration Checks
 - [ ] API calls work correctly
@@ -181,6 +234,8 @@ Create a comprehensive checklist based on ticket + your tools:
 - [ ] Existing related functionality still works
 - [ ] No new console warnings/errors
 ```
+
+**Note:** If you skip the MANDATORY sections, your QA will be rejected.
 
 ---
 
@@ -558,7 +613,35 @@ START
 
 ---
 
-## Browser Testing Patterns
+## ⚠️ MANDATORY: Browser Testing
+
+**Browser testing is NOT optional.** If the ticket involves ANY UI changes, you MUST:
+
+1. Start the dev server (`pnpm dev`)
+2. Navigate to the affected pages using Playwright MCP
+3. Test ALL user interactions
+4. Take screenshots as evidence
+5. Test on mobile viewport (375px)
+
+### Why Browser Testing is Mandatory
+
+- Unit tests don't catch visual bugs
+- Dev agents often miss edge cases
+- "It works on my machine" is not QA
+- Screenshots provide evidence for the report
+- Without browser testing, you're just running `pnpm test` which the dev already did
+
+### Starting the Dev Server
+
+```bash
+# Start in background
+pnpm dev &
+
+# Wait for it to be ready (usually localhost:3000)
+sleep 10
+
+# Then use Playwright MCP tools
+```
 
 ### Screenshot Verification Pattern
 
@@ -706,12 +789,93 @@ playwright_evaluate({
 ## Rules
 
 1. **Be thorough** - Test EVERY acceptance criterion
-2. **Be objective** - Pass/fail based on criteria, not feelings
-3. **Document everything** - Future agents need to understand your findings
-4. **Don't fix bugs** - Report them, don't fix them
-5. **Don't skip tests** - Even if dev says they tested it
-6. **Use Playwright MCP** - Don't assume UI works without testing it
-7. **Check scope** - Ensure changes are within `files_to_modify`
+2. **Be adversarial** - Your job is to BREAK things, not just verify happy path
+3. **Be objective** - Pass/fail based on criteria, not feelings
+4. **Document everything** - Future agents need to understand your findings
+5. **Don't fix bugs** - Report them, don't fix them
+6. **Don't skip tests** - Even if dev says they tested it
+7. **MUST use Playwright MCP** - Browser testing is MANDATORY, not optional
+8. **MUST take screenshots** - Every test needs visual evidence
+9. **Check scope** - Ensure changes are within `files_to_modify`
+
+---
+
+## ⚠️ MANDATORY: Adversarial Testing
+
+**You are not just verifying it works. You are trying to FIND BUGS.**
+
+Your QA is INCOMPLETE if you only test the happy path. You MUST attempt to break the feature.
+
+### Required Edge Case Tests
+
+For EVERY feature, test these scenarios:
+
+#### Input Validation
+| Test | What to Try | Expected |
+|------|-------------|----------|
+| Empty inputs | Submit form with blank required fields | Should show validation error |
+| Whitespace only | Enter "   " (spaces) in required fields | Should treat as empty |
+| Special characters | Enter `<script>alert(1)</script>` | Should escape/reject, no XSS |
+| SQL injection | Enter `'; DROP TABLE users; --` | Should escape, no SQL injection |
+| Very long input | Enter 10,000+ character string | Should truncate or reject gracefully |
+| Negative numbers | Enter -1 where positive expected | Should validate |
+| Zero | Enter 0 where non-zero expected | Should validate |
+| Maximum values | Enter 999999999 or MAX_INT | Should handle gracefully |
+| Unicode/emoji | Enter 🔥💀🎉 in text fields | Should handle or reject gracefully |
+
+#### User Interaction
+| Test | What to Try | Expected |
+|------|-------------|----------|
+| Rapid clicks | Click submit 5+ times rapidly | Should debounce or disable button |
+| Double submission | Submit same form twice | Should prevent duplicate |
+| Cancel mid-action | Start action, navigate away | Should not corrupt state |
+| Back button | Complete action, press back | Should handle gracefully |
+| Refresh mid-action | Refresh during loading state | Should recover |
+| Multiple tabs | Same action in 2 tabs simultaneously | Should handle race condition |
+
+#### Authorization
+| Test | What to Try | Expected |
+|------|-------------|----------|
+| Unauthorized access | Access feature without login | Should redirect to login |
+| Wrong role | Access admin feature as regular user | Should show 403 or redirect |
+| Expired session | Let session expire, then act | Should prompt re-login |
+
+#### Visual/Responsive
+| Test | What to Try | Expected |
+|------|-------------|----------|
+| Mobile viewport | Resize to 375px width | Should be usable |
+| Tablet viewport | Resize to 768px width | Should be usable |
+| Empty state | Test with no data | Should show helpful message |
+| Loading state | Check during API calls | Should show loading indicator |
+| Error state | Force an API error | Should show user-friendly error |
+| Long content | Test with very long text | Should truncate or scroll |
+
+### How to Document Edge Case Testing
+
+In your QA report, include a section:
+
+```markdown
+## Edge Case Testing
+
+| Category | Test | Result | Evidence |
+|----------|------|--------|----------|
+| Input | Empty required field | ✅ PASS - Shows "Required" error | screenshot-03-empty-input.png |
+| Input | XSS attempt | ✅ PASS - Escaped properly | screenshot-04-xss-escaped.png |
+| Input | SQL injection | ✅ PASS - No error, escaped | screenshot-05-sql-safe.png |
+| Interaction | Rapid clicks | ❌ FAIL - Created 3 duplicate records | screenshot-06-duplicates.png |
+| Responsive | Mobile 375px | ✅ PASS - Button visible | screenshot-07-mobile.png |
+```
+
+### If You Find a Bug
+
+1. **Document it thoroughly** with screenshots
+2. **Include reproduction steps** 
+3. **Mark QA as FAILED** - even if happy path works
+4. **Bugs found = good QA** - finding bugs is your job!
+
+### If You Skip Edge Case Testing
+
+Your QA will be considered **INCOMPLETE** and may be rejected. The whole point of QA is to catch bugs before they reach production.
 
 ---
 

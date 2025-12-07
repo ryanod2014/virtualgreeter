@@ -4,14 +4,17 @@
 # =============================================================================
 # Runs after a Claude agent exits (success or failure).
 # Ensures all work is committed and pushed to GitHub.
+# Reports completion/failure to the v2 API.
 #
 # Usage: Called automatically by launch-agents.sh wrapper
-#        ./scripts/agent-post-run.sh <TICKET_ID> <WORKTREE_DIR>
+#        ./scripts/agent-post-run.sh <TICKET_ID> <WORKTREE_DIR> [SESSION_ID]
 # =============================================================================
 
 TICKET_ID="$1"
 WORKTREE_DIR="$2"
+SESSION_ID="${3:-$AGENT_SESSION_ID}"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H%M")
+DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:3456}"
 
 # Colors
 RED='\033[0;31m'
@@ -190,7 +193,38 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# Step 5: Final status
+# Step 5: Report to API (v2)
+# -----------------------------------------------------------------------------
+if [ -n "$SESSION_ID" ]; then
+    log "Reporting session status to API..."
+    
+    if [ -n "$COMPLETION_FILE" ]; then
+        # Mark as completed
+        curl -s -X POST "$DASHBOARD_URL/api/v2/agents/$SESSION_ID/complete" \
+            -H "Content-Type: application/json" \
+            -d "{\"completion_file\": \"$COMPLETION_FILE\"}" > /dev/null 2>&1 \
+            && log_success "Session marked as completed" \
+            || log_warning "Could not update session status"
+        
+        # Update ticket status to dev_complete
+        curl -s -X PUT "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" \
+            -H "Content-Type: application/json" \
+            -d '{"status": "dev_complete"}' > /dev/null 2>&1 \
+            || log_warning "Could not update ticket status"
+    else
+        # No completion file - mark as potentially crashed
+        curl -s -X POST "$DASHBOARD_URL/api/v2/agents/$SESSION_ID/block" \
+            -H "Content-Type: application/json" \
+            -d '{"blocker_type": "incomplete", "summary": "Agent exited without completion file"}' > /dev/null 2>&1 \
+            && log_warning "Session marked as incomplete (no completion file)" \
+            || log_warning "Could not update session status"
+    fi
+else
+    log_warning "No session ID - skipping API update"
+fi
+
+# -----------------------------------------------------------------------------
+# Step 6: Final status
 # -----------------------------------------------------------------------------
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -199,6 +233,9 @@ echo ""
 echo "Branch:  $BRANCH"
 echo "Remote:  $(git remote get-url origin)"
 echo "Status:  $(git log -1 --oneline)"
+if [ -n "$SESSION_ID" ]; then
+    echo "Session: $SESSION_ID"
+fi
 if [ -n "$PR_URL" ]; then
     echo "PR:      $PR_URL"
     echo ""

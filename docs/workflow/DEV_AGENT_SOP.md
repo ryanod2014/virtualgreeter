@@ -5,6 +5,37 @@
 
 ---
 
+## 🔧 Agent CLI (Preferred Method)
+
+The `agent-cli.sh` script provides a clean interface to the workflow database. Use it instead of manually creating JSON files.
+
+**Location:** `scripts/agent-cli.sh`
+
+**Common Commands:**
+```bash
+# Send heartbeat (do this every 5-10 minutes of active work)
+./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
+
+# Mark session complete
+./scripts/agent-cli.sh complete --session $AGENT_SESSION_ID --report docs/agent-output/completions/TKT-XXX.md
+
+# Report a blocker
+./scripts/agent-cli.sh block --session $AGENT_SESSION_ID --reason "Need clarification on X" --type clarification
+
+# Add a finding (issues outside your scope)
+./scripts/agent-cli.sh add-finding --title "Bug in X" --severity high --description "Details..." --file path/to/file.ts
+
+# Check active file locks
+./scripts/agent-cli.sh check-locks
+
+# Check running agents
+./scripts/agent-cli.sh status
+```
+
+**Note:** If CLI is not available, fall back to the manual JSON file approach described below.
+
+---
+
 ## 🎯 Your Mission
 
 Complete your assigned ticket **exactly as specified**. No more, no less.
@@ -198,8 +229,14 @@ git branch --show-current
 
 ### 3.3 Check File Locks (REQUIRED)
 
-**Before signaling start**, check if any of your files are already locked by another agent:
+**Before signaling start**, check if any of your files are already locked by another agent.
 
+**Option A: Using CLI (Preferred)**
+```bash
+./scripts/agent-cli.sh check-locks
+```
+
+**Option B: Manual Check (Fallback)**
 ```bash
 # List all currently locked files
 cat docs/agent-output/started/*.json 2>/dev/null | grep -o '"files_locking":\s*\[[^]]*\]' || echo "No locks"
@@ -212,6 +249,20 @@ cat docs/agent-output/started/*.json 2>/dev/null | grep -o '"files_locking":\s*\
 ### 3.4 Signal Start (REQUIRED)
 
 **After confirming no file conflicts**, signal that you're starting work.
+
+**Note:** If launched via orchestrator, your session is already registered automatically. Check if `$AGENT_SESSION_ID` is set.
+
+**Option A: Using CLI (Preferred)**
+```bash
+# If session ID is already set, just send a heartbeat
+./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
+
+# If no session ID, register manually (rare)
+SESSION_ID=$(./scripts/agent-cli.sh start --ticket TKT-XXX --type dev)
+export AGENT_SESSION_ID=$SESSION_ID
+```
+
+**Option B: Manual Start File (Fallback)**
 
 **File path:** `docs/agent-output/started/TKT-XXX-[TIMESTAMP].json`
 
@@ -234,7 +285,7 @@ Example: `docs/agent-output/started/TKT-001-2025-12-04T1430.json`
 - PM can check file locks before launching new agents
 - Prevents file conflicts between parallel agents
 
-**⚠️ Race Condition Warning:** If you and another agent start at the exact same moment, you might both pass the lock check. PM mitigates this by launching agents with a few seconds gap.
+**⚠️ Race Condition Warning:** The database handles race conditions atomically. If using manual JSON files, there's a small window where both agents might pass the lock check.
 
 ---
 
@@ -695,10 +746,10 @@ Use this format when you're blocked by **technical issues**, not missing informa
 
 ### If You Notice Something Wrong (But It's Not In Your Scope):
 
-**⚠️ MANDATORY: You MUST write a findings file. Do NOT just mention it in your completion report notes.**
+**⚠️ MANDATORY: You MUST report findings. Do NOT just mention them in your completion report notes.**
 
 1. **Do NOT fix it yourself**
-2. **IMMEDIATELY write to per-agent findings file** (before you forget)
+2. **IMMEDIATELY report the finding** (before you forget)
 3. Continue with your ticket
 
 **Common things that require findings:**
@@ -710,11 +761,23 @@ Use this format when you're blocked by **technical issues**, not missing informa
 
 **How to report findings (NOT blockers):**
 
+**Option A: Using CLI (Preferred)**
+```bash
+./scripts/agent-cli.sh add-finding \
+  --title "Pre-existing type error in utils.ts" \
+  --severity high \
+  --description "Type error on line 42: 'string' is not assignable to 'number'" \
+  --file apps/dashboard/src/utils.ts \
+  --feature "Auth"
+```
+
+**Option B: Manual JSON File (Fallback)**
+
 **File path:** `docs/agent-output/findings/F-DEV-TKT-XXX-[TIMESTAMP].json`
 
 Example: `docs/agent-output/findings/F-DEV-SEC-001-2025-12-05T1230.json`
 
-**⚠️ You MUST create this file. Mentioning issues in completion report "Notes" is NOT sufficient.**
+**⚠️ You MUST report findings. Mentioning issues in completion report "Notes" is NOT sufficient.**
 
 Write a JSON file with this structure:
 
@@ -734,7 +797,7 @@ Write a JSON file with this structure:
 }
 ```
 
-The PM Dashboard automatically aggregates all findings from per-agent files.
+The PM Dashboard automatically aggregates all findings from per-agent files and the database.
 
 ---
 

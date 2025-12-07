@@ -196,6 +196,19 @@ launch_agent() {
         return 1
     fi
     
+    # Register session in database (v2 API)
+    local DB_SESSION_ID=""
+    local REGISTER_RESULT=$(curl -s -X POST "http://localhost:3456/api/v2/agents/start" \
+        -H "Content-Type: application/json" \
+        -d "{\"ticket_id\": \"$TICKET_ID\", \"agent_type\": \"dev\", \"tmux_session\": \"$SESSION_NAME\", \"worktree_path\": \"$WORKTREE_DIR\"}" 2>/dev/null)
+    
+    if echo "$REGISTER_RESULT" | grep -q '"id"'; then
+        DB_SESSION_ID=$(echo "$REGISTER_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+        print_success "Registered session: $DB_SESSION_ID"
+    else
+        print_warning "Could not register session in database (v2 API may not be available)"
+    fi
+    
     # Find prompt file (check in worktree since it has the docs)
     cd "$WORKTREE_DIR"
     PROMPT_FILE=$(get_prompt_file "$TICKET_ID")
@@ -216,13 +229,19 @@ CRITICAL: Your workspace is the CURRENT DIRECTORY. All file operations, git comm
 and code changes MUST be within this directory. Do NOT reference or modify files 
 in any other directory.
 
+SESSION_ID: $DB_SESSION_ID
+If you have a session ID, call this periodically (every 5-10 minutes of active work):
+  curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/heartbeat
+
 Read docs/workflow/DEV_AGENT_SOP.md for your standard operating procedure.
 Then execute the ticket instructions in: $PROMPT_FILE
 
 When you complete your work:
 1. Commit all changes to git
 2. Push your branch to origin
-3. Create completion report in docs/agent-output/completions/"
+3. Create completion report in docs/agent-output/completions/
+4. If you have a session ID, mark complete:
+   curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete -H 'Content-Type: application/json' -d '{\"completion_file\": \"path/to/report.md\"}'"
 
     # Launch in tmux with API key passed through
     echo "Launching Claude Code in tmux session: $SESSION_NAME"
@@ -232,14 +251,16 @@ When you complete your work:
     
     # Create tmux session with:
     # 1. API key in environment
-    # 2. Claude command
-    # 3. Failsafe script runs after claude exits (regardless of exit code)
+    # 2. Session ID in environment
+    # 3. Claude command
+    # 4. Failsafe script runs after claude exits (regardless of exit code)
     # Auto-exit after completion (no manual Enter required)
     tmux new-session -d -s "$SESSION_NAME" \
-        "cd '$WORKTREE_DIR' && export ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY' && claude --dangerously-skip-permissions -p '$CLAUDE_PROMPT'; '$FAILSAFE_SCRIPT' '$TICKET_ID' '$WORKTREE_DIR'"
+        "cd '$WORKTREE_DIR' && export ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY' && export AGENT_SESSION_ID='$DB_SESSION_ID' && claude --dangerously-skip-permissions -p '$CLAUDE_PROMPT'; '$FAILSAFE_SCRIPT' '$TICKET_ID' '$WORKTREE_DIR' '$DB_SESSION_ID'"
     
     print_success "Agent launched: $SESSION_NAME"
     echo -e "  Worktree: ${CYAN}$WORKTREE_DIR${NC}"
+    echo -e "  Session:  ${CYAN}$DB_SESSION_ID${NC}"
     echo -e "  Attach:   ${BLUE}tmux attach -t $SESSION_NAME${NC}"
 }
 

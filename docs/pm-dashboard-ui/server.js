@@ -4,7 +4,7 @@
  * PM Dashboard Server
  * 
  * Serves the dashboard AND auto-saves decisions to JSON files.
- * No more copy/paste!
+ * Now with SQLite database support via /api/v2/* endpoints!
  * 
  * Usage: node docs/pm-dashboard-ui/server.js
  * Then visit: http://localhost:3456
@@ -13,6 +13,34 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+
+// =============================================================================
+// DATABASE MODULE (v2 API)
+// =============================================================================
+let db = null;
+let dbModule = null;
+
+// Try to load the database module (may not be installed yet)
+async function loadDBModule() {
+  try {
+    // Dynamic import for ES module
+    const dbPath = path.join(__dirname, '../../scripts/db/db.js');
+    if (fs.existsSync(dbPath)) {
+      dbModule = await import(`file://${dbPath}`);
+      db = dbModule.initDB();
+      console.log('✅ Database module loaded');
+      return true;
+    }
+  } catch (e) {
+    console.log(`ℹ️ Database module not available: ${e.message}`);
+    console.log('   v2 API endpoints will be disabled');
+    console.log('   Run: cd scripts/db && npm install && npm run init');
+  }
+  return false;
+}
+
+// Initialize DB on startup (async)
+loadDBModule();
 
 const PORT = 3456;
 const DOCS_DIR = path.join(__dirname, '..');
@@ -553,7 +581,29 @@ function handleAPI(req, res, body) {
   const url = req.url;
   
   // GET /api/data - Load all data files (also generates missing prompts)
-  if (req.method === 'GET' && url === '/api/data') {
+  // Add ?source=db to use database instead of JSON files
+  if (req.method === 'GET' && url.startsWith('/api/data')) {
+    const params = new URLSearchParams(url.split('?')[1] || '');
+    const useDB = params.get('source') === 'db' && dbModule;
+    
+    // If using database, return DB data
+    if (useDB) {
+      try {
+        const data = dbModule.getDashboardData();
+        
+        // Add additional context
+        data.source = 'database';
+        data.dbAvailable = true;
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(data));
+        return true;
+      } catch (e) {
+        console.error('Error loading from database:', e.message);
+        // Fall through to JSON fallback
+      }
+    }
+    
     // Auto-generate missing prompts on data load
     const promptStats = generateMissingPrompts();
     if (promptStats.created > 0) {
@@ -609,7 +659,11 @@ function handleAPI(req, res, body) {
       staging: {
         count: stagingCount,
         bySeverity: stagingData?.summary || { critical: 0, high: 0, medium: 0, low: 0 }
-      }
+      },
+      // Database availability info
+      source: 'json',
+      dbAvailable: !!dbModule,
+      dbHint: dbModule ? 'Add ?source=db to use database' : 'Database not initialized. Run: cd scripts/db && npm install && npm run init'
     };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));
@@ -1030,6 +1084,475 @@ function handleAPI(req, res, body) {
     return true;
   }
   
+  // =============================================================================
+  // V2 API ENDPOINTS (Database-backed)
+  // =============================================================================
+  
+  // Check if DB is available for v2 endpoints
+  if (url.startsWith('/api/v2/') && !dbModule) {
+    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ 
+      error: 'Database not available',
+      message: 'Run: cd scripts/db && npm install && npm run init'
+    }));
+    return true;
+  }
+  
+  // ---------------------------------------------------------------------------
+  // TICKETS v2
+  // ---------------------------------------------------------------------------
+  
+  // GET /api/v2/tickets - List all tickets
+  if (req.method === 'GET' && url.startsWith('/api/v2/tickets')) {
+    try {
+      const params = new URLSearchParams(url.split('?')[1] || '');
+      const filters = {};
+      if (params.get('status')) filters.status = params.get('status');
+      if (params.get('priority')) filters.priority = params.get('priority');
+      
+      // Check for single ticket request: /api/v2/tickets/TKT-001
+      const ticketIdMatch = url.match(/\/api\/v2\/tickets\/([A-Z]+-\d+)/i);
+      if (ticketIdMatch) {
+        const ticket = dbModule.tickets.get(ticketIdMatch[1].toUpperCase());
+        if (!ticket) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Ticket not found' }));
+          return true;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(ticket));
+        return true;
+      }
+      
+      const tickets = dbModule.tickets.list(filters);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ tickets, count: tickets.length }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/v2/tickets - Create a ticket
+  if (req.method === 'POST' && url === '/api/v2/tickets') {
+    try {
+      const data = JSON.parse(body);
+      const ticket = dbModule.tickets.create(data);
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(ticket));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // PUT /api/v2/tickets/:id - Update a ticket
+  if (req.method === 'PUT' && url.match(/\/api\/v2\/tickets\/[A-Z]+-\d+/i)) {
+    try {
+      const ticketId = url.split('/').pop().toUpperCase();
+      const data = JSON.parse(body);
+      const ticket = dbModule.tickets.update(ticketId, data);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(ticket));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // ---------------------------------------------------------------------------
+  // FINDINGS v2
+  // ---------------------------------------------------------------------------
+  
+  // GET /api/v2/findings - List findings
+  if (req.method === 'GET' && url.startsWith('/api/v2/findings')) {
+    try {
+      const params = new URLSearchParams(url.split('?')[1] || '');
+      const status = params.get('status');
+      
+      let findings;
+      if (status === 'inbox') {
+        findings = dbModule.findings.getInbox();
+      } else if (status === 'staging') {
+        findings = dbModule.findings.getStaging();
+      } else {
+        const filters = {};
+        if (status) filters.status = status;
+        if (params.get('severity')) filters.severity = params.get('severity');
+        findings = dbModule.findings.list(filters);
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ findings, count: findings.length }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/v2/findings - Create a finding
+  if (req.method === 'POST' && url === '/api/v2/findings') {
+    try {
+      const data = JSON.parse(body);
+      const finding = dbModule.findings.create(data);
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(finding));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // PUT /api/v2/findings/:id - Update a finding
+  if (req.method === 'PUT' && url.match(/\/api\/v2\/findings\/F-\d+/i)) {
+    try {
+      const findingId = url.split('/').pop().toUpperCase();
+      const data = JSON.parse(body);
+      const finding = dbModule.findings.update(findingId, data);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(finding));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // ---------------------------------------------------------------------------
+  // DECISIONS v2
+  // ---------------------------------------------------------------------------
+  
+  // GET /api/v2/decisions - List decision threads
+  if (req.method === 'GET' && url.startsWith('/api/v2/decisions')) {
+    try {
+      const params = new URLSearchParams(url.split('?')[1] || '');
+      const filters = {};
+      if (params.get('status')) filters.status = params.get('status');
+      
+      const threads = dbModule.decisions.list(filters);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ threads, count: threads.length }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/v2/decisions/:id/messages - Add message to thread
+  if (req.method === 'POST' && url.match(/\/api\/v2\/decisions\/[^/]+\/messages/)) {
+    try {
+      const threadId = url.split('/')[4];
+      const { role, content } = JSON.parse(body);
+      const thread = dbModule.decisions.addMessage(threadId, role, content);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(thread));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // ---------------------------------------------------------------------------
+  // AGENT SESSIONS v2
+  // ---------------------------------------------------------------------------
+  
+  // GET /api/v2/agents - List agent sessions
+  if (req.method === 'GET' && url.startsWith('/api/v2/agents')) {
+    try {
+      const params = new URLSearchParams(url.split('?')[1] || '');
+      const filters = {};
+      if (params.get('status')) filters.status = params.get('status');
+      if (params.get('type')) filters.agent_type = params.get('type');
+      
+      // Special queries
+      if (params.get('running') === 'true') {
+        const sessions = dbModule.sessions.getRunning();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ sessions, count: sessions.length }));
+        return true;
+      }
+      
+      if (params.get('stalled') === 'true') {
+        const sessions = dbModule.sessions.getStalled();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ sessions, count: sessions.length }));
+        return true;
+      }
+      
+      const sessions = dbModule.sessions.list(filters);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ sessions, count: sessions.length }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/v2/agents/start - Register a new agent session
+  if (req.method === 'POST' && url === '/api/v2/agents/start') {
+    try {
+      const { ticket_id, feature_id, agent_type, tmux_session, worktree_path } = JSON.parse(body);
+      
+      // Create session
+      const session = dbModule.sessions.create({
+        ticket_id,
+        feature_id,
+        agent_type,
+        status: 'queued'
+      });
+      
+      // If tmux session provided, start it immediately
+      if (tmux_session) {
+        dbModule.sessions.start(session.id, tmux_session, worktree_path);
+      }
+      
+      // Acquire file locks if this is a dev agent with a ticket
+      if (ticket_id && agent_type === 'dev') {
+        const ticket = dbModule.tickets.get(ticket_id);
+        if (ticket && ticket.files_to_modify) {
+          const lockResult = dbModule.locks.acquire(session.id, ticket_id, ticket.files_to_modify);
+          if (!lockResult.success) {
+            // Release session if we can't get locks
+            dbModule.sessions.crash(session.id, 'Failed to acquire file locks');
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              error: 'File lock conflict',
+              conflicts: lockResult.conflicts 
+            }));
+            return true;
+          }
+        }
+      }
+      
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(dbModule.sessions.get(session.id)));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/v2/agents/:id/heartbeat - Update agent heartbeat
+  if (req.method === 'POST' && url.match(/\/api\/v2\/agents\/[^/]+\/heartbeat/)) {
+    try {
+      const sessionId = url.split('/')[4];
+      const session = dbModule.sessions.heartbeat(sessionId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, last_heartbeat: session.last_heartbeat }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/v2/agents/:id/complete - Mark agent as complete
+  if (req.method === 'POST' && url.match(/\/api\/v2\/agents\/[^/]+\/complete/)) {
+    try {
+      const sessionId = url.split('/')[4];
+      const { completion_file } = JSON.parse(body);
+      
+      // Mark session complete
+      const session = dbModule.sessions.complete(sessionId, completion_file);
+      
+      // Release file locks
+      dbModule.locks.release(sessionId);
+      
+      // Update ticket status if applicable
+      if (session.ticket_id) {
+        dbModule.tickets.update(session.ticket_id, { status: 'dev_complete' });
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(session));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/v2/agents/:id/block - Mark agent as blocked
+  if (req.method === 'POST' && url.match(/\/api\/v2\/agents\/[^/]+\/block/)) {
+    try {
+      const sessionId = url.split('/')[4];
+      const { blocker_type, summary, blocker_file } = JSON.parse(body);
+      
+      const session = dbModule.sessions.block(sessionId, blocker_type, summary, blocker_file);
+      
+      // Release file locks
+      dbModule.locks.release(sessionId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(session));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // ---------------------------------------------------------------------------
+  // LOCKS v2
+  // ---------------------------------------------------------------------------
+  
+  // GET /api/v2/locks - Get active locks
+  if (req.method === 'GET' && url === '/api/v2/locks') {
+    try {
+      const locks = dbModule.locks.getActive();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ locks, count: locks.length }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/v2/locks/acquire - Acquire file locks
+  if (req.method === 'POST' && url === '/api/v2/locks/acquire') {
+    try {
+      const { session_id, ticket_id, files } = JSON.parse(body);
+      const result = dbModule.locks.acquire(session_id, ticket_id, files);
+      
+      if (result.success) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } else {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, conflicts: result.conflicts }));
+      }
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/v2/locks/release - Release file locks
+  if (req.method === 'POST' && url === '/api/v2/locks/release') {
+    try {
+      const { session_id } = JSON.parse(body);
+      dbModule.locks.release(session_id);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // ---------------------------------------------------------------------------
+  // UNIT TESTS v2
+  // ---------------------------------------------------------------------------
+  
+  // POST /api/v2/tests/regression - Record regression test result
+  if (req.method === 'POST' && url === '/api/v2/tests/regression') {
+    try {
+      const { 
+        ticket_id, session_id, branch, modified_files, excluded_tests,
+        regression_passed, regression_output, modified_tests_output,
+        total_tests, passed_tests, failed_tests
+      } = JSON.parse(body);
+      
+      // Create test run record
+      const testRun = dbModule.testRuns.create({
+        ticket_id,
+        session_id,
+        branch,
+        modified_files,
+        excluded_tests
+      });
+      
+      // Complete with results
+      const result = dbModule.testRuns.complete(testRun.id, {
+        regression_passed,
+        regression_output,
+        modified_tests_output,
+        total_tests,
+        passed_tests,
+        failed_tests
+      });
+      
+      // Update ticket status based on result
+      if (regression_passed) {
+        dbModule.tickets.update(ticket_id, { status: 'qa_pending' });
+      } else {
+        dbModule.tickets.update(ticket_id, { status: 'unit_test_failed' });
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // ---------------------------------------------------------------------------
+  // EVENTS v2
+  // ---------------------------------------------------------------------------
+  
+  // GET /api/v2/events - Get recent events
+  if (req.method === 'GET' && url.startsWith('/api/v2/events')) {
+    try {
+      const params = new URLSearchParams(url.split('?')[1] || '');
+      const limit = parseInt(params.get('limit')) || 100;
+      
+      const events = dbModule.events.getRecent(limit);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ events, count: events.length }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // ---------------------------------------------------------------------------
+  // DASHBOARD v2 (combined data endpoint)
+  // ---------------------------------------------------------------------------
+  
+  // GET /api/v2/dashboard - Get all dashboard data from DB
+  if (req.method === 'GET' && url === '/api/v2/dashboard') {
+    try {
+      const data = dbModule.getDashboardData();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // GET /api/v2/batch - Get next batch of conflict-free tickets
+  if (req.method === 'GET' && url.startsWith('/api/v2/batch')) {
+    try {
+      const params = new URLSearchParams(url.split('?')[1] || '');
+      const maxConcurrent = parseInt(params.get('max')) || 3;
+      
+      const batch = dbModule.getNextBatch(maxConcurrent);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ tickets: batch, count: batch.length }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
   return false;
 }
 
@@ -1082,6 +1605,13 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
+  const dbStatus = dbModule 
+    ? '║   ✅ Database: Connected (v2 API enabled)             ║'
+    : '║   ⚠️  Database: Not initialized                       ║';
+  const dbHint = dbModule
+    ? '║   • /api/v2/* endpoints available                    ║'
+    : '║   • Run: cd scripts/db && npm install && npm run init║';
+  
   console.log(`
 ╔════════════════════════════════════════════════════════╗
 ║                   PM DASHBOARD                         ║
@@ -1089,12 +1619,14 @@ server.listen(PORT, () => {
 ║                                                        ║
 ║   🚀 Server running at: http://localhost:${PORT}         ║
 ║                                                        ║
+${dbStatus}
+${dbHint}
+║                                                        ║
 ║   Features:                                            ║
 ║   • Auto-saves decisions (no copy/paste!)              ║
 ║   • Loads data from docs/data/*.json                   ║
-║   • Auto-aggregates agent outputs from:                ║
-║     docs/agent-output/{reviews,completions,blocked,    ║
-║     doc-tracker}/*.md                                  ║
+║   • Auto-aggregates agent outputs                      ║
+║   • v2 API with SQLite database support                ║
 ║                                                        ║
 ║   Press Ctrl+C to stop                                 ║
 ║                                                        ║

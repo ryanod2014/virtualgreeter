@@ -1,0 +1,16 @@
+{
+  "name": "workflow-db",
+  "version": "1.0.0",
+  "description": "SQLite database for agent workflow state management",
+  "private": true,
+  "type": "module",
+  "main": "db.js",
+  "scripts": {
+    "init": "node init-db.js",
+    "migrate": "node migrate-from-json.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.6.0",
+    "uuid": "^10.0.0"
+  }
+}

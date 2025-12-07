@@ -1,22 +1,23 @@
 #!/bin/bash
 # =============================================================================
-# Agent Orchestrator - Smart Parallel Launcher
+# QA Agent Orchestrator - Smart Parallel QA Launcher
 # =============================================================================
-# Launches agents in parallel, throttled by CPU/memory.
-# Automatically starts more agents as others complete.
+# Launches QA Review agents in parallel, throttled by CPU/memory.
+# Automatically detects tickets ready for QA (completed dev work).
 #
 # Usage:
-#   ./scripts/orchestrate-agents.sh TKT-001 TKT-002 TKT-003 ...
-#   ./scripts/orchestrate-agents.sh --max 5 TKT-001 TKT-002 ...
-#   ./scripts/orchestrate-agents.sh --auto  # Launch all from next batch
+#   ./scripts/orchestrate-qa-agents.sh                    # Auto-detect QA-ready tickets
+#   ./scripts/orchestrate-qa-agents.sh TKT-001 TKT-002    # Specific tickets
+#   ./scripts/orchestrate-qa-agents.sh --max 5            # Set max concurrent
+#   ./scripts/orchestrate-qa-agents.sh --dry-run          # Preview without launching
 #
 # Options:
-#   --max N      Maximum concurrent agents (default: auto-detect)
-#   --auto       Auto-detect tickets from PM dashboard API
+#   --max N      Maximum concurrent QA agents (default: auto-detect)
 #   --dry-run    Show what would be launched without launching
 # =============================================================================
 
 set -e
+set -o pipefail
 
 # Colors
 RED='\033[0;31m'
@@ -29,14 +30,13 @@ NC='\033[0m'
 
 # Configuration
 MAIN_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LAUNCH_SCRIPT="$MAIN_REPO_DIR/scripts/launch-agents.sh"
+LAUNCH_SCRIPT="$MAIN_REPO_DIR/scripts/launch-qa-agents.sh"
 LOG_DIR="$MAIN_REPO_DIR/.agent-logs"
-STATE_FILE="$LOG_DIR/orchestrator-state.json"
 
 # Defaults
 MAX_CONCURRENT=""  # Empty = auto-detect
 DRY_RUN=false
-AUTO_DETECT=false
+YES_FLAG=false
 TICKETS=()
 
 # CPU threshold - don't launch if CPU > this %
@@ -45,9 +45,6 @@ CPU_THRESHOLD=70
 MEM_THRESHOLD_MB=2000
 # Check interval in seconds
 CHECK_INTERVAL=30
-# Cleanup interval (every N checks)
-CLEANUP_INTERVAL=3
-CLEANUP_COUNTER=0
 
 # =============================================================================
 # Helper Functions
@@ -69,49 +66,16 @@ log_error() {
     echo -e "${RED}[$(date '+%H:%M:%S')] ✗${NC} $1"
 }
 
-# Kill runaway Vite/Vitest processes that consume too much CPU
-cleanup_runaway_processes() {
-    # Find vite/vitest processes using more than 50% CPU
-    local killed=0
-    
-    # Get PIDs of high-CPU vite processes
-    local high_cpu_pids=$(ps aux | grep -E "vite|vitest" | grep -v grep | awk '$3 > 50 {print $2}')
-    
-    if [ -n "$high_cpu_pids" ]; then
-        for pid in $high_cpu_pids; do
-            kill -9 "$pid" 2>/dev/null && killed=$((killed + 1))
-        done
-        if [ $killed -gt 0 ]; then
-            log_warning "Killed $killed runaway vite/vitest processes"
-        fi
-    fi
-    
-    # Also kill any orphaned node processes from old worktrees
-    # (processes whose parent is init/1, consuming >30% CPU)
-    local orphan_pids=$(ps aux | grep "node" | grep -v grep | awk '$3 > 30 && $4 > 5 {print $2}')
-    
-    if [ -n "$orphan_pids" ]; then
-        local orphan_count=$(echo "$orphan_pids" | wc -l | tr -d ' ')
-        if [ "$orphan_count" -gt 5 ]; then
-            log_warning "Found $orphan_count high-CPU node processes - consider manual review"
-        fi
-    fi
-}
-
 # Get current CPU usage (macOS)
 get_cpu_usage() {
-    # Get CPU usage from top (macOS)
     top -l 1 -n 0 | grep "CPU usage" | awk '{print $3}' | tr -d '%' | cut -d'.' -f1
 }
 
 # Get free memory in MB (macOS)
 get_free_memory_mb() {
-    # Get page size and free pages
     local page_size=$(sysctl -n hw.pagesize)
     local free_pages=$(vm_stat | grep "Pages free" | awk '{print $3}' | tr -d '.')
     local inactive_pages=$(vm_stat | grep "Pages inactive" | awk '{print $3}' | tr -d '.')
-    
-    # Calculate free + inactive memory in MB
     echo $(( (free_pages + inactive_pages) * page_size / 1024 / 1024 ))
 }
 
@@ -125,14 +89,13 @@ auto_detect_max() {
     local cores=$(get_cpu_cores)
     local free_mem=$(get_free_memory_mb)
     
-    # Heuristic: 1 agent per 2 cores, max based on memory (2GB per agent)
+    # QA agents are lighter than dev agents - can run more
     local by_cores=$((cores / 2))
-    local by_memory=$((free_mem / 2000))
+    local by_memory=$((free_mem / 1500))
     
-    # Take minimum, but at least 2 and at most 8
     local max=$((by_cores < by_memory ? by_cores : by_memory))
     max=$((max < 2 ? 2 : max))
-    max=$((max > 8 ? 8 : max))
+    max=$((max > 10 ? 10 : max))
     
     echo $max
 }
@@ -155,12 +118,12 @@ can_launch_more() {
     return 0
 }
 
-# Get running agent sessions
+# Get running QA agent sessions
 get_running_agents() {
-    tmux ls 2>/dev/null | grep "^agent-" | cut -d: -f1 | sed 's/agent-//' || true
+    tmux ls 2>/dev/null | grep "^qa-" | cut -d: -f1 | sed 's/qa-//' || true
 }
 
-# Count running agents
+# Count running QA agents
 count_running_agents() {
     local running=$(get_running_agents)
     if [ -z "$running" ]; then
@@ -170,19 +133,21 @@ count_running_agents() {
     fi
 }
 
-# Check if a specific agent is still running
+# Check if a specific QA agent is still running
 is_agent_running() {
     local ticket_id="$1"
-    tmux has-session -t "agent-$ticket_id" 2>/dev/null
+    tmux has-session -t "qa-$ticket_id" 2>/dev/null
 }
 
-# Get tickets from PM dashboard API (v2 if available, fallback to v1)
-get_tickets_from_api() {
-    # Try v2 API first (database-backed, conflict-free batch)
-    local V2_RESULT=$(curl -s "http://localhost:3456/api/v2/batch?max=$MAX_CONCURRENT" 2>/dev/null)
+# Get tickets that are ready for QA (have branches but no QA result yet)
+get_qa_ready_tickets() {
+    cd "$MAIN_REPO_DIR"
+    
+    # Try v2 API first (database-backed)
+    local V2_RESULT=$(curl -s "http://localhost:3456/api/v2/tickets?status=qa_pending" 2>/dev/null)
     
     if echo "$V2_RESULT" | grep -q '"tickets"'; then
-        # v2 API available - use it
+        # v2 API available - tickets with qa_pending status
         echo "$V2_RESULT" | python3 -c "
 import sys, json
 try:
@@ -195,52 +160,60 @@ except:
         return
     fi
     
-    # Fallback to v1 API (JSON-based)
-    curl -s http://localhost:3456/api/data 2>/dev/null | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    tickets = d.get('tickets', {}).get('tickets', [])
-    devStatus = d.get('devStatus', {})
+    # Fallback to git branch scanning
+    # Get all agent branches
+    local BRANCHES=$(git branch -a | grep "agent/" | sed 's/^[* ]*//' | sed 's|remotes/origin/||' | sort -u)
     
-    completed = set(c.get('ticket_id', '').upper() for c in devStatus.get('completed', []))
-    in_progress = set(i.get('ticket_id', '').upper() for i in devStatus.get('in_progress', []))
+    # Get tickets that already have QA results (more flexible pattern)
+    local QA_DONE=$(ls docs/agent-output/qa-results/QA-*-PASSED*.md 2>/dev/null | \
+        grep -oE '(TKT|SEC)-[0-9]+' | sort -u || true)
     
-    # Get ready tickets not completed or in progress
-    ready = [t for t in tickets if t.get('status') == 'ready' 
-             and t.get('id', '').upper() not in completed
-             and t.get('id', '').upper() not in in_progress]
+    # Get tickets that are blocked
+    local BLOCKED=$(ls docs/agent-output/blocked/QA-*-FAILED*.json 2>/dev/null | \
+        grep -oE '(TKT|SEC)-[0-9]+' | sort -u || true)
     
-    # Get locked files from completed tickets
-    locked_files = set()
-    for t in tickets:
-        if t.get('id', '').upper() in completed or t.get('id', '').upper() in in_progress:
-            for f in t.get('files_to_modify', []):
-                locked_files.add(f)
+    # Get currently running QA agents
+    local RUNNING=$(get_running_agents)
     
-    # Calculate conflict-free batch (greedy)
-    batch = []
-    batch_files = set(locked_files)
+    # Find tickets with branches that haven't been QA'd
+    local READY_TICKETS=()
     
-    # Sort by priority
-    priority_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
-    ready.sort(key=lambda t: priority_order.get(t.get('priority', 'low'), 4))
+    for BRANCH in $BRANCHES; do
+        # Extract ticket ID from branch name (agent/TKT-001-description -> TKT-001)
+        local TICKET=$(echo "$BRANCH" | sed 's|agent/||' | grep -oE '^(TKT|SEC)-[0-9]+' | head -1)
+        
+        if [ -z "$TICKET" ]; then
+            continue
+        fi
+        
+        # Skip if already QA'd
+        if echo "$QA_DONE" | grep -q "^$TICKET$"; then
+            continue
+        fi
+        
+        # Skip if blocked
+        if echo "$BLOCKED" | grep -q "^$TICKET$"; then
+            continue
+        fi
+        
+        # Skip if already running
+        if echo "$RUNNING" | grep -q "^$TICKET$"; then
+            continue
+        fi
+        
+        # Skip duplicates
+        if [[ " ${READY_TICKETS[*]} " =~ " ${TICKET} " ]]; then
+            continue
+        fi
+        
+        READY_TICKETS+=("$TICKET")
+    done
     
-    for t in ready:
-        t_files = set(t.get('files_to_modify', []))
-        if not t_files & batch_files:
-            batch.append(t.get('id'))
-            batch_files |= t_files
-    
-    print(' '.join(batch))
-except Exception as e:
-    print(f'ERROR: {e}', file=sys.stderr)
-    sys.exit(1)
-" 2>/dev/null || echo ""
+    echo "${READY_TICKETS[@]}"
 }
 
-# Register agent session in database
-register_session() {
+# Register QA agent session in database
+register_qa_session() {
     local TICKET_ID="$1"
     local TMUX_SESSION="$2"
     local WORKTREE="$3"
@@ -248,50 +221,14 @@ register_session() {
     # Try to register with v2 API
     local RESULT=$(curl -s -X POST "http://localhost:3456/api/v2/agents/start" \
         -H "Content-Type: application/json" \
-        -d "{\"ticket_id\": \"$TICKET_ID\", \"agent_type\": \"dev\", \"tmux_session\": \"$TMUX_SESSION\", \"worktree_path\": \"$WORKTREE\"}" 2>/dev/null)
+        -d "{\"ticket_id\": \"$TICKET_ID\", \"agent_type\": \"qa\", \"tmux_session\": \"$TMUX_SESSION\", \"worktree_path\": \"$WORKTREE\"}" 2>/dev/null)
     
     if echo "$RESULT" | grep -q '"id"'; then
-        # Extract session ID
         echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null
     fi
 }
 
-# Check for stalled sessions and handle them
-check_stalled_sessions() {
-    local STALLED=$(curl -s "http://localhost:3456/api/v2/agents?stalled=true" 2>/dev/null)
-    
-    if echo "$STALLED" | grep -q '"sessions"'; then
-        local COUNT=$(echo "$STALLED" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('sessions',[])))" 2>/dev/null)
-        
-        if [ "$COUNT" -gt 0 ]; then
-            log_warning "Found $COUNT stalled sessions - handling recovery..."
-            
-            echo "$STALLED" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-for s in d.get('sessions', []):
-    print(s.get('id', ''), s.get('ticket_id', ''), s.get('tmux_session', ''))
-" 2>/dev/null | while read SESSION_ID TICKET_ID TMUX_NAME; do
-                if [ -n "$SESSION_ID" ] && [ -n "$TICKET_ID" ]; then
-                    log_warning "Stalled: $TICKET_ID (session: $SESSION_ID)"
-                    
-                    # Kill tmux session if still exists
-                    tmux kill-session -t "$TMUX_NAME" 2>/dev/null || true
-                    
-                    # Mark as crashed in DB (will auto-requeue if attempts remaining)
-                    curl -s -X POST "http://localhost:3456/api/v2/agents/$SESSION_ID/block" \
-                        -H "Content-Type: application/json" \
-                        -d '{"blocker_type": "stalled", "summary": "Session stalled - no heartbeat"}' 2>/dev/null || true
-                    
-                    # Re-add to pending if we should retry
-                    PENDING_TICKETS+=("$TICKET_ID")
-                fi
-            done
-        fi
-    fi
-}
-
-# Launch a single agent
+# Launch a single QA agent
 launch_agent() {
     local ticket_id="$1"
     
@@ -300,7 +237,7 @@ launch_agent() {
         return 1
     fi
     
-    log "Launching $ticket_id..."
+    log "Launching QA for $ticket_id..."
     
     if [ "$DRY_RUN" = true ]; then
         log "[DRY RUN] Would launch: $ticket_id"
@@ -310,31 +247,23 @@ launch_agent() {
     # Use the launch script
     "$LAUNCH_SCRIPT" "$ticket_id" > /dev/null 2>&1
     
+    sleep 2
+    
     if is_agent_running "$ticket_id"; then
-        log_success "Launched $ticket_id"
+        log_success "Launched QA for $ticket_id"
+        
+        # Register session in DB
+        local WORKTREE_BASE="$MAIN_REPO_DIR/../agent-worktrees"
+        local SESSION_ID=$(register_qa_session "$ticket_id" "qa-$ticket_id" "$WORKTREE_BASE/qa-$ticket_id")
+        if [ -n "$SESSION_ID" ]; then
+            log "Registered QA session: $SESSION_ID"
+        fi
+        
         return 0
     else
-        log_error "Failed to launch $ticket_id"
+        log_error "Failed to launch QA for $ticket_id"
         return 1
     fi
-}
-
-# Save state to file
-save_state() {
-    mkdir -p "$LOG_DIR"
-    local running=$(get_running_agents | tr '\n' ',' | sed 's/,$//')
-    local pending=$(echo "${PENDING_TICKETS[@]}" | tr ' ' ',')
-    local completed=$(echo "${COMPLETED_TICKETS[@]}" | tr ' ' ',')
-    
-    cat > "$STATE_FILE" << EOF
-{
-  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "running": "[$running]",
-  "pending": "[$pending]",
-  "completed": "[$completed]",
-  "max_concurrent": $MAX_CONCURRENT
-}
-EOF
 }
 
 # Display status
@@ -348,7 +277,7 @@ show_status() {
     
     echo ""
     echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${MAGENTA}                    AGENT ORCHESTRATOR                      ${NC}"
+    echo -e "${MAGENTA}              QA AGENT ORCHESTRATOR                         ${NC}"
     echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     echo -e "  ${CYAN}Running:${NC}   $running_count / $MAX_CONCURRENT max"
@@ -367,7 +296,7 @@ show_status() {
     echo ""
     echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "  Press ${CYAN}Ctrl+C${NC} to stop orchestrator (agents keep running)"
-    echo -e "  View agent: ${CYAN}tmux attach -t agent-TKT-XXX${NC}"
+    echo -e "  View agent: ${CYAN}tmux attach -t qa-TKT-XXX${NC}"
     echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 }
@@ -376,29 +305,17 @@ show_status() {
 # Main Orchestration Loop
 # =============================================================================
 
-# Arrays to track state
 PENDING_TICKETS=()
 COMPLETED_TICKETS=()
 
 orchestrate() {
-    log "Starting orchestration loop..."
-    
-    # Initial cleanup
-    cleanup_runaway_processes
+    log "Starting QA orchestration loop..."
     
     while true; do
-        # Periodic cleanup of runaway processes
-        CLEANUP_COUNTER=$((CLEANUP_COUNTER + 1))
-        if [ $((CLEANUP_COUNTER % CLEANUP_INTERVAL)) -eq 0 ]; then
-            cleanup_runaway_processes
-            # Also check for stalled sessions in DB
-            check_stalled_sessions 2>/dev/null || true
-        fi
-        
-        # Check for completed agents (reconcile tmux with expected running)
+        # Check for completed agents
         for ticket in $(get_running_agents); do
             if ! is_agent_running "$ticket"; then
-                log_success "$ticket completed!"
+                log_success "$ticket QA completed!"
                 COMPLETED_TICKETS+=("$ticket")
             fi
         done
@@ -407,16 +324,18 @@ orchestrate() {
         local running=$(count_running_agents)
         local pending=${#PENDING_TICKETS[@]}
         
-        # Show status
-        clear
+        # Show status (only clear if interactive terminal)
+        [ -t 1 ] && clear
         show_status
         
         # All done?
         if [ $pending -eq 0 ] && [ $running -eq 0 ]; then
             echo ""
-            log_success "All agents completed! 🎉"
+            log_success "All QA reviews completed! 🎉"
             echo ""
             echo "Completed tickets: ${COMPLETED_TICKETS[*]}"
+            echo ""
+            echo "Check results in: docs/agent-output/qa-results/"
             break
         fi
         
@@ -435,22 +354,13 @@ orchestrate() {
             # Launch it
             if launch_agent "$next_ticket"; then
                 running=$((running + 1))
-                
-                # Register session in DB
-                local SESSION_ID=$(register_session "$next_ticket" "agent-$next_ticket" "$WORKTREE_BASE/$next_ticket")
-                if [ -n "$SESSION_ID" ]; then
-                    log "Registered session: $SESSION_ID"
-                fi
             fi
             
             pending=${#PENDING_TICKETS[@]}
             
             # Small delay between launches
-            sleep 2
+            sleep 3
         done
-        
-        # Save state
-        save_state
         
         # Wait before next check
         sleep $CHECK_INTERVAL
@@ -467,26 +377,27 @@ while [[ $# -gt 0 ]]; do
             MAX_CONCURRENT="$2"
             shift 2
             ;;
-        --auto)
-            AUTO_DETECT=true
-            shift
-            ;;
         --dry-run)
             DRY_RUN=true
             shift
             ;;
+        --yes|-y)
+            YES_FLAG=true
+            shift
+            ;;
         --help|-h)
-            echo "Agent Orchestrator - Smart Parallel Launcher"
+            echo "QA Agent Orchestrator - Smart Parallel QA Launcher"
             echo ""
             echo "Usage:"
-            echo "  $0 TKT-001 TKT-002 TKT-003 ...   Launch specific tickets"
-            echo "  $0 --auto                         Auto-detect from dashboard"
-            echo "  $0 --max 5 TKT-001 TKT-002 ...   Set max concurrent"
+            echo "  $0                              Auto-detect QA-ready tickets"
+            echo "  $0 TKT-001 TKT-002 ...         Launch specific tickets"
+            echo "  $0 --max 5                     Set max concurrent"
+            echo "  $0 --dry-run                   Preview without launching"
             echo ""
             echo "Options:"
-            echo "  --max N      Maximum concurrent agents (default: auto-detect based on CPU/RAM)"
-            echo "  --auto       Get ticket list from PM dashboard API"
+            echo "  --max N      Maximum concurrent QA agents (default: auto)"
             echo "  --dry-run    Show what would be launched"
+            echo "  --yes, -y    Skip confirmation prompt"
             echo "  --help       Show this help"
             exit 0
             ;;
@@ -511,27 +422,18 @@ if [ -z "$MAX_CONCURRENT" ]; then
     log "Auto-detected max concurrent: $MAX_CONCURRENT (based on $(get_cpu_cores) cores, $(get_free_memory_mb)MB free)"
 fi
 
-# Get tickets
-if [ "$AUTO_DETECT" = true ]; then
-    log "Fetching tickets from PM dashboard..."
-    TICKET_LIST=$(get_tickets_from_api)
+# Get tickets - either from args or auto-detect
+if [ ${#TICKETS[@]} -eq 0 ]; then
+    log "Auto-detecting tickets ready for QA..."
+    TICKET_LIST=$(get_qa_ready_tickets)
     
     if [ -z "$TICKET_LIST" ]; then
-        log_error "Failed to get tickets from dashboard. Is it running at localhost:3456?"
-        exit 1
+        log "No tickets ready for QA. All branches have been reviewed or are blocked."
+        exit 0
     fi
     
-    # Convert to array
     read -ra TICKETS <<< "$TICKET_LIST"
-    log "Found ${#TICKETS[@]} tickets: ${TICKETS[*]}"
-fi
-
-if [ ${#TICKETS[@]} -eq 0 ]; then
-    log_error "No tickets specified. Use --auto or provide ticket IDs."
-    echo ""
-    echo "Usage: $0 --auto"
-    echo "   or: $0 TKT-001 TKT-002 TKT-003"
-    exit 1
+    log "Found ${#TICKETS[@]} tickets ready for QA: ${TICKETS[*]}"
 fi
 
 # Initialize pending queue
@@ -540,10 +442,10 @@ PENDING_TICKETS=("${TICKETS[@]}")
 # Show initial status
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║               AGENT ORCHESTRATOR                           ║${NC}"
+echo -e "${GREEN}║              QA AGENT ORCHESTRATOR                         ║${NC}"
 echo -e "${GREEN}╠════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}║                                                            ║${NC}"
-echo -e "${GREEN}║   Tickets to launch: ${#TICKETS[@]}                                     ${NC}"
+echo -e "${GREEN}║   Tickets to QA:     ${#TICKETS[@]}                                       ${NC}"
 echo -e "${GREEN}║   Max concurrent:    $MAX_CONCURRENT                                      ${NC}"
 echo -e "${GREEN}║   CPU threshold:     ${CPU_THRESHOLD}%                                    ${NC}"
 echo -e "${GREEN}║   Memory threshold:  ${MEM_THRESHOLD_MB}MB                                  ${NC}"
@@ -552,18 +454,21 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 
 if [ "$DRY_RUN" = true ]; then
-    echo -e "${YELLOW}DRY RUN - No agents will be launched${NC}"
+    echo -e "${YELLOW}DRY RUN - No QA agents will be launched${NC}"
     echo ""
-    echo "Would launch these tickets in batches of $MAX_CONCURRENT:"
+    echo "Would launch QA for these tickets (batches of $MAX_CONCURRENT):"
     for ticket in "${TICKETS[@]}"; do
         echo "  - $ticket"
     done
     exit 0
 fi
 
-# Confirm
-echo -e "Press ${CYAN}Enter${NC} to start, or ${RED}Ctrl+C${NC} to cancel..."
-read -r
+# Confirm (skip if --yes flag provided)
+if [ "$YES_FLAG" = false ]; then
+    echo -e "Press ${CYAN}Enter${NC} to start QA reviews, or ${RED}Ctrl+C${NC} to cancel..."
+    read -r
+fi
 
 # Start orchestration
 orchestrate
+
