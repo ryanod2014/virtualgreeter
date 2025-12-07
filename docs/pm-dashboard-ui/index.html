@@ -5453,9 +5453,9 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ color: 'var(--accent-bright)' }}><Icons.server /></span>
                 <span style={{ fontWeight: 600 }}>Dev Agents</span>
-                {nextBatch.length > 0 && (
+                {readyTickets.length > 0 && (
                   <span style={{ padding: '3px 10px', background: 'var(--accent)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                    {nextBatch.length} ready
+                    {nextBatch.length} parallel / {readyTickets.length} total
                   </span>
                 )}
               </div>
