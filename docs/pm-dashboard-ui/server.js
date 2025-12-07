@@ -205,8 +205,8 @@ function scanAgentOutputs(skipFetch = false) {
           const content = gitReadFile(branch, filePath);
           if (!content) continue;
           
-          // Extract ticket ID from filename
-          const ticketMatch = file.match(/^([A-Z]+-\d+[a-z]?)/i);
+          // Extract ticket ID from filename (include letter suffixes like TKT-004C)
+          const ticketMatch = file.match(/([A-Z]+-\d+[a-zA-Z]?)/i);
           const ticketId = ticketMatch 
             ? ticketMatch[1].toUpperCase() 
             : file.replace(/-\d{4}-\d{2}-\d{2}T\d+\.(md|json)$/, '').replace(/\.(md|json)$/, '');
@@ -238,12 +238,22 @@ function scanAgentOutputs(skipFetch = false) {
     }
   }
   
+  // Deduplicate blocked entries by ticket ID (keep most recent per ticket)
+  const blockedByTicket = new Map();
+  for (const entry of outputs.blocked) {
+    const existing = blockedByTicket.get(entry.ticketId);
+    if (!existing || entry.modifiedAt > existing.modifiedAt) {
+      blockedByTicket.set(entry.ticketId, entry);
+    }
+  }
+  outputs.blocked = Array.from(blockedByTicket.values());
+  
   // Sort each output by ticketId for consistent ordering
   for (const key of Object.keys(outputs)) {
     outputs[key].sort((a, b) => a.ticketId.localeCompare(b.ticketId));
   }
   
-  console.log(`📊 Scanned ${branchesToScan.length} branches: ${outputs.completions.length} completions, ${outputs.started.length} started, ${outputs.blocked.length} blocked`);
+  console.log(`📊 Scanned ${branchesToScan.length} branches: ${outputs.completions.length} completions, ${outputs.started.length} started, ${outputs.blocked.length} blocked (unique tickets)`);
   
   // Cache results
   agentOutputsCache = outputs;
@@ -298,7 +308,8 @@ function buildDevStatusFromOutputs(agentOutputs) {
         f.endsWith('.md') && (f.includes('PASSED') || f.includes('passed'))
       );
       for (const file of qaFiles) {
-        const match = file.match(/(TKT-\d+|SEC-\d+)/i);
+        // Include letter suffixes (TKT-004C, TKT-005E, etc.)
+        const match = file.match(/(TKT-\d+[a-zA-Z]?|SEC-\d+[a-zA-Z]?)/i);
         if (match && !seenTickets.has(match[1].toUpperCase())) {
           const ticketId = match[1].toUpperCase();
           seenTickets.add(ticketId);
