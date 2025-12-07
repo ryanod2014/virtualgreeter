@@ -774,26 +774,39 @@ function handleAPI(req, res, body) {
         // Get tickets from DB (authoritative)
         const dbTickets = dbModule.tickets.list();
         
-        // Get running sessions from DB (replaces devStatus.in_progress)
+        // Get running sessions from DB
         const runningSessions = dbModule.sessions.getRunning();
         const stalledSessions = dbModule.sessions.getStalled();
         
-        // Build devStatus from DB sessions
-        const devStatus = {
-          in_progress: runningSessions.map(s => ({
-            ticket_id: s.ticket_id,
-            branch: s.worktree_path ? `agent/${s.ticket_id.toLowerCase()}` : 'unknown',
-            started_at: s.started_at,
-            session_id: s.id
-          })),
-          completed: [], // Completion is tracked via ticket.status, not a separate list
-          stalled: stalledSessions.map(s => ({
-            ticket_id: s.ticket_id,
-            session_id: s.id,
-            last_heartbeat: s.last_heartbeat
-          })),
-          regression_results: readJSON('dev-status.json')?.regression_results || {}
-        };
+        // Build devStatus from agent output files (for completed/blocked artifacts)
+        // Then overlay with DB session data for in_progress
+        let devStatus;
+        try {
+          devStatus = buildDevStatusFromOutputs(agentOutputs);
+        } catch (e) {
+          devStatus = { in_progress: [], completed: [], blocked: [] };
+        }
+        
+        // Override in_progress with DB sessions (authoritative for running agents)
+        devStatus.in_progress = runningSessions.map(s => ({
+          ticket_id: s.ticket_id,
+          branch: s.worktree_path ? `agent/${s.ticket_id.toLowerCase()}` : 'unknown',
+          started_at: s.started_at,
+          session_id: s.id
+        }));
+        
+        // Add stalled sessions info
+        devStatus.stalled = stalledSessions.map(s => ({
+          ticket_id: s.ticket_id,
+          session_id: s.id,
+          last_heartbeat: s.last_heartbeat
+        }));
+        
+        // Load regression results from saved file
+        const savedDevStatus = readJSON('dev-status.json');
+        if (savedDevStatus?.regression_results) {
+          devStatus.regression_results = savedDevStatus.regression_results;
+        }
         
         // Get active file locks from DB
         const activeLocks = dbModule.locks.getActive();
