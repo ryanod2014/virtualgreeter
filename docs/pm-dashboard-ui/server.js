@@ -260,14 +260,119 @@ function buildDevStatusFromOutputs(agentOutputs) {
     }
   }
   
+  // Build merged array from QA results (scan for PASSED reports)
+  const merged = [];
+  const qaResultsDir = path.join(__dirname, '../agent-output/qa-results');
+  if (fs.existsSync(qaResultsDir)) {
+    try {
+      const seenTickets = new Set();
+      const qaFiles = fs.readdirSync(qaResultsDir).filter(f => 
+        f.endsWith('.md') && (f.includes('PASSED') || f.includes('passed'))
+      );
+      for (const file of qaFiles) {
+        const match = file.match(/(TKT-\d+|SEC-\d+)/i);
+        if (match && !seenTickets.has(match[1].toUpperCase())) {
+          const ticketId = match[1].toUpperCase();
+          seenTickets.add(ticketId);
+          const filePath = path.join(qaResultsDir, file);
+          const stat = fs.statSync(filePath);
+          
+          // Read and parse QA report content
+          let reportContent = '';
+          let reportSummary = '';
+          let testResults = [];
+          let acceptanceCriteria = [];
+          try {
+            reportContent = fs.readFileSync(filePath, 'utf8');
+            
+            // Extract summary
+            const summaryMatch = reportContent.match(/## Summary\s*\n+([\s\S]*?)(?=\n##|\n\*\*|$)/i);
+            if (summaryMatch) {
+              reportSummary = summaryMatch[1].trim().split('\n')[0].slice(0, 200);
+            }
+            
+            // Extract test results (supports both list and table formats)
+            const testsSection = reportContent.match(/## (?:Tests?(?:\s+\w+)?|Build Verification)\s*\n+([\s\S]*?)(?=\n##|$)/i);
+            if (testsSection) {
+              const lines = testsSection[1].split('\n');
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('-') && (trimmed.includes('✅') || trimmed.includes('❌') || trimmed.includes('⚠️'))) {
+                  testResults.push(trimmed);
+                } else if (trimmed.startsWith('|') && (trimmed.includes('✅') || trimmed.includes('❌') || trimmed.includes('PASS') || trimmed.includes('FAIL'))) {
+                  const parts = trimmed.split('|').filter(p => p.trim());
+                  if (parts.length >= 2) {
+                    const check = parts[0].trim();
+                    const status = parts[1].trim();
+                    if (status.includes('✅') || status.includes('PASS')) {
+                      testResults.push(`✅ ${check}`);
+                    } else if (status.includes('❌') || status.includes('FAIL')) {
+                      testResults.push(`❌ ${check}`);
+                    } else if (status.includes('⚠️')) {
+                      testResults.push(`⚠️ ${check}`);
+                    }
+                  }
+                }
+                if (testResults.length >= 5) break;
+              }
+            }
+            
+            // Extract acceptance criteria
+            const acSection = reportContent.match(/## Acceptance Criteria\s*\n+([\s\S]*?)(?=\n##|$)/i);
+            if (acSection) {
+              const lines = acSection[1].split('\n');
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('-') && (trimmed.includes('✅') || trimmed.includes('❌'))) {
+                  acceptanceCriteria.push(trimmed);
+                } else if (trimmed.startsWith('|') && (trimmed.includes('✅') || trimmed.includes('❌'))) {
+                  const parts = trimmed.split('|').filter(p => p.trim());
+                  if (parts.length >= 3) {
+                    const criterion = parts[1].trim().slice(0, 60);
+                    const status = parts[2].trim();
+                    if (status.includes('✅') || status.includes('VERIFIED')) {
+                      acceptanceCriteria.push(`✅ ${criterion}${criterion.length >= 60 ? '...' : ''}`);
+                    } else if (status.includes('❌')) {
+                      acceptanceCriteria.push(`❌ ${criterion}${criterion.length >= 60 ? '...' : ''}`);
+                    }
+                  }
+                }
+                if (acceptanceCriteria.length >= 5) break;
+              }
+            }
+          } catch (e) {
+            // Ignore read errors
+          }
+          
+          merged.push({
+            ticket_id: ticketId,
+            branch: `agent/${ticketId.toLowerCase()}`,
+            merged_at: stat.mtime.toISOString(),
+            qa_report: `docs/agent-output/qa-results/${file}`,
+            report_summary: reportSummary,
+            test_results: testResults,
+            acceptance_criteria: acceptanceCriteria
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error scanning QA results:', e.message);
+    }
+  }
+  
+  // Exclude merged tickets from completed
+  const mergedIds = new Set(merged.map(m => m.ticket_id.toUpperCase()));
+  const filteredCompleted = completed.filter(c => !c.ticket_id || !mergedIds.has(c.ticket_id.toUpperCase()));
+  
   return {
     meta: {
       last_updated: new Date().toISOString(),
-      version: "2.1",
+      version: "2.2",
       note: "Built from agent-output files (source of truth)"
     },
     in_progress: inProgress,
-    completed: completed,
+    completed: filteredCompleted,
+    merged: merged,
     retry_history: []
   };
 }
