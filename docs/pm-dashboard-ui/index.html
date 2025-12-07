@@ -1470,10 +1470,18 @@ pnpm build`}
         return agentOutputs.blocked.map(b => {
           try {
             const parsed = typeof b.content === 'string' ? JSON.parse(b.content) : b.content;
+            const fileName = b.fileName || '';
+            
+            // Determine if this blocker is auto-handleable (no human decision needed)
+            // QA failures (QA-*-FAILED) and CI failures (CI-TKT-*) are auto-handled by Dispatch Agent
+            const isQAFailure = fileName.startsWith('QA-') && fileName.includes('FAILED');
+            const isCIFailure = fileName.startsWith('CI-');
+            const isAutoHandleable = isQAFailure || isCIFailure;
+            
             // Convert blocker to finding-like format so it shows in the list
             return {
               id: parsed.id || b.ticketId,
-              title: parsed.title || 'Dev Agent Blocked',
+              title: parsed.title || (isQAFailure ? 'QA Failed - Rework Needed' : 'Dev Agent Blocked'),
               issue: parsed.issue,
               severity: 'critical', // Dev blockers are always critical priority
               type: 'dev-blocker', // Special type to identify dev blockers
@@ -1481,10 +1489,12 @@ pnpm build`}
               category: parsed.category || 'dev-blocker',
               status: parsed.status || 'pending',
               options: parsed.options || [],
-              suggested_fix: parsed.recommendation,
+              suggested_fix: parsed.recommendation || parsed.recommendedFix?.description,
               blocker_context: parsed.blocker_context,
               _raw: b,
-              _isDevBlocker: true
+              _isDevBlocker: true,
+              _isAutoHandleable: isAutoHandleable,
+              _blockerType: isQAFailure ? 'qa_failure' : isCIFailure ? 'ci_failure' : 'clarification'
             };
           } catch (e) {
             return null;
@@ -1492,11 +1502,21 @@ pnpm build`}
         }).filter(Boolean);
       }, [agentOutputs]);
       
-      // Combine findings with dev blockers - dev blockers go first
+      // Separate auto-handleable blockers (dispatch will process) from manual ones (need human)
+      const autoHandleableBlockers = useMemo(() => 
+        devBlockersAsFindings.filter(b => b._isAutoHandleable), 
+        [devBlockersAsFindings]
+      );
+      const manualBlockers = useMemo(() => 
+        devBlockersAsFindings.filter(b => !b._isAutoHandleable), 
+        [devBlockersAsFindings]
+      );
+      
+      // Combine findings with ONLY manual blockers - auto-handleable ones shown separately
       const allFindings = useMemo(() => {
         const regularFindings = findingsData || [];
-        return [...devBlockersAsFindings, ...regularFindings];
-      }, [findingsData, devBlockersAsFindings]);
+        return [...manualBlockers, ...regularFindings];
+      }, [findingsData, manualBlockers]);
       
       const findings = allFindings;
 
@@ -1943,6 +1963,50 @@ pnpm build`}
 
       return (
         <div className="fade-in">
+          {/* Auto-Handleable Blockers Banner - These don't need human input */}
+          {autoHandleableBlockers.length > 0 && (
+            <div style={{ 
+              background: 'linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(34,197,94,0.05) 100%)',
+              border: '1px solid rgba(34,197,94,0.3)',
+              borderRadius: '12px',
+              padding: '16px 20px',
+              marginBottom: '20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '18px' }}>⚡</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {autoHandleableBlockers.length} Auto-Handleable Blocker{autoHandleableBlockers.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  QA failures & CI failures → Dispatch Agent auto-creates continuation tickets (no human decision needed)
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                  {autoHandleableBlockers.slice(0, 5).map(b => b.id).join(', ')}
+                  {autoHandleableBlockers.length > 5 && ` +${autoHandleableBlockers.length - 5} more`}
+                </div>
+              </div>
+              <button 
+                className="btn btn-primary"
+                style={{ 
+                  background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                  border: 'none',
+                  padding: '10px 20px',
+                  fontWeight: 600
+                }}
+                onClick={() => {
+                  alert('Run Dispatch Agent in terminal:\n\nYou are a Dispatch Agent. Read docs/workflow/DISPATCH_AGENT_SOP.md then execute Task 1 only.');
+                }}
+              >
+                🚀 Run Dispatch Agent
+              </button>
+            </div>
+          )}
+          
           {/* Single Bar: Blockers + Severity + Done */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div className="tabs">
