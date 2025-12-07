@@ -155,8 +155,10 @@ run_qa() {
     local TICKETS=("$@")
     
     if [ ${#TICKETS[@]} -eq 0 ]; then
-        # Auto-detect tickets ready for QA
-        mapfile -t TICKETS < <(get_qa_ready_tickets)
+        # Auto-detect tickets ready for QA (compatible with bash 3.x)
+        while IFS= read -r ticket; do
+            [ -n "$ticket" ] && TICKETS+=("$ticket")
+        done < <(get_qa_ready_tickets)
     fi
     
     if [ ${#TICKETS[@]} -eq 0 ]; then
