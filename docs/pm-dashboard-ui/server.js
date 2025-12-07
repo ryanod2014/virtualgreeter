@@ -923,6 +923,47 @@ function handleAPI(req, res, body) {
     return true;
   }
   
+  // POST /api/launch-dispatch - Launch dispatch agents to process blockers
+  if (req.method === 'POST' && url === '/api/launch-dispatch') {
+    try {
+      const DISPATCH_SCRIPT = path.join(__dirname, '../../scripts/launch-dispatch-agents.sh');
+      
+      console.log('🚀 Launching dispatch agents...');
+      
+      // Run the script in background
+      const { spawn } = require('child_process');
+      const dispatchProcess = spawn('bash', [DISPATCH_SCRIPT], {
+        detached: true,
+        stdio: 'ignore',
+        cwd: path.join(__dirname, '../..')
+      });
+      dispatchProcess.unref();
+      
+      // Count blockers for response
+      const blockedDir = path.join(__dirname, '../agent-output/blocked');
+      let blockerCount = 0;
+      try {
+        const files = fs.readdirSync(blockedDir);
+        blockerCount = files.filter(f => 
+          (f.startsWith('QA-') || f.startsWith('CI-')) && f.endsWith('.json')
+        ).length;
+      } catch (e) {}
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        success: true,
+        message: `Launched dispatch agents for ${blockerCount} blockers`,
+        blockerCount,
+        batchSize: 5,
+        estimatedBatches: Math.ceil(blockerCount / 5)
+      }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
   // POST /api/run-regression - Run regression tests on a branch
   if (req.method === 'POST' && url === '/api/run-regression') {
     try {

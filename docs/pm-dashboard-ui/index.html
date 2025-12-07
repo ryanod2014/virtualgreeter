@@ -1998,11 +1998,21 @@ pnpm build`}
                   padding: '10px 20px',
                   fontWeight: 600
                 }}
-                onClick={() => {
-                  alert('Run Dispatch Agent in terminal:\n\nYou are a Dispatch Agent. Read docs/workflow/DISPATCH_AGENT_SOP.md then execute Task 1 only.');
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/launch-dispatch', { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                      alert(`✅ Launched ${data.estimatedBatches} dispatch agents!\n\n${data.blockerCount} blockers in batches of 5.\n\nMonitor: tmux list-sessions | grep dispatch`);
+                    } else {
+                      alert('❌ Error: ' + data.error);
+                    }
+                  } catch (e) {
+                    alert('❌ Failed to launch: ' + e.message);
+                  }
                 }}
               >
-                🚀 Run Dispatch Agent
+                🚀 Run Dispatch Agents
               </button>
             </div>
           )}
