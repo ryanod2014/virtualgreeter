@@ -22,10 +22,12 @@ Current observability gaps this addresses:
 
 | Service | URL | Check Type | Frequency |
 |---------|-----|------------|-----------|
-| Dashboard (Vercel) | `https://greetnow.com` | HTTP 200 | 1 min |
-| Signaling Server (Railway) | `https://ghost-greeterserver-production.up.railway.app/health` | HTTP 200 + JSON | 1 min |
+| Dashboard (Vercel) | `https://greetnow.com` | HTTP 200 | 3 min |
+| Signaling Server (Railway) | `https://ghost-greeterserver-production.up.railway.app/health` | HTTP 200 + JSON | 3 min |
 | Supabase API | `https://sldbpqyvksdxsuuxqtgg.supabase.co/rest/v1/` | HTTP 200 | 3 min |
 | Widget CDN | `https://greetnow.com/widget.js` | HTTP 200 | 3 min |
+
+> **Note**: All monitors use 3-minute check frequency, which is the free tier limit. Upgrading to 1-minute checks costs $20/mo.
 
 ---
 
@@ -65,7 +67,7 @@ Current observability gaps this addresses:
 Name: Dashboard - greetnow.com
 URL: https://greetnow.com
 Monitor Type: HTTP(s)
-Check Frequency: 1 minute
+Check Frequency: 3 minutes
 Request Timeout: 30 seconds
 Confirmation Period: 1 minute (wait before alerting)
 HTTP Method: GET
@@ -76,13 +78,15 @@ Regions: US East, US West, Europe (multi-region)
 SSL Expiry Alert: 14 days before expiration
 ```
 
+> **Note**: 3-minute check frequency is the free tier limit.
+
 #### Monitor 2: Signaling Server Health
 
 ```
 Name: Signaling Server - Health Check
 URL: https://ghost-greeterserver-production.up.railway.app/health
 Monitor Type: HTTP(s)
-Check Frequency: 1 minute
+Check Frequency: 3 minutes
 Request Timeout: 10 seconds
 Confirmation Period: 1 minute
 HTTP Method: GET
@@ -95,6 +99,8 @@ Expected Response Body Contains: "ok"
 JSON Path: $.status
 Expected Value: ok
 ```
+
+> **Note**: 3-minute check frequency is the free tier limit.
 
 > **Note**: The health endpoint returns `status: "ok"` not `"healthy"`. The response includes:
 > ```json
@@ -112,11 +118,11 @@ Expected Value: ok
 Name: Signaling Server - WebSocket
 URL: wss://ghost-greeterserver-production.up.railway.app/socket.io/?EIO=4&transport=websocket
 Monitor Type: WebSocket
-Check Frequency: 1 minute
+Check Frequency: 3 minutes
 Request Timeout: 10 seconds
 ```
 
-> **Note**: If Better Uptime doesn't support WebSocket monitors on free tier, skip this and rely on the HTTP health check.
+> **Note**: 3-minute check frequency is the free tier limit. If Better Uptime doesn't support WebSocket monitors on free tier, skip this and rely on the HTTP health check.
 
 #### Monitor 4: Supabase API
 
