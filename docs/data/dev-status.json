@@ -40,6 +40,13 @@
       "started_at": "2025-12-05T15:00:00Z",
       "completed_at": "2025-12-05T15:30:00Z",
       "completion_file": "docs/agent-output/completions/TKT-038-2025-12-05T1530.md"
+    },
+    {
+      "ticket_id": "TKT-007",
+      "branch": "agent/tkt-007-fix-public-feedback-doc",
+      "started_at": "2025-12-05T13:00:00Z",
+      "completed_at": "2025-12-08T08:15:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-007-2025-12-08T0815.md"
     }
   ],
   "retry_history": []
