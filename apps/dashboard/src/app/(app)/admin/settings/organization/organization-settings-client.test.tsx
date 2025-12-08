@@ -33,6 +33,7 @@ vi.mock("lucide-react", () => ({
   Loader2: () => <div data-testid="loader-icon" />,
   Phone: () => <div data-testid="phone-icon" />,
   Mail: () => <div data-testid="mail-icon" />,
+  Eye: () => <div data-testid="eye-icon" />, // TKT-009: co-browse setting
 }));
 
 // Mock next/link
@@ -88,6 +89,16 @@ describe("OrganizationSettingsClient", () => {
     has_six_month_offer: false,
     pause_ends_at: null,
     facebook_settings: null,
+    default_widget_settings: {
+      size: "medium",
+      position: "bottom-right",
+      devices: "all",
+      trigger_delay: 3,
+      auto_hide_delay: null,
+      show_minimize_button: false,
+      theme: "dark",
+      cobrowse_enabled: true, // TKT-009
+    },
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
