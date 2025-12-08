@@ -72,8 +72,8 @@ After processing, write a report to docs/agent-output/dispatch-report-$(date +%Y
 
 GO!"
 
-# Launch in tmux
-tmux new-session -d -s "$SESSION" "cd '$PROJECT_ROOT' && claude --print '$DISPATCH_PROMPT'"
+# Launch in tmux with full permissions
+tmux new-session -d -s "$SESSION" "cd '$PROJECT_ROOT' && claude --dangerously-skip-permissions -p '$DISPATCH_PROMPT'"
 
 echo "✅ Dispatch Agent launched!"
 echo ""
