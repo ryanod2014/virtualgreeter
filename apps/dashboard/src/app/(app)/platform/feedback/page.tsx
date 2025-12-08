@@ -29,6 +29,7 @@ export default async function PlatformFeedbackPage() {
       .from("pmf_surveys")
       .select("*")
       .eq("dismissed", false)
+      .not("disappointment_level", "is", null)
       .order("created_at", { ascending: false }),
   ]);
 
