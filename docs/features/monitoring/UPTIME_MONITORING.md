@@ -296,6 +296,296 @@ After setup, verify everything works:
 
 ---
 
+## Incident Response
+
+When an alert fires, follow this runbook to diagnose and resolve the issue efficiently.
+
+### Quick Response Guide
+
+| Alert Type | Immediate Actions | Escalate If |
+|------------|-------------------|-------------|
+| Dashboard Down | 1. Check Vercel dashboard for deployment status<br>2. Check DNS resolution (`dig greetnow.com`)<br>3. Review recent deploys | Down >5 min after rollback |
+| Signaling Server Down | 1. Check Railway logs for errors<br>2. Verify Redis connection<br>3. Check health endpoint directly | Down >3 min or video calls failing |
+| Supabase Down | 1. Check Supabase status page<br>2. Verify API key validity<br>3. Check for rate limiting | Provider issue or down >10 min |
+| Widget CDN Down | 1. Check if file exists on CDN<br>2. Verify DNS/CDN configuration<br>3. Check recent widget deploys | Down >5 min or customer complaints |
+
+### Detailed Runbooks by Service
+
+#### Dashboard Down (greetnow.com)
+
+**Common Causes:**
+- Recent deployment failed
+- Vercel platform issue
+- DNS misconfiguration
+- SSL certificate expired (rare with auto-renewal)
+
+**Diagnostic Steps:**
+```bash
+# 1. Check if site resolves
+dig greetnow.com
+
+# 2. Check HTTP response
+curl -I https://greetnow.com
+
+# 3. Check SSL certificate expiry
+echo | openssl s_client -servername greetnow.com -connect greetnow.com:443 2>/dev/null | openssl x509 -noout -dates
+```
+
+**Resolution Steps:**
+1. **If recent deployment:**
+   - Go to Vercel dashboard → Deployments
+   - Roll back to last known good deployment
+   - Monitor for recovery (should be <2 min)
+
+2. **If Vercel platform issue:**
+   - Check [status.vercel.com](https://status.vercel.com)
+   - If confirmed outage, acknowledge alert and monitor Vercel status
+   - No action needed on our end
+
+3. **If DNS issue:**
+   - Verify DNS records at domain registrar
+   - Check for recent DNS changes
+   - Contact domain provider if needed
+
+**Who Can Fix:** Any team member with Vercel deployment access
+
+**When to Escalate:** If down >10 minutes and cause is unclear
+
+---
+
+#### Signaling Server Down (Railway)
+
+**Common Causes:**
+- Redis connection lost
+- Memory/resource exhaustion
+- Deployment issue
+- Railway platform issue
+
+**Diagnostic Steps:**
+```bash
+# 1. Check health endpoint directly
+curl https://ghost-greeterserver-production.up.railway.app/health
+
+# 2. Look for expected response
+# Expected: {"status":"ok","timestamp":...,"redis":"connected","mode":"redis"}
+```
+
+**Resolution Steps:**
+1. **If Redis disconnected:**
+   - Check Railway dashboard → Redis service status
+   - Restart Redis service if needed
+   - Server should auto-reconnect within 30 seconds
+
+2. **If server crashed:**
+   - Check Railway logs for error messages
+   - Look for OOM (out of memory) errors
+   - Restart service via Railway dashboard
+   - Consider scaling if resource limits hit
+
+3. **If recent deployment:**
+   - Roll back to previous deployment via Railway dashboard
+   - Monitor logs during rollback
+
+**Who Can Fix:** Team member with Railway admin access
+
+**When to Escalate:**
+- If video calls are actively failing for customers
+- If server keeps crashing repeatedly (>3 times in 1 hour)
+- If cause is unclear after 5 minutes
+
+---
+
+#### Supabase API Down
+
+**Common Causes:**
+- Supabase platform outage (rare)
+- API key expired or revoked
+- Rate limiting hit
+- Database connection limit reached
+
+**Diagnostic Steps:**
+```bash
+# 1. Check Supabase directly with API key
+curl -H "apikey: YOUR_ANON_KEY" https://sldbpqyvksdxsuuxqtgg.supabase.co/rest/v1/
+
+# 2. Check Supabase status page
+# Visit: https://status.supabase.com
+```
+
+**Resolution Steps:**
+1. **If Supabase platform issue:**
+   - Check [status.supabase.com](https://status.supabase.com)
+   - Acknowledge alert and monitor their status page
+   - No immediate action needed - wait for Supabase to resolve
+
+2. **If API key issue:**
+   - Verify API key in Better Uptime matches Supabase dashboard
+   - Regenerate key if needed (this will require updating all services)
+
+3. **If rate limiting:**
+   - Check Supabase dashboard for usage metrics
+   - Identify if legitimate traffic spike or potential abuse
+   - Consider upgrading plan if hitting legitimate limits
+
+**Who Can Fix:** Team member with Supabase admin access
+
+**When to Escalate:**
+- If authentication is failing for users
+- If outage >15 minutes with no Supabase status update
+- If caused by unexpected traffic spike (potential attack)
+
+---
+
+#### Widget CDN Down
+
+**Common Causes:**
+- Recent widget deployment issue
+- CDN cache problem
+- DNS/routing issue
+- File path changed without updating references
+
+**Diagnostic Steps:**
+```bash
+# 1. Check if file exists and is valid JavaScript
+curl https://greetnow.com/widget.js | head -20
+
+# 2. Verify it contains expected code
+curl -s https://greetnow.com/widget.js | grep -q "ghostGreeter" && echo "Widget code present" || echo "Widget code missing"
+```
+
+**Resolution Steps:**
+1. **If file missing/corrupted:**
+   - Check recent deployments to dashboard
+   - Verify widget build process completed
+   - Re-deploy dashboard to regenerate widget
+
+2. **If CDN cache issue:**
+   - Purge CDN cache (if using Cloudflare/similar)
+   - Wait 2-3 minutes for cache to refresh
+   - Test from multiple locations
+
+3. **If deployment issue:**
+   - Roll back dashboard deployment to restore working widget
+   - Investigate build process for widget generation
+
+**Who Can Fix:** Team member with dashboard deployment access
+
+**When to Escalate:**
+- If customer reports widget not loading
+- If down >10 minutes and cause unclear
+
+---
+
+### Escalation Policy
+
+#### When to Investigate vs. Page
+
+**Investigate First (No Immediate Page):**
+- Alert fires during normal work hours (9 AM - 6 PM)
+- Service recovers within 2 minutes
+- Known maintenance window
+- Status page shows provider issue (Vercel, Railway, Supabase)
+
+**Page Immediately:**
+- Alert fires outside work hours AND doesn't auto-resolve within 3 minutes
+- Multiple services down simultaneously
+- Customer reports service unavailable
+- Security-related alert (unusual traffic, breach attempt)
+
+#### Escalation Chain
+
+**Level 1 - First Responder (0-5 minutes):**
+- On-call engineer acknowledges alert in Better Uptime
+- Checks service status pages
+- Reviews logs for obvious issues
+- Attempts immediate fixes (rollback, restart)
+
+**Level 2 - Technical Lead (5-15 minutes):**
+- If issue not resolved or cause unclear
+- Requires architectural knowledge
+- Needs approval for major changes (scaling, provider failover)
+
+**Level 3 - CTO/Founder (>15 minutes):**
+- Major outage affecting all customers
+- Requires vendor escalation (Railway, Supabase)
+- Needs business decision (emergency scaling cost, maintenance mode)
+
+---
+
+### Communication Templates
+
+#### Internal Communication (Slack)
+
+When you start investigating an alert:
+```
+🔍 Investigating alert: [Service Name] down
+Started: [time]
+Current status: [checking logs/contacting vendor/rolling back]
+ETA: [X] minutes
+```
+
+When resolved:
+```
+✅ Resolved: [Service Name] back online
+Root cause: [brief explanation]
+Fix applied: [what you did]
+Downtime: [X] minutes
+```
+
+#### Customer Communication (If Needed)
+
+For outages >10 minutes affecting customers:
+```
+Subject: Service Update - [Date]
+
+We're currently experiencing an issue with [service name] that may affect [functionality].
+
+Status: Investigating
+Started: [time]
+ETA: Working to resolve within [X] minutes
+
+We'll update this thread as soon as we have more information.
+```
+
+---
+
+### Post-Incident Checklist
+
+After resolving any incident:
+
+- [ ] Mark incident as resolved in Better Uptime
+- [ ] Document root cause in incident notes
+- [ ] If downtime >15 minutes, write brief post-mortem
+- [ ] Update runbook if new issue type encountered
+- [ ] Check if monitoring needs adjustment
+- [ ] Create ticket for permanent fix if workaround used
+
+---
+
+### Common False Alarms
+
+**Alert fires but service is actually up:**
+- Better Uptime check from specific region failed
+- Temporary network hiccup (<1 minute)
+- SSL certificate renewal in progress (Let's Encrypt validation)
+
+**Action:** Acknowledge alert, verify service is working from multiple locations, add note to incident
+
+---
+
+### Emergency Contacts
+
+| Role | Contact | When to Use |
+|------|---------|-------------|
+| On-Call Engineer | [Phone/Slack] | First contact for all alerts |
+| Technical Lead | [Phone/Slack] | Escalation after 10 min |
+| CTO | [Phone] | Major outages >15 min |
+| Railway Support | support@railway.app | Platform issues |
+| Supabase Support | Via dashboard | Database issues |
+| Vercel Support | Via dashboard | Dashboard deployment issues |
+
+---
+
 ## Ongoing Maintenance
 
 | Task | Frequency | Owner |
