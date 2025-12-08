@@ -760,9 +760,21 @@ export class PoolManager {
   }
 
   /**
-   * Re-assign all visitors from one agent to another
-   * Used when an agent becomes unavailable (goes into a call or disconnects)
-   * Returns: { reassigned: Map<visitorId, newAgentId>, unassigned: visitorId[] }
+   * Re-assign all visitors from one agent to another, respecting pool boundaries
+   *
+   * Used when an agent becomes unavailable (goes into a call, disconnects, goes away, etc.)
+   *
+   * **Pool Routing**: As of TKT-017, this function enforces pool boundaries during reassignment.
+   * Each visitor is matched to their original pool (based on their org and page URL), and only
+   * agents within that pool are considered for reassignment. If no agents are available in the
+   * visitor's pool, the visitor is marked as unassigned rather than being reassigned to an agent
+   * from a different pool.
+   *
+   * @param fromAgentId - The agent ID whose visitors need to be reassigned
+   * @param excludeVisitorId - Optional visitor ID to exclude from reassignment (e.g., visitor currently in call with this agent)
+   * @returns Object containing:
+   *   - reassigned: Map of visitorId -> newAgentId for successfully reassigned visitors
+   *   - unassigned: Array of visitorIds that could not be reassigned (no agents available in their pool)
    */
   reassignVisitors(fromAgentId: string, excludeVisitorId?: string): { 
     reassigned: Map<string, string>; 

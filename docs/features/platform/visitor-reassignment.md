@@ -121,26 +121,38 @@ function reassignVisitors(fromAgentId, excludeVisitorId?): {
 } {
   const result = { reassigned: Map(), unassigned: [] };
   const fromAgent = agents.get(fromAgentId);
-  
+
   // Get all visitors to reassign (excluding the one in call)
   const visitorsToReassign = fromAgent.currentSimulations
     .filter(id => id !== excludeVisitorId);
-  
+
   for (const visitorId of visitorsToReassign) {
-    // ⚠️ ISSUE: findBestAgent() called with NO pool ID
-    // This ignores the visitor's original pool routing!
-    const newAgent = findBestAgent(); // Should be findBestAgentForVisitor(...)
-    
-    if (newAgent && newAgent.agentId !== fromAgentId) {
+    const visitor = this.visitors.get(visitorId);
+    if (!visitor) continue;
+
+    // ✅ FIXED (TKT-017): Now respects pool routing!
+    // Get the visitor's pool based on their org and page URL
+    const poolId = this.matchPathToPool(visitor.orgId, visitor.pageUrl);
+
+    // Find best agent within the same pool (pass fromAgentId as excludeAgentId)
+    const newAgent = this.findBestAgent(poolId, fromAgentId);
+
+    if (newAgent) {
       assignVisitorToAgent(visitorId, newAgent.agentId);
       result.reassigned.set(visitorId, newAgent.agentId);
     } else {
-      // No agent available
+      // No agent available in pool - do NOT fall back to cross-pool assignment
+      if (poolId) {
+        console.warn(
+          `No available agents in pool ${poolId} for visitor ${visitorId}. ` +
+          `Visitor will be unassigned (no cross-pool reassignment).`
+        );
+      }
       visitor.assignedAgentId = null;
       result.unassigned.push(visitorId);
     }
   }
-  
+
   return result;
 }
 ```
@@ -333,9 +345,10 @@ onAgentUnavailable: (data) => {
 | 10 | All agents cascade-away | Multiple AGENT_AWAY | Each reassignment tries next agent | ⚠️ | Could chain-reassign same visitor multiple times |
 | 11 | Visitor in call, agent goes away | Can't happen | Call prevents away status | ✅ | Agent can't go away mid-call |
 | 12 | Two visitors same agent, one in call | CALL_ACCEPT | Only non-calling visitor reassigned | ✅ | `excludeVisitorId` parameter |
-| 13 | Reassigned visitor's pool mismatch | AGENT_AWAY | May get agent from different pool | ⚠️ | **Q-1202-001** - pool routing ignored |
-| 14 | Widget receives AGENT_UNAVAILABLE twice | Race condition | First one wins, already hidden | ✅ | State check prevents double handling |
-| 15 | Page navigation during reassignment | AGENT_REASSIGNED mid-nav | Widget reinits on new page | ✅ | localStorage state cleared |
+| 13 | Reassigned visitor's pool mismatch | AGENT_AWAY | Stays in same pool (fixed by TKT-017) | ✅ | Pool routing now enforced in reassignment |
+| 14 | No agents in pool | AGENT_AWAY | Visitor marked unassigned, widget hides | ✅ | No cross-pool fallback |
+| 15 | Widget receives AGENT_UNAVAILABLE twice | Race condition | First one wins, already hidden | ✅ | State check prevents double handling |
+| 16 | Page navigation during reassignment | AGENT_REASSIGNED mid-nav | Widget reinits on new page | ✅ | localStorage state cleared |
 
 ### Error States
 
@@ -364,22 +377,29 @@ onAgentUnavailable: (data) => {
 | Visitor navigates during reassignment | Low | Socket disconnect cleans up visitor state |
 | CALL_REJECT and RNA timeout same time | Low | `clearRNATimeout()` called in CALL_REJECT handler |
 
-### ⚠️ Known Issue: Pool Routing Ignored in Reassignment
+### ✅ Pool Routing Enforcement (Fixed in TKT-017)
 
 ```typescript:767:806:apps/server/src/features/routing/pool-manager.ts
 reassignVisitors(fromAgentId: string, excludeVisitorId?: string) {
   for (const visitorId of visitorsToReassign) {
-    const newAgent = this.findBestAgent(); // ⚠️ NO POOL ID PASSED!
+    const visitor = this.visitors.get(visitorId);
+    if (!visitor) continue;
+
+    // Get the visitor's pool based on their org and page URL
+    const poolId = this.matchPathToPool(visitor.orgId, visitor.pageUrl);
+
+    // Find best agent within the same pool (excludes fromAgentId)
+    const newAgent = this.findBestAgent(poolId, fromAgentId);
     // ...
   }
 }
 ```
 
-**Impact**: A visitor originally matched to "Sales Pool" via URL routing could be reassigned to an agent in "Support Pool" when their original agent becomes unavailable.
+**Previous Issue**: A visitor originally matched to "Sales Pool" via URL routing could be reassigned to an agent in "Support Pool" when their original agent became unavailable.
 
-**This is logged as Q-1202-001 in findings.**
+**Fix (TKT-017)**: Reassignment now calls `matchPathToPool()` to determine the visitor's pool based on their org and page URL, then passes that `poolId` to `findBestAgent()`. If no agents are available in the visitor's pool, the visitor is marked as unassigned rather than being reassigned to an agent from a different pool.
 
-**Suggested Fix**: Change to `findBestAgentForVisitor(visitor.orgId, visitor.pageUrl)` which respects pool routing and falls back to any agent if no pool agents available.
+**Impact**: Maintains pool boundaries during reassignment, ensuring visitors always work with the correct team (Sales, Support, Enterprise, etc.).
 
 ### Security
 - No visitor data exposed during reassignment
@@ -413,10 +433,10 @@ reassignVisitors(fromAgentId: string, excludeVisitorId?: string) {
 
 ### Identified Issues
 
-| Issue | Impact | Severity | Suggested Fix |
-|-------|--------|----------|--------------|
-| Pool routing ignored in `reassignVisitors()` | Visitors may get wrong-specialty agents | 🟡 MEDIUM | Use `findBestAgentForVisitor()` with visitor's orgId/pageUrl |
-| Mid-call disconnect ends call permanently | Visitor must restart call | 🟡 MEDIUM | Consider reconnection grace period for calls |
+| Issue | Impact | Severity | Status |
+|-------|--------|----------|--------|
+| ~~Pool routing ignored in `reassignVisitors()`~~ | ~~Visitors may get wrong-specialty agents~~ | ~~🟡 MEDIUM~~ | ✅ Fixed in TKT-017 |
+| Mid-call disconnect ends call permanently | Visitor must restart call | 🟡 MEDIUM | Consider reconnection grace period (see TKT-024) |
 | No cascade protection | Many agents going away = many reassignments | 🟢 LOW | Add cooldown or batch reassignment |
 | HANDOFF_MESSAGE_DURATION not configurable | Fixed 3s duration | 🟢 LOW | Make duration configurable |
 
@@ -426,7 +446,7 @@ reassignVisitors(fromAgentId: string, excludeVisitorId?: string) {
 
 | Purpose | File | Lines | Notes |
 |---------|------|-------|-------|
-| Main reassignment function | `apps/server/src/features/routing/pool-manager.ts` | 767-806 | `reassignVisitors()` - **has pool routing issue** |
+| Main reassignment function | `apps/server/src/features/routing/pool-manager.ts` | 767-806 | `reassignVisitors()` - ✅ Enforces pool routing (TKT-017) |
 | Notify helper | `apps/server/src/features/signaling/socket-handlers.ts` | 1907-1961 | `notifyReassignments()` |
 | AGENT_AWAY handler | `apps/server/src/features/signaling/socket-handlers.ts` | 528-606 | Handles manual away |
 | disconnect handler | `apps/server/src/features/signaling/socket-handlers.ts` | 1361-1494 | Agent disconnect with grace period |
@@ -453,9 +473,9 @@ reassignVisitors(fromAgentId: string, excludeVisitorId?: string) {
 
 ## 10. OPEN QUESTIONS
 
-1. **Should `reassignVisitors()` respect original pool routing?** Currently finds any agent. See Q-1202-001.
+1. ~~**Should `reassignVisitors()` respect original pool routing?**~~ ✅ **RESOLVED** - TKT-017 fixed this. Reassignment now enforces pool boundaries.
 
-2. **Should mid-call agent disconnect have a grace period?** Currently call ends immediately. Could add 10s wait for agent to reconnect.
+2. **Should mid-call agent disconnect have a grace period?** Currently call ends immediately. Could add 10s wait for agent to reconnect. See TKT-024 for visitor reconnection window.
 
 3. **Is there cascade protection?** If all 5 agents go away in sequence, visitor gets 5 handoff messages. Should there be a "final" message?
 
@@ -475,23 +495,23 @@ When an agent becomes unavailable, the system:
 2. **Distinguishes pre-call vs mid-call**:
    - Pre-call → Try to reassign to another agent
    - Mid-call → End call immediately (no auto-reconnection)
-3. **Finds replacement** using `findBestAgent()` (⚠️ ignores pool routing)
+3. **Finds replacement** using `findBestAgent(poolId, fromAgentId)` (✅ respects pool routing as of TKT-017)
 4. **Notifies visitor** with `AGENT_REASSIGNED` or `AGENT_UNAVAILABLE`
 
 ### Key Findings
-1. **Pool routing is ignored** during reassignment - visitor matched to "Sales Pool" could be reassigned to "Support Pool" agent
-2. **Mid-call disconnect ends call permanently** - no grace period or reconnection attempt
+1. ~~**Pool routing is ignored**~~ ✅ **FIXED (TKT-017)** - Reassignment now enforces pool boundaries. Visitors stay within their matched pool (Sales, Support, etc.)
+2. **Mid-call disconnect ends call permanently** - no grace period or reconnection attempt (see TKT-024 for visitor-side reconnection)
 3. **Grace period for disconnect is 10 seconds** - allows for page refresh
 4. **Handoff message duration is fixed at 3 seconds**
 
 ### Reassignment Triggers (7 total)
-| Trigger | Grace Period | Pool Routing |
-|---------|-------------|--------------|
-| Agent Away (manual) | None | ❌ Ignored |
-| Agent Offline | None | ❌ Ignored |
-| Agent Disconnect | 10 seconds | ❌ Ignored |
-| Agent Accepts Call | None | ❌ Ignored |
-| Agent Rejects Call | None | ✅ Respected (uses excludeAgentId) |
-| RNA Timeout | None | ✅ Respected (routes to next) |
-| Heartbeat Stale | None | ❌ Ignored |
+| Trigger | Grace Period | Pool Routing (as of TKT-017) |
+|---------|-------------|------------------------------|
+| Agent Away (manual) | None | ✅ Enforced |
+| Agent Offline | None | ✅ Enforced |
+| Agent Disconnect | 10 seconds | ✅ Enforced |
+| Agent Accepts Call | None | ✅ Enforced |
+| Agent Rejects Call | None | ✅ Enforced (uses excludeAgentId) |
+| RNA Timeout | None | ✅ Enforced (routes to next) |
+| Heartbeat Stale | None | ✅ Enforced |
 
