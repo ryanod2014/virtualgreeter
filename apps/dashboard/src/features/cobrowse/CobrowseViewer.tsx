@@ -11,13 +11,35 @@ interface CobrowseViewerProps {
   selection: { text: string; rect: { x: number; y: number; width: number; height: number } | null } | null;
 }
 
+/**
+ * CobrowseViewer - Agent-side viewer for real-time visitor screen sharing
+ *
+ * Displays visitor's DOM in a sandboxed, read-only iframe with visual overlays
+ * for mouse cursor, scroll position, and text selection. Includes loading states
+ * for better UX (TKT-052).
+ *
+ * @param snapshot - DOM snapshot from visitor with HTML, URL, and viewport info
+ * @param mousePosition - Visitor's cursor coordinates (viewport-relative)
+ * @param scrollPosition - Visitor's scroll position (scrollX, scrollY)
+ * @param selection - Visitor's text selection with bounding rectangle
+ */
 export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, selection }: CobrowseViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const viewportFrameRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [scale, setScale] = useState(1);
+
+  /**
+   * TKT-052: Tracks whether we've received the initial snapshot to show loading state
+   * Starts false, becomes true on first snapshot, stays true for call duration
+   */
   const [hasReceivedFirstSnapshot, setHasReceivedFirstSnapshot] = useState(false);
+
+  /**
+   * TKT-052: Shows brief "Updating..." indicator during subsequent snapshot updates
+   * Auto-clears after 500ms to avoid flicker on rapid updates
+   */
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Debug logging
@@ -83,15 +105,21 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
     return () => window.removeEventListener('resize', updateScale);
   }, [snapshot]);
 
-  // Update iframe content when snapshot changes
+  /**
+   * Update iframe content when snapshot changes
+   *
+   * TKT-052: Manages loading state transitions:
+   * - First snapshot: Sets hasReceivedFirstSnapshot to dismiss loading spinner
+   * - Subsequent snapshots: Shows "Updating..." indicator for 500ms
+   */
   useEffect(() => {
     if (!snapshot || !iframeRef.current) return;
 
-    // Track first snapshot
+    // Track first snapshot (TKT-052)
     if (!hasReceivedFirstSnapshot) {
       setHasReceivedFirstSnapshot(true);
     } else {
-      // Show updating indicator for subsequent updates
+      // Show updating indicator for subsequent updates (TKT-052)
       setIsUpdating(true);
       const timer = setTimeout(() => setIsUpdating(false), 500);
       return () => clearTimeout(timer);
@@ -163,7 +191,10 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
     }
   }, [scrollPosition, snapshot?.viewport.width]);
 
-  // Show loading state while waiting for first snapshot
+  /**
+   * TKT-052: Loading state - shown when call is active but no snapshot received yet
+   * Prevents confusion about whether co-browse is working during initialization
+   */
   if (!snapshot && !hasReceivedFirstSnapshot) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[300px] bg-muted/50 rounded-xl border border-dashed border-border">
@@ -178,7 +209,7 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
     );
   }
 
-  // Show placeholder when no active call
+  // Show placeholder when no active call (hasReceivedFirstSnapshot is true but snapshot is now null)
   if (!snapshot) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[300px] bg-muted/50 rounded-xl border border-dashed border-border">
@@ -206,6 +237,7 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
             <Eye className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-primary">Live View</span>
           </div>
+          {/* TKT-052: Brief "Updating..." indicator during subsequent snapshot updates */}
           {isUpdating && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/20 rounded-full">
               <Loader2 className="w-3 h-3 text-blue-400 animate-spin" />
