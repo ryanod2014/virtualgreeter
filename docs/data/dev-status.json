@@ -1,6 +1,6 @@
 {
   "meta": {
-    "last_updated": "2025-12-05T08:47:09.320Z",
+    "last_updated": "2025-12-08T07:35:00.000Z",
     "version": "2.1",
     "note": "Built from agent-output files (source of truth)"
   },
@@ -77,6 +77,14 @@
       "branch": "main",
       "completed_at": "2025-12-05T08:46:05.294Z",
       "completion_file": "docs/agent-output/completions/TKT-062-2025-12-06T0600.md"
+    },
+    {
+      "ticket_id": "TKT-064",
+      "branch": "agent/tkt-064",
+      "completed_at": "2025-12-08T07:35:00.000Z",
+      "completion_file": "docs/agent-output/completions/TKT-064-2025-12-08T0735.md",
+      "status": "blocked",
+      "note": "Confirmed blocker - ticket missing implementation details"
     }
   ],
   "retry_history": [],
