@@ -25,20 +25,28 @@ export const SEAT_PRICE_ID = PRICE_IDS.monthly;
 
 /**
  * Get the Stripe Price ID for a billing frequency
- * Falls back to monthly price ID if specific frequency price not configured
+ * Returns empty string if price ID is not configured (no fallback)
  */
 export function getPriceIdForFrequency(frequency: "monthly" | "annual" | "six_month"): string {
-  const priceId = PRICE_IDS[frequency];
-  if (priceId) return priceId;
-  
-  // Fallback: if specific price not configured, use monthly price
-  // This ensures backwards compatibility but logs a warning
-  if (PRICE_IDS.monthly) {
-    console.warn(`STRIPE_${frequency.toUpperCase()}_PRICE_ID not set, falling back to monthly price ID`);
-    return PRICE_IDS.monthly;
-  }
-  
-  return "";
+  return PRICE_IDS[frequency] || "";
+}
+
+/**
+ * Check if a billing frequency has a configured price ID
+ */
+export function isPriceIdConfigured(frequency: "monthly" | "annual" | "six_month"): boolean {
+  return Boolean(PRICE_IDS[frequency]);
+}
+
+/**
+ * Get all available billing frequencies that have configured price IDs
+ */
+export function getAvailableBillingFrequencies(): ("monthly" | "annual" | "six_month")[] {
+  const frequencies: ("monthly" | "annual" | "six_month")[] = [];
+  if (PRICE_IDS.monthly) frequencies.push("monthly");
+  if (PRICE_IDS.annual) frequencies.push("annual");
+  if (PRICE_IDS.six_month) frequencies.push("six_month");
+  return frequencies;
 }
 
 // Centralized pricing by billing frequency
