@@ -1,0 +1,43 @@
+{
+  "ticket_id": "TKT-011",
+  "type": "tests",
+  "status": "incomplete",
+  "reason": "Technical issues with test file creation and git operations prevented completion",
+  "tests_designed": [
+    "apps/dashboard/src/app/api/invites/send/route.test.ts - Email Status Tracking tests",
+    "apps/dashboard/src/app/(dashboard)/agents/actions.test.ts - resendInviteEmail tests",
+    "apps/dashboard/src/lib/email.test.ts - sendEmailWithRetry and sendInviteEmail tests"
+  ],
+  "behaviors_covered": {
+    "email_retry_logic": [
+      "Retry up to 3 times on failure",
+      "Exponential backoff (1s, 2s)",
+      "Success on first attempt",
+      "Success on retry after initial failure",
+      "Return error after all retries exhausted"
+    ],
+    "email_status_tracking": [
+      "Update invite with 'sent' status on success",
+      "Update invite with 'failed' status after retries",
+      "Return warning message when email fails",
+      "Include invite URL in dev mode",
+      "Exclude invite URL in production mode"
+    ],
+    "resend_invite_functionality": [
+      "Set status to 'pending' before resend",
+      "Update to 'sent' on success",
+      "Update to 'failed' on failure",
+      "Revalidate agents page after resend",
+      "Handle authentication and authorization",
+      "Handle missing/already-accepted invites"
+    ]
+  },
+  "issues_encountered": [
+    "File write operations not persisting to correct locations",
+    "Git index lock conflicts",
+    "Module-level mocking challenges for Resend API initialization",
+    "Test environment configuration for process.env"
+  ],
+  "recommendation": "A developer should manually add the test coverage following the designs provided in this report",
+  "completed_at": "2025-12-08T20:27:20Z"
+}

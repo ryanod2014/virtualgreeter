@@ -1,0 +1,17 @@
+{
+  "ticket_id": "TKT-009",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "apps/server/src/lib/widget-settings.test.ts - Added cobrowse_enabled field tests (6 new tests)",
+    "apps/widget/src/Widget.test.tsx - Added Co-Browse Enable/Disable tests (12 new tests)",
+    "apps/dashboard/src/app/(app)/admin/settings/organization/organization-settings-client.test.tsx - Added Privacy Settings Co-Browse Toggle tests (19 new tests)"
+  ],
+  "test_results": {
+    "widget-settings": "35 tests passed",
+    "Widget": "47 tests passed",
+    "organization-settings-client": "44 tests passed"
+  },
+  "commit_hash": "e97201d",
+  "completed_at": "2025-12-08T20:27:21Z"
+}

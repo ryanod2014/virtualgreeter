@@ -6378,6 +6378,33 @@
         "custom_note": "ryanod2014@gmail.com Maximind1213!* --- have the dev setup the credentials for it using the browser",
         "timestamp": "2025-12-08T01:09:53.655Z"
       }
+    },
+    {
+      "finding_id": "ENV-REGRESSION-SCRIPT",
+      "status": "awaiting_human",
+      "messages": [
+        {
+          "role": "system",
+          "text": "🚨 ENVIRONMENT BLOCKER: Regression test script compatibility issue\n\nThe regression test script (scripts/run-regression-tests.sh) line 63 uses bash 4.0+ syntax that is incompatible with macOS default shell:\n\nError: agent/${TICKET_ID,,}: bad substitution\n\nThis is blocking ALL regression test runs and created false-positive blockers for:\n- TKT-007 (already QA-passed, needs regression verification)\n- TKT-010 (currently in QA-failed state)\n\nREQUIRED FIX:\nReplace line 63 in scripts/run-regression-tests.sh with portable syntax or ensure bash 4+ is used.\n\nACTIONS NEEDED:\n1. Fix the script syntax\n2. Test with: ./scripts/run-regression-tests.sh TKT-007\n3. Archive false-positive blockers in docs/agent-output/blocked/\n\nSee full analysis: docs/agent-output/dispatch-report-20251208T1908.md",
+          "timestamp": "2025-12-08T19:10:00.000Z"
+        }
+      ],
+      "decision": null
+    },
+    {
+      "finding_id": "INVALID-TKT-064",
+      "status": "awaiting_human",
+      "priority": "high",
+      "type": "invalid_ticket",
+      "messages": [
+        {
+          "role": "dispatch",
+          "text": "🚨 INVALID TICKET DETECTED: TKT-064\n\n**Issue:** TKT-064 was mistakenly created from finding F-022 where the human decision was 'explain this to me' (requesting explanation, NOT implementation).\n\n**Evidence:**\n- Finding F-022 decision thread shows human asked 'explain this to me'\n- System provided explanation and marked decision as 'resolved'\n- No implementation was requested or needed\n- Ticket has empty files array and generic acceptance criteria\n- Ticket fix_required contains 'Custom response: explain this to me'\n- THREE separate dev sessions blocked on this ticket (no work to do)\n- QA agent correctly identified this as invalid at pre-flight validation\n\n**Related Files:**\n- Blocker: docs/agent-output/blocked/QA-TKT-064-FAILED-20251208T1223.json\n- Decision thread: F-022 in decisions.json\n- Ticket: TKT-064 in tickets.json\n\n**ACTIONS REQUIRED:**\n\n**Option 1: Close as Invalid (Recommended)**\n1. Update TKT-064 status to 'closed' or 'invalid'\n2. Add closure note: 'Ticket was explanation request, not implementation request'\n3. Archive the QA blocker file\n\n**Option 2: Convert to Implementation Ticket**\nIf you DO want this implemented (make URL filter server-side):\n1. Create TKT-064-v2 with proper implementation spec:\n   - Specific files to modify (API routes, frontend filters)\n   - Clear implementation approach (add URL query param to API)\n   - Testable acceptance criteria\n2. Close original TKT-064\n3. Archive the QA blocker file\n\nWhich option do you prefer?",
+          "timestamp": "2025-12-08T20:30:00.000Z"
+        }
+      ],
+      "decision": null,
+      "ticket_id": "TKT-064"
     }
   ]
 }

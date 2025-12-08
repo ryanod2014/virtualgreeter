@@ -20,12 +20,18 @@ vi.mock("@/lib/funnel-tracking", () => ({
 }));
 
 // Mock stripe pricing - use actual values for behavior verification
+const mockIsPriceIdConfigured = vi.fn((frequency: string) => {
+  // Default: all billing options are configured
+  return true;
+});
+
 vi.mock("@/lib/stripe", () => ({
   PRICING: {
     monthly: { price: 297, label: "Monthly", discount: 0 },
     annual: { price: 193, label: "Annual", discount: 35 },
     six_month: { price: 178, label: "6-Month", discount: 40 },
   },
+  isPriceIdConfigured: (frequency: string) => mockIsPriceIdConfigured(frequency),
 }));
 
 import PaywallStep3 from "./page";

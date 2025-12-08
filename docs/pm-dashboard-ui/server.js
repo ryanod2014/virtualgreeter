@@ -155,7 +155,14 @@ function scanForNewBlockers() {
               const ticketId = match[1].toUpperCase();
               const ticket = dbModule.tickets.get(ticketId);
               
-              if (ticket && ticket.status !== 'merged') {
+              // Only merge if ticket is in a state that needs merging
+              // Skip terminal states: merged, done, blocked, qa_failed
+              const terminalStates = ['merged', 'done', 'blocked', 'qa_failed'];
+              const shouldMerge = ticket && 
+                                  !terminalStates.includes(ticket.status) && 
+                                  ticket.branch;  // Must have a branch to merge
+              
+              if (shouldMerge) {
                 console.log(`✅ QA PASS detected for ${ticketId} - triggering merge`);
                 
                 // Merge the branch

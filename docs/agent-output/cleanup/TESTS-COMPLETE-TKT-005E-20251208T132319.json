@@ -1,0 +1,36 @@
+{
+  "ticket_id": "TKT-005E",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "apps/server/src/features/signaling/socket-handlers.test.ts"
+  ],
+  "behaviors_covered": {
+    "AGENT_LOGIN": [
+      "Forces agent to away status when org is past_due",
+      "Forces agent to away status when org subscription is cancelled",
+      "Forces agent to away status when org subscription is paused",
+      "Allows agent to stay idle when org is active",
+      "Allows agent to stay idle when org is trialing",
+      "Does not force agent to away if already away",
+      "Skips check when no organizationId in verification"
+    ],
+    "AGENT_BACK": [
+      "Blocks agent from going available when org is past_due",
+      "Blocks agent from going available when org subscription cancelled",
+      "Blocks agent from going available when org subscription paused",
+      "Allows agent to go available when org is active",
+      "Allows agent to go available when org is trialing",
+      "Returns error when agent not found",
+      "Skips check when getAgentOrgId returns null",
+      "Uses fallback error message when none provided"
+    ]
+  },
+  "test_count": 15,
+  "test_file_lines_added": 635,
+  "all_tests_passing": true,
+  "total_test_count": 262,
+  "completed_at": "2025-12-08T20:23:04Z",
+  "commit_hash": "cc6a6a6",
+  "notes": "Added comprehensive test coverage for TKT-005E payment failure agent blocking feature. Tests verify that agents are properly blocked from going available when their organization has payment issues (past_due, cancelled, paused status). All edge cases covered including agents already in away status, missing org IDs, and fallback error messages."
+}

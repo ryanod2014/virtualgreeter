@@ -1,0 +1,10 @@
+{
+  "ticket_id": "TKT-016",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "apps/widget/src/features/webrtc/useWebRTC.test.ts",
+    "apps/dashboard/src/features/webrtc/use-webrtc.test.ts"
+  ],
+  "completed_at": "2025-12-08T20:21:11Z"
+}

@@ -1,0 +1,71 @@
+{
+  "ticket_id": "TKT-004D",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "apps/server/src/lib/organization.test.ts (30 tests - NEW)",
+    "apps/server/src/features/agents/agentStatus.test.ts (22 tests - already existed)"
+  ],
+  "summary": "Added comprehensive test coverage for TKT-004D organization pause functionality",
+  "details": {
+    "new_test_files": [
+      "apps/server/src/lib/organization.test.ts"
+    ],
+    "existing_test_files_verified": [
+      "apps/server/src/features/agents/agentStatus.test.ts"
+    ],
+    "total_tests_added": 30,
+    "total_tests_verified": 22,
+    "test_coverage": {
+      "organization.ts": {
+        "functions_tested": [
+          "getOrgSubscriptionStatus",
+          "isOrgPaused",
+          "isOrgActive",
+          "clearOrgStatusCache",
+          "clearAllOrgStatusCache"
+        ],
+        "behaviors_covered": [
+          "Fetches subscription status from database",
+          "Returns all valid status types (active, trialing, past_due, cancelled, paused)",
+          "Handles database errors gracefully",
+          "Caches subscription status for 30 seconds",
+          "Expires cache after TTL",
+          "Caches null results briefly on error (5 seconds)",
+          "Caches different orgs separately",
+          "isOrgPaused returns true only for paused status",
+          "isOrgActive returns true for active/trialing",
+          "Cache clearing functions work correctly",
+          "Integration scenarios for pause/resume flows"
+        ]
+      },
+      "agentStatus.ts": {
+        "functions_tested": [
+          "isOrgPastDue",
+          "canAgentGoAvailable",
+          "getPaymentBlockedMessage",
+          "isOrgOperational",
+          "getAgentOrgId"
+        ],
+        "behaviors_covered": [
+          "Blocks agents when org is paused",
+          "Blocks agents when org is cancelled",
+          "Blocks agents when org is past_due",
+          "Allows agents for active/trialing orgs",
+          "Returns correct error messages",
+          "Fetches agent org ID from database"
+        ]
+      }
+    },
+    "widget_tests": "Widget.tsx changes for org:paused are NOT on main yet (still on branch agent/tkt-004d-paused-org-status), so no widget tests were added"
+  },
+  "files_modified_by_ticket": [
+    "apps/server/src/lib/organization.ts",
+    "apps/server/src/features/agents/agentStatus.ts"
+  ],
+  "test_results": {
+    "organization.test.ts": "✓ 30 tests passed",
+    "agentStatus.test.ts": "✓ 22 tests passed"
+  },
+  "completed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}

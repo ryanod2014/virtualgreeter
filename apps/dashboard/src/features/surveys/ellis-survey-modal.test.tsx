@@ -382,7 +382,7 @@ describe("EllisSurveyModal", () => {
         expect(mockInsert).toHaveBeenCalledWith(
           expect.objectContaining({
             dismissed: true,
-            disappointment_level: "not_disappointed",
+            disappointment_level: null, // TKT-045: null instead of "not_disappointed"
           })
         );
       });
@@ -404,8 +404,8 @@ describe("EllisSurveyModal", () => {
     });
   });
 
-  describe("Actions - Close X Button", () => {
-    it("calls handleDismiss when X button clicked", async () => {
+  describe("Actions - Close X Button (TKT-045)", () => {
+    it("calls handleDismiss when X button clicked with disappointment_level null", async () => {
       const onClose = vi.fn();
       render(<EllisSurveyModal {...defaultProps} onClose={onClose} />);
 
@@ -420,6 +420,7 @@ describe("EllisSurveyModal", () => {
         expect(mockInsert).toHaveBeenCalledWith(
           expect.objectContaining({
             dismissed: true,
+            disappointment_level: null, // TKT-045: null instead of "not_disappointed"
           })
         );
         expect(onClose).toHaveBeenCalledTimes(1);

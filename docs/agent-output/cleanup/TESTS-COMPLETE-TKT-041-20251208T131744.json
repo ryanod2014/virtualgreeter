@@ -1,0 +1,7 @@
+{
+  "ticket_id": "TKT-041",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": ["apps/dashboard/src/app/(auth)/reset-password/page.test.tsx"],
+  "completed_at": "2025-12-08T20:17:44Z"
+}

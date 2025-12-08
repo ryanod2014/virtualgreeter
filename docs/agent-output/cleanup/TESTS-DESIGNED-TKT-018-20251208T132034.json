@@ -1,0 +1,66 @@
+{
+  "ticket_id": "TKT-018",
+  "type": "tests",
+  "status": "designed_not_written",
+  "message": "Test designs completed but Write tool failed to create files",
+  "tests_designed": [
+    "apps/server/src/features/transcription/processTranscription.test.ts - 13 comprehensive tests for retry logic",
+    "apps/dashboard/src/app/api/transcription/retry/route.test.ts - 12 tests for manual retry endpoint",
+    "apps/dashboard/src/features/call-logs/CallLogRow.test.tsx - 31 tests for UI component with retry button"
+  ],
+  "behaviors_covered": {
+    "processTranscription.ts": [
+      "Success on first attempt with transcription data",
+      "Success after retriable error with exponential backoff",
+      "Stops retrying on non-retriable errors",
+      "Exhausts all retries on repeated errors",
+      "Handles missing API key",
+      "Handles network errors",
+      "Applies correct retry delays (1s, 4s, 16s)",
+      "Updates database for successful transcription",
+      "Updates database for failed transcription",
+      "canRetryTranscription logic for all states",
+      "getRetryConfig returns correct values"
+    ],
+    "retry/route.ts": [
+      "Returns 400 for missing callLogId",
+      "Returns 404 when call log not found",
+      "Returns 400 when status not failed",
+      "Returns 400 when transcription not enabled",
+      "Returns 400 when no recording URL",
+      "Succeeds and updates database on successful retry",
+      "Combines existing retry log with new attempts",
+      "Returns failure after exhausting retries",
+      "Stops on non-retriable errors",
+      "Applies exponential backoff",
+      "Handles network errors",
+      "Returns 500 on unexpected errors"
+    ],
+    "CallLogRow.tsx": [
+      "Renders date, time, agent, status, duration correctly",
+      "Shows location with flag",
+      "Displays URL and disposition",
+      "Renders audio/video play buttons",
+      "Shows Processing/Transcribed/Failed badges",
+      "Shows Retry button when transcription failed",
+      "Calls onTranscriptionRetry when clicked",
+      "Disables retry button while retrying",
+      "Shows loader while retrying",
+      "Toggles transcription content expansion",
+      "Toggles AI summary expansion",
+      "Shows all status badges correctly"
+    ]
+  },
+  "test_framework": "vitest",
+  "test_patterns_followed": [
+    "Mocked external dependencies (fetch, Supabase)",
+    "Used vi.useFakeTimers for testing delays",
+    "Mocked lucide-react icons for UI tests",
+    "One behavior per test",
+    "Covered all code paths (happy, edge, error)",
+    "Clear test descriptions",
+    "Proper setup/teardown with beforeEach/afterEach"
+  ],
+  "next_steps": "Re-create test files manually or use different tool to write them",
+  "completed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
