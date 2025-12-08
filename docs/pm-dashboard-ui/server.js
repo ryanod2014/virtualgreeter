@@ -42,6 +42,80 @@ async function loadDBModule() {
 // Initialize DB on startup (async)
 loadDBModule();
 
+// =============================================================================
+// BLOCKER FILE WATCHER
+// Automatically detects new blocker files and triggers dispatch
+// =============================================================================
+let blockerWatcherInterval = null;
+let lastBlockerCheck = new Map();  // Track file mtimes
+
+function startBlockerWatcher() {
+  if (blockerWatcherInterval) return;
+  
+  console.log('👁️ Blocker watcher started (checking every 30s)');
+  
+  // Check every 30 seconds
+  blockerWatcherInterval = setInterval(scanForNewBlockers, 30000);
+  
+  // Initial scan after 5 seconds
+  setTimeout(scanForNewBlockers, 5000);
+}
+
+function scanForNewBlockers() {
+  const blockedDir = path.join(__dirname, '../..', 'docs/agent-output/blocked');
+  
+  try {
+    if (!fs.existsSync(blockedDir)) return;
+    
+    const files = fs.readdirSync(blockedDir).filter(f => f.endsWith('.json'));
+    let newBlockers = 0;
+    
+    for (const file of files) {
+      const filePath = path.join(blockedDir, file);
+      const stat = fs.statSync(filePath);
+      const mtime = stat.mtime.getTime();
+      
+      // Check if this is a new file we haven't seen
+      if (!lastBlockerCheck.has(file) || lastBlockerCheck.get(file) < mtime) {
+        lastBlockerCheck.set(file, mtime);
+        newBlockers++;
+        
+        // Parse the blocker to get ticket ID
+        try {
+          const blocker = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          const ticketId = blocker.ticket_id?.toUpperCase();
+          
+          if (ticketId && dbModule?.tickets) {
+            console.log(`🚨 New blocker detected: ${file} for ${ticketId}`);
+            
+            // Update ticket status to trigger dispatch
+            const ticket = dbModule.tickets.get(ticketId);
+            if (ticket && !['blocked', 'qa_failed'].includes(ticket.status)) {
+              dbModule.tickets.update(ticketId, { status: 'qa_failed' });
+              // handleTicketStatusChange will queue dispatch
+            }
+          }
+        } catch (e) {
+          console.error(`Error parsing blocker ${file}:`, e.message);
+        }
+      }
+    }
+    
+    if (newBlockers > 0) {
+      console.log(`📋 Found ${newBlockers} new blocker(s), dispatch will be queued`);
+    }
+  } catch (e) {
+    // Ignore errors (folder might not exist yet)
+  }
+}
+
+// Start the blocker watcher when DB is loaded
+setTimeout(() => {
+  if (dbModule) {
+    startBlockerWatcher();
+  }
+}, 3000);
+
 const PORT = 3456;
 const DOCS_DIR = path.join(__dirname, '..');
 const DATA_DIR = path.join(DOCS_DIR, 'data');
@@ -117,6 +191,7 @@ const PROJECT_ROOT = path.join(__dirname, '../..');
 
 /**
  * Handle ticket status changes - queue appropriate jobs
+ * THIS IS THE AUTONOMOUS LOOP - each status triggers the next step
  */
 function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
   if (!dbModule?.jobs) {
@@ -126,23 +201,24 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
   
   console.log(`📋 Ticket ${ticketId}: ${oldStatus} → ${newStatus}`);
   
-  // Dev completed → Queue regression tests
+  // =========================================================================
+  // STEP 1: Dev completed → Queue regression tests
+  // =========================================================================
   if (newStatus === 'dev_complete') {
     console.log(`🧪 Queueing regression tests for ${ticketId}`);
     dbModule.jobs.create({
       job_type: 'regression_test',
       ticket_id: ticketId,
       branch: ticket.branch,
-      priority: 3,  // High priority
-      payload: {
-        ticket_title: ticket.title,
-        triggered_by: 'status_change'
-      }
+      priority: 3,
+      payload: { triggered_by: 'dev_complete' }
     });
     startJobWorker();
   }
   
-  // Regression passed → Queue QA agent launch
+  // =========================================================================
+  // STEP 2: Regression passed → Queue QA agent launch
+  // =========================================================================
   if (newStatus === 'in_review') {
     console.log(`🔍 Queueing QA agent for ${ticketId}`);
     dbModule.jobs.create({
@@ -150,10 +226,37 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
       ticket_id: ticketId,
       branch: ticket.branch,
       priority: 5,
-      payload: {
-        ticket_title: ticket.title,
-        triggered_by: 'regression_passed'
-      }
+      payload: { triggered_by: 'regression_passed' }
+    });
+    startJobWorker();
+  }
+  
+  // =========================================================================
+  // STEP 3: QA failed OR blocked → Queue dispatch agent
+  // =========================================================================
+  if (newStatus === 'qa_failed' || newStatus === 'blocked') {
+    console.log(`📨 Queueing dispatch agent for ${ticketId}`);
+    dbModule.jobs.create({
+      job_type: 'dispatch',
+      ticket_id: ticketId,
+      branch: ticket.branch,
+      priority: 4,
+      payload: { triggered_by: newStatus }
+    });
+    startJobWorker();
+  }
+  
+  // =========================================================================
+  // STEP 4: Continuation ready → Queue dev agent launch
+  // =========================================================================
+  if (newStatus === 'continuation_ready') {
+    console.log(`🛠️ Queueing dev agent for continuation ${ticketId}`);
+    dbModule.jobs.create({
+      job_type: 'dev_launch',
+      ticket_id: ticketId,
+      branch: ticket.branch,
+      priority: 3,
+      payload: { triggered_by: 'continuation_created' }
     });
     startJobWorker();
   }
@@ -222,6 +325,9 @@ async function processNextJob() {
         break;
       case 'dev_launch':
         result = await launchDevAgent(claimed);
+        break;
+      case 'dispatch':
+        result = await runDispatchAgent(claimed);
         break;
       case 'worktree_cleanup':
         cleanupConflictingWorktrees(claimed.ticket_id, claimed.branch);
@@ -332,6 +438,103 @@ function createRegressionBlocker(job, output) {
     console.log(`📝 Created blocker: ${blockerPath}`);
   } catch (e) {
     console.error('Failed to create blocker file:', e.message);
+  }
+}
+
+/**
+ * Run dispatch agent to process blockers and create continuation tickets
+ */
+function runDispatchAgent(job) {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(PROJECT_ROOT, 'scripts/run-dispatch-agent.sh');
+    
+    if (!fs.existsSync(scriptPath)) {
+      reject(new Error('Dispatch script not found'));
+      return;
+    }
+    
+    console.log(`📨 Running dispatch agent...`);
+    
+    const proc = spawn('bash', [scriptPath], {
+      cwd: PROJECT_ROOT,
+      env: process.env
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+      process.stdout.write(data);
+    });
+    
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+      process.stderr.write(data);
+    });
+    
+    proc.on('close', (code) => {
+      // After dispatch completes, check for new continuation tickets
+      // and queue dev_launch for each
+      setTimeout(() => checkForNewContinuationTickets(), 5000);
+      
+      resolve({ 
+        completed: code === 0, 
+        output: (stdout + stderr).slice(-3000) 
+      });
+    });
+    
+    proc.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
+ * Check for new continuation tickets and queue dev agents
+ */
+function checkForNewContinuationTickets() {
+  const promptsDir = path.join(PROJECT_ROOT, 'docs/prompts/active');
+  
+  try {
+    const files = fs.readdirSync(promptsDir);
+    
+    for (const file of files) {
+      if (!file.startsWith('dev-agent-') || !file.endsWith('.md')) continue;
+      
+      // Extract ticket ID (e.g., "dev-agent-TKT-062-v5.md" → "TKT-062")
+      const match = file.match(/dev-agent-(TKT-\d+)/i);
+      if (!match) continue;
+      
+      const ticketId = match[1].toUpperCase();
+      
+      // Check if this ticket already has a dev_launch job pending/running
+      if (dbModule?.jobs) {
+        const existingJobs = dbModule.jobs.getForTicket(ticketId);
+        const hasPending = existingJobs.some(j => 
+          j.job_type === 'dev_launch' && 
+          (j.status === 'pending' || j.status === 'running')
+        );
+        
+        if (!hasPending) {
+          // Check ticket status - only queue if it needs work
+          const ticket = dbModule.tickets?.get(ticketId);
+          if (ticket && ['ready', 'blocked', 'qa_failed', 'continuation_ready'].includes(ticket.status)) {
+            console.log(`📋 Found continuation ticket: ${file}, queueing dev agent`);
+            dbModule.jobs.create({
+              job_type: 'dev_launch',
+              ticket_id: ticketId,
+              branch: ticket.branch,
+              priority: 3,
+              payload: { triggered_by: 'continuation_detected', prompt_file: file }
+            });
+            startJobWorker();
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error checking for continuation tickets:', e.message);
   }
 }
 
@@ -1958,6 +2161,79 @@ function handleAPI(req, res, body) {
       startJobWorker();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ started: true, running: jobWorkerRunning }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // POST /api/v2/agents/report - Agent reports completion or failure
+  // This triggers the next step in the autonomous loop
+  if (req.method === 'POST' && url === '/api/v2/agents/report') {
+    try {
+      const data = JSON.parse(body);
+      const { ticket_id, agent_type, status, branch } = data;
+      
+      console.log(`📬 Agent report: ${agent_type} for ${ticket_id} → ${status}`);
+      
+      // Update ticket status based on agent report
+      if (dbModule?.tickets) {
+        let newStatus;
+        
+        if (agent_type === 'dev') {
+          newStatus = status === 'completed' ? 'dev_complete' : 'blocked';
+        } else if (agent_type === 'qa') {
+          newStatus = status === 'passed' ? 'merged' : 'qa_failed';
+        } else if (agent_type === 'dispatch') {
+          // Dispatch completed, check for continuation tickets
+          checkForNewContinuationTickets();
+          newStatus = null;  // Don't change ticket status
+        }
+        
+        if (newStatus && ticket_id) {
+          const ticket = dbModule.tickets.get(ticket_id.toUpperCase());
+          if (ticket) {
+            dbModule.tickets.update(ticket_id.toUpperCase(), { status: newStatus });
+            // This triggers handleTicketStatusChange which queues next job
+          }
+        }
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ received: true, next_step_queued: true }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // POST /api/v2/blockers/scan - Scan for new blockers and trigger dispatch
+  if (req.method === 'POST' && url === '/api/v2/blockers/scan') {
+    try {
+      const blockedDir = path.join(PROJECT_ROOT, 'docs/agent-output/blocked');
+      const files = fs.readdirSync(blockedDir).filter(f => f.endsWith('.json'));
+      
+      console.log(`🔍 Scanning ${files.length} blocker files...`);
+      
+      if (files.length > 0 && dbModule?.jobs) {
+        // Queue dispatch agent if not already running
+        const pendingDispatch = dbModule.jobs.list({ status: 'pending', job_type: 'dispatch' });
+        const runningDispatch = dbModule.jobs.list({ status: 'running', job_type: 'dispatch' });
+        
+        if (pendingDispatch.length === 0 && runningDispatch.length === 0) {
+          dbModule.jobs.create({
+            job_type: 'dispatch',
+            priority: 2,
+            payload: { triggered_by: 'blocker_scan', blocker_count: files.length }
+          });
+          startJobWorker();
+        }
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ scanned: files.length, dispatch_queued: files.length > 0 }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
