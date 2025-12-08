@@ -33,6 +33,7 @@ import {
   ChevronUp,
   Loader2,
   MessageSquareText,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -379,6 +380,28 @@ export function CallsClient({
     } catch (error) {
       console.error('Download failed:', error);
       window.open(url, '_blank');
+    }
+  };
+
+  // Handle manual transcription retry
+  const handleTranscriptionRetry = async (callId: string) => {
+    try {
+      const response = await fetch("/api/transcription/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callLogId: callId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("Transcription retry failed:", error);
+        return;
+      }
+
+      // Refresh the page to show updated status
+      router.refresh();
+    } catch (error) {
+      console.error("Transcription retry error:", error);
     }
   };
 
@@ -940,6 +963,7 @@ export function CallsClient({
                     }
                   }}
                   onDownload={handleDownload}
+                  onTranscriptionRetry={handleTranscriptionRetry}
                 />
               ))}
             </tbody>
@@ -995,17 +1019,33 @@ function CallLogRow({
   isPlaying,
   onPlayToggle,
   onDownload,
+  onTranscriptionRetry,
 }: {
   call: CallLogWithRelations;
   isPlaying: boolean;
   onPlayToggle: () => void;
   onDownload: (url: string, filename?: string) => void;
+  onTranscriptionRetry?: (callId: string) => Promise<void>;
 }) {
   const [showTranscription, setShowTranscription] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
   
   const hasTranscription = call.transcription_status === "completed" && call.transcription;
   const hasSummary = call.ai_summary_status === "completed" && call.ai_summary;
+  
+  // Show retry button for failed transcriptions with a recording
+  const canRetry = call.transcription_status === "failed" && call.recording_url && onTranscriptionRetry;
+
+  const handleRetry = async () => {
+    if (!onTranscriptionRetry || isRetrying) return;
+    setIsRetrying(true);
+    try {
+      await onTranscriptionRetry(call.id);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -1246,10 +1286,27 @@ function CallLogRow({
           </button>
         )}
         {call.transcription_status === "failed" && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-500">
-            <AlertTriangle className="w-3 h-3" />
-            Failed
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-500">
+              <AlertTriangle className="w-3 h-3" />
+              Failed
+            </span>
+            {canRetry && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleRetry(); }}
+                disabled={isRetrying}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                title="Retry transcription"
+              >
+                {isRetrying ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3 h-3" />
+                )}
+                Retry
+              </button>
+            )}
+          </div>
         )}
         {!call.transcription_status && <span className="text-sm text-muted-foreground">—</span>}
       </td>
