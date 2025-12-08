@@ -185,7 +185,8 @@ From `apps/server/src/features/signaling/socket-rate-limit.ts`:
 | 4 | Very large DOM | Page has >100KB HTML | Full snapshot sent | ⚠️ | No size limit - Q-V5-001 |
 | 5 | Frequent DOM mutations | Animation/ticker | MutationObserver filters "significant" only | ✅ | Q-V5-002 addressed |
 | 6 | Password field visible | Form on page | Value may be captured | 🔴 | CRIT-A5-001 logged |
-| 7 | Iframe content | Page has iframes | Blank in snapshot | ✅ | Cross-origin security |
+| 7 | Same-origin iframe | Page has same-origin iframe | Content recursively captured via srcdoc | ✅ | TKT-053: Full iframe support |
+| 7a | Cross-origin iframe | Page has cross-origin iframe | Replaced with styled placeholder div | ✅ | TKT-053: Security restriction |
 | 8 | Canvas content | Charts/graphs | Blank in snapshot | ✅ | Canvas not serializable |
 | 9 | No agent assigned | Edge case | useCobrowse not activated | ✅ | Requires active call |
 | 10 | Tab backgrounded | User switches tabs | Events continue (browser may throttle) | ⚠️ | Chrome throttling |
@@ -235,7 +236,8 @@ From `apps/server/src/features/signaling/socket-rate-limit.ts`:
 |---------|----------|----------|
 | Password fields captured | CRIT-A5-001 - no sanitization | 🔴 Critical |
 | Scripts removed from snapshot | Yes, prevents execution | ✅ |
-| Cross-origin iframes | Cannot be captured | ✅ |
+| Cross-origin iframes | Replaced with placeholder (TKT-053) | ✅ |
+| Same-origin iframes | Content recursively captured (TKT-053) | ✅ |
 | Visitor unaware of sharing | Q-A5-001 - no indicator | 🟡 Medium |
 
 ### Reliability
@@ -261,12 +263,12 @@ From `apps/server/src/features/signaling/socket-rate-limit.ts`:
 | **Is the complexity justified?** | ✅ Yes | Core feature for remote assistance |
 
 ### Identified Issues
-| Issue | Impact | Severity | Suggested Fix |
-|-------|--------|----------|--------------|
-| Password fields not sanitized | Privacy violation, compliance risk | 🔴 Critical | Mask `<input type="password">` values before serializing |
-| No visitor awareness indicator | Trust/privacy concern | 🟡 Medium | Add "Screen shared with agent" indicator |
-| No payload size limit | Potential bandwidth/memory issues | 🟡 Medium | Add max size check or compression |
-| iframes/canvas blank | Limited visibility for complex pages | 🟢 Low | Document as known limitation |
+| Issue | Impact | Severity | Status |
+|-------|--------|----------|--------|
+| ~~Password fields not sanitized~~ | ~~Privacy violation, compliance risk~~ | ~~🔴 Critical~~ | ✅ Fixed by TKT-001 |
+| No visitor awareness indicator | Trust/privacy concern | 🟡 Medium | Open - needs product decision |
+| No payload size limit | Potential bandwidth/memory issues | 🟡 Medium | Open - Q-V5-001 |
+| iframes/canvas blank | Limited visibility for complex pages | 🟢 Low | Documented as known limitation |
 
 ---
 
@@ -274,7 +276,9 @@ From `apps/server/src/features/signaling/socket-rate-limit.ts`:
 
 | Purpose | File | Lines | Notes |
 |---------|------|-------|-------|
-| Main hook | `apps/widget/src/features/cobrowse/useCobrowse.ts` | 1-293 | Complete implementation |
+| Main hook | `apps/widget/src/features/cobrowse/useCobrowse.ts` | 1-385 | Complete implementation |
+| Sensitive data masking | `apps/widget/src/features/cobrowse/domSerializer.ts` | 1-82 | TKT-001 implementation |
+| Masking tests | `apps/widget/src/features/cobrowse/domSerializer.test.ts` | 1-361 | 26 test cases |
 | Widget integration | `apps/widget/src/Widget.tsx` | 420-424 | Hook invocation |
 | Timing constants | `apps/widget/src/constants.ts` | 40-72 | COBROWSE_TIMING |
 | Socket event types | `packages/domain/src/types.ts` | 114-117 | Cobrowse event definitions |
@@ -301,17 +305,24 @@ From `apps/server/src/features/signaling/socket-rate-limit.ts`:
 
 4. **Canvas capture:** Should canvas elements be converted to images via `toDataURL()`? Currently show as blank.
 
-5. **Same-origin iframes:** Should we recursively capture same-origin iframe content? Currently excluded.
+5. ~~**Same-origin iframes:** Should we recursively capture same-origin iframe content? Currently excluded.~~ **✅ RESOLVED by TKT-053:** Same-origin iframes are now recursively captured via srcdoc attribute. Cross-origin iframes are replaced with styled placeholders.
 
 ---
 
 ## CRITICAL ISSUES REFERENCED
 
 ### CRIT-A5-001: Password fields visible in co-browse DOM snapshots
-- **Status:** Logged in findings
-- **File:** `apps/widget/src/features/cobrowse/useCobrowse.ts:37-122`
-- **Impact:** Privacy violation - agents can see visitor's passwords
-- **Suggested Fix:** Add sanitization to mask `<input type="password">` values before serializing
+- **Status:** ✅ RESOLVED by TKT-001 (merged 2025-12-06)
+- **Files Modified:**
+  - `apps/widget/src/features/cobrowse/domSerializer.ts` - New masking module
+  - `apps/widget/src/features/cobrowse/useCobrowse.ts:54` - Integration point
+  - `apps/widget/src/features/cobrowse/domSerializer.test.ts` - Comprehensive tests
+- **Solution:** Implemented `maskSensitiveFields()` function that:
+  - Masks password input values with `••••••••`
+  - Masks credit card fields (cc-number, cc-csc, cc-exp variants)
+  - Supports custom sensitive elements via `data-sensitive="true"` attribute
+  - Removes `data-value` attributes from sensitive fields
+- **Impact:** Privacy violation eliminated, PCI compliance ensured
 
 ---
 

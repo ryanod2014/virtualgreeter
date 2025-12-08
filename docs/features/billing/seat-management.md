@@ -228,6 +228,7 @@ ADMIN MANUALLY CHANGES SEAT COUNT
 | Cross-org manipulation | org_id derived from authenticated user's profile |
 | Rate limiting | No explicit rate limit ⚠️ |
 | Input validation | Type coercion (number), min/max bounds |
+| API bypass for seat limit | 50-seat maximum enforced in API (TKT-022) |
 
 ### Reliability
 | Concern | Mitigation |
@@ -285,7 +286,7 @@ ADMIN MANUALLY CHANGES SEAT COUNT
 ---
 
 ## 10. OPEN QUESTIONS
-1. **Should there be a maximum seat limit?** Currently capped at 50 in signup UI (`Math.min(prev + 1, 50)`) but not enforced in API
+1. ~~**Should there be a maximum seat limit?**~~ ✅ **RESOLVED (TKT-022):** 50-seat maximum now enforced in API. Existing orgs over limit are grandfathered.
 2. **Should seat reduction trigger immediate Stripe update or at next billing cycle?** Currently immediate with proration
 3. **How to handle seat changes during trial period?** Currently no special handling - trial organizations follow same flow
 4. **Should expired invites auto-free seats?** Currently they're just not counted - no explicit cleanup
