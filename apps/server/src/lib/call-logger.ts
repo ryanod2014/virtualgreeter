@@ -8,7 +8,7 @@ export interface CallLogEntry {
   site_id: string;
   agent_id: string;
   visitor_id: string;
-  status: "pending" | "accepted" | "rejected" | "completed" | "missed";
+  status: "pending" | "accepted" | "rejected" | "completed" | "missed" | "cancelled";
   page_url: string;
   ring_started_at?: string;
   answered_at?: string;
@@ -312,21 +312,24 @@ export async function markCallCancelled(requestId: string): Promise<void> {
   if (!callLogId) return;
 
   try {
-    // Delete the call log since the visitor cancelled before it started
+    // Update the call log status to "cancelled" to preserve audit trail
     const { error } = await supabase
       .from("call_logs")
-      .delete()
+      .update({
+        status: "cancelled",
+        ended_at: new Date().toISOString(),
+      })
       .eq("id", callLogId);
 
     if (error) {
-      console.error("[CallLogger] Failed to delete cancelled call log:", error);
+      console.error("[CallLogger] Failed to mark call cancelled:", error);
       return;
     }
 
     callLogIds.delete(requestId);
-    console.log(`[CallLogger] Deleted cancelled call log ${callLogId}`);
+    console.log(`[CallLogger] Call ${callLogId} marked as cancelled`);
   } catch (err) {
-    console.error("[CallLogger] Error deleting cancelled call log:", err);
+    console.error("[CallLogger] Error marking call cancelled:", err);
   }
 }
 
