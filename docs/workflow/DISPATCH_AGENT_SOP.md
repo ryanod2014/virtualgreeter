@@ -104,11 +104,23 @@ For each blocker file, determine its type from the filename prefix:
 
 | Prefix | Type | Auto-Handle? | Description |
 |--------|------|--------------|-------------|
-| `QA-*-FAILED-*` | QA Failure | ✅ YES | QA found issues, needs dev rework |
+| `QA-*-FAILED-*` | QA Failure | ⚠️ CHECK `blocker_type` | See below |
 | `CI-TKT-*` | CI Failure | ✅ YES | Tests failed on agent branch |
 | `BLOCKED-TKT-*` | Clarification | ❌ NO | Agent has a question (needs human) |
 | `ENV-TKT-*` | Environment | ❌ NO | Infra/credentials issue (needs human) |
 | `EXT-TKT-*` | External Setup | ❌ NO | Third-party service needs human setup |
+
+### ⚠️ IMPORTANT: Check `blocker_type` Inside QA Files!
+
+**Don't just look at the filename!** QA blockers can have different `blocker_type` values:
+
+| `blocker_type` in JSON | Action | Human Needed? |
+|------------------------|--------|---------------|
+| `qa_failure` | Auto-create continuation ticket | ❌ NO |
+| `external_setup_incomplete` | Route to inbox | ✅ YES |
+| `clarification` | Route to inbox | ✅ YES |
+
+Also check for `dispatch_action: "route_to_inbox"` which always means human required.
 
 ### Step 1.2: Route Each Blocker
 
@@ -323,8 +335,7 @@ These ALWAYS need human intervention. Agent needs third-party service set up (ac
   },
   "human_actions_required": [
     "1. Create account at [URL]",
-    "2. Download GeoLite2-City.mmdb",
-    "3. Place at apps/server/data/"
+    "2. give me the login"
   ]
 }
 ```

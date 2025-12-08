@@ -48,8 +48,24 @@ IMPORTANT: Read docs/workflow/DISPATCH_AGENT_SOP.md FIRST, then execute Task 1 (
 
 Your job RIGHT NOW:
 1. Read each blocker file in docs/agent-output/blocked/
-2. For QA-*-FAILED-* and CI-TKT-* files: AUTO-CREATE continuation tickets
-3. For BLOCKED-* files: Route to inbox (skip for now)
+2. CHECK the blocker_type field INSIDE the JSON before deciding action:
+
+   AUTO-HANDLE (create continuation ticket):
+   - blocker_type: 'qa_failure' → Create rework ticket for dev agent
+   - blocker_type: 'ci_failure' → Create fix ticket for dev agent
+   
+   ROUTE TO INBOX (human required):
+   - blocker_type: 'external_setup_incomplete' → Human must create account/download files
+   - blocker_type: 'clarification' → Human must answer question
+   - blocker_type: 'environment' → Human must fix environment issue
+   - dispatch_action: 'route_to_inbox' → Always route to inbox
+
+3. For INBOX blockers:
+   - Read the 'human_actions_required' field
+   - Tell human exactly what they need to do
+   - Ask human to provide credentials in chat
+   - Wait for human response before creating continuation ticket
+
 4. Archive processed blockers to docs/agent-output/archive/
 
 After processing, write a report to docs/agent-output/dispatch-report-$(date +%Y%m%dT%H%M%S).md
