@@ -92,8 +92,10 @@ function scanForNewBlockers() {
               // Update ticket status to trigger dispatch
               const ticket = dbModule.tickets.get(ticketId);
               if (ticket && !['blocked', 'qa_failed'].includes(ticket.status)) {
+                const oldStatus = ticket.status;
                 dbModule.tickets.update(ticketId, { status: 'qa_failed' });
-                // handleTicketStatusChange will queue dispatch
+                // Trigger status change handler to queue dispatch agent
+                handleTicketStatusChange(ticketId, oldStatus, 'qa_failed', ticket);
               }
             }
           } catch (e) {

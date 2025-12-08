@@ -90,6 +90,18 @@ else
 fi
 
 # =============================================================================
+# Check 5b: server.js calls handleTicketStatusChange for blocker detection
+# =============================================================================
+echo -n "Check 5b: server.js triggers dispatch after QA failure... "
+if ! grep -A10 "New blocker detected" "$PROJECT_ROOT/docs/pm-dashboard-ui/server.js" | grep -q "handleTicketStatusChange"; then
+  echo -e "${RED}FAIL${NC}"
+  echo "   ❌ Missing handleTicketStatusChange call - dispatch won't auto-launch"
+  ERRORS=$((ERRORS + 1))
+else
+  echo -e "${GREEN}PASS${NC}"
+fi
+
+# =============================================================================
 # Check 6: launch-qa-agents.sh uses absolute path for reports
 # =============================================================================
 echo -n "Check 6: launch-qa-agents.sh uses absolute path for reports... "
@@ -118,7 +130,7 @@ fi
 # =============================================================================
 echo ""
 if [ $ERRORS -eq 0 ]; then
-  echo -e "${GREEN}✅ System integrity check passed - all $((7 - ERRORS))/7 checks OK${NC}"
+  echo -e "${GREEN}✅ System integrity check passed - all 8/8 checks OK${NC}"
   exit 0
 else
   echo -e "${RED}❌ System integrity check FAILED - $ERRORS error(s) found${NC}"
