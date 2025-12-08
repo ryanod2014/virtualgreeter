@@ -13,6 +13,13 @@
       "completion_file": "docs/agent-output/completions/TKT-001-2025-12-05T1430.md"
     },
     {
+      "ticket_id": "TKT-023",
+      "branch": "agent/tkt-023",
+      "started_at": "2025-12-08T10:04:00Z",
+      "completed_at": "2025-12-08T10:04:56Z",
+      "completion_file": "docs/agent-output/completions/TKT-023-2025-12-08T1004.md"
+    },
+    {
       "ticket_id": "TKT-002",
       "branch": "agent/tkt-002",
       "completed_at": "2025-12-06T03:43:16.762111Z",

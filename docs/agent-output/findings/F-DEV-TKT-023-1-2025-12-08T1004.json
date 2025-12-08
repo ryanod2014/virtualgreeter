@@ -1,0 +1,12 @@
+{
+  "id": "F-DEV-TKT-023-1",
+  "source": "dev-agent-TKT-023",
+  "title": "Pre-existing type errors in dashboard test files",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/dashboard/src/app/(app)/admin/admin-layout-client.test.tsx",
+  "issue": "Multiple test files in the dashboard package have type errors unrelated to TKT-023 changes. These include admin-layout-client.test.tsx (30+ errors about missing user properties), agent-stats-client.test.tsx (missing CallLogForStats properties), calls-client.test.tsx (missing CallLogWithRelations properties), and billing-settings-client.test.tsx. These errors existed before TKT-023 and are blocking the monorepo typecheck.",
+  "suggestion": "Fix test mocks to include all required properties from their interfaces. For admin-layout-client.test.tsx, add organization_id, phone, avatar_url, role, is_platform_admin, and updated_at to user mock objects. For call-related tests, add ring_started_at, answered_at, answer_time_seconds, and disposition_id to mock call log objects.",
+  "status": "pending",
+  "found_at": "2025-12-08T10:04:00Z"
+}
