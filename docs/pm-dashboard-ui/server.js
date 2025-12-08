@@ -63,49 +63,103 @@ function startBlockerWatcher() {
 
 function scanForNewBlockers() {
   const blockedDir = path.join(__dirname, '../..', 'docs/agent-output/blocked');
+  const qaResultsDir = path.join(__dirname, '../..', 'docs/agent-output/qa-results');
   
+  // Scan for blockers (QA failures)
   try {
-    if (!fs.existsSync(blockedDir)) return;
-    
-    const files = fs.readdirSync(blockedDir).filter(f => f.endsWith('.json'));
-    let newBlockers = 0;
-    
-    for (const file of files) {
-      const filePath = path.join(blockedDir, file);
-      const stat = fs.statSync(filePath);
-      const mtime = stat.mtime.getTime();
+    if (fs.existsSync(blockedDir)) {
+      const files = fs.readdirSync(blockedDir).filter(f => f.endsWith('.json'));
+      let newBlockers = 0;
       
-      // Check if this is a new file we haven't seen
-      if (!lastBlockerCheck.has(file) || lastBlockerCheck.get(file) < mtime) {
-        lastBlockerCheck.set(file, mtime);
-        newBlockers++;
+      for (const file of files) {
+        const filePath = path.join(blockedDir, file);
+        const stat = fs.statSync(filePath);
+        const mtime = stat.mtime.getTime();
         
-        // Parse the blocker to get ticket ID
-        try {
-          const blocker = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-          const ticketId = blocker.ticket_id?.toUpperCase();
+        // Check if this is a new file we haven't seen
+        if (!lastBlockerCheck.has(file) || lastBlockerCheck.get(file) < mtime) {
+          lastBlockerCheck.set(file, mtime);
+          newBlockers++;
           
-          if (ticketId && dbModule?.tickets) {
-            console.log(`🚨 New blocker detected: ${file} for ${ticketId}`);
+          // Parse the blocker to get ticket ID
+          try {
+            const blocker = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            const ticketId = blocker.ticket_id?.toUpperCase();
             
-            // Update ticket status to trigger dispatch
-            const ticket = dbModule.tickets.get(ticketId);
-            if (ticket && !['blocked', 'qa_failed'].includes(ticket.status)) {
-              dbModule.tickets.update(ticketId, { status: 'qa_failed' });
-              // handleTicketStatusChange will queue dispatch
+            if (ticketId && dbModule?.tickets) {
+              console.log(`🚨 New blocker detected: ${file} for ${ticketId}`);
+              
+              // Update ticket status to trigger dispatch
+              const ticket = dbModule.tickets.get(ticketId);
+              if (ticket && !['blocked', 'qa_failed'].includes(ticket.status)) {
+                dbModule.tickets.update(ticketId, { status: 'qa_failed' });
+                // handleTicketStatusChange will queue dispatch
+              }
             }
+          } catch (e) {
+            console.error(`Error parsing blocker ${file}:`, e.message);
           }
-        } catch (e) {
-          console.error(`Error parsing blocker ${file}:`, e.message);
+        }
+      }
+      
+      if (newBlockers > 0) {
+        console.log(`📋 Found ${newBlockers} new blocker(s), dispatch will be queued`);
+      }
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+  
+  // Scan for QA PASS reports - trigger merge
+  try {
+    if (fs.existsSync(qaResultsDir)) {
+      const files = fs.readdirSync(qaResultsDir).filter(f => f.endsWith('.md'));
+      
+      for (const file of files) {
+        const filePath = path.join(qaResultsDir, file);
+        const stat = fs.statSync(filePath);
+        const mtime = stat.mtime.getTime();
+        
+        // Check if this is a new file we haven't processed
+        const cacheKey = `qa-${file}`;
+        if (!lastBlockerCheck.has(cacheKey) || lastBlockerCheck.get(cacheKey) < mtime) {
+          lastBlockerCheck.set(cacheKey, mtime);
+          
+          // Check if it's a PASS/APPROVED report
+          try {
+            const content = fs.readFileSync(filePath, 'utf8');
+            const isApproved = content.includes('APPROVED') || 
+                              content.includes('Status:** APPROVED') ||
+                              content.includes('PASS');
+            
+            // Extract ticket ID from filename (QA-TKT-XXX-*.md)
+            const match = file.match(/QA-(TKT-\d+)/i);
+            if (match && isApproved && dbModule?.tickets) {
+              const ticketId = match[1].toUpperCase();
+              const ticket = dbModule.tickets.get(ticketId);
+              
+              if (ticket && ticket.status !== 'merged') {
+                console.log(`✅ QA PASS detected for ${ticketId} - triggering merge`);
+                
+                // Merge the branch
+                const mergeResult = mergeBranchToMain(ticketId, ticket.branch);
+                
+                if (mergeResult.success) {
+                  dbModule.tickets.update(ticketId, { status: 'merged' });
+                  console.log(`🎉 ${ticketId} merged to main!`);
+                } else {
+                  console.error(`❌ Merge failed for ${ticketId}: ${mergeResult.error}`);
+                }
+              }
+            }
+          } catch (e) {
+            console.error(`Error processing QA result ${file}:`, e.message);
+          }
         }
       }
     }
-    
-    if (newBlockers > 0) {
-      console.log(`📋 Found ${newBlockers} new blocker(s), dispatch will be queued`);
-    }
   } catch (e) {
-    // Ignore errors (folder might not exist yet)
+    // Ignore errors
   }
 }
 
@@ -535,6 +589,66 @@ function checkForNewContinuationTickets() {
     }
   } catch (e) {
     console.error('Error checking for continuation tickets:', e.message);
+  }
+}
+
+/**
+ * Merge a branch to main after QA passes
+ * Uses code (not AI) to do the merge
+ */
+function mergeBranchToMain(ticketId, branch) {
+  const { execSync } = require('child_process');
+  
+  if (!branch) {
+    console.error(`❌ No branch specified for ${ticketId}`);
+    return { success: false, error: 'No branch specified' };
+  }
+  
+  try {
+    console.log(`🔀 Merging ${branch} to main...`);
+    
+    // Make sure we're on main and it's up to date
+    execSync('git checkout main', { cwd: PROJECT_ROOT, encoding: 'utf8' });
+    execSync('git pull origin main', { cwd: PROJECT_ROOT, encoding: 'utf8' });
+    
+    // Fetch the latest from the branch
+    execSync(`git fetch origin ${branch}`, { cwd: PROJECT_ROOT, encoding: 'utf8' });
+    
+    // Merge the branch (no-ff to keep history clear)
+    const commitMsg = `Merge ${branch} - ${ticketId} QA approved`;
+    execSync(`git merge origin/${branch} --no-ff -m "${commitMsg}"`, { 
+      cwd: PROJECT_ROOT, 
+      encoding: 'utf8' 
+    });
+    
+    // Push to origin
+    execSync('git push origin main', { cwd: PROJECT_ROOT, encoding: 'utf8' });
+    
+    console.log(`✅ Successfully merged ${branch} to main and pushed`);
+    
+    // Clean up the worktree
+    cleanupConflictingWorktrees(ticketId, branch);
+    
+    return { success: true };
+    
+  } catch (e) {
+    console.error(`❌ Merge failed: ${e.message}`);
+    
+    // Try to recover - abort merge if in progress
+    try {
+      execSync('git merge --abort', { cwd: PROJECT_ROOT, encoding: 'utf8' });
+    } catch (abortError) {
+      // Ignore if no merge to abort
+    }
+    
+    // Make sure we're back on main
+    try {
+      execSync('git checkout main', { cwd: PROJECT_ROOT, encoding: 'utf8' });
+    } catch (checkoutError) {
+      // Ignore
+    }
+    
+    return { success: false, error: e.message };
   }
 }
 
@@ -2184,7 +2298,14 @@ function handleAPI(req, res, body) {
         if (agent_type === 'dev') {
           newStatus = status === 'completed' ? 'dev_complete' : 'blocked';
         } else if (agent_type === 'qa') {
-          newStatus = status === 'passed' ? 'merged' : 'qa_failed';
+          if (status === 'passed') {
+            // QA passed - merge branch to main!
+            console.log(`🔀 QA passed for ${ticket_id} - merging branch ${branch} to main`);
+            const mergeResult = mergeBranchToMain(ticket_id, branch);
+            newStatus = mergeResult.success ? 'merged' : 'qa_failed';
+          } else {
+            newStatus = 'qa_failed';
+          }
         } else if (agent_type === 'dispatch') {
           // Dispatch completed, check for continuation tickets
           checkForNewContinuationTickets();
