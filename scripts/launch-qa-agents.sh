@@ -302,6 +302,59 @@ launch_agent() {
     fi
     print_success "Found branch: $BRANCH"
     
+    # =========================================================================
+    # PRE-FLIGHT: Run regression tests BEFORE launching QA agent
+    # =========================================================================
+    # This catches regressions early, saving QA agent tokens
+    echo ""
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW}Running pre-flight regression tests...${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    if [ -f "$MAIN_REPO_DIR/scripts/run-regression-tests.sh" ]; then
+        # Run regression tests
+        if "$MAIN_REPO_DIR/scripts/run-regression-tests.sh" "$TICKET_ID" "$BRANCH" 2>&1; then
+            print_success "Pre-flight regression tests PASSED"
+        else
+            print_error "Pre-flight regression tests FAILED!"
+            echo ""
+            echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo -e "${RED}NOT LAUNCHING QA AGENT - Regressions detected${NC}"
+            echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo ""
+            echo "The dev agent broke tests outside the ticket scope."
+            echo "This must be fixed before QA can review."
+            echo ""
+            echo "Options:"
+            echo "  1. Run dispatch agent to create continuation ticket"
+            echo "  2. Fix manually and re-run: ./scripts/run-regression-tests.sh $TICKET_ID"
+            echo ""
+            
+            # Create blocker if one doesn't already exist
+            EXISTING_BLOCKER=$(ls "$MAIN_REPO_DIR/docs/agent-output/blocked/REGRESSION-${TICKET_ID}"*.json 2>/dev/null | head -1)
+            if [ -z "$EXISTING_BLOCKER" ]; then
+                BLOCKER_FILE="$MAIN_REPO_DIR/docs/agent-output/blocked/REGRESSION-${TICKET_ID}-$(date +%Y%m%dT%H%M).json"
+                cat > "$BLOCKER_FILE" << EOF
+{
+  "ticket_id": "$TICKET_ID",
+  "blocker_type": "regression_failure",
+  "branch": "$BRANCH",
+  "blocked_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "summary": "Pre-flight regression tests failed - dev broke code outside ticket scope",
+  "dispatch_action": "create_continuation_ticket"
+}
+EOF
+                print_warning "Created blocker: $BLOCKER_FILE"
+            fi
+            
+            return 1
+        fi
+    else
+        print_warning "Regression test script not found - skipping pre-flight check"
+        print_warning "Expected: $MAIN_REPO_DIR/scripts/run-regression-tests.sh"
+    fi
+    echo ""
+    
     # Setup worktree for isolated testing
     echo "Setting up worktree for isolated testing..."
     mkdir -p "$WORKTREE_BASE"
