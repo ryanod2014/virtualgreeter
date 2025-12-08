@@ -45,20 +45,64 @@ export async function submitCancellationFeedback(
     throw new Error("Failed to save cancellation feedback");
   }
 
-  // In production, you would also:
-  // 1. Call Stripe to cancel the subscription
-  // 2. Update the organization's plan to 'free' or mark as cancelled
-  // 3. Send a confirmation email
-  // 4. Schedule data retention/deletion
+  // Get the organization to retrieve Stripe subscription ID
+  const { data: org, error: orgError } = await supabase
+    .from("organizations")
+    .select("stripe_subscription_id, stripe_customer_id")
+    .eq("id", params.organizationId)
+    .single();
 
-  // For now, we'll just downgrade to free plan
+  if (orgError) {
+    console.error("Failed to fetch organization:", orgError);
+    throw new Error("Failed to fetch organization");
+  }
+
+  let subscriptionEndsAt: string | null = null;
+
+  // If there's a Stripe subscription, cancel it at period end
+  if (org.stripe_subscription_id) {
+    try {
+      const { stripe } = await import("@/lib/stripe");
+
+      if (!stripe) {
+        console.warn("Stripe not configured, skipping subscription cancellation");
+      } else {
+        // Call Stripe to cancel subscription at period end
+        const subscription = await stripe.subscriptions.update(org.stripe_subscription_id, {
+          cancel_at_period_end: true,
+        });
+
+        // Store the period end date when access will end
+        subscriptionEndsAt = new Date(subscription.current_period_end * 1000).toISOString();
+
+        console.log(`Subscription ${org.stripe_subscription_id} will cancel at ${subscriptionEndsAt}`);
+      }
+    } catch (stripeError) {
+      console.error("Failed to cancel Stripe subscription:", stripeError);
+      // Don't throw - we'll handle this gracefully
+    }
+  }
+
+  // Update organization: keep as active but store when subscription ends
+  // The webhook will handle the final downgrade to 'free' when subscription.deleted fires
+  const updateData: Record<string, unknown> = {};
+
+  if (subscriptionEndsAt) {
+    updateData.subscription_ends_at = subscriptionEndsAt;
+    // Keep plan as active until period ends - webhook will downgrade later
+  } else {
+    // No Stripe subscription, downgrade immediately to free
+    updateData.plan = "free";
+    updateData.subscription_status = "cancelled" as SubscriptionStatus;
+  }
+
   const { error: updateError } = await supabase
     .from("organizations")
-    .update({ plan: "free" })
+    .update(updateData)
     .eq("id", params.organizationId);
 
   if (updateError) {
-    console.error("Failed to update organization plan:", updateError);
+    console.error("Failed to update organization:", updateError);
     // Don't throw - feedback is saved, that's the important part
   }
 

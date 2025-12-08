@@ -199,13 +199,34 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 
 /**
  * Handle customer.subscription.deleted event
- * Updates status to cancelled when subscription is terminated
+ * Triggers the final downgrade to free plan after grace period ends
  */
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<boolean> {
   const org = await getOrgByStripeSubscriptionId(subscription.id);
   if (!org) return false;
 
-  return updateOrgSubscriptionStatus(org.id, "cancelled", org.subscription_status, "customer.subscription.deleted");
+  if (!isSupabaseConfigured || !supabase) {
+    console.error("[StripeWebhook] Supabase not configured");
+    return false;
+  }
+
+  // When subscription is deleted, downgrade to free plan and mark as cancelled
+  const { error } = await supabase
+    .from("organizations")
+    .update({
+      subscription_status: "cancelled",
+      plan: "free",
+      subscription_ends_at: null, // Clear the end date since grace period has ended
+    })
+    .eq("id", org.id);
+
+  if (error) {
+    console.error(`[StripeWebhook] Failed to downgrade org ${org.id} to free:`, error);
+    return false;
+  }
+
+  console.log(`[StripeWebhook] Downgraded org ${org.id} to free plan (subscription.deleted)`);
+  return true;
 }
 
 /**
