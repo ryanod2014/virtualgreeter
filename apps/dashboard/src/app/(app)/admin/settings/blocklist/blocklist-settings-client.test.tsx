@@ -114,6 +114,7 @@ describe("BlocklistSettingsClient", () => {
     orgId: "org-123",
     initialBlockedCountries: [],
     initialMode: "blocklist" as const,
+    initialGeoFailureHandling: "allow" as const,
   };
 
   beforeEach(() => {
