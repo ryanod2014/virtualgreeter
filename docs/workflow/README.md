@@ -5,7 +5,30 @@
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Launch Agents NOW
+
+**See [LAUNCHING_AGENTS.md](./LAUNCHING_AGENTS.md) for complete operational guide.**
+
+```bash
+# Start dashboard (required for API)
+node docs/pm-dashboard-ui/server.js &
+
+# Launch all ready dev agents in parallel (CPU/RAM throttled)
+./scripts/orchestrate-agents.sh --auto
+
+# Or launch specific agents
+./scripts/launch-agents.sh TKT-001 TKT-002
+
+# Launch QA agents
+./scripts/launch-qa-agents.sh TKT-001
+
+# Monitor
+tmux ls
+```
+
+---
+
+## 📋 Quick Start
 
 ### Core Agents
 

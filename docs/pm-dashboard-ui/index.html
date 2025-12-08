@@ -3413,18 +3413,18 @@ pnpm build`}
         <div className="fade-in">
           {/* Summary Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
-            <div 
-              className="card" 
+            <div
+              className="card"
               onClick={() => setPipelineTab('inventory')}
-              style={{ 
-                padding: '16px', 
-                cursor: 'pointer', 
+              style={{
+                padding: '16px',
+                cursor: 'pointer',
                 borderLeft: '4px solid var(--accent)',
                 background: pipelineTab === 'inventory' ? 'var(--bg-elevated)' : undefined
               }}
             >
               <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--accent-bright)' }}>
-                {FINDINGS_SUMMARY.meta.total_features}
+                {featuresList.length || FINDINGS_SUMMARY.meta.total_features}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Features</div>
             </div>
@@ -3518,7 +3518,7 @@ pnpm build`}
           {/* Tab Navigation */}
           <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0' }}>
             {[
-              { id: 'inventory', label: 'Feature Inventory', count: FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
+              { id: 'inventory', label: 'Feature Inventory', count: featuresList.length || FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
               { id: 'all', label: 'Pending', count: pendingTickets.length, color: 'var(--text-primary)' },
               { id: 'progress', label: 'In Progress', count: activeInProgressItems.length, color: 'var(--success)' },
               { id: 'blocked', label: 'Blocked', count: blockedItems.length, color: 'var(--critical)' },
@@ -3701,10 +3701,10 @@ pnpm build`}
                                   borderRadius: '6px', 
                                   fontSize: '11px', 
                                   fontWeight: 600,
-                                  background: (f.reviewed || reviewStatus.reviewed) ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)', 
-                                  color: (f.reviewed || reviewStatus.reviewed) ? 'var(--success)' : 'var(--accent)'
+                                  background: (feature.reviewed || reviewStatus.reviewed) ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)', 
+                                  color: (feature.reviewed || reviewStatus.reviewed) ? 'var(--success)' : 'var(--accent)'
                                 }}>
-                                  {(f.reviewed || reviewStatus.reviewed) ? 'Reviewed' : 'Pending'}
+                                  {(feature.reviewed || reviewStatus.reviewed) ? 'Reviewed' : 'Pending'}
                                 </span>
                                 {/* Tested badge - use DB status if available, fallback to test-lock mapping */}
                                 <span style={{ 
@@ -3712,10 +3712,10 @@ pnpm build`}
                                   borderRadius: '6px', 
                                   fontSize: '11px', 
                                   fontWeight: 600,
-                                  background: (f.tested || isTested) ? 'rgba(139,92,246,0.15)' : 'rgba(100,116,139,0.15)', 
-                                  color: (f.tested || isTested) ? '#a78bfa' : 'var(--text-muted)'
+                                  background: (feature.tested || isTested) ? 'rgba(139,92,246,0.15)' : 'rgba(100,116,139,0.15)', 
+                                  color: (feature.tested || isTested) ? '#a78bfa' : 'var(--text-muted)'
                                 }}>
-                                  {(f.tested || isTested) ? '🧪 Tested' : 'No Tests'}
+                                  {(feature.tested || isTested) ? '🧪 Tested' : 'No Tests'}
                                 </span>
                                 {/* Findings count if any */}
                                 {reviewStatus.total > 0 && (

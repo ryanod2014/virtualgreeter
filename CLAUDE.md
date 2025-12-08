@@ -4,6 +4,39 @@
 
 ---
 
+## 🚀 LAUNCHING AGENTS (Start Here!)
+
+If the human asks you to **launch agents**, **run dev agents**, or **start the orchestrator**:
+
+### Prerequisites
+1. **Start the PM Dashboard** (provides API for agent coordination):
+   ```bash
+   node docs/pm-dashboard-ui/server.js &
+   ```
+   Verify: http://localhost:3456 should respond
+
+2. **Claude Code uses OAuth** - No API key needed. Just ensure `claude --version` works.
+
+### Launch Commands
+
+| Task | Command |
+|------|---------|
+| **Launch all dev agents (parallel, auto-throttled)** | `./scripts/orchestrate-agents.sh --auto` |
+| **Launch specific dev agents** | `./scripts/launch-agents.sh TKT-001 TKT-002` |
+| **Launch QA agents** | `./scripts/launch-qa-agents.sh TKT-001` |
+| **List running agents** | `tmux ls` |
+| **Attach to agent** | `tmux attach -t agent-TKT-XXX` |
+| **Kill all agents** | `./scripts/launch-agents.sh --kill-all` |
+
+### Full Documentation
+See **[docs/workflow/LAUNCHING_AGENTS.md](docs/workflow/LAUNCHING_AGENTS.md)** for:
+- Troubleshooting
+- SQLite database queries
+- Worktree management
+- Monitoring & cleanup
+
+---
+
 ## QA Review Agent
 
 If you are a **QA Review Agent**, follow these steps:
