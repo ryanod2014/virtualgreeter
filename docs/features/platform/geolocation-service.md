@@ -63,11 +63,11 @@ VISITOR CONNECTS
     │
     ├─► Check Location Cache
     │   ├─► HIT & NOT EXPIRED → Use cached location
-    │   └─► MISS/EXPIRED → Query ip-api.com
+    │   └─► MISS/EXPIRED → Query MaxMind GeoLite2 database
     │
-    ├─► Query ip-api.com
+    ├─► Query MaxMind Database
     │   ├─► SUCCESS → Cache result (1 hour TTL)
-    │   └─► FAILURE → Cache null (1 hour TTL), continue with null location
+    │   └─► IP NOT FOUND → Cache null (1 hour TTL), continue with null location
     │
     └─► Check Country Blocklist
         ├─► BLOCKLIST MODE
@@ -85,7 +85,7 @@ VISITOR CONNECTS
 | State | Description | How to Enter | How to Exit |
 |-------|-------------|--------------|-------------|
 | `cache_check` | Checking local cache for IP | IP received | Cache hit or miss |
-| `api_lookup` | Querying ip-api.com | Cache miss | Response received or error |
+| `db_lookup` | Querying MaxMind GeoLite2 database | Cache miss | IP found or not found |
 | `country_check` | Evaluating blocklist/allowlist | Location resolved (or null) | Allow or block decision |
 | `allowed` | Visitor proceeds to registration | Passed country check | N/A |
 | `blocked` | Visitor disconnected silently | Failed country check | N/A |
@@ -98,16 +98,18 @@ VISITOR CONNECTS
 | Event/Trigger | Where It Fires | What It Does | Side Effects |
 |--------------|---------------|--------------|--------------|
 | `visitor:join` | Widget → Server | Triggers geolocation lookup | IP extracted, location resolved |
-| Cache hit | `getLocationFromIP()` | Returns cached location | No API call |
-| Cache miss | `getLocationFromIP()` | Calls ip-api.com | Network request, cache write |
-| API success | ip-api.com response | Returns location object | Result cached |
-| API failure | ip-api.com error | Returns null | Null cached to prevent retry storm |
+| Cache hit | `getLocationFromIP()` | Returns cached location | No database query |
+| Cache miss | `getLocationFromIP()` | Queries MaxMind database | Database read, cache write |
+| IP found | MaxMind database | Returns location object | Result cached |
+| IP not found | MaxMind database | Returns null | Null cached to prevent repeated lookups |
 | Country blocked | `isCountryBlocked()` | Socket disconnected | Visitor never sees widget |
 
 ### Key Functions/Components
 | Function/Component | File | Purpose |
 |-------------------|------|---------|
-| `getLocationFromIP` | `apps/server/src/lib/geolocation.ts` | Main IP-to-location resolver |
+| `getLocationFromIP` | `apps/server/src/lib/geolocation.ts` | Main IP-to-location resolver using MaxMind database |
+| `initReader` | `apps/server/src/lib/geolocation.ts` | Initialize MaxMind database reader (singleton) |
+| `getDbPath` | `apps/server/src/lib/geolocation.ts` | Get MaxMind database path from env or default |
 | `getClientIP` | `apps/server/src/lib/geolocation.ts` | Extract real IP from handshake with proxy support |
 | `isPrivateIP` | `apps/server/src/lib/geolocation.ts` | Skip localhost/private ranges |
 | `getCountryListSettings` | `apps/server/src/lib/country-blocklist.ts` | Fetch org's country list config |
