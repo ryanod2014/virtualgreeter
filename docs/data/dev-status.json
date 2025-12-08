@@ -81,9 +81,9 @@
     {
       "ticket_id": "TKT-043",
       "branch": "agent/tkt-043",
-      "started_at": "2025-12-06T00:00:00Z",
-      "completed_at": "2025-12-06T00:30:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-043-2025-12-06T0030.md"
+      "started_at": "2025-12-08T23:40:00Z",
+      "completed_at": "2025-12-08T23:50:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-043-2025-12-08T2350.md"
     }
   ],
   "retry_history": [],
