@@ -1543,7 +1543,24 @@ export function PoolsClient({
 
   const supabase = createClient();
 
-  // Show toast notification
+  /**
+   * Displays a toast notification to provide user feedback for pool operations.
+   * Toasts automatically dismiss after 5 seconds.
+   *
+   * @param title - The main message to display (e.g., "Pool created", "Connection error")
+   * @param description - Optional detailed message providing context or recovery instructions
+   * @param type - The notification type: "success" for successful operations, "error" for failures
+   *
+   * @example
+   * showToast("Pool created", `"${poolName}" has been created successfully`);
+   * showToast("Connection error", "Unable to save pool. Please check your connection.", "error");
+   *
+   * @remarks
+   * Part of TKT-043: Add Save/Error Notifications for Pool Management
+   * - Success toasts show green checkmark icon
+   * - Error toasts show red alert icon
+   * - Network errors specifically use "Connection error" as title
+   */
   const showToast = useCallback((title: string, description?: string, type: "success" | "error" = "success") => {
     const id = Math.random().toString(36).substring(7);
     setToasts(prev => [...prev, { id, title, description, type }]);
