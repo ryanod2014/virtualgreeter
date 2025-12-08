@@ -316,13 +316,13 @@ These ALWAYS need human intervention. Agent needs third-party service set up (ac
 ```json
 {
   "category": "external_setup",
-  "ticket_id": "TKT-062",
+  "ticket_id": "TKT-###",
   "external_service": {
-    "name": "MaxMind GeoLite2",
-    "signup_url": "https://dev.maxmind.com/..."
+    "name": "name of service",
+    "signup_url": "https://domainofservice.com/signuppage..."
   },
   "human_actions_required": [
-    "1. Create MaxMind account at URL",
+    "1. Create account at [URL]",
     "2. Download GeoLite2-City.mmdb",
     "3. Place at apps/server/data/"
   ]

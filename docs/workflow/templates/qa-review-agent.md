@@ -4,6 +4,25 @@
 
 ---
 
+## ⚠️ CRITICAL: Where to Write Your Output
+
+**You MUST write to these EXACT paths in the MAIN repo (not the worktree):**
+
+### If PASSED ✅
+```
+docs/agent-output/qa-results/QA-[TICKET-ID]-PASSED-[timestamp].md
+```
+
+### If FAILED ❌ (Write BOTH files!)
+```
+docs/agent-output/blocked/QA-[TICKET-ID]-FAILED-[timestamp].json   ← Required for Dispatch
+docs/agent-output/qa-results/QA-[TICKET-ID]-FAILED-[timestamp].md  ← Human-readable
+```
+
+**❌ DO NOT write to:** `reviews/`, `findings/`, or worktree paths.
+
+---
+
 ## Ticket to Review
 
 - **Ticket ID:** [e.g., TKT-001]

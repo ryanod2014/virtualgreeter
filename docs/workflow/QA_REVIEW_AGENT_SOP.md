@@ -116,6 +116,47 @@ Your QA report will be considered INVALID if you:
 
 ---
 
+## ⚠️ CRITICAL: Output File Requirements
+
+**You MUST write to the correct locations. Wrong paths = workflow breaks.**
+
+### If QA PASSES ✅
+
+Write **ONE file**:
+```
+docs/agent-output/qa-results/QA-[TICKET-ID]-PASSED-[timestamp].md
+```
+
+Example: `docs/agent-output/qa-results/QA-TKT-062-PASSED-2025-12-07T1430.md`
+
+### If QA FAILS ❌
+
+Write **TWO files**:
+
+1. **Blocker JSON** (for Dispatch Agent to process):
+```
+docs/agent-output/blocked/QA-[TICKET-ID]-FAILED-[timestamp].json
+```
+
+2. **Human-readable report**:
+```
+docs/agent-output/qa-results/QA-[TICKET-ID]-FAILED-[timestamp].md
+```
+
+Example:
+- `docs/agent-output/blocked/QA-TKT-062-FAILED-2025-12-07T1430.json`
+- `docs/agent-output/qa-results/QA-TKT-062-FAILED-2025-12-07T1430.md`
+
+### ❌ WRONG Output Locations (Don't Use These)
+
+- `docs/agent-output/reviews/` ← WRONG
+- `docs/agent-output/findings/` ← WRONG (for dev findings, not QA)
+- Worktree paths ← WRONG (write to main repo)
+
+**Always write to the MAIN repo** (`/Users/.../Digital_greeter/docs/agent-output/`), NOT the worktree.
+
+---
+
 ## Prerequisites: Playwright MCP Setup
 
 Before you can do browser testing, ensure Playwright MCP is configured.

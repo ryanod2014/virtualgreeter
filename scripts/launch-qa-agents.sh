@@ -477,12 +477,22 @@ If PASS:
     git push origin main
 
 If FAIL:
-  - Write FAIL report to: $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-FAILED.md
+  - Write BOTH files (CRITICAL - Dispatch needs the JSON!):
+    1. JSON blocker: $MAIN_REPO_DIR/docs/agent-output/blocked/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).json
+    2. MD report: $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).md
   - Mark session blocked:
     curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/block -H 'Content-Type: application/json' -d '{\"blocker_type\": \"qa_failure\", \"summary\": \"QA tests failed\"}'
   - Update ticket status:
     curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -H 'Content-Type: application/json' -d '{\"status\": \"qa_failed\"}'
-  - Write blocker to: $MAIN_REPO_DIR/docs/agent-output/blocked/$TICKET_ID-qa-blocker.md
+  
+  JSON blocker format:
+  {
+    \"ticket_id\": \"$TICKET_ID\",
+    \"blocker_type\": \"qa_failure\",
+    \"summary\": \"One-line summary\",
+    \"failures\": [{\"criterion\": \"...\", \"expected\": \"...\", \"actual\": \"...\"}],
+    \"dispatch_action\": \"create_continuation_ticket\"
+  }
 
 CRITICAL: Only merge the specific files for this ticket. Do NOT merge:
   - docs/data/*.json (shared data files)
