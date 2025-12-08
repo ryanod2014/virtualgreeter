@@ -126,14 +126,29 @@ function scanForNewBlockers() {
           lastBlockerCheck.set(cacheKey, mtime);
           
           // Check if it's a PASS/APPROVED report
+          // STRICT CHECK: filename must contain PASSED AND content must show approval
           try {
-            const content = fs.readFileSync(filePath, 'utf8');
-            const isApproved = content.includes('APPROVED') || 
-                              content.includes('Status:** APPROVED') ||
-                              content.includes('PASS');
+            // Only process files with PASSED in filename
+            if (!file.includes('PASSED')) continue;
             
-            // Extract ticket ID from filename (QA-TKT-XXX-*.md)
-            const match = file.match(/QA-(TKT-\d+)/i);
+            const content = fs.readFileSync(filePath, 'utf8');
+            
+            // Content must indicate approval AND not indicate failure
+            const hasApproval = content.includes('APPROVED') || 
+                               content.includes('Status:** APPROVED') ||
+                               content.includes('Status: APPROVED') ||
+                               content.includes('**Status:** ✅') ||
+                               content.includes('PASSED ✅') ||
+                               content.includes('- PASSED');
+            const hasFailure = content.includes('FAILED') || 
+                              content.includes('BLOCKED') ||
+                              content.includes('Status:** FAILED') ||
+                              content.includes('Status: BLOCKED');
+            
+            const isApproved = hasApproval && !hasFailure;
+            
+            // Extract ticket ID from filename (QA-TKT-XXX-*.md or QA-SEC-XXX-*.md)
+            const match = file.match(/QA-((?:TKT|SEC)-\d+[a-zA-Z]?)/i);
             if (match && isApproved && dbModule?.tickets) {
               const ticketId = match[1].toUpperCase();
               const ticket = dbModule.tickets.get(ticketId);
@@ -188,6 +203,14 @@ const MIME = {
 let lastTicketsSyncTime = 0;
 const SYNC_COOLDOWN_MS = 60000; // Only sync once per minute
 
+// Status progression order - never downgrade a ticket's status
+const STATUS_ORDER = ['ready', 'in_progress', 'dev_complete', 'in_review', 'qa_pending', 'blocked', 'qa_failed', 'merged', 'done'];
+
+function getStatusRank(status) {
+  const idx = STATUS_ORDER.indexOf(status);
+  return idx >= 0 ? idx : -1;
+}
+
 // Sync tickets.json to database (ensures DB stays in sync with JSON changes)
 function syncTicketsToDb() {
   if (!dbModule) return { synced: 0, created: 0, updated: 0, skipped: 0 };
@@ -212,12 +235,18 @@ function syncTicketsToDb() {
           // Create new ticket in DB
           dbModule.tickets.create(ticket);
           created++;
-        } else if (existing.status !== ticket.status) {
-          // Update if status changed (JSON is source of truth during migration)
-          dbModule.tickets.update(ticket.id, { status: ticket.status });
-          updated++;
         } else {
-          unchanged++;
+          // Don't downgrade status - only sync if JSON has a more advanced status
+          const existingRank = getStatusRank(existing.status);
+          const jsonRank = getStatusRank(ticket.status);
+          
+          if (jsonRank > existingRank) {
+            // JSON has more advanced status, update DB
+            dbModule.tickets.update(ticket.id, { status: ticket.status });
+            updated++;
+          } else {
+            unchanged++;
+          }
         }
       } catch (e) {
         console.error(`Error syncing ticket ${ticket.id}:`, e.message);
@@ -442,7 +471,10 @@ function runRegressionTest(job) {
         console.log(`✅ Regression tests passed for ${job.ticket_id}`);
         
         if (dbModule?.tickets) {
+          const ticket = dbModule.tickets.get(job.ticket_id);
           dbModule.tickets.update(job.ticket_id, { status: 'in_review' });
+          // Trigger status change handler to queue QA launch
+          handleTicketStatusChange(job.ticket_id, ticket?.status, 'in_review', { ...ticket, branch: job.branch });
         }
         
         resolve({ passed: true, output: stdout.slice(-5000) });
@@ -451,7 +483,10 @@ function runRegressionTest(job) {
         console.log(`❌ Regression tests failed for ${job.ticket_id}`);
         
         if (dbModule?.tickets) {
+          const ticket = dbModule.tickets.get(job.ticket_id);
           dbModule.tickets.update(job.ticket_id, { status: 'blocked' });
+          // Trigger status change handler to queue dispatch
+          handleTicketStatusChange(job.ticket_id, ticket?.status, 'blocked', { ...ticket, branch: job.branch });
         }
         
         // Create blocker file for dispatch agent
@@ -604,6 +639,22 @@ function mergeBranchToMain(ticketId, branch) {
     return { success: false, error: 'No branch specified' };
   }
   
+  // Merge lock to prevent race conditions when multiple tickets pass QA simultaneously
+  if (global.mergeInProgress) {
+    console.log(`⏳ Merge already in progress, queueing ${ticketId}...`);
+    // Wait up to 60 seconds for the lock to be released
+    let waitTime = 0;
+    while (global.mergeInProgress && waitTime < 60000) {
+      require('child_process').execSync('sleep 2');
+      waitTime += 2000;
+    }
+    if (global.mergeInProgress) {
+      console.error(`❌ Merge lock timeout for ${ticketId}`);
+      return { success: false, error: 'Merge lock timeout' };
+    }
+  }
+  global.mergeInProgress = ticketId;
+  
   try {
     console.log(`🔀 Merging ${branch} to main...`);
     
@@ -629,10 +680,16 @@ function mergeBranchToMain(ticketId, branch) {
     // Clean up the worktree
     cleanupConflictingWorktrees(ticketId, branch);
     
+    // Release merge lock
+    global.mergeInProgress = null;
+    
     return { success: true };
     
   } catch (e) {
     console.error(`❌ Merge failed: ${e.message}`);
+    
+    // Release merge lock on failure too
+    global.mergeInProgress = null;
     
     // Try to recover - abort merge if in progress
     try {

@@ -1298,7 +1298,7 @@ export const jobs = {
       WHERE id = ?
     `).run(now(), toJSON(result), now(), id);
     
-    events.log('job_completed', 'system', 'job', id, result);
+    logEvent('job_completed', 'system', 'job', id, result);
   },
   
   /**

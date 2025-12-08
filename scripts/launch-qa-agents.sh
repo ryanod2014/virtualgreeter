@@ -268,7 +268,7 @@ ${QA_NOTES}
 5. Use Playwright MCP for browser testing (mcp__playwright__* tools)
 6. Take screenshots for visual verification
 7. Make PASS/FAIL decision
-8. Write report to \`docs/agent-output/qa-results/\`
+8. Write report to \`$MAIN_REPO_DIR/docs/agent-output/qa-results/\` (ABSOLUTE PATH - NOT the worktree!)
 EOF
 
     print_success "Created prompt: $PROMPT_FILE"
@@ -560,8 +560,27 @@ CRITICAL: Only merge the specific files for this ticket. Do NOT merge:
     local LOG_FILE="$MAIN_REPO_DIR/.agent-logs/qa-$TICKET_ID-$(date +%Y%m%dT%H%M%S).log"
     mkdir -p "$MAIN_REPO_DIR/.agent-logs"
     
-    tmux new-session -d -s "$SESSION_NAME" \
-        "cd '$WORKTREE_DIR' && export AGENT_SESSION_ID='$DB_SESSION_ID' && echo '=== QA Agent: $TICKET_ID ===' && echo 'Started: $(date)' && echo '' && claude --dangerously-skip-permissions -p '$CLAUDE_PROMPT' 2>&1 | tee '$LOG_FILE'; echo ''; echo '=== Completed: $(date) ==='; echo 'Press Enter to close...'; read"
+    # Write prompt to file (avoids shell escaping issues with special characters)
+    local PROMPT_TEMP_FILE="$MAIN_REPO_DIR/.agent-logs/qa-$TICKET_ID-prompt.txt"
+    echo "$CLAUDE_PROMPT" > "$PROMPT_TEMP_FILE"
+    
+    # Create a wrapper script for reliable execution
+    local WRAPPER_SCRIPT="/tmp/qa-$TICKET_ID-wrapper.sh"
+    cat > "$WRAPPER_SCRIPT" << WRAPPER_EOF
+#!/bin/bash
+cd '$WORKTREE_DIR'
+export AGENT_SESSION_ID='$DB_SESSION_ID'
+echo '=== QA Agent: $TICKET_ID ==='
+echo 'Started: $(date)'
+echo ''
+claude --dangerously-skip-permissions -p "\$(cat '$PROMPT_TEMP_FILE')" 2>&1 | tee '$LOG_FILE'
+echo ''
+echo '=== Completed: $(date) ==='
+sleep 3600
+WRAPPER_EOF
+    chmod +x "$WRAPPER_SCRIPT"
+    
+    tmux new-session -d -s "$SESSION_NAME" "$WRAPPER_SCRIPT"
     
     print_success "QA Agent launched: $SESSION_NAME"
     echo -e "  Worktree: ${CYAN}$WORKTREE_DIR${NC}"

@@ -152,6 +152,37 @@ If the ticket mentions ANY of these, you likely need human setup:
 
 **Why this matters:** Code that "works" but requires unverified external resources is NOT complete. Unit tests with mocks don't prove the integration works. The ticket is NOT done until the external dependency is actually configured and tested.
 
+### 1.2.2 Protected Files Check (CRITICAL)
+
+**NEVER modify these files, even if your ticket seems to require it:**
+
+| Protected Path Pattern | Reason |
+|------------------------|--------|
+| `docs/pm-dashboard-ui/*` | Orchestration server - breaks all agents |
+| `scripts/db/db.js` | Database layer - breaks all data |
+| `scripts/launch-*.sh` | Agent launchers - breaks agent startup |
+| `scripts/orchestrate-*.sh` | Multi-agent coordination |
+| `scripts/setup-*.sh` | Environment setup |
+| `scripts/run-regression-tests.sh` | Test infrastructure |
+| `scripts/agent-cli.sh` | Agent command interface |
+
+**If your ticket's `files_to_modify` includes ANY protected file → BLOCK immediately:**
+
+```json
+{
+  "category": "external_setup",
+  "title": "Ticket requires protected file modification",
+  "issue": "This ticket requires changes to [FILE], which is protected infrastructure. Only human engineers can modify protected files.",
+  "options": [
+    {"id": 1, "label": "Human engineer makes the infrastructure changes"},
+    {"id": 2, "label": "Redefine ticket scope to avoid protected files"}
+  ],
+  "recommendation": "Option 1 - Infrastructure changes need human oversight"
+}
+```
+
+**Full list:** See `docs/workflow/PROTECTED_FILES.md`
+
 ### 1.3 Pre-Flight Checklist
 
 Complete this checklist before writing any code:
@@ -169,6 +200,9 @@ Complete this checklist before writing any code:
   - [ ] Does this ticket require any third-party services?
   - [ ] If YES: Are credentials/resources in `.agent-credentials.json`?
   - [ ] If NO credentials exist: **STOP → Block with `external_setup`**
+- [ ] **⚠️ PROTECTED FILES CHECK:**
+  - [ ] Do any `files_to_modify` match protected patterns? (See 1.2.2)
+  - [ ] If YES: **STOP → Block with "protected file modification"**
 
 **If ANYTHING is unclear → STOP and report BLOCKED**
 
