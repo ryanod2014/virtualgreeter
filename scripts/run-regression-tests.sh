@@ -113,7 +113,11 @@ if [ -z "$MODIFIED_FILES" ]; then
     log_warning "No modified files found"
     MODIFIED_FILES_ARRAY=()
 else
-    readarray -t MODIFIED_FILES_ARRAY <<< "$MODIFIED_FILES"
+    # macOS bash compatibility: use while loop instead of readarray
+    MODIFIED_FILES_ARRAY=()
+    while IFS= read -r line; do
+        MODIFIED_FILES_ARRAY+=("$line")
+    done <<< "$MODIFIED_FILES"
     log "Modified files (${#MODIFIED_FILES_ARRAY[@]}):"
     for f in "${MODIFIED_FILES_ARRAY[@]}"; do
         echo "  - $f"
