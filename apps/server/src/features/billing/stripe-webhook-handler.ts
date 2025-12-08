@@ -48,8 +48,13 @@ function mapStripeStatusToDbStatus(stripeStatus: string): string {
       // Treat payment-related issues as past_due
       return "past_due";
     default:
-      console.warn(`[StripeWebhook] Unknown Stripe status: ${stripeStatus}, defaulting to active`);
-      return "active";
+      // SECURITY: Unknown status defaults to 'cancelled' (fail-safe)
+      // This prevents granting access when Stripe introduces new statuses
+      console.warn(
+        `[StripeWebhook] ⚠️ UNKNOWN STRIPE STATUS: "${stripeStatus}" - Defaulting to 'cancelled' (fail-safe). ` +
+        `This may indicate a new Stripe status that needs to be added to the mapping.`
+      );
+      return "cancelled";
   }
 }
 
@@ -193,7 +198,19 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
   if (!org) return false;
 
   const newStatus = mapStripeStatusToDbStatus(subscription.status);
-  
+
+  // Alert ops if unknown status was encountered (mapped to 'cancelled')
+  if (newStatus === "cancelled" && !["canceled", "cancelled"].includes(subscription.status)) {
+    console.error(
+      `[StripeWebhook] 🚨 ALERT OPS: Unknown Stripe status encountered!\n` +
+      `Subscription ID: ${subscription.id}\n` +
+      `Org ID: ${org.id}\n` +
+      `Org Name: ${org.name}\n` +
+      `Unknown Status: "${subscription.status}"\n` +
+      `Full Subscription Object: ${JSON.stringify(subscription, null, 2)}`
+    );
+  }
+
   return updateOrgSubscriptionStatus(org.id, newStatus, org.subscription_status, "customer.subscription.updated");
 }
 
