@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
 import { NextRequest, NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Update seat usage when inviting or removing team members
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
 
         if (rollbackError) {
           // CRITICAL: Rollback failed - manual intervention required
-          console.error("[SEAT_UPDATE] CRITICAL: Rollback failed - database inconsistent:", {
+          const errorContext = {
             orgId: org.id,
             dbSeatCount: newPurchasedSeats,
             stripeSeatCount: oldSeatCount,
@@ -169,6 +170,21 @@ export async function POST(request: NextRequest) {
             timestamp: new Date().toISOString(),
             severity: "CRITICAL",
             action_required: "Manual review and correction needed",
+          };
+
+          console.error("[SEAT_UPDATE] CRITICAL: Rollback failed - database inconsistent:", errorContext);
+
+          // Alert monitoring system - this requires immediate attention
+          Sentry.captureException(new Error("Seat update rollback failed - database inconsistent"), {
+            level: "fatal",
+            tags: {
+              feature: "billing",
+              operation: "seat_update_rollback",
+              severity: "critical",
+            },
+            contexts: {
+              seat_update: errorContext,
+            },
           });
 
           return NextResponse.json({
