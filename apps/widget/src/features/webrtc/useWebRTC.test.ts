@@ -852,3 +852,216 @@ describe("useWebRTC", () => {
     });
   });
 });
+  describe("ICE restart functionality (TKT-016)", () => {
+    it("sets isReconnecting to true when performIceRestart is triggered", async () => {
+      const mockSocket = createMockSocket();
+      mockGetUserMedia.mockResolvedValue(createMockMediaStream());
+      mockCreateOffer.mockResolvedValue({ type: "offer", sdp: "restart-offer-sdp" });
+
+      const { result } = renderHook(() =>
+        useWebRTC({
+          socket: mockSocket as unknown as Parameters<typeof useWebRTC>[0]["socket"],
+          agentId: "agent-123",
+          isCallAccepted: true,
+        })
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      // Trigger ICE restart via connection state change to "disconnected"
+      mockConnectionState = "disconnected";
+      if (mockOnConnectionStateChange) {
+        await act(async () => {
+          mockOnConnectionStateChange!();
+          await vi.advanceTimersByTimeAsync(50);
+        });
+      }
+
+      expect(result.current.isReconnecting).toBe(true);
+    });
+
+    it("triggers ICE restart when connection state becomes disconnected", async () => {
+      const mockSocket = createMockSocket();
+      mockGetUserMedia.mockResolvedValue(createMockMediaStream());
+      mockCreateOffer.mockResolvedValue({ type: "offer", sdp: "restart-offer-sdp" });
+
+      renderHook(() =>
+        useWebRTC({
+          socket: mockSocket as unknown as Parameters<typeof useWebRTC>[0]["socket"],
+          agentId: "agent-123",
+          isCallAccepted: true,
+        })
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      // Clear previous calls
+      mockCreateOffer.mockClear();
+      mockSocketEmit.mockClear();
+
+      // Trigger ICE restart via connection state change
+      mockConnectionState = "disconnected";
+      if (mockOnConnectionStateChange) {
+        await act(async () => {
+          mockOnConnectionStateChange!();
+          await vi.advanceTimersByTimeAsync(50);
+        });
+      }
+
+      // Should call createOffer with iceRestart flag
+      expect(mockCreateOffer).toHaveBeenCalledWith({ iceRestart: true });
+      expect(mockSocketEmit).toHaveBeenCalledWith(
+        SOCKET_EVENTS.WEBRTC_SIGNAL,
+        expect.objectContaining({
+          targetId: "agent-123",
+          signal: { type: "offer", sdp: "restart-offer-sdp" },
+        })
+      );
+    });
+
+    it("triggers ICE restart when connection state becomes failed", async () => {
+      const mockSocket = createMockSocket();
+      mockGetUserMedia.mockResolvedValue(createMockMediaStream());
+      mockCreateOffer.mockResolvedValue({ type: "offer", sdp: "restart-offer-sdp" });
+
+      renderHook(() =>
+        useWebRTC({
+          socket: mockSocket as unknown as Parameters<typeof useWebRTC>[0]["socket"],
+          agentId: "agent-123",
+          isCallAccepted: true,
+        })
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      mockCreateOffer.mockClear();
+
+      // Trigger ICE restart via connection failure
+      mockConnectionState = "failed";
+      if (mockOnConnectionStateChange) {
+        await act(async () => {
+          mockOnConnectionStateChange!();
+          await vi.advanceTimersByTimeAsync(50);
+        });
+      }
+
+      expect(mockCreateOffer).toHaveBeenCalledWith({ iceRestart: true });
+    });
+
+    it("triggers ICE restart when ICE connection state becomes failed", async () => {
+      const mockSocket = createMockSocket();
+      mockGetUserMedia.mockResolvedValue(createMockMediaStream());
+      mockCreateOffer.mockResolvedValue({ type: "offer", sdp: "restart-offer-sdp" });
+
+      renderHook(() =>
+        useWebRTC({
+          socket: mockSocket as unknown as Parameters<typeof useWebRTC>[0]["socket"],
+          agentId: "agent-123",
+          isCallAccepted: true,
+        })
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      mockCreateOffer.mockClear();
+
+      // Trigger ICE restart via ICE connection failure
+      mockIceConnectionState = "failed";
+      if (mockOnIceConnectionStateChange) {
+        await act(async () => {
+          mockOnIceConnectionStateChange!();
+          await vi.advanceTimersByTimeAsync(50);
+        });
+      }
+
+      expect(mockCreateOffer).toHaveBeenCalledWith({ iceRestart: true });
+    });
+
+    it("resets isReconnecting to false when connection successfully reconnects", async () => {
+      const mockSocket = createMockSocket();
+      mockGetUserMedia.mockResolvedValue(createMockMediaStream());
+      mockCreateOffer.mockResolvedValue({ type: "offer", sdp: "restart-offer-sdp" });
+
+      const { result } = renderHook(() =>
+        useWebRTC({
+          socket: mockSocket as unknown as Parameters<typeof useWebRTC>[0]["socket"],
+          agentId: "agent-123",
+          isCallAccepted: true,
+        })
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      // Trigger ICE restart
+      mockConnectionState = "disconnected";
+      if (mockOnConnectionStateChange) {
+        await act(async () => {
+          mockOnConnectionStateChange!();
+          await vi.advanceTimersByTimeAsync(50);
+        });
+      }
+
+      expect(result.current.isReconnecting).toBe(true);
+
+      // Simulate successful reconnection
+      mockConnectionState = "connected";
+      if (mockOnConnectionStateChange) {
+        await act(async () => {
+          mockOnConnectionStateChange!();
+          await vi.advanceTimersByTimeAsync(50);
+        });
+      }
+
+      expect(result.current.isReconnecting).toBe(false);
+      expect(result.current.isConnected).toBe(true);
+    });
+
+    it("stops attempting ICE restart after 3 attempts and sets error", async () => {
+      const mockSocket = createMockSocket();
+      mockGetUserMedia.mockResolvedValue(createMockMediaStream());
+      mockCreateOffer.mockResolvedValue({ type: "offer", sdp: "restart-offer-sdp" });
+
+      const { result } = renderHook(() =>
+        useWebRTC({
+          socket: mockSocket as unknown as Parameters<typeof useWebRTC>[0]["socket"],
+          agentId: "agent-123",
+          isCallAccepted: true,
+        })
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      mockCreateOffer.mockClear();
+
+      // Trigger 4 failures in a row (3 attempts + 1 more that should fail)
+      for (let i = 0; i < 4; i++) {
+        mockConnectionState = "disconnected";
+        if (mockOnConnectionStateChange) {
+          await act(async () => {
+            mockOnConnectionStateChange!();
+            await vi.advanceTimersByTimeAsync(50);
+          });
+        }
+      }
+
+      // Should have attempted exactly 3 times
+      expect(mockCreateOffer).toHaveBeenCalledTimes(3);
+
+      // Should set error after max attempts
+      expect(result.current.error).toBeTruthy();
+      expect(result.current.isReconnecting).toBe(false);
+    });
+  });
+});
