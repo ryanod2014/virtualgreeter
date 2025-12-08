@@ -1,0 +1,40 @@
+{
+  "ticket_id": "TKT-065",
+  "type": "docs",
+  "status": "complete",
+  "docs_updated": [
+    "docs/features/admin/geo-failure-handling.md"
+  ],
+  "summary": "Created comprehensive documentation for TKT-065 geo-failure handling toggle feature",
+  "details": {
+    "new_files_created": [
+      "docs/features/admin/geo-failure-handling.md"
+    ],
+    "existing_files_updated": [],
+    "jsdoc_status": "Already present in code",
+    "sections_documented": [
+      "Feature overview and purpose",
+      "Decision logic and state machine",
+      "Database schema changes",
+      "UI/UX implementation",
+      "Edge cases (10 scenarios)",
+      "Backward compatibility analysis",
+      "Code references with line numbers",
+      "Acceptance criteria verification"
+    ]
+  },
+  "commits_analyzed": [
+    "c0f3c91 - TKT-065: Add geo-failure handling toggle to blocklist settings",
+    "18743f6 - TKT-065: Fix test file",
+    "820b82e - TKT-065: Add geolocation failure rate information",
+    "799bad4 - TKT-065: Update completion report"
+  ],
+  "files_modified_by_ticket": [
+    "apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx",
+    "apps/dashboard/src/app/(app)/admin/settings/blocklist/page.tsx",
+    "apps/server/src/lib/country-blocklist.ts",
+    "packages/domain/src/database.types.ts"
+  ],
+  "documentation_approach": "Created standalone feature doc rather than editing existing docs to avoid merge conflicts and provide complete context for this specific enhancement",
+  "completed_at": "2025-12-08T20:17:00Z"
+}
