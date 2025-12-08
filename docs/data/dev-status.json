@@ -40,6 +40,13 @@
       "started_at": "2025-12-05T15:00:00Z",
       "completed_at": "2025-12-05T15:30:00Z",
       "completion_file": "docs/agent-output/completions/TKT-038-2025-12-05T1530.md"
+    },
+    {
+      "ticket_id": "TKT-017",
+      "branch": "agent/tkt-017-pool-routing-reassignment",
+      "started_at": "2025-12-08T07:28:53Z",
+      "completed_at": "2025-12-08T07:32:50Z",
+      "completion_file": "docs/agent-output/completions/TKT-017-2025-12-08T0732.md"
     }
   ],
   "retry_history": []
