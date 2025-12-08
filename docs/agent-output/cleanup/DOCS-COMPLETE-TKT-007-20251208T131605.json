@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TKT-007",
+  "type": "docs",
+  "status": "complete",
+  "docs_updated": ["docs/features/visitor/public-feedback.md"],
+  "completed_at": "2025-12-08T21:16:05Z",
+  "notes": "TKT-007 documentation fixes already merged to main. File docs/features/visitor/public-feedback.md successfully updated with: (1) Title changed to 'Feature Request Voting & Bug Reporting', (2) Clear authentication requirements added, (3) Naming note explaining 'public' refers to cross-org visibility not anonymous access, (4) Removed misleading references to visitors/post-call feedback."
+}
