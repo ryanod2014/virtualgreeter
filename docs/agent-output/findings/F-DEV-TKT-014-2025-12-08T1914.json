@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-014-1",
+  "source": "dev-agent-TKT-014",
+  "title": "Pre-existing TypeScript errors in widget test files",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/widget/src/features/cobrowse/useCobrowse.test.ts (and others)",
+  "line": 111,
+  "issue": "Multiple test files have pre-existing TypeScript errors including: timer mock type mismatches in useCobrowse.test.ts, undefined type issues in useSignaling.test.ts and VideoSequencer.test.tsx, missing properties in LiveCallView.test.tsx, and type conversion issues in main.test.ts and Widget.test.tsx. These errors prevent the full typecheck from passing but do not affect the production build.",
+  "suggestion": "Fix the TypeScript errors in test files by: 1) Using proper type assertions for timer mocks, 2) Adding null checks or non-null assertions where needed, 3) Using proper type conversions for window object casts, 4) Adding missing style property type definitions",
+  "status": "pending",
+  "found_at": "2025-12-08T19:14:31Z"
+}
