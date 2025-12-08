@@ -98,7 +98,7 @@ export default function ChallengePlaybookPage() {
           <div className="max-w-3xl mx-auto text-center">
             {/* Pre-header quote */}
             <p className="text-lg md:text-xl text-zinc-400 mb-4">
-              Dean Graziosi: &ldquo;<span className="text-zinc-300">XX% of our annual revenue comes from our 3 day challenges... we just haven&apos;t found anything else that out converts it.</span>&rdquo;
+              Dean Graziosi: &ldquo;<span className="text-zinc-300">93% of our annual revenue comes from our 3-day challenges... we simply haven&apos;t found anything else that out-converts it.</span>&rdquo;
             </p>
 
             {/* Main headline - The Offer */}
@@ -111,7 +111,7 @@ export default function ChallengePlaybookPage() {
             <div className="bg-gradient-to-r from-orange-500/20 to-amber-500/20 border-2 border-orange-500/40 rounded-2xl px-6 py-6 md:px-10 md:py-8 mb-10">
               <p className="text-lg md:text-xl text-white leading-relaxed">
                 Use our playbook to run your first (or next) virtual event in the next <span className="text-orange-500 font-bold">60 days</span> and if it doesn&apos;t get you{" "}
-                <span className="text-orange-500 font-bold">AT LEAST 500 people</span> there live... <span className="text-orange-500 font-bold">it&apos;s FREE!</span>
+                <span className="text-orange-500 font-bold">at least 500 registrants</span>... <span className="text-orange-500 font-bold">we&apos;ll refund every penny.</span>
               </p>
             </div>
 
@@ -130,30 +130,233 @@ export default function ChallengePlaybookPage() {
             </p>
             
             <p className="text-2xl md:text-3xl text-white font-bold leading-snug mb-4">
-              We guarantee you&apos;ll have at least 500 people at your next challenge—or your money back.
+              We guarantee you&apos;ll have at least 500 registrants at your next challenge—or your money back.
             </p>
             
             <p className="text-xl text-zinc-300 leading-relaxed mb-8">
-              Even if no one&apos;s ever heard of you.
+              Even if nobody&apos;s ever heard of you.
             </p>
             
             <p className="text-lg text-zinc-400 leading-relaxed mb-6">
-              How? By giving you the exact playbook we use to fill rooms of 500,000+ people. The same system. Every step.
+              How? By giving you the exact playbook Tony and I use to fill rooms of 500,000+ people. The same system. Every step. Nothing held back.
             </p>
             
             <p className="text-lg text-zinc-400 leading-relaxed mb-6">
-              Because here&apos;s the thing: <span className="text-white font-medium">nothing out-converts a well-run challenge.</span> It compresses a year of trust &amp; goodwill into 3 days.
+              Here&apos;s the truth: <span className="text-white font-medium">nothing out-converts a well-run challenge.</span> It compresses a year of trust and goodwill into 3 days.
             </p>
             
             <p className="text-lg text-zinc-400 leading-relaxed mb-8">
-              And for the first time, we&apos;re showing you exactly how to do it.
+              And for the first time ever, we&apos;re showing you exactly how we do it.
             </p>
 
             <div className="border-t border-zinc-800 my-12"></div>
 
-            {/* The Disclaimer / Advantage */}
+            {/* Chicken & Egg - SECTION 1 */}
+            <p className="text-2xl md:text-3xl text-white font-bold leading-tight mb-2">
+              Most people think they need an audience before they can run events.
+            </p>
+            <p className="text-2xl md:text-3xl text-orange-500 font-bold leading-tight mb-8">
+              That&apos;s completely backwards.
+            </p>
+            
+            <p className="text-lg text-zinc-500 italic mb-2">&ldquo;I&apos;ll run a challenge once I have more followers.&rdquo;</p>
+            <p className="text-lg text-zinc-500 italic mb-2">&ldquo;I&apos;ll do a live event once people know who I am.&rdquo;</p>
+            <p className="text-lg text-zinc-500 italic mb-8">&ldquo;I need to build trust first.&rdquo;</p>
+            
+            <p className="text-lg text-zinc-300 leading-relaxed mb-8">
+              Here&apos;s what nobody tells you: Tony and I have as much goodwill as we have <span className="text-white font-semibold">because</span> of how much free value we&apos;ve delivered at live events over the years. Not the other way around.
+            </p>
+
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8">
+              <p className="text-zinc-500 text-sm mb-2">The wrong way:</p>
+              <p className="text-zinc-500 line-through mb-4">audience → events → sales</p>
+              
+              <p className="text-orange-500 text-sm mb-2">The right way:</p>
+              <p className="text-xl font-bold text-white">
+                events → trust → audience → <span className="text-orange-500">everything</span>
+              </p>
+            </div>
+
+            <p className="text-lg text-zinc-300 leading-relaxed mb-3">
+              If you don&apos;t have an audience, events are how you <span className="text-white font-semibold">build</span> one.
+            </p>
+            <p className="text-lg text-zinc-300 leading-relaxed mb-3">
+              If you don&apos;t have trust, events are how you <span className="text-white font-semibold">earn</span> it.
+            </p>
+            <p className="text-lg text-zinc-300 leading-relaxed mb-12">
+              If you don&apos;t have credibility, events are how you <span className="text-white font-semibold">create</span> it.
+            </p>
+
+            <p className="text-xl text-white font-bold text-center mb-2">
+              This isn&apos;t a strategy for people who already made it.
+            </p>
+            <p className="text-xl text-orange-500 font-bold text-center mb-12">
+              This is the strategy that makes you.
+            </p>
+
+            <div className="border-t border-zinc-800 my-12"></div>
+
+            {/* The Old Way */}
+            <p className="text-2xl md:text-3xl text-white font-bold leading-tight mb-4">
+              The Old Way Is <span className="text-red-500">Broken</span>
+            </p>
+            
+            <p className="text-lg text-zinc-400 leading-relaxed mb-8">
+              Right now, most people are doing it the hard way: <span className="text-white font-semibold">one-on-one sales calls.</span>
+            </p>
+            
+            <p className="text-lg text-zinc-400 leading-relaxed mb-4">
+              Here&apos;s what that looks like:
+            </p>
+
+            <ul className="space-y-3 mb-8">
+              {[
+                "Block 45 minutes on your calendar",
+                "Half of them don't even show up",
+                "Spend 30 minutes building rapport before you can present",
+                "No social proof. No momentum. No leverage.",
+                "Close one (maybe). Repeat tomorrow. And the next day. Forever.",
+              ].map((item, idx) => (
+                <li key={idx} className="flex items-start gap-3 text-lg">
+                  <X className="w-5 h-5 text-red-400 flex-shrink-0 mt-1" />
+                  <span className="text-zinc-400">{item}</span>
+                </li>
+              ))}
+            </ul>
+
+            <p className="text-lg text-zinc-300 leading-relaxed mb-12">
+              It&apos;s exhausting. It doesn&apos;t scale. And every single sale requires you to show up.
+            </p>
+
+            <p className="text-xl text-white font-bold mb-4">
+              Events flip the entire model:
+            </p>
+
+            <ul className="space-y-3 mb-8">
+              {[
+                "Build trust with hundreds of people at once",
+                "Answer objections publicly — everyone hears the answer",
+                "Create social proof in real-time",
+                "Serve many instead of one",
+                "Do the work once, get rewarded repeatedly",
+              ].map((item, idx) => (
+                <li key={idx} className="flex items-start gap-3 text-lg">
+                  <Check className="w-5 h-5 text-orange-500 flex-shrink-0 mt-1" />
+                  <span className="text-zinc-300">{item}</span>
+                </li>
+              ))}
+            </ul>
+
+            <p className="text-xl text-white font-bold mb-12">
+              One well-run challenge can replace a month of sales calls. <span className="text-orange-500">Run the numbers yourself.</span>
+            </p>
+
+            <div className="text-center mb-12">
+              <CTAButton />
+            </div>
+
+            <div className="border-t border-zinc-800 my-12"></div>
+
+            {/* What You Get - SECTION 2 */}
+            <p id="buy" className="text-orange-500 text-sm font-medium uppercase tracking-wider mb-4 scroll-mt-24">
+              What You&apos;re Getting
+            </p>
+            
+            <p className="text-2xl md:text-3xl text-white font-bold leading-tight mb-4">
+              Our Actual Internal Playbook
+            </p>
+            
+            <p className="text-lg text-zinc-400 leading-relaxed mb-10">
+              This isn&apos;t a course <span className="text-white">about</span> challenges. This is the actual document we print out and tape to the wall before every single event. Here&apos;s what&apos;s inside:
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-6 mb-12">
+              {/* Item 1 */}
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
+                  <Target className="w-5 h-5 text-orange-500" />
+                </div>
+                <h3 className="font-bold text-white text-lg mb-2">The Challenge Topic Framework</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">
+                  Most people pick a topic that sounds good to them. We&apos;ll show you how to pick a topic your ideal client is already searching for — so registration feels like a no-brainer, even if nobody knows who you are yet.
+                </p>
+              </div>
+
+              {/* Item 2 */}
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
+                  <Users className="w-5 h-5 text-orange-500" />
+                </div>
+                <h3 className="font-bold text-white text-lg mb-2">Our Registration System</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">
+                  The exact process we use to fill seats. You won&apos;t hit our numbers right away — we&apos;ve been refining this for years — but you&apos;ll hit yours. Includes the ads, the copy, the targeting, and the psychology behind why people register.
+                </p>
+              </div>
+
+              {/* Item 3 */}
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
+                  <TrendingUp className="w-5 h-5 text-orange-500" />
+                </div>
+                <h3 className="font-bold text-white text-lg mb-2">The Break-Even Funnel Template</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">
+                  Our funnel is designed to cover your ad spend before the challenge even starts. That means by the time you present your offer, you&apos;re already in profit. Use our template. Plug in your content. Launch.
+                </p>
+              </div>
+
+              {/* Item 4 */}
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
+                  <Mail className="w-5 h-5 text-orange-500" />
+                </div>
+                <h3 className="font-bold text-white text-lg mb-2">The Show-Up Sequences</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">
+                  Getting people to register is one thing. Getting them to actually show up is another. These are the exact email and text sequences we send — word for word. Copy them directly, or adapt them to your voice.
+                </p>
+              </div>
+
+              {/* Item 5 */}
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
+                  <Presentation className="w-5 h-5 text-orange-500" />
+                </div>
+                <h3 className="font-bold text-white text-lg mb-2">My Actual Presentation Slides</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">
+                  See exactly how we structure the 3 days. How we build value. How we transition to the offer. How we handle the close. Model our framework, add your content, and you&apos;ve got a presentation that converts.
+                </p>
+              </div>
+
+              {/* Item 6 */}
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
+                  <Zap className="w-5 h-5 text-orange-500" />
+                </div>
+                <h3 className="font-bold text-white text-lg mb-2">The Offer Framework</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">
+                  When to pitch. How to pitch. What to say. What not to say. This is where most people struggle — they either push too hard or don&apos;t present at all. We&apos;ll show you the sweet spot that feels natural and converts.
+                </p>
+              </div>
+            </div>
+
+            {/* Price & CTA */}
+            <div className="text-center mb-12">
+              <div className="inline-block bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30 rounded-2xl px-12 py-6 mb-8">
+                <p className="text-zinc-400 text-sm mb-2">One-time payment</p>
+                <span className="text-5xl font-bold text-white">$27</span>
+              </div>
+              <div className="mb-4">
+                <CTAButton size="large" />
+              </div>
+              <p className="text-zinc-500 text-sm">
+                Instant access. No subscriptions. No upsells on checkout.
+              </p>
+            </div>
+
+            <div className="border-t border-zinc-800 my-12"></div>
+
+            {/* The Disclaimer / Advantage - SECTION 3 */}
             <p className="text-lg text-zinc-400 leading-relaxed mb-6">
-              Quick disclaimer before we go any further:
+              Let me be real with you for a moment:
             </p>
             
             <p className="text-2xl md:text-3xl text-white font-bold leading-tight mb-8">
@@ -165,26 +368,26 @@ export default function ChallengePlaybookPage() {
             </p>
             
             <p className="text-2xl text-orange-500 font-bold mb-8">
-              And honestly? That&apos;s your unfair advantage.
+              And here&apos;s the truth: that&apos;s your unfair advantage.
             </p>
             
             <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-              Here&apos;s something nobody talks about: <span className="text-white font-semibold">For every disadvantage, there&apos;s an equal and opposite advantage.</span>
+              Something Tony taught me years ago: <span className="text-white font-semibold">for every disadvantage, there&apos;s an equal and opposite advantage.</span>
             </p>
 
             <div className="grid md:grid-cols-2 gap-4 mb-8">
               <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
                 <p className="text-zinc-500 text-sm mb-1">Big events =</p>
-                <p className="text-white">Big reach, but shallow connection</p>
+                <p className="text-white">Big reach, but lower conversion rate</p>
               </div>
               <div className="bg-zinc-900/50 border border-orange-500/30 rounded-xl p-5">
-                <p className="text-zinc-500 text-sm mb-1">Small events =</p>
-                <p className="text-orange-400 font-semibold">Smaller reach, but DEEP connection</p>
+                <p className="text-zinc-500 text-sm mb-1">Your events =</p>
+                <p className="text-orange-400 font-semibold">500+ people, HIGHER conversion rate</p>
               </div>
             </div>
 
             <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-              When you have 20-30 people in a room instead of 20,000:
+              When you have 500 people in a room instead of 100,000:
             </p>
             
             <ul className="space-y-3 mb-8">
@@ -201,19 +404,8 @@ export default function ChallengePlaybookPage() {
               ))}
             </ul>
 
-            <p className="text-lg text-zinc-300 leading-relaxed mb-4">
+            <p className="text-lg text-zinc-300 leading-relaxed mb-12">
               That intimacy creates trust. Trust creates buyers.
-            </p>
-            
-            <p className="text-xl text-white font-semibold mb-12">
-              That&apos;s why small rooms often <span className="text-orange-500">OUTCONVERT</span> big ones.
-            </p>
-
-            <p className="text-2xl text-white font-bold text-center mb-4">
-              You don&apos;t need Tony&apos;s audience to get Tony&apos;s results.
-            </p>
-            <p className="text-2xl text-orange-500 font-bold text-center mb-12">
-              You need Tony&apos;s PROCESS.
             </p>
 
             <div className="border-t border-zinc-800 my-12"></div>
@@ -240,10 +432,14 @@ export default function ChallengePlaybookPage() {
             </p>
             
             <p className="text-xl text-white font-semibold mb-4">
-              Those small rooms BECAME the big rooms.
+              Those small rooms became the big rooms.
             </p>
-            <p className="text-lg text-zinc-400 mb-12">
+            <p className="text-lg text-zinc-400 mb-8">
               Not the other way around.
+            </p>
+            
+            <p className="text-lg text-zinc-300 leading-relaxed mb-12">
+              The difference? Tony had to figure it out from scratch. <span className="text-white font-semibold">You&apos;re getting the playbook we&apos;ve refined over 20+ years</span> — which is why we can guarantee you&apos;ll have 500 registrants at your first event, not 30.
             </p>
 
             <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-6 mb-12">
@@ -257,269 +453,35 @@ export default function ChallengePlaybookPage() {
 
             <div className="border-t border-zinc-800 my-12"></div>
 
-            {/* Chicken & Egg */}
-            <p className="text-2xl md:text-3xl text-white font-bold leading-tight mb-8">
-              The Chicken &amp; The Egg
-            </p>
-            
-            <p className="text-lg text-zinc-400 leading-relaxed mb-6">
-              Most people think they need an audience before they can run events.
-            </p>
-            
-            <p className="text-lg text-zinc-500 italic mb-2">&ldquo;I&apos;ll run a challenge once I have more followers.&rdquo;</p>
-            <p className="text-lg text-zinc-500 italic mb-2">&ldquo;I&apos;ll do a live event once people know who I am.&rdquo;</p>
-            <p className="text-lg text-zinc-500 italic mb-8">&ldquo;I need to build trust first.&rdquo;</p>
-            
-            <p className="text-2xl text-orange-500 font-bold mb-8">
-              That&apos;s backwards.
-            </p>
-            
-            <p className="text-lg text-zinc-300 leading-relaxed mb-8">
-              Tony and I have as much goodwill as we have BECAUSE of how much free value we&apos;ve delivered at live events over the years. Not the other way around.
-            </p>
-
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 mb-8">
-              <p className="text-zinc-500 text-sm mb-2">The wrong way:</p>
-              <p className="text-zinc-500 line-through mb-4">audience → events → sales</p>
-              
-              <p className="text-orange-500 text-sm mb-2">The right way:</p>
-              <p className="text-xl font-bold text-white">
-                events → trust → audience → <span className="text-orange-500">everything</span>
-              </p>
-            </div>
-
-            <p className="text-lg text-zinc-300 leading-relaxed mb-3">
-              If you don&apos;t have an audience, events are how you <span className="text-white font-semibold">BUILD</span> one.
-            </p>
-            <p className="text-lg text-zinc-300 leading-relaxed mb-3">
-              If you don&apos;t have trust, events are how you <span className="text-white font-semibold">EARN</span> it.
-            </p>
-            <p className="text-lg text-zinc-300 leading-relaxed mb-12">
-              If you don&apos;t have credibility, events are how you <span className="text-white font-semibold">CREATE</span> it.
-            </p>
-
-            <p className="text-xl text-white font-bold text-center mb-2">
-              This isn&apos;t a strategy for people who already made it.
-            </p>
-            <p className="text-xl text-orange-500 font-bold text-center mb-12">
-              This is the strategy that MAKES you.
-            </p>
-
-            <div className="border-t border-zinc-800 my-12"></div>
-
-            {/* The Old Way */}
-            <p className="text-2xl md:text-3xl text-white font-bold leading-tight mb-4">
-              The Old Way Is <span className="text-red-500">Broken</span>
-            </p>
-            
-            <p className="text-lg text-zinc-400 leading-relaxed mb-8">
-              Right now, most people are doing it the hard way: <span className="text-white font-semibold">1-on-1 sales calls.</span>
-            </p>
-            
-            <p className="text-lg text-zinc-400 leading-relaxed mb-4">
-              You know the drill:
-            </p>
-
-            <ul className="space-y-3 mb-8">
-              {[
-                "Block 45 minutes on your calendar",
-                "Half of them no-show",
-                "Spend 30 minutes building rapport before you can pitch",
-                "No social proof. No herd effect. No momentum.",
-                "Close one (maybe). Repeat tomorrow. Forever.",
-              ].map((item, idx) => (
-                <li key={idx} className="flex items-start gap-3 text-lg">
-                  <X className="w-5 h-5 text-red-400 flex-shrink-0 mt-1" />
-                  <span className="text-zinc-400">{item}</span>
-                </li>
-              ))}
-            </ul>
-
-            <p className="text-lg text-zinc-300 leading-relaxed mb-12">
-              It&apos;s exhausting. It doesn&apos;t scale. And every sale requires YOU to show up.
-            </p>
-
-            <p className="text-xl text-white font-bold mb-4">
-              Events flip the entire model:
-            </p>
-
-            <ul className="space-y-3 mb-8">
-              {[
-                "Build trust with 50-100 people at once",
-                "Answer objections publicly (everyone hears)",
-                "Create social proof in real-time",
-                "Sell to many instead of one",
-                "Do the work ONCE, get paid repeatedly",
-              ].map((item, idx) => (
-                <li key={idx} className="flex items-start gap-3 text-lg">
-                  <Check className="w-5 h-5 text-orange-500 flex-shrink-0 mt-1" />
-                  <span className="text-zinc-300">{item}</span>
-                </li>
-              ))}
-            </ul>
-
-            <p className="text-xl text-white font-bold mb-12">
-              One good challenge can replace a month of sales calls. That&apos;s not theory. <span className="text-orange-500">That&apos;s math.</span>
-            </p>
-
-            <div className="text-center mb-12">
-              <CTAButton />
-            </div>
-
-            <div className="border-t border-zinc-800 my-12"></div>
-
-            {/* What You Get */}
-            <p id="buy" className="text-orange-500 text-sm font-medium uppercase tracking-wider mb-4 scroll-mt-24">
-              What You&apos;re Getting
-            </p>
-            
-            <p className="text-2xl md:text-3xl text-white font-bold leading-tight mb-4">
-              Our Actual Internal Playbook
-            </p>
-            
-            <p className="text-lg text-zinc-400 leading-relaxed mb-10">
-              Not a course ABOUT challenges. The actual document we print out and tape to the wall before every event. Here&apos;s what&apos;s inside:
-            </p>
-
-            <div className="grid md:grid-cols-2 gap-6 mb-12">
-              {/* Item 1 */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
-                  <Target className="w-5 h-5 text-orange-500" />
-                </div>
-                <h3 className="font-bold text-white text-lg mb-2">The Challenge Topic Framework</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed">
-                  Most people pick a topic that sounds good to THEM. We&apos;ll show you how to pick a topic your ideal client is already searching for—so registration feels like a no-brainer, even if nobody knows who you are yet.
-                </p>
-              </div>
-
-              {/* Item 2 */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
-                  <Users className="w-5 h-5 text-orange-500" />
-                </div>
-                <h3 className="font-bold text-white text-lg mb-2">Our Registration System</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed">
-                  The exact process we use to fill seats. You won&apos;t hit our numbers (we&apos;ve been doing this for years), but you&apos;ll hit yours. Includes the ads, the copy, the targeting, and the psychology behind why people sign up.
-                </p>
-              </div>
-
-              {/* Item 3 */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
-                  <TrendingUp className="w-5 h-5 text-orange-500" />
-                </div>
-                <h3 className="font-bold text-white text-lg mb-2">The Break-Even Funnel Template</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed">
-                  Our funnel is designed to break even on ad spend BEFORE the challenge even starts. That means we&apos;re playing with house money by the time we make our offer. Copy the template. Plug in your content. Launch.
-                </p>
-              </div>
-
-              {/* Item 4 */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
-                  <Mail className="w-5 h-5 text-orange-500" />
-                </div>
-                <h3 className="font-bold text-white text-lg mb-2">The Show-Up Sequences</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed">
-                  Getting people to register is one thing. Getting them to actually SHOW UP is another. These are the exact email and text sequences we send—word for word. Copy them, or hand them to AI and let it rewrite for your voice.
-                </p>
-              </div>
-
-              {/* Item 5 */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
-                  <Presentation className="w-5 h-5 text-orange-500" />
-                </div>
-                <h3 className="font-bold text-white text-lg mb-2">My Actual Presentation Slides</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed">
-                  See exactly how we structure the 3 days. How we build value. How we transition to the offer. How we handle the close. Steal the structure, swap in your content, and you&apos;ve got a presentation that converts.
-                </p>
-              </div>
-
-              {/* Item 6 */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-orange-500/30 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center mb-4">
-                  <Zap className="w-5 h-5 text-orange-500" />
-                </div>
-                <h3 className="font-bold text-white text-lg mb-2">The Offer Framework</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed">
-                  When to pitch. How to pitch. What to say. What NOT to say. This is the part most people screw up—they either sell too hard or don&apos;t sell at all. We&apos;ll show you the sweet spot that feels natural and converts.
-                </p>
-              </div>
-            </div>
-
-            {/* Benefits */}
-            <div className="grid md:grid-cols-2 gap-6 mb-12">
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Zap className="w-5 h-5 text-orange-500" />
-                  <h3 className="font-bold text-white">Short-Term</h3>
-                </div>
-                <ul className="space-y-2 text-zinc-400 text-sm">
-                  <li>→ Generate customers in the next 30-60 days</li>
-                  <li>→ Stop doing exhausting 1-on-1 sales calls</li>
-                  <li>→ Revenue that doesn&apos;t require you on every sale</li>
-                </ul>
-              </div>
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp className="w-5 h-5 text-orange-500" />
-                  <h3 className="font-bold text-white">Long-Term</h3>
-                </div>
-                <ul className="space-y-2 text-zinc-400 text-sm">
-                  <li>→ Authority that compounds over time</li>
-                  <li>→ An audience that knows, likes, and trusts you</li>
-                  <li>→ A business built on events, not exhaustion</li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Price & CTA */}
-            <div className="text-center mb-12">
-              <div className="inline-block bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30 rounded-2xl px-12 py-6 mb-8">
-                <p className="text-zinc-400 text-sm mb-2">One-time payment</p>
-                <span className="text-5xl font-bold text-white">$27</span>
-              </div>
-              <div className="mb-4">
-                <CTAButton size="large" />
-              </div>
-              <p className="text-zinc-500 text-sm">
-                Instant access. No subscriptions. No upsells on checkout.
-              </p>
-            </div>
-
-            <div className="border-t border-zinc-800 my-12"></div>
-
             {/* Objections */}
             <p className="text-2xl md:text-3xl text-white font-bold leading-tight mb-4">
               &ldquo;But what about...&rdquo;
             </p>
             
             <p className="text-lg text-zinc-400 leading-relaxed mb-8">
-              We&apos;ve heard them all. Here are the answers.
+              I hear these questions all the time. Let me address them directly.
             </p>
 
             <div className="space-y-4 mb-12">
               <ObjectionItem
                 objection="I don't have an audience..."
-                answer="Good. Challenges are how you BUILD an audience. You're not supposed to have one yet. That's the whole point."
+                answer="Good. That's exactly the point. Challenges are how you build an audience. You're not supposed to have one yet."
               />
               <ObjectionItem
                 objection="I've tried challenges before and they didn't work."
-                answer="So did we. Our first one: 217 registrants. 23 showed up. Zero sales. This playbook is everything we fixed after that disaster."
+                answer="So did we. Our first one: 217 registrants. 23 showed up. Zero sales. This playbook is everything we learned and fixed after that experience."
               />
               <ObjectionItem
                 objection="This only works because you're Tony and Dean."
-                answer="Tony started in rooms of 30 people. I wasn't anybody when I ran my first challenge. The playbook works because the PRINCIPLES work—not because of who's using them."
+                answer="Tony started in rooms of 30 people. I wasn't anybody when I ran my first challenge. The playbook works because the principles work — not because of who's using them."
               />
               <ObjectionItem
                 objection="$27 seems too cheap. What's the catch?"
-                answer="The catch is we want you to run a successful challenge, realize we know what we're talking about, and come back for something bigger later. That's it. We're not hiding it. This is the front door."
+                answer="Here's the truth: we want you to run a successful challenge, see that we know what we're talking about, and come back for something bigger later. We lead with value. That's how we do business."
               />
               <ObjectionItem
                 objection="What if I buy it and never use it?"
-                answer="Then you're out $27. The cost of a lunch you won't remember. But if you use it once, you're up five figures minimum. That math works for us."
+                answer="Then you've lost $27. But if you use it even once, you could be up five figures. That's a bet we're comfortable making."
               />
             </div>
 
@@ -531,9 +493,9 @@ export default function ChallengePlaybookPage() {
             </p>
 
             <p className="text-lg text-zinc-400 leading-relaxed mb-2 text-center">You can keep doing what you&apos;re doing.</p>
-            <p className="text-lg text-zinc-400 leading-relaxed mb-2 text-center">Keep posting content that gets likes but not sales.</p>
-            <p className="text-lg text-zinc-400 leading-relaxed mb-2 text-center">Keep running webinars that 12 people attend.</p>
-            <p className="text-lg text-zinc-400 leading-relaxed mb-2 text-center">Keep doing sales calls until you burn out.</p>
+            <p className="text-lg text-zinc-400 leading-relaxed mb-2 text-center">Keep creating content that doesn&apos;t convert.</p>
+            <p className="text-lg text-zinc-400 leading-relaxed mb-2 text-center">Keep running events that don&apos;t fill up.</p>
+            <p className="text-lg text-zinc-400 leading-relaxed mb-2 text-center">Keep trading your time for money, one call at a time.</p>
             <p className="text-lg text-zinc-400 leading-relaxed mb-8 text-center">Keep waiting until you &ldquo;have an audience&rdquo; to run events.</p>
 
             <p className="text-xl text-white font-semibold mb-4 text-center">
@@ -547,7 +509,7 @@ export default function ChallengePlaybookPage() {
             </p>
 
             <p className="text-lg text-zinc-400 mb-10 text-center">
-              The funnel. The emails. The slides. The system.
+              The funnel. The emails. The slides. The system. Everything.
             </p>
 
             <div className="text-center mb-8">
@@ -555,7 +517,7 @@ export default function ChallengePlaybookPage() {
             </div>
 
             <p className="text-zinc-600 text-sm text-center">
-              This is the strategy that built the business. Now it&apos;s yours.
+              This is the strategy that built our business. Now it&apos;s yours.
             </p>
 
           </div>
