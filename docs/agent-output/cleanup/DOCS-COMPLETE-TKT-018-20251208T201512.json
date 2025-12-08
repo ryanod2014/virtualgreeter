@@ -1,0 +1,10 @@
+{
+  "ticket_id": "TKT-018",
+  "type": "docs",
+  "status": "complete",
+  "docs_updated": [
+    "docs/features/platform/transcription-retry.md"
+  ],
+  "summary": "Created comprehensive documentation for transcription auto-retry with exponential backoff and manual retry features. Documented retry configuration, error handling, UI components, and complete data flows.",
+  "completed_at": "2025-12-08T20:15:12Z"
+}
