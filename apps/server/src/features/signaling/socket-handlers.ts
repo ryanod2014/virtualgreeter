@@ -76,6 +76,12 @@ import {
 import { recordEmbedVerification } from "../../lib/embed-tracker.js";
 import { recordPageview } from "../../lib/pageview-logger.js";
 import { getWidgetSettings } from "../../lib/widget-settings.js";
+import {
+  startVisitorReconnectWindow,
+  cancelVisitorReconnectWindow,
+  isCallWaitingForReconnection,
+} from "../calls/callLifecycle.js";
+import { handleRejoinRequest } from "./handleRejoin.js";
 import { getClientIP, getLocationFromIP } from "../../lib/geolocation.js";
 import { isCountryBlocked } from "../../lib/country-blocklist.js";
 import { trackWidgetView, trackCallStarted } from "../../lib/greetnow-retargeting.js";
@@ -930,17 +936,21 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     socket.on(SOCKET_EVENTS.CALL_END, async (data: CallEndPayload) => {
       // Clear max call duration timeout since call is ending normally
       clearMaxCallDurationTimeout(data.callId);
-      
+
+      // TKT-024: Cancel any pending reconnection window
+      // If agent ends the call while visitor is disconnected, the reconnection window should be cancelled
+      cancelVisitorReconnectWindow(data.callId);
+
       const call = poolManager.endCall(data.callId);
       if (call) {
         console.log("[Socket] Call ended:", data.callId, "by socket:", socket.id);
-        
+
         // Mark call as completed in database
         markCallEnded(data.callId);
-        
+
         // Track idle status for activity reporting (call ended)
         await recordStatusChange(call.agentId, "idle", "call_ended");
-        
+
         // Determine who ended the call
         const agent = poolManager.getAgentBySocketId(socket.id);
         const isAgentEnding = !!agent;
@@ -1010,7 +1020,34 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
 
       if (data.role === "visitor") {
         // Visitor is reconnecting after page navigation or server restart
-        
+
+        // TKT-024: Check if this call is in the reconnection window (visitor disconnected during call)
+        // This is different from page navigation - visitor's socket actually disconnected
+        if (isCallWaitingForReconnection(callInfo.id)) {
+          console.log(`[Socket] 🔄 Visitor rejoining call ${callInfo.id} within reconnection window`);
+
+          // Use the rejoin handler which will cancel the reconnection timeout and restore the call
+          const success = await handleRejoinRequest(
+            io,
+            socket,
+            poolManager,
+            data.reconnectToken,
+            callInfo.visitor_id
+          );
+
+          if (success) {
+            console.log(`[Socket] ✅ Visitor ${callInfo.visitor_id} successfully rejoined call ${callInfo.id}`);
+          } else {
+            console.log(`[Socket] ❌ Failed to rejoin call ${callInfo.id}`);
+            socket.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
+              callId: callInfo.id,
+              reason: "error",
+              message: "Failed to rejoin call",
+            });
+          }
+          return;
+        }
+
         // Check if there's a pending reconnect (agent reconnected first in server restart scenario)
         const existingReconnect = pendingReconnects.get(callInfo.id);
         if (existingReconnect && existingReconnect.agentSocketId) {
@@ -1515,27 +1552,25 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       // Check if this was a visitor
       const visitor = poolManager.getVisitorBySocketId(socket.id);
       if (visitor) {
-        // End any active call
+        // Check if visitor has an active call
         const activeCall = poolManager.getActiveCallByVisitorId(visitor.visitorId);
         if (activeCall) {
-          // Clear max call duration timeout
-          clearMaxCallDurationTimeout(activeCall.callId);
-          
-          // Mark call as completed in database
-          markCallEnded(activeCall.callId);
-          
-          // Track agent going back to idle for activity reporting
-          await recordStatusChange(activeCall.agentId, "idle", "call_ended");
-          
-          poolManager.endCall(activeCall.callId);
-          const callAgent = poolManager.getAgent(activeCall.agentId);
-          if (callAgent) {
-            const agentSocket = io.sockets.sockets.get(callAgent.socketId);
-            agentSocket?.emit(SOCKET_EVENTS.CALL_ENDED, {
-              callId: activeCall.callId,
-              reason: "visitor_ended",
-            });
-          }
+          // TKT-024: Instead of immediately ending the call, start a 60-second reconnection window
+          // This allows visitors to rejoin if they accidentally closed the browser or crashed
+          console.log(`[Socket] Visitor ${visitor.visitorId} disconnected during call ${activeCall.callId}, starting reconnection window`);
+
+          // Start the reconnection window (60 seconds)
+          startVisitorReconnectWindow(
+            io,
+            poolManager,
+            activeCall.callId,
+            visitor.visitorId,
+            activeCall.agentId
+          );
+
+          // Note: We do NOT clear max call duration timeout yet - that happens when:
+          // 1. Visitor rejoins successfully, OR
+          // 2. Reconnection window expires and call truly ends
         }
 
         // Get the agent BEFORE unregistering visitor so we can update their stats
