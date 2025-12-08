@@ -1,0 +1,64 @@
+{
+  "id": "BLOCKED-TKT-030-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-030",
+  "severity": "critical",
+  "title": "File locks conflict - TKT-009 and TKT-050 have locked required files",
+  "feature": "Billing",
+  "category": "environment",
+  "status": "pending",
+  "found_at": "2025-12-08T07:33:29Z",
+
+  "issue": "TKT-030 requires modifying two files that are already locked by other agents:\n1. apps/dashboard/src/app/(dashboard)/settings/actions.ts - locked by TKT-009\n2. apps/server/src/features/webhooks/stripe.ts - locked by TKT-050\n\nI cannot proceed with implementation until these locks are released.",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Wait for TKT-009 and TKT-050 to complete — Resume TKT-030 after locks are released",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Coordinate with running agents — Merge changes or sequence the work",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Cancel TKT-030 and reassign — If file conflicts indicate overlapping work",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 1 because file locks prevent parallel work on the same files. Once TKT-009 and TKT-050 complete and release their locks, TKT-030 can proceed safely.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-030",
+    "ticket_version": 1,
+    "branch": "agent/tkt-030",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Read ticket spec and feature documentation",
+        "Verified workspace and branch (correct worktree)",
+        "Checked for file locks"
+      ],
+      "remaining": [
+        "Wait for file locks to be released ← BLOCKED HERE",
+        "Register session with workflow database",
+        "Read current implementation files",
+        "Understand database schema",
+        "Implement subscription_ends_at storage",
+        "Implement grace period access logic",
+        "Implement webhook handler",
+        "Run typecheck and build",
+        "Write completion report"
+      ],
+      "stopped_at": {
+        "file": null,
+        "line": null,
+        "context": "Cannot start implementation due to file locks from TKT-009 (settings/actions.ts) and TKT-050 (webhooks/stripe.ts)"
+      },
+      "notes_for_next_agent": "Both files required for TKT-030 are currently locked. Once the locks are released, the implementation should be straightforward: (1) add subscription_ends_at field storage on cancel, (2) implement grace period logic to keep plan active until subscription_ends_at, (3) handle subscription.deleted webhook to trigger actual downgrade."
+    }
+  }
+}
