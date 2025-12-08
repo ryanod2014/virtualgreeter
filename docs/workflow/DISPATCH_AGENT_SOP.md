@@ -57,11 +57,12 @@ echo "Dispatch Session started: $AGENT_SESSION_ID"
 |--------------|--------|---------------|
 | `QA-*-FAILED-*` | Auto-create continuation ticket | ❌ NO |
 | `CI-TKT-*` | Auto-create continuation ticket | ❌ NO |
+| `REGRESSION-TKT-*` | Auto-create continuation ticket | ❌ NO |
 | `BLOCKED-TKT-*` | Route to inbox | ✅ YES |
 | `ENV-TKT-*` | Route to inbox | ✅ YES |
 | `EXT-TKT-*` | Route to inbox (external setup needed) | ✅ YES |
 
-**Only clarifications, environment issues, and external setup need human decisions.** Everything else gets auto-processed into continuation tickets for dev agents to pick up.
+**Only clarifications, environment issues, and external setup need human decisions.** Everything else (QA failures, CI failures, regression failures) gets auto-processed into continuation tickets for dev agents to pick up.
 
 **⚠️ EXT-TKT-* Blockers (External Setup):** These require human to create accounts, download files, or set up third-party services. Agent CANNOT proceed until human completes setup.
 
@@ -106,6 +107,7 @@ For each blocker file, determine its type from the filename prefix:
 |--------|------|--------------|-------------|
 | `QA-*-FAILED-*` | QA Failure | ⚠️ CHECK `blocker_type` | See below |
 | `CI-TKT-*` | CI Failure | ✅ YES | Tests failed on agent branch |
+| `REGRESSION-TKT-*` | Regression Failure | ✅ YES | Dev broke tests outside ticket scope |
 | `BLOCKED-TKT-*` | Clarification | ❌ NO | Agent has a question (needs human) |
 | `ENV-TKT-*` | Environment | ❌ NO | Infra/credentials issue (needs human) |
 | `EXT-TKT-*` | External Setup | ❌ NO | Third-party service needs human setup |
@@ -282,6 +284,82 @@ CI tests failed with [X] regressions outside your ticket scope.
    ```
 3. Archive blocker: `mv docs/agent-output/blocked/CI-TKT-*.json docs/agent-output/archive/`
 4. Log: `"Auto-created TKT-XXX-v2 for regression fix"`
+
+---
+
+#### Regression Failures (REGRESSION-TKT-*)
+
+**These are created automatically by `agent-post-run.sh` when dev completes work but broke tests outside their ticket scope.**
+
+Read the blocker JSON:
+
+```json
+{
+  "ticket_id": "TKT-010",
+  "blocker_type": "regression_failure",
+  "summary": "Dev agent broke tests outside ticket scope. Must fix before QA.",
+  "failures": [
+    {
+      "category": "regression",
+      "criterion": "No tests outside ticket scope should fail",
+      "expected": "All non-modified file tests pass",
+      "actual": "Tests failed in files dev did NOT modify"
+    }
+  ],
+  "regression_output": "...",
+  "dispatch_action": "create_continuation_ticket"
+}
+```
+
+**Action:** AUTO-HANDLE - Create continuation ticket for dev to fix regression
+
+**Continuation Ticket Template:**
+
+```markdown
+# Dev Agent Continuation: TKT-XXX-v2
+
+> **Type:** Continuation (Regression Failure)
+> **Original Ticket:** TKT-XXX  
+> **Branch:** `[branch from blocker]` (ALREADY EXISTS - do NOT create new branch)
+
+---
+
+## 🚨 REGRESSION FIX REQUIRED
+
+**What happened:**
+Your changes broke tests in files OUTSIDE your ticket scope. This means you accidentally broke functionality that should not have been affected.
+
+**Your task:**
+1. Checkout existing branch: `git checkout [branch]`
+2. Pull latest: `git pull origin [branch]`
+3. Run tests: `pnpm test`
+4. Identify which tests are failing OUTSIDE your ticket's files
+5. Fix the regressions WITHOUT breaking your original feature
+6. Verify ALL tests pass before pushing
+7. Push and regression tests will re-run automatically
+
+**⚠️ IMPORTANT:** Do NOT modify your original feature work. Only fix the unintended side effects.
+
+---
+
+## Original Ticket Context
+
+[Copy from original ticket]
+
+---
+
+## Regression Output
+
+[Include relevant parts of regression_output from blocker]
+```
+
+**Steps:**
+1. Create prompt file: `docs/prompts/active/dev-agent-TKT-XXX-v2.md`
+2. Update ticket status: `./scripts/agent-cli.sh update-ticket TKT-XXX --status ready`
+3. Archive blocker: `mv docs/agent-output/blocked/REGRESSION-TKT-*.json docs/agent-output/archive/`
+4. Log: `"Auto-created TKT-XXX-v2 for regression fix"`
+
+---
 
 #### Clarification Blockers (BLOCKED-TKT-*)
 
