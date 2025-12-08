@@ -183,6 +183,9 @@ importers:
       redis:
         specifier: ^4.7.0
         version: 4.7.1
+      resend:
+        specifier: ^6.5.2
+        version: 6.5.2
       socket.io:
         specifier: ^4.7.0
         version: 4.8.1
