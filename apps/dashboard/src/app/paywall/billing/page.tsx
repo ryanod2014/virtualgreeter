@@ -2,12 +2,24 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Sparkles, Check, X, Percent, Calendar, CreditCard, Zap, Loader2 } from "lucide-react";
+import { ArrowRight, Sparkles, Check, X, Percent, Calendar, CreditCard, Zap, Loader2, AlertCircle } from "lucide-react";
 import { trackFunnelEvent, FUNNEL_STEPS } from "@/lib/funnel-tracking";
-import { PRICING } from "@/lib/stripe";
+import { PRICING, isPriceIdConfigured } from "@/lib/stripe";
 
 export default function PaywallStep3() {
-  const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">("monthly");
+  // Check which billing options are available
+  const hasMonthly = isPriceIdConfigured("monthly");
+  const hasAnnual = isPriceIdConfigured("annual");
+  const hasSixMonth = isPriceIdConfigured("six_month");
+
+  // Set default plan to first available option
+  const getDefaultPlan = (): "monthly" | "annual" => {
+    if (hasAnnual) return "annual";
+    if (hasMonthly) return "monthly";
+    return "monthly"; // Fallback (will show error)
+  };
+
+  const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">(getDefaultPlan());
   const [seatCount, setSeatCount] = useState(1);
   const [showExitPopup, setShowExitPopup] = useState(false);
   const [isCreatingSubscription, setIsCreatingSubscription] = useState(false);
@@ -113,8 +125,8 @@ export default function PaywallStep3() {
   };
 
   const handleContinue = async () => {
-    // Show exit popup for monthly users (one time only)
-    if (selectedPlan === "monthly" && !exitPopupShown.current) {
+    // Show exit popup for monthly users (one time only) - only if 6-month plan is configured
+    if (selectedPlan === "monthly" && !exitPopupShown.current && hasSixMonth) {
       exitPopupShown.current = true;
       setShowExitPopup(true);
       return;
@@ -126,8 +138,24 @@ export default function PaywallStep3() {
     await createSubscriptionAndContinue("six_month");
   };
 
+  // Show error if no billing options are configured
+  const noBillingOptions = !hasMonthly && !hasAnnual;
+
   return (
     <div className="w-full max-w-3xl mx-auto">
+      {/* Configuration Error Warning */}
+      {noBillingOptions && (
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="font-semibold mb-1">Billing Configuration Error</div>
+            <div className="text-sm">
+              No Stripe price IDs are configured. Please contact your administrator to set up STRIPE_MONTHLY_PRICE_ID or STRIPE_ANNUAL_PRICE_ID environment variables.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Badge */}
       <div className="flex justify-center mb-6">
         <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 shine-effect">
@@ -163,8 +191,9 @@ export default function PaywallStep3() {
           </div>
 
           {/* Plan comparison */}
-          <div className="grid md:grid-cols-2 gap-4 mb-8">
+          <div className={`grid ${hasMonthly && hasAnnual ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-4 mb-8`}>
             {/* Monthly Plan */}
+            {hasMonthly && (
             <button
               onClick={() => setSelectedPlan("monthly")}
               className={`relative p-6 rounded-2xl border-2 text-left transition-all ${
@@ -209,8 +238,10 @@ export default function PaywallStep3() {
                 </li>
               </ul>
             </button>
+            )}
 
             {/* Annual Plan */}
+            {hasAnnual && (
             <button
               onClick={() => setSelectedPlan("annual")}
               className={`relative p-6 rounded-2xl border-2 text-left transition-all ${
@@ -269,10 +300,11 @@ export default function PaywallStep3() {
                 </li>
               </ul>
             </button>
+            )}
           </div>
 
           {/* Savings callout for annual */}
-          {selectedPlan === "annual" && (
+          {selectedPlan === "annual" && hasAnnual && (
             <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-6 text-center">
               <div className="text-lg font-semibold text-green-400">
                 You'll save ${(monthlySavings * 12 * seatCount).toLocaleString()}/year with annual billing!
@@ -284,7 +316,7 @@ export default function PaywallStep3() {
           )}
 
           {/* Overpaying callout for monthly */}
-          {selectedPlan === "monthly" && (
+          {selectedPlan === "monthly" && hasMonthly && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 text-center">
               <div className="text-sm text-red-400/70 mb-1">By choosing monthly:</div>
               <div className="text-lg font-semibold text-red-400">
@@ -309,7 +341,7 @@ export default function PaywallStep3() {
           {/* CTA */}
           <button
             onClick={handleContinue}
-            disabled={isCreatingSubscription}
+            disabled={isCreatingSubscription || noBillingOptions}
             className="w-full group inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-full font-semibold text-lg hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/30 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isCreatingSubscription ? (

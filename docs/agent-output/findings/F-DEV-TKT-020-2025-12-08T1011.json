@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-020-1",
+  "source": "dev-agent-TKT-020",
+  "title": "Pre-existing type errors in test files across dashboard and widget packages",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/dashboard/src/app/(app)/admin/admin-layout-client.test.tsx",
+  "line": 140,
+  "issue": "Multiple test files have type errors where mock objects don't include all required properties from updated type definitions. This affects: admin-layout-client.test.tsx (user props), workbench-client.test.tsx (agentProfile props), and apps/widget test files (Window type casting). These are pre-existing errors not related to TKT-020 changes.",
+  "suggestion": "Update test mock objects to include all required properties from the current type definitions, or use type assertions/partial mocks appropriately. Consider reviewing all test files after type definition updates to keep mocks in sync.",
+  "status": "pending",
+  "found_at": "2025-12-08T10:11:00.000Z"
+}
