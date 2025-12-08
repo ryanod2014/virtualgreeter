@@ -142,12 +142,16 @@ The `captureSnapshot()` function performs these steps:
 1. **Clone Document**: `document.cloneNode(true)` creates a deep copy
 2. **Remove Widget**: Removes `#ghost-greeter-widget` from snapshot (prevents recursion)
 3. **Remove Scripts**: All `<script>` tags removed (security)
-4. **Fix Image URLs**: Relative `src` attributes converted to absolute
-5. **Fix Stylesheet URLs**: Relative `href` attributes converted to absolute
-6. **Fix Background Images**: Inline style `url()` references converted to absolute
-7. **Serialize**: `docClone.documentElement.outerHTML` produces HTML string
-8. **Deduplication**: Change detection via `length-prefix500chars` key
-9. **Emit**: Send payload with html, url, title, viewport, timestamp
+4. **Mask Sensitive Data**: `maskSensitiveFields()` sanitizes passwords, credit cards, etc. (TKT-001)
+5. **Fix Image URLs**: Relative `src` attributes converted to absolute
+6. **Fix Stylesheet URLs**: Relative `href` attributes converted to absolute
+7. **Fix Background Images**: Inline style `url()` references converted to absolute
+8. **Handle Iframes** (TKT-053):
+   - Same-origin iframes: Recursively clone content and embed via `srcdoc` attribute
+   - Cross-origin iframes: Replace with styled placeholder div showing "Embedded content - not visible to agent"
+9. **Serialize**: `docClone.documentElement.outerHTML` produces HTML string
+10. **Deduplication**: Change detection via `length-prefix500chars` key
+11. **Emit**: Send payload with html, url, title, viewport, timestamp
 
 ### Throttling/Debouncing Strategy
 
@@ -277,6 +281,7 @@ From `apps/server/src/features/signaling/socket-rate-limit.ts`:
 | Purpose | File | Lines | Notes |
 |---------|------|-------|-------|
 | Main hook | `apps/widget/src/features/cobrowse/useCobrowse.ts` | 1-385 | Complete implementation |
+| Iframe handling | `apps/widget/src/features/cobrowse/useCobrowse.ts` | 101-187 | TKT-053: Recursive capture + placeholders |
 | Sensitive data masking | `apps/widget/src/features/cobrowse/domSerializer.ts` | 1-82 | TKT-001 implementation |
 | Masking tests | `apps/widget/src/features/cobrowse/domSerializer.test.ts` | 1-361 | 26 test cases |
 | Widget integration | `apps/widget/src/Widget.tsx` | 420-424 | Hook invocation |
