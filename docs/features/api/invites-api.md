@@ -125,10 +125,11 @@ ADMIN SENDS INVITE
     │   └─► YES → POST /api/billing/seats { action: "add", quantity: 1 }
     │             └─► FAIL? → DELETE invite, return error
     │
-    ├─► Send email via Resend
-    │   └─► FAIL? → Log warning, continue (invite still created)
+    ├─► Send email via sendEmailWithRetry (up to 3 attempts with backoff)
+    │   └─► SUCCESS → Update invite.email_status = 'sent'
+    │   └─► FAIL (all retries) → Update invite.email_status = 'failed', return warning
     │
-    └─► Return { success: true, invite: { id, email } }
+    └─► Return { success: true, invite: { id, email }, emailStatus: 'sent'|'failed' }
 
 
 INVITEE ACCEPTS
@@ -198,7 +199,7 @@ ADMIN REVOKES INVITE
 | 12 | Invite during billing pause | Subscription paused | Invite proceeds (billing still works) | ✅ | Paused orgs can still expand |
 | 13 | Admin chooses "take calls" on accept | Admin + willTakeCalls | Seat charged at acceptance time | ✅ | |
 | 14 | Admin chooses "admin only" on accept | Admin + !willTakeCalls | No agent_profile created, free | ✅ | |
-| 15 | Email delivery fails | Resend error | Invite still created, URL logged in dev | ✅ | Non-blocking |
+| 15 | Email delivery fails | Resend error | Auto-retries up to 3 times, marked as 'failed' if all fail | ✅ | Admin can resend manually |
 | 16 | Billing seat add fails | Stripe error | Invite deleted (rollback) | ✅ | |
 | 17 | Missing RESEND_API_KEY | Dev/staging | Invite created, URL logged to console | ✅ | |
 | 18 | Revoke frees seat for new invite | Revoke then invite | Seat available immediately | ✅ | Pre-paid model |
@@ -269,7 +270,8 @@ ADMIN REVOKES INVITE
 ### Reliability
 | Concern | Mitigation |
 |---------|------------|
-| Email delivery failure | Invite still created, URL logged |
+| Email delivery failure | Automatic retry up to 3 attempts with exponential backoff (1s, 2s) |
+| Failed email visibility | Email status tracked in DB, visible in UI, manual resend available |
 | Billing failure on invite | Rollback invite (delete) |
 | Billing failure on accept (admin) | Logged, continues anyway |
 | Database constraint violation | Handled with appropriate error messages |
@@ -289,7 +291,6 @@ ADMIN REVOKES INVITE
 ### Identified Issues
 | Issue | Impact | Severity | Suggested Fix |
 |-------|--------|----------|--------------|
-| No resend endpoint | Admin must revoke + re-invite | 🟢 Low | Add `/api/invites/resend` endpoint |
 | Expired invites not auto-cleaned | DB accumulates old records | 🟢 Low | Add periodic cleanup job |
 | No email validation on frontend | Invalid emails fail silently | 🟢 Low | Add regex validation |
 | Old invite not deleted on "resend" | Multiple invite records per email | 🟢 Low | Delete old invite on new send |
@@ -300,13 +301,15 @@ ADMIN REVOKES INVITE
 
 | Purpose | File | Lines | Notes |
 |---------|------|-------|-------|
-| Send invite endpoint | `apps/dashboard/src/app/api/invites/send/route.ts` | 1-181 | Main create + email logic |
+| Send invite endpoint | `apps/dashboard/src/app/api/invites/send/route.ts` | 1-161 | Main create + email logic with retry |
+| Email helper library | `apps/dashboard/src/lib/email.ts` | 1-120 | sendEmailWithRetry, sendInviteEmail |
 | Revoke invite endpoint | `apps/dashboard/src/app/api/invites/revoke/route.ts` | 1-70 | Delete + seat credit |
 | Accept invite page | `apps/dashboard/src/app/accept-invite/page.tsx` | 1-377 | Client-side acceptance |
 | Invites schema | `supabase/migrations/20251127000000_add_invites.sql` | 1-128 | Table + RLS policies |
+| Email status migration | `supabase/migrations/20251206000000_add_invite_email_status.sql` | 1-19 | email_status field |
 | Type definitions | `packages/domain/src/database.types.ts` | 393-408 | Invite type |
 | Billing seats endpoint | `apps/dashboard/src/app/api/billing/seats/route.ts` | 1-118 | Seat management |
-| Admin UI (invites) | `apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx` | 363-461 | Send/revoke UI |
+| Admin UI (invites) | `apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx` | 363-461 | Send/revoke UI, resend button |
 | Pending invites query | `apps/dashboard/src/app/(app)/admin/agents/page.tsx` | 76-83 | Load invites for display |
 
 ---
@@ -322,10 +325,9 @@ ADMIN REVOKES INVITE
 ## 10. OPEN QUESTIONS
 
 1. **Should expired invites be automatically cleaned up?** → Currently they stay in DB indefinitely (filtered by query)
-2. **Should there be a dedicated resend endpoint?** → Currently requires revoke + new invite
-3. **What happens if Resend quota is exceeded?** → Presumably email fails silently, invite still created
-4. **Should invites count against org's max_agents limit?** → Currently only checked via seat billing
-5. **Is 7-day expiration the right duration?** → Hardcoded, could be configurable per-org
+2. **What happens if Resend quota is exceeded?** → Email fails after retries, marked as 'failed', admin can resend
+3. **Should invites count against org's max_agents limit?** → Currently only checked via seat billing
+4. **Is 7-day expiration the right duration?** → Hardcoded, could be configurable per-org
 
 
 
