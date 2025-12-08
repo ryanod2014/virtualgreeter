@@ -20,6 +20,21 @@ export const PRICE_IDS = {
   six_month: process.env.STRIPE_SIX_MONTH_PRICE_ID || "",
 } as const;
 
+// Validate that required price IDs are configured at startup
+if (process.env.STRIPE_SECRET_KEY) {
+  const missingPriceIds: string[] = [];
+  if (!PRICE_IDS.monthly) missingPriceIds.push("STRIPE_MONTHLY_PRICE_ID");
+  if (!PRICE_IDS.annual) missingPriceIds.push("STRIPE_ANNUAL_PRICE_ID");
+
+  if (missingPriceIds.length > 0) {
+    console.error(
+      `⚠️  Missing Stripe Price IDs: ${missingPriceIds.join(", ")}. ` +
+      `Billing options without configured price IDs will not be shown to users. ` +
+      `Set these environment variables to enable all billing options.`
+    );
+  }
+}
+
 // Legacy: Keep SEAT_PRICE_ID for backwards compatibility (defaults to monthly)
 export const SEAT_PRICE_ID = PRICE_IDS.monthly;
 
