@@ -138,17 +138,20 @@ VISITOR_JOIN EVENT
     │   ├─► isPrivateIP(ip)?
     │   │   └─► YES: Log, return null
     │   │
-    │   ├─► fetch(`http://ip-api.com/json/${ip}?fields=status,city,regionName,country,countryCode`)
+    │   ├─► initReader()
+    │   │   ├─► Already loaded? → Return existing reader
+    │   │   ├─► Database file exists? → Load MaxMind database
+    │   │   └─► Not found? → Log warning, return null
     │   │
-    │   ├─► Response OK?
-    │   │   ├─► NO: Log error, return null
-    │   │   └─► YES: Continue
+    │   ├─► reader.city(ipAddress)
+    │   │   ├─► IP found: Build location object from response
+    │   │   └─► IP not found: Throw error (caught below)
     │   │
-    │   ├─► data.status === "success"?
-    │   │   ├─► NO: Cache null, return null
-    │   │   └─► YES: Build location object
+    │   ├─► Success?
+    │   │   └─► YES: Cache location with 1-hour TTL, return location
     │   │
-    │   └─► Cache result with 1-hour TTL, return location
+    │   └─► Error caught?
+    │       └─► Cache null with 1-hour TTL, return null
     │
     ├─► isCountryBlocked(orgId, countryCode)
     │   │
@@ -180,19 +183,19 @@ VISITOR_JOIN EVENT
 | # | Scenario | Trigger | Current Behavior | Correct? | Notes |
 |---|----------|---------|------------------|----------|-------|
 | 1 | Public IP with successful lookup | Normal visitor | Location resolved, stored | ✅ | Happy path |
-| 2 | Localhost (127.0.0.1) | Dev environment | Returns null, skips API call | ✅ | Proper dev handling |
-| 3 | IPv6 localhost (::1) | IPv6 local | Returns null, skips API call | ✅ | |
-| 4 | IPv4-mapped IPv6 localhost (::ffff:127.0.0.1) | Mixed env | Returns null, skips API call | ✅ | |
-| 5 | Private IP (10.x.x.x) | Internal network | Returns null, skips API call | ✅ | |
-| 6 | Private IP (192.168.x.x) | Internal network | Returns null, skips API call | ✅ | |
-| 7 | Private IP (172.16-31.x.x) | Docker/internal | Returns null, skips API call | ✅ | All 172.16-31 covered |
+| 2 | Localhost (127.0.0.1) | Dev environment | Returns null, skips database query | ✅ | Proper dev handling |
+| 3 | IPv6 localhost (::1) | IPv6 local | Returns null, skips database query | ✅ | |
+| 4 | IPv4-mapped IPv6 localhost (::ffff:127.0.0.1) | Mixed env | Returns null, skips database query | ✅ | |
+| 5 | Private IP (10.x.x.x) | Internal network | Returns null, skips database query | ✅ | |
+| 6 | Private IP (192.168.x.x) | Internal network | Returns null, skips database query | ✅ | |
+| 7 | Private IP (172.16-31.x.x) | Docker/internal | Returns null, skips database query | ✅ | All 172.16-31 covered |
 | 8 | VPN with public IP | VPN user | Resolves to VPN exit node location | ⚠️ | IP-based geo limitation |
 | 9 | Proxy with x-forwarded-for | Behind CDN/LB | First IP in chain extracted | ✅ | Trusts proxy header |
 | 10 | Nginx with x-real-ip | nginx reverse proxy | Uses x-real-ip | ✅ | nginx compatible |
 | 11 | Multiple IPs in x-forwarded-for | Multi-hop proxy | Uses first (original client) IP | ✅ | |
-| 12 | API rate limit exceeded (HTTP 429) | High traffic burst | Returns null, logs error | ✅ | Graceful degradation |
-| 13 | API network error | ip-api.com down | Returns null, logs error | ✅ | Best-effort design |
-| 14 | API returns "fail" status | Reserved/invalid IP | Caches null, returns null | ✅ | Prevents retry storm |
+| 12 | IP not found in database | IP not in MaxMind data | Returns null, caches null | ✅ | Prevents repeated lookups |
+| 13 | Database file missing | Server misconfiguration | Returns null, logs warning | ✅ | Graceful degradation |
+| 14 | Database load error | Corrupt database file | Returns null, logs error | ✅ | Best-effort design |
 | 15 | Country in blocklist | Blocked country visitor | Silent disconnect | ✅ | No error revealed |
 | 16 | Country NOT in allowlist | Non-allowed country | Silent disconnect | ✅ | |
 | 17 | Unknown country + blocklist mode | Geolocation failed | Allowed through | ✅ | Lenient for blocklist |
@@ -200,15 +203,16 @@ VISITOR_JOIN EVENT
 | 19 | Empty blocklist | No countries blocked | All countries allowed | ✅ | |
 | 20 | Empty allowlist | No countries in allowlist | All countries allowed | ⚠️ | Lenient, could block all |
 | 21 | Case mismatch (us vs US) | Admin typo | Case-insensitive match | ✅ | Uppercase normalization |
-| 22 | Repeated lookups same IP | Multiple visitors | Cache hit, no API call | ✅ | 1-hour cache TTL |
-| 23 | Cache entry expired | After 1 hour | New API call | ✅ | |
+| 22 | Repeated lookups same IP | Multiple visitors | Cache hit, no database query | ✅ | 1-hour cache TTL |
+| 23 | Cache entry expired | After 1 hour | New database query | ✅ | |
 | 24 | Country list updated by admin | Settings change | Need manual cache clear | ⚠️ | `clearBlocklistCache()` exists |
 
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
 |-------|-----------------|----------------|---------------|
-| API rate limit | >45 req/min sustained | Nothing (location null) | Auto-recovers, visitor allowed (blocklist mode) |
-| Network timeout | ip-api.com unreachable | Nothing (location null) | Auto-recovers on retry |
+| Database file missing | MaxMind database not downloaded | Nothing (location null) | Run setup script, restart server |
+| Database corrupted | Invalid .mmdb file | Nothing (location null) | Re-download database using setup script |
+| IP not in database | IP not found in MaxMind data | Nothing (location null) | Visitor allowed (blocklist mode) |
 | Invalid IP format | Malformed address | Nothing (location null) | Visitor allowed (blocklist mode) |
 | Supabase error | Can't fetch blocklist | All countries allowed | Logs warning, fails open |
 | Country blocked | Visitor from blocked country | Widget never appears | Contact org, use VPN, or wait |
@@ -247,10 +251,11 @@ VISITOR_JOIN EVENT
 ### Performance
 | Concern | Implementation | Status |
 |---------|----------------|--------|
-| API rate limits (45 req/min) | 1-hour cache per IP | ✅ Mitigated |
-| Latency on cache miss | ~100-300ms for API call | ⚠️ Acceptable |
+| No external API rate limits | Local MaxMind database | ✅ Fixed (TKT-062) |
+| Latency on cache miss | ~1-5ms for local database read | ✅ Excellent |
 | Memory usage | Map-based cache, grows with unique IPs | ⚠️ No eviction policy |
 | Database calls for blocklist | 60s (dev) / 5min (prod) cache | ✅ Minimal DB load |
+| Database file size | ~60MB .mmdb file loaded once | ✅ Acceptable |
 
 ### Security
 | Concern | Mitigation |
@@ -263,10 +268,11 @@ VISITOR_JOIN EVENT
 ### Reliability
 | Concern | Mitigation |
 |---------|------------|
-| ip-api.com downtime | Graceful degradation - returns null, visitor allowed (blocklist mode) |
+| Database file missing | Graceful degradation - returns null, visitor allowed (blocklist mode) |
+| Database updates | Manual download via setup script, automated updates not implemented |
 | Cache invalidation | `clearBlocklistCache(orgId)` and `clearAllBlocklistCaches()` available |
-| Server restart | In-memory caches cleared, will rebuild from API/DB |
-| IPv6 support | Partial - localhost handled, public IPv6 goes to API |
+| Server restart | In-memory caches cleared, will rebuild from database |
+| IPv6 support | Partial - localhost handled, public IPv6 supported by MaxMind |
 
 ---
 
@@ -287,7 +293,8 @@ VISITOR_JOIN EVENT
 | VPN/proxy bypasses blocking | Users can circumvent blocks | 🟢 Low | Known IP geo limitation |
 | Empty allowlist allows all | Counterintuitive for strict mode | 🟡 Medium | Consider blocking all if empty |
 | No manual location override | Can't correct wrong geolocation | 🟢 Low | Add admin override in future |
-| Cache not shared across servers | Horizontal scaling = more API calls | 🟡 Medium | Use Redis for shared cache |
+| No automated database updates | Database may become stale | 🟢 Low | Add monthly update cron job |
+| Database setup required | New deployments need manual setup | 🟡 Medium | Document in deployment guide |
 
 ---
 
@@ -295,19 +302,20 @@ VISITOR_JOIN EVENT
 
 | Purpose | File | Lines | Notes |
 |---------|------|-------|-------|
-| Main geolocation function | `apps/server/src/lib/geolocation.ts` | 21-67 | `getLocationFromIP()` |
-| IP extraction from handshake | `apps/server/src/lib/geolocation.ts` | 109-130 | `getClientIP()` |
-| Private IP detection | `apps/server/src/lib/geolocation.ts` | 72-105 | `isPrivateIP()` |
-| Location cache definition | `apps/server/src/lib/geolocation.ts` | 4-5 | 1-hour TTL Map |
-| ip-api.com response type | `apps/server/src/lib/geolocation.ts` | 8-15 | `IPApiResponse` interface |
+| Main geolocation function | `apps/server/src/lib/geolocation.ts` | 55-89 | `getLocationFromIP()` uses MaxMind |
+| MaxMind reader init | `apps/server/src/lib/geolocation.ts` | 28-50 | `initReader()` singleton pattern |
+| Database path resolver | `apps/server/src/lib/geolocation.ts` | 17-22 | `getDbPath()` with env override |
+| IP extraction from handshake | `apps/server/src/lib/geolocation.ts` | 128-142 | `getClientIP()` |
+| Private IP detection | `apps/server/src/lib/geolocation.ts` | 94-123 | `isPrivateIP()` |
+| Location cache definition | `apps/server/src/lib/geolocation.ts` | 7-8 | 1-hour TTL Map |
+| MaxMind database reader | `apps/server/src/lib/geolocation.ts` | 11-12 | Singleton dbReader |
+| Setup documentation | `apps/server/SETUP.md` | 1-107 | MaxMind setup guide |
+| Setup script | `apps/server/scripts/setup-maxmind.sh` | 1-143 | Automated download |
+| Test script | `apps/server/scripts/test-geolocation.ts` | 1-59 | Manual testing tool |
 | Country list settings fetch | `apps/server/src/lib/country-blocklist.ts` | 29-71 | `getCountryListSettings()` |
 | Country blocked check | `apps/server/src/lib/country-blocklist.ts` | 91-132 | `isCountryBlocked()` |
-| Blocklist cache definition | `apps/server/src/lib/country-blocklist.ts` | 20-21 | 60s/5min TTL by env |
-| Cache clear functions | `apps/server/src/lib/country-blocklist.ts` | 137-146 | `clearBlocklistCache()` |
-| VISITOR_JOIN handler | `apps/server/src/features/signaling/socket-handlers.ts` | 97-209 | Geo check integration |
-| Blocking disconnect logic | `apps/server/src/features/signaling/socket-handlers.ts` | 134-139 | Silent disconnect |
+| VISITOR_JOIN handler | `apps/server/src/features/signaling/socket-handlers.ts` | 158-174 | Geo check integration |
 | VisitorLocation type | `packages/domain/src/types.ts` | 49-55 | Shared type definition |
-| VisitorSession with location | `packages/domain/src/types.ts` | 58-70 | Location in session |
 
 ---
 
@@ -323,15 +331,19 @@ VISITOR_JOIN EVENT
 
 1. **Should the location cache have a maximum size?** Currently unbounded Map could grow indefinitely with unique IPs. Consider LRU cache with 10K entry limit.
 
-2. **Should failed API lookups be cached shorter?** Currently failed lookups (null) are cached for 1 hour same as successes. Could use shorter TTL (e.g., 5 minutes) to retry sooner.
+2. **Should failed database lookups be cached shorter?** Currently failed lookups (null) are cached for 1 hour same as successes. Could use shorter TTL (e.g., 5 minutes) in case IP gets added to database.
 
 3. **Is x-forwarded-for trustworthy?** Current implementation trusts the first IP in x-forwarded-for header. If not behind a trusted proxy, this could be spoofed. May need configuration option.
 
-4. **Should IPv6 public addresses be supported explicitly?** Currently relies on ip-api.com to handle IPv6. May need testing with IPv6-only visitors.
+4. **Should IPv6 public addresses be supported explicitly?** MaxMind supports IPv6. May need testing with IPv6-only visitors to verify accuracy.
 
 5. **What happens when blocklist cache is stale?** Admin updates blocklist, cache serves old data for up to 5 minutes. Is this acceptable or should updates invalidate cache immediately via webhook/pubsub?
 
 6. **Should empty allowlist block everyone?** Current behavior allows everyone when allowlist is empty. This may be counterintuitive - should it block all instead (strict interpretation)?
+
+7. **Should database updates be automated?** Currently requires manual re-download via setup script. Should we add monthly cron job to update MaxMind database automatically?
+
+8. **How to handle database setup in production deployments?** Database file is gitignored. Need clear deployment documentation to ensure setup script runs on new servers.
 
 
 
