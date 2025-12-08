@@ -436,6 +436,13 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initia
                 </p>
               </button>
             </div>
+
+            {/* Failure Rate Info */}
+            <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium">Note:</span> Geolocation typically fails for 2-5% of visitors using VPNs, privacy tools, or from certain networks. Choose &apos;Allow&apos; to be lenient (recommended for most sites) or &apos;Block&apos; to be strict (better for restricted services).
+              </p>
+            </div>
           </div>
         </div>
 
