@@ -77,6 +77,12 @@
       "branch": "main",
       "completed_at": "2025-12-05T08:46:05.294Z",
       "completion_file": "docs/agent-output/completions/TKT-062-2025-12-06T0600.md"
+    },
+    {
+      "ticket_id": "TKT-065",
+      "branch": "agent/tkt-065",
+      "completed_at": "2025-12-08T00:04:34.000Z",
+      "completion_file": "docs/agent-output/completions/TKT-065-2025-12-08T0004.md"
     }
   ],
   "retry_history": [],
