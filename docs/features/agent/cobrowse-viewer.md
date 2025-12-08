@@ -33,21 +33,25 @@ Co-browsing enables agents to see exactly what the visitor is looking at during 
 
 1. **Call Starts** - Visitor and agent are connected via WebRTC call
 2. **Widget Activates Co-Browse** - `useCobrowse` hook detects `isInCall: true`
-3. **Initial Snapshot** - DOM is captured, sanitized, and sent to server
-4. **Continuous Updates** - DOM snapshots every 2s, mouse at ~20fps, scroll at 10fps
-5. **Server Relay** - Events forwarded from visitor socket to agent socket
-6. **Agent View** - `CobrowseViewer` renders DOM in sandboxed iframe with overlays
-7. **Call Ends** - Co-browse cleanup, stops all tracking
+3. **Loading State** - Agent sees "Loading visitor's screen..." with spinner (TKT-052)
+4. **Initial Snapshot** - DOM is captured, sanitized, and sent to server
+5. **First Render** - Loading state dismissed, DOM displayed in iframe
+6. **Continuous Updates** - DOM snapshots every 2s, mouse at ~20fps, scroll at 10fps (with "Updating..." indicator)
+7. **Server Relay** - Events forwarded from visitor socket to agent socket
+8. **Agent View** - `CobrowseViewer` renders DOM in sandboxed iframe with overlays
+9. **Call Ends** - Co-browse cleanup, stops all tracking
 
 ### State Machine
 
 ```mermaid
 stateDiagram-v2
     [*] --> Inactive: Page loads
-    Inactive --> Active: isInCall becomes true
-    Active --> Capturing: Start snapshot interval
-    Capturing --> Capturing: Every 2s / DOM mutation / input
-    Capturing --> Inactive: isInCall becomes false
+    Inactive --> Loading: isInCall becomes true
+    Loading --> FirstSnapshot: Receive first snapshot
+    FirstSnapshot --> Active: Snapshot rendered
+    Active --> Updating: Subsequent snapshot received
+    Updating --> Active: Update complete (500ms)
+    Active --> Inactive: isInCall becomes false
     Inactive --> [*]: Component unmounts
 ```
 
@@ -55,9 +59,11 @@ stateDiagram-v2
 
 | State | Description | How to Enter | How to Exit |
 |-------|-------------|--------------|-------------|
-| Inactive | No co-browsing, no listeners | Initial state, call ends | `isInCall` becomes true |
-| Active | Listeners attached, capturing | `isInCall` is true | Call ends, component unmounts |
-| Capturing | Actively sending snapshots | Within Active state | Part of Active lifecycle |
+| Inactive | No co-browsing, placeholder shown | Initial state, call ends | `isInCall` becomes true |
+| Loading | Waiting for first snapshot, spinner visible (TKT-052) | Call starts, no snapshot yet | First snapshot received |
+| FirstSnapshot | Processing initial DOM render | `hasReceivedFirstSnapshot` set to true | Iframe renders |
+| Active | Displaying visitor's screen | First snapshot rendered | New snapshot arrives |
+| Updating | Brief "Updating..." indicator shown (TKT-052) | Subsequent snapshot received | 500ms timeout |
 
 ---
 
