@@ -163,7 +163,13 @@ function scanForNewBlockers() {
                 
                 if (mergeResult.success) {
                   dbModule.tickets.update(ticketId, { status: 'merged' });
-                  console.log(`🎉 ${ticketId} merged to main!`);
+                  
+                  // Release any locks held by sessions for this ticket
+                  const sessions = dbModule.sessions.list({ ticket_id: ticketId });
+                  for (const session of sessions) {
+                    dbModule.locks.release(session.id);
+                  }
+                  console.log(`🎉 ${ticketId} merged to main! (locks released)`);
                 } else {
                   console.error(`❌ Merge failed for ${ticketId}: ${mergeResult.error}`);
                 }
@@ -206,7 +212,7 @@ let lastTicketsSyncTime = 0;
 const SYNC_COOLDOWN_MS = 60000; // Only sync once per minute
 
 // Status progression order - never downgrade a ticket's status
-const STATUS_ORDER = ['ready', 'in_progress', 'dev_complete', 'in_review', 'qa_pending', 'blocked', 'qa_failed', 'merged', 'done'];
+const STATUS_ORDER = ['ready', 'in_progress', 'dev_complete', 'in_review', 'qa_approved', 'finalizing', 'qa_pending', 'blocked', 'qa_failed', 'merged', 'done'];
 
 function getStatusRank(status) {
   const idx = STATUS_ORDER.indexOf(status);
@@ -264,6 +270,49 @@ function syncTicketsToDb() {
     console.error('Error syncing tickets to DB:', e.message);
     return { synced: 0, error: e.message };
   }
+}
+
+// =============================================================================
+// INBOX SYSTEM
+// Routes items to human inbox for review (e.g., UI screenshot review)
+// =============================================================================
+
+/**
+ * Create an inbox item for human review
+ * Used for UI changes that need screenshot approval
+ */
+function createInboxItem(ticketId, data) {
+  const inboxDir = path.join(__dirname, '../agent-output/inbox');
+  
+  // Ensure inbox directory exists
+  if (!fs.existsSync(inboxDir)) {
+    fs.mkdirSync(inboxDir, { recursive: true });
+  }
+  
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const filename = `INBOX-${ticketId}-${timestamp}.json`;
+  const filepath = path.join(inboxDir, filename);
+  
+  const inboxItem = {
+    id: `INBOX-${ticketId}-${timestamp}`,
+    ticket_id: ticketId,
+    type: data.type || 'review',
+    message: data.message || 'Review required',
+    branch: data.branch || null,
+    files: data.files || [],
+    created_at: new Date().toISOString(),
+    status: 'pending'
+  };
+  
+  fs.writeFileSync(filepath, JSON.stringify(inboxItem, null, 2));
+  console.log(`📬 Created inbox item: ${filename}`);
+  
+  // Log event
+  if (dbModule?.logEvent) {
+    dbModule.logEvent('inbox_item_created', 'system', 'ticket', ticketId, inboxItem);
+  }
+  
+  return inboxItem;
 }
 
 // =============================================================================
@@ -345,6 +394,63 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
     });
     startJobWorker();
   }
+  
+  // =========================================================================
+  // STEP 5: QA approved → Check for UI changes, route accordingly
+  // =========================================================================
+  if (newStatus === 'qa_approved') {
+    // Check if ticket has UI changes
+    const filesToModify = ticket.files_to_modify || [];
+    const hasUIChanges = filesToModify.some(f => 
+      f.includes('/components/') || 
+      f.includes('/app/') || 
+      f.endsWith('.tsx') ||
+      f.endsWith('.css')
+    );
+    
+    if (hasUIChanges) {
+      console.log(`🖼️ UI changes detected for ${ticketId} - routing to inbox for screenshot review`);
+      // Create inbox item for human screenshot review
+      createInboxItem(ticketId, {
+        type: 'ui_review',
+        message: 'UI changes detected - please review screenshots',
+        branch: ticket.branch,
+        files: filesToModify.filter(f => f.endsWith('.tsx') || f.endsWith('.css'))
+      });
+      // Don't auto-proceed - wait for human approval via inbox
+    } else {
+      // No UI changes - proceed directly to finalizing
+      console.log(`📝 No UI changes for ${ticketId} - proceeding to finalizing`);
+      dbModule.tickets.update(ticketId, { status: 'finalizing' });
+      // Recursively call to trigger finalizing handler
+      handleTicketStatusChange(ticketId, 'qa_approved', 'finalizing', ticket);
+    }
+  }
+  
+  // =========================================================================
+  // STEP 6: Finalizing → Queue Test Agent + Doc Agent
+  // =========================================================================
+  if (newStatus === 'finalizing') {
+    console.log(`🧪 Queueing Test Agent for ${ticketId}`);
+    dbModule.jobs.create({
+      job_type: 'test_agent',
+      ticket_id: ticketId,
+      branch: ticket.branch,
+      priority: 2,
+      payload: { triggered_by: 'finalizing' }
+    });
+    
+    console.log(`📚 Queueing Doc Agent for ${ticketId}`);
+    dbModule.jobs.create({
+      job_type: 'doc_agent',
+      ticket_id: ticketId,
+      branch: ticket.branch,
+      priority: 2,
+      payload: { triggered_by: 'finalizing' }
+    });
+    
+    startJobWorker();
+  }
 }
 
 // Job worker state
@@ -417,6 +523,18 @@ async function processNextJob() {
       case 'worktree_cleanup':
         cleanupConflictingWorktrees(claimed.ticket_id, claimed.branch);
         result = { cleaned: true };
+        break;
+      case 'test_agent':
+        result = await launchTestAgent(claimed);
+        break;
+      case 'doc_agent':
+        result = await launchDocAgent(claimed);
+        break;
+      case 'cleanup_tests':
+        result = await runCleanupTests(claimed);
+        break;
+      case 'cleanup_docs':
+        result = await runCleanupDocs(claimed);
         break;
       default:
         throw new Error(`Unknown job type: ${claimed.job_type}`);
@@ -682,6 +800,15 @@ function mergeBranchToMain(ticketId, branch) {
     // Clean up the worktree
     cleanupConflictingWorktrees(ticketId, branch);
     
+    // Release any file locks held by sessions for this ticket
+    if (dbModule?.sessions && dbModule?.locks) {
+      const sessions = dbModule.sessions.list({ ticket_id: ticketId });
+      for (const session of sessions) {
+        dbModule.locks.release(session.id);
+      }
+      console.log(`🔓 Released file locks for ${ticketId}`);
+    }
+    
     // Release merge lock
     global.mergeInProgress = null;
     
@@ -879,6 +1006,364 @@ function launchQAAgent(job) {
         // The script already handles creating blockers if needed
         resolve({ launched: false, output: (stdout + stderr).slice(-2000) });
       }
+    });
+    
+    proc.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
+ * Launch Test agent for a ticket (runs in finalizing stage)
+ * Adds/updates unit tests for new functionality
+ */
+function launchTestAgent(job) {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(PROJECT_ROOT, 'scripts/launch-test-agent.sh');
+    
+    // If script doesn't exist yet, create a basic one or skip gracefully
+    if (!fs.existsSync(scriptPath)) {
+      console.log(`⚠️ Test agent script not found, creating placeholder job result`);
+      // For now, mark as completed - human can add the script later
+      setTimeout(() => {
+        handleTestDocAgentCompletion(job, 'test_agent', true);
+        resolve({ launched: true, note: 'Script not found - placeholder completion' });
+      }, 1000);
+      return;
+    }
+    
+    // Clean up conflicting worktrees FIRST
+    console.log(`🧹 Cleaning up conflicting worktrees for ${job.ticket_id}...`);
+    cleanupConflictingWorktrees(job.ticket_id, job.branch);
+    
+    console.log(`🧪 Launching Test agent for ${job.ticket_id}...`);
+    
+    const proc = spawn('bash', [scriptPath, job.ticket_id], {
+      cwd: PROJECT_ROOT,
+      env: process.env
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+      process.stdout.write(data);
+    });
+    
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+      process.stderr.write(data);
+    });
+    
+    proc.on('close', (code) => {
+      const success = code === 0;
+      handleTestDocAgentCompletion(job, 'test_agent', success);
+      
+      if (success) {
+        resolve({ launched: true, output: stdout.slice(-2000) });
+      } else {
+        resolve({ launched: false, output: (stdout + stderr).slice(-2000) });
+      }
+    });
+    
+    proc.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
+ * Launch Doc agent for a ticket (runs in finalizing stage)
+ * Updates documentation for changes
+ */
+function launchDocAgent(job) {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(PROJECT_ROOT, 'scripts/launch-doc-agent.sh');
+    
+    // If script doesn't exist yet, create a basic one or skip gracefully
+    if (!fs.existsSync(scriptPath)) {
+      console.log(`⚠️ Doc agent script not found, creating placeholder job result`);
+      // For now, mark as completed - human can add the script later
+      setTimeout(() => {
+        handleTestDocAgentCompletion(job, 'doc_agent', true);
+        resolve({ launched: true, note: 'Script not found - placeholder completion' });
+      }, 1000);
+      return;
+    }
+    
+    // Clean up conflicting worktrees FIRST
+    console.log(`🧹 Cleaning up conflicting worktrees for ${job.ticket_id}...`);
+    cleanupConflictingWorktrees(job.ticket_id, job.branch);
+    
+    console.log(`📚 Launching Doc agent for ${job.ticket_id}...`);
+    
+    const proc = spawn('bash', [scriptPath, job.ticket_id], {
+      cwd: PROJECT_ROOT,
+      env: process.env
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+      process.stdout.write(data);
+    });
+    
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+      process.stderr.write(data);
+    });
+    
+    proc.on('close', (code) => {
+      const success = code === 0;
+      handleTestDocAgentCompletion(job, 'doc_agent', success);
+      
+      if (success) {
+        resolve({ launched: true, output: stdout.slice(-2000) });
+      } else {
+        resolve({ launched: false, output: (stdout + stderr).slice(-2000) });
+      }
+    });
+    
+    proc.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
+ * Handle completion of test_agent or doc_agent
+ * When BOTH are done, merge to main
+ */
+function handleTestDocAgentCompletion(job, agentType, success) {
+  if (!dbModule?.jobs || !dbModule?.tickets) return;
+  
+  const ticketId = job.ticket_id;
+  console.log(`📋 ${agentType} completed for ${ticketId} (success: ${success})`);
+  
+  // Get all jobs for this ticket
+  const ticketJobs = dbModule.jobs.getForTicket(ticketId);
+  
+  // Check if both test_agent and doc_agent are completed
+  const testJob = ticketJobs.find(j => j.job_type === 'test_agent' && j.status === 'completed');
+  const docJob = ticketJobs.find(j => j.job_type === 'doc_agent' && j.status === 'completed');
+  
+  // Also check for current job if it just completed
+  const testDone = testJob || (agentType === 'test_agent' && success);
+  const docDone = docJob || (agentType === 'doc_agent' && success);
+  
+  console.log(`📊 ${ticketId} status: test_done=${testDone}, doc_done=${docDone}`);
+  
+  if (testDone && docDone) {
+    console.log(`✅ Both Test and Doc agents completed for ${ticketId} - proceeding to merge!`);
+    
+    const ticket = dbModule.tickets.get(ticketId);
+    if (!ticket) {
+      console.error(`❌ Ticket ${ticketId} not found`);
+      return;
+    }
+    
+    // Merge the branch
+    const mergeResult = mergeBranchToMain(ticketId, ticket.branch);
+    
+    if (mergeResult.success) {
+      dbModule.tickets.update(ticketId, { status: 'merged' });
+      console.log(`🎉 ${ticketId} merged to main after finalizing!`);
+    } else {
+      console.error(`❌ Merge failed for ${ticketId}: ${mergeResult.error}`);
+      // Update status to indicate merge failure
+      dbModule.tickets.update(ticketId, { status: 'blocked' });
+    }
+  }
+}
+
+/**
+ * Run cleanup tests for an already-merged ticket
+ * Works on main branch, records completion separately
+ */
+async function runCleanupTests(job) {
+  const ticketId = job.ticket_id;
+  console.log(`🧹 Running cleanup tests for ${ticketId} (on main branch)...`);
+  
+  // Get ticket info
+  const ticket = dbModule?.tickets?.get(ticketId);
+  if (!ticket) {
+    console.log(`⚠️ Ticket ${ticketId} not found, skipping cleanup`);
+    return { skipped: true, reason: 'ticket_not_found' };
+  }
+  
+  // For cleanup, we run TEST_LOCK agent on the files that were modified
+  const scriptPath = path.join(PROJECT_ROOT, 'scripts/launch-cleanup-tests.sh');
+  
+  if (!fs.existsSync(scriptPath)) {
+    // Script doesn't exist yet - mark as needing manual cleanup
+    console.log(`⚠️ Cleanup tests script not found for ${ticketId}`);
+    console.log(`   Files to test: ${(ticket.files_to_modify || []).join(', ')}`);
+    
+    // Record that this needs manual attention
+    const cleanupDir = path.join(__dirname, '../agent-output/cleanup');
+    if (!fs.existsSync(cleanupDir)) {
+      fs.mkdirSync(cleanupDir, { recursive: true });
+    }
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const record = {
+      ticket_id: ticketId,
+      type: 'tests',
+      status: 'needs_manual',
+      files_to_modify: ticket.files_to_modify || [],
+      created_at: new Date().toISOString(),
+      notes: 'Cleanup script not found - needs manual test coverage'
+    };
+    
+    fs.writeFileSync(
+      path.join(cleanupDir, `TESTS-PENDING-${ticketId}-${timestamp}.json`),
+      JSON.stringify(record, null, 2)
+    );
+    
+    return { needs_manual: true, files: ticket.files_to_modify };
+  }
+  
+  return new Promise((resolve, reject) => {
+    const proc = spawn('bash', [scriptPath, ticketId], {
+      cwd: PROJECT_ROOT,
+      env: process.env
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+      process.stdout.write(data);
+    });
+    
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+      process.stderr.write(data);
+    });
+    
+    proc.on('close', (code) => {
+      // Record completion
+      const cleanupDir = path.join(__dirname, '../agent-output/cleanup');
+      if (!fs.existsSync(cleanupDir)) {
+        fs.mkdirSync(cleanupDir, { recursive: true });
+      }
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const record = {
+        ticket_id: ticketId,
+        type: 'tests',
+        completed_at: new Date().toISOString(),
+        success: code === 0,
+        output: (stdout + stderr).slice(-2000)
+      };
+      
+      fs.writeFileSync(
+        path.join(cleanupDir, `TESTS-${ticketId}-${timestamp}.json`),
+        JSON.stringify(record, null, 2)
+      );
+      
+      resolve({ completed: true, success: code === 0 });
+    });
+    
+    proc.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
+ * Run cleanup docs for an already-merged ticket
+ * Works on main branch, records completion separately
+ */
+async function runCleanupDocs(job) {
+  const ticketId = job.ticket_id;
+  console.log(`🧹 Running cleanup docs for ${ticketId} (on main branch)...`);
+  
+  // Get ticket info
+  const ticket = dbModule?.tickets?.get(ticketId);
+  if (!ticket) {
+    console.log(`⚠️ Ticket ${ticketId} not found, skipping cleanup`);
+    return { skipped: true, reason: 'ticket_not_found' };
+  }
+  
+  const scriptPath = path.join(PROJECT_ROOT, 'scripts/launch-cleanup-docs.sh');
+  
+  if (!fs.existsSync(scriptPath)) {
+    // Script doesn't exist yet - mark as needing manual cleanup
+    console.log(`⚠️ Cleanup docs script not found for ${ticketId}`);
+    console.log(`   Feature docs to update: ${(ticket.feature_docs || []).join(', ')}`);
+    
+    // Record that this needs manual attention
+    const cleanupDir = path.join(__dirname, '../agent-output/cleanup');
+    if (!fs.existsSync(cleanupDir)) {
+      fs.mkdirSync(cleanupDir, { recursive: true });
+    }
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const record = {
+      ticket_id: ticketId,
+      type: 'docs',
+      status: 'needs_manual',
+      feature_docs: ticket.feature_docs || [],
+      files_modified: ticket.files_to_modify || [],
+      created_at: new Date().toISOString(),
+      notes: 'Cleanup script not found - needs manual doc update'
+    };
+    
+    fs.writeFileSync(
+      path.join(cleanupDir, `DOCS-PENDING-${ticketId}-${timestamp}.json`),
+      JSON.stringify(record, null, 2)
+    );
+    
+    return { needs_manual: true, feature_docs: ticket.feature_docs };
+  }
+  
+  return new Promise((resolve, reject) => {
+    const proc = spawn('bash', [scriptPath, ticketId], {
+      cwd: PROJECT_ROOT,
+      env: process.env
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+      process.stdout.write(data);
+    });
+    
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+      process.stderr.write(data);
+    });
+    
+    proc.on('close', (code) => {
+      // Record completion
+      const cleanupDir = path.join(__dirname, '../agent-output/cleanup');
+      if (!fs.existsSync(cleanupDir)) {
+        fs.mkdirSync(cleanupDir, { recursive: true });
+      }
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const record = {
+        ticket_id: ticketId,
+        type: 'docs',
+        completed_at: new Date().toISOString(),
+        success: code === 0,
+        output: (stdout + stderr).slice(-2000)
+      };
+      
+      fs.writeFileSync(
+        path.join(cleanupDir, `DOCS-${ticketId}-${timestamp}.json`),
+        JSON.stringify(record, null, 2)
+      );
+      
+      resolve({ completed: true, success: code === 0 });
     });
     
     proc.on('error', (err) => {
@@ -2336,6 +2821,371 @@ function handleAPI(req, res, body) {
       res.end(JSON.stringify({ started: true, running: jobWorkerRunning }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // CLEANUP v2 (One-time cleanup for already-merged tickets)
+  // Runs Test + Doc agents on main branch without affecting ticket status
+  // ---------------------------------------------------------------------------
+
+  // GET /api/v2/cleanup/status - Get cleanup status for merged tickets
+  if (req.method === 'GET' && url === '/api/v2/cleanup/status') {
+    try {
+      const cleanupDir = path.join(__dirname, '../agent-output/cleanup');
+      const completed = { tests: [], docs: [] };
+      const pending = { tests: [], docs: [] };
+      
+      // Read cleanup completion files
+      if (fs.existsSync(cleanupDir)) {
+        const files = fs.readdirSync(cleanupDir);
+        for (const file of files) {
+          try {
+            const content = JSON.parse(fs.readFileSync(path.join(cleanupDir, file), 'utf8'));
+            if (file.startsWith('TESTS-') && !file.includes('PENDING')) {
+              completed.tests.push(content.ticket_id);
+            } else if (file.startsWith('DOCS-') && !file.includes('PENDING')) {
+              completed.docs.push(content.ticket_id);
+            }
+          } catch (e) {}
+        }
+      }
+      
+      // Get all merged tickets from QA PASSED files (source of truth)
+      const qaResultsDir = path.join(__dirname, '../agent-output/qa-results');
+      const allMerged = new Set();
+      
+      if (fs.existsSync(qaResultsDir)) {
+        const files = fs.readdirSync(qaResultsDir).filter(f => f.includes('PASSED'));
+        for (const file of files) {
+          // Extract ticket ID from filename: QA-TKT-XXX-PASSED or QA-SEC-XXX-PASSED
+          const match = file.match(/QA-((?:TKT|SEC)-\d+[a-zA-Z]?)/i);
+          if (match) {
+            allMerged.add(match[1].toUpperCase());
+          }
+        }
+      }
+      
+      // Also include tickets from database with merged/done status
+      const mergedTickets = dbModule?.tickets?.list({ status: 'merged' }) || [];
+      const doneTickets = dbModule?.tickets?.list({ status: 'done' }) || [];
+      for (const t of [...mergedTickets, ...doneTickets]) {
+        allMerged.add(t.id);
+      }
+      
+      const allMergedArray = Array.from(allMerged).sort();
+      
+      // Find pending (merged but not cleaned up)
+      pending.tests = allMergedArray.filter(id => !completed.tests.includes(id));
+      pending.docs = allMergedArray.filter(id => !completed.docs.includes(id));
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        total_merged: allMergedArray.length,
+        all_merged: allMergedArray,
+        completed,
+        pending,
+        fully_cleaned: allMergedArray.filter(id => 
+          completed.tests.includes(id) && completed.docs.includes(id)
+        )
+      }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // POST /api/v2/cleanup/queue - Queue cleanup jobs for merged tickets
+  // Body: { ticket_ids: ["TKT-001", "TKT-002"], types: ["tests", "docs"] }
+  // Or: { all: true, types: ["tests", "docs"] } to queue all merged tickets
+  if (req.method === 'POST' && url === '/api/v2/cleanup/queue') {
+    try {
+      const { ticket_ids, all, types } = JSON.parse(body);
+      const jobTypes = types || ['tests', 'docs'];
+      
+      let ticketsToClean = [];
+      
+      if (all) {
+        // Get all merged tickets from QA PASSED files (source of truth)
+        const qaResultsDir = path.join(__dirname, '../agent-output/qa-results');
+        const allMerged = new Set();
+        
+        if (fs.existsSync(qaResultsDir)) {
+          const files = fs.readdirSync(qaResultsDir).filter(f => f.includes('PASSED'));
+          for (const file of files) {
+            const match = file.match(/QA-((?:TKT|SEC)-\d+[a-zA-Z]?)/i);
+            if (match) {
+              allMerged.add(match[1].toUpperCase());
+            }
+          }
+        }
+        
+        // Also include tickets from database with merged/done status
+        const mergedTickets = dbModule?.tickets?.list({ status: 'merged' }) || [];
+        const doneTickets = dbModule?.tickets?.list({ status: 'done' }) || [];
+        for (const t of [...mergedTickets, ...doneTickets]) {
+          allMerged.add(t.id);
+        }
+        
+        ticketsToClean = Array.from(allMerged).sort();
+      } else if (ticket_ids && Array.isArray(ticket_ids)) {
+        ticketsToClean = ticket_ids.map(id => id.toUpperCase());
+      } else {
+        throw new Error('Provide ticket_ids array or set all: true');
+      }
+      
+      // Check what's already been cleaned
+      const cleanupDir = path.join(__dirname, '../agent-output/cleanup');
+      const alreadyCleaned = { tests: new Set(), docs: new Set() };
+      
+      if (fs.existsSync(cleanupDir)) {
+        const files = fs.readdirSync(cleanupDir);
+        for (const file of files) {
+          try {
+            const content = JSON.parse(fs.readFileSync(path.join(cleanupDir, file), 'utf8'));
+            if (file.startsWith('TESTS-')) {
+              alreadyCleaned.tests.add(content.ticket_id);
+            } else if (file.startsWith('DOCS-')) {
+              alreadyCleaned.docs.add(content.ticket_id);
+            }
+          } catch (e) {}
+        }
+      }
+      
+      const queued = [];
+      const skipped = [];
+      
+      for (const ticketId of ticketsToClean) {
+        if (jobTypes.includes('tests') && !alreadyCleaned.tests.has(ticketId)) {
+          dbModule.jobs.create({
+            job_type: 'cleanup_tests',
+            ticket_id: ticketId,
+            branch: 'main',  // Always run on main for cleanup
+            priority: 10,    // Low priority - don't block normal work
+            payload: { triggered_by: 'cleanup', cleanup_type: 'tests' }
+          });
+          queued.push({ ticketId, type: 'tests' });
+        } else if (jobTypes.includes('tests')) {
+          skipped.push({ ticketId, type: 'tests', reason: 'already_cleaned' });
+        }
+        
+        if (jobTypes.includes('docs') && !alreadyCleaned.docs.has(ticketId)) {
+          dbModule.jobs.create({
+            job_type: 'cleanup_docs',
+            ticket_id: ticketId,
+            branch: 'main',  // Always run on main for cleanup
+            priority: 10,    // Low priority
+            payload: { triggered_by: 'cleanup', cleanup_type: 'docs' }
+          });
+          queued.push({ ticketId, type: 'docs' });
+        } else if (jobTypes.includes('docs')) {
+          skipped.push({ ticketId, type: 'docs', reason: 'already_cleaned' });
+        }
+      }
+      
+      if (queued.length > 0) {
+        startJobWorker();
+      }
+      
+      console.log(`🧹 Queued ${queued.length} cleanup jobs, skipped ${skipped.length}`);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        queued,
+        skipped,
+        message: `Queued ${queued.length} cleanup jobs (${skipped.length} already cleaned)`
+      }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // POST /api/v2/cleanup/mark-complete - Manually mark cleanup as complete
+  // (For when you've done it manually or want to skip)
+  if (req.method === 'POST' && url === '/api/v2/cleanup/mark-complete') {
+    try {
+      const { ticket_id, type, notes } = JSON.parse(body);
+      
+      if (!ticket_id || !type) {
+        throw new Error('ticket_id and type (tests/docs) required');
+      }
+      
+      const cleanupDir = path.join(__dirname, '../agent-output/cleanup');
+      if (!fs.existsSync(cleanupDir)) {
+        fs.mkdirSync(cleanupDir, { recursive: true });
+      }
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const prefix = type === 'tests' ? 'TESTS' : 'DOCS';
+      const filename = `${prefix}-${ticket_id.toUpperCase()}-${timestamp}.json`;
+      
+      const record = {
+        ticket_id: ticket_id.toUpperCase(),
+        type,
+        completed_at: new Date().toISOString(),
+        completed_by: 'manual',
+        notes: notes || 'Manually marked complete'
+      };
+      
+      fs.writeFileSync(path.join(cleanupDir, filename), JSON.stringify(record, null, 2));
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, record }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // INBOX v2 (Human Review Queue for UI Changes)
+  // ---------------------------------------------------------------------------
+
+  // GET /api/v2/inbox - List pending inbox items
+  if (req.method === 'GET' && url === '/api/v2/inbox') {
+    try {
+      const inboxDir = path.join(__dirname, '../agent-output/inbox');
+      const items = [];
+      
+      if (fs.existsSync(inboxDir)) {
+        const files = fs.readdirSync(inboxDir).filter(f => f.endsWith('.json'));
+        for (const file of files) {
+          try {
+            const content = fs.readFileSync(path.join(inboxDir, file), 'utf8');
+            const item = JSON.parse(content);
+            if (item.status === 'pending') {
+              items.push({ ...item, filename: file });
+            }
+          } catch (e) {
+            // Skip invalid files
+          }
+        }
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ items, count: items.length }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // POST /api/v2/inbox/:ticketId/approve - Human approves UI review, proceed to finalizing
+  if (req.method === 'POST' && url.match(/\/api\/v2\/inbox\/[A-Z]+-\d+[a-zA-Z]?\/approve/i)) {
+    try {
+      const ticketId = url.split('/')[4].toUpperCase();
+      console.log(`✅ Human approved UI review for ${ticketId}`);
+      
+      // Find and update the inbox item
+      const inboxDir = path.join(__dirname, '../agent-output/inbox');
+      if (fs.existsSync(inboxDir)) {
+        const files = fs.readdirSync(inboxDir).filter(f => f.includes(ticketId) && f.endsWith('.json'));
+        for (const file of files) {
+          const filepath = path.join(inboxDir, file);
+          try {
+            const content = JSON.parse(fs.readFileSync(filepath, 'utf8'));
+            content.status = 'approved';
+            content.approved_at = new Date().toISOString();
+            fs.writeFileSync(filepath, JSON.stringify(content, null, 2));
+          } catch (e) {
+            // Skip invalid files
+          }
+        }
+      }
+      
+      // Get ticket and proceed to finalizing
+      if (!dbModule?.tickets) {
+        throw new Error('Database not available');
+      }
+      
+      const ticket = dbModule.tickets.get(ticketId);
+      if (!ticket) {
+        throw new Error(`Ticket ${ticketId} not found`);
+      }
+      
+      // Update status to finalizing
+      dbModule.tickets.update(ticketId, { status: 'finalizing' });
+      
+      // Trigger the finalizing handler to queue Test + Doc agents
+      handleTicketStatusChange(ticketId, 'qa_approved', 'finalizing', ticket);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        success: true, 
+        ticketId, 
+        message: 'UI approved - proceeding to finalizing stage (Test + Doc agents queued)' 
+      }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // POST /api/v2/inbox/:ticketId/reject - Human rejects UI review, needs more work
+  if (req.method === 'POST' && url.match(/\/api\/v2\/inbox\/[A-Z]+-\d+[a-zA-Z]?\/reject/i)) {
+    try {
+      const ticketId = url.split('/')[4].toUpperCase();
+      const { reason } = JSON.parse(body);
+      console.log(`❌ Human rejected UI review for ${ticketId}: ${reason}`);
+      
+      // Find and update the inbox item
+      const inboxDir = path.join(__dirname, '../agent-output/inbox');
+      if (fs.existsSync(inboxDir)) {
+        const files = fs.readdirSync(inboxDir).filter(f => f.includes(ticketId) && f.endsWith('.json'));
+        for (const file of files) {
+          const filepath = path.join(inboxDir, file);
+          try {
+            const content = JSON.parse(fs.readFileSync(filepath, 'utf8'));
+            content.status = 'rejected';
+            content.rejected_at = new Date().toISOString();
+            content.rejection_reason = reason;
+            fs.writeFileSync(filepath, JSON.stringify(content, null, 2));
+          } catch (e) {
+            // Skip invalid files
+          }
+        }
+      }
+      
+      // Update ticket status back to blocked for rework
+      if (dbModule?.tickets) {
+        dbModule.tickets.update(ticketId, { status: 'blocked' });
+        
+        // Create blocker for dispatch to handle
+        const blockedDir = path.join(__dirname, '../agent-output/blocked');
+        if (!fs.existsSync(blockedDir)) {
+          fs.mkdirSync(blockedDir, { recursive: true });
+        }
+        
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const blockerFile = path.join(blockedDir, `UI-REJECTED-${ticketId}-${timestamp}.json`);
+        const blocker = {
+          ticket_id: ticketId,
+          blocker_type: 'ui_rejected',
+          summary: `UI review rejected: ${reason}`,
+          rejection_reason: reason,
+          blocked_at: new Date().toISOString(),
+          dispatch_action: 'create_continuation_ticket'
+        };
+        fs.writeFileSync(blockerFile, JSON.stringify(blocker, null, 2));
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        success: true, 
+        ticketId, 
+        message: 'UI rejected - ticket blocked for rework' 
+      }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
     }
     return true;
