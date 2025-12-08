@@ -67,6 +67,16 @@ export async function POST(request: NextRequest) {
       ? currentUsedSeats + quantity 
       : Math.max(0, currentUsedSeats - quantity);
     
+    // Enforce maximum seat limit of 50 when adding seats
+    // Note: Existing orgs already over 50 are grandfathered (only blocks adding MORE seats that would exceed 50)
+    const MAX_SEAT_LIMIT = 50;
+    if (action === "add" && newUsedSeats > MAX_SEAT_LIMIT) {
+      return NextResponse.json(
+        { error: "Maximum seat limit is 50" },
+        { status: 400 }
+      );
+    }
+    
     // Check if we need to expand billing (exceeding purchased seats)
     const needsExpansion = newUsedSeats > purchasedSeats;
     const newPurchasedSeats = needsExpansion ? newUsedSeats : purchasedSeats;
