@@ -465,43 +465,46 @@ export function CancelSubscriptionModal({
           {/* Step 3: Confirm */}
           {step === "confirm" && !isComplete && (
             <div className="space-y-6">
-              <div className="p-6 rounded-xl bg-red-500/10 border-2 border-red-500/30">
+              <div className="p-6 rounded-xl bg-amber-500/10 border-2 border-amber-500/30">
                 <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-full bg-red-500/20">
-                    <AlertTriangle className="w-7 h-7 text-red-600" />
+                  <div className="p-3 rounded-full bg-amber-500/20">
+                    <AlertTriangle className="w-7 h-7 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-red-600 mb-2">
-                      This will permanently delete your data
+                    <h3 className="text-xl font-bold text-amber-600 mb-2">
+                      Data Retention Notice
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Once cancelled, the following will be <span className="text-red-600 font-semibold">permanently deleted</span> and cannot be recovered:
+                      Your data will be retained for 30 days after cancellation, then may be permanently deleted.
+                    </p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      The following data will be affected:
                     </p>
                     <ul className="text-sm space-y-2.5">
                       <li className="flex items-start gap-2">
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <XCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                         <span><strong>All call recordings</strong> — every video call you&apos;ve saved</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <XCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                         <span><strong>Call logs & history</strong> — your complete call activity</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <XCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                         <span><strong>Analytics & stats</strong> — all performance data</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <XCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                         <span><strong>Agent configurations</strong> — videos, settings, pool assignments</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <XCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                         <span><strong>Routing rules</strong> — all your custom setup</span>
                       </li>
                     </ul>
-                    <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                      <p className="text-xs text-red-600 font-medium">
-                        ⚠️ Data deletion begins immediately and is irreversible.
+                    <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <p className="text-xs text-amber-600 font-medium">
+                        You can resubscribe within 30 days to retain your data.
                       </p>
                     </div>
                   </div>
