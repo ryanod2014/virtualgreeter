@@ -74,10 +74,27 @@ export async function POST(request: NextRequest) {
     if (!stripe) {
       // Dev mode - update seat_count only if expanding
       if (needsExpansion) {
-      await supabase
-        .from("organizations")
+        const { error: dbError } = await supabase
+          .from("organizations")
           .update({ seat_count: newPurchasedSeats })
-        .eq("id", org.id);
+          .eq("id", org.id);
+
+        if (dbError) {
+          console.error("[SEAT_UPDATE] Dev mode: DB update failed:", {
+            orgId: org.id,
+            newSeats: newPurchasedSeats,
+            error: dbError,
+          });
+          return NextResponse.json({
+            error: "Failed to update seats in database"
+          }, { status: 500 });
+        }
+
+        console.log("[SEAT_UPDATE] Dev mode: DB updated:", {
+          orgId: org.id,
+          newSeats: newPurchasedSeats,
+          usedSeats: newUsedSeats,
+        });
       }
 
       return NextResponse.json({
@@ -91,17 +108,83 @@ export async function POST(request: NextRequest) {
     }
 
     // Production - only update Stripe if we need to EXPAND (never shrink)
+    // ATOMIC UPDATE PATTERN: DB first, then Stripe, with rollback on failure
     if (needsExpansion && org.stripe_subscription_item_id) {
-      await stripe.subscriptionItems.update(org.stripe_subscription_item_id, {
-        quantity: newPurchasedSeats,
-        proration_behavior: "create_prorations",
-      });
+      const oldSeatCount = purchasedSeats;
 
-      // Update purchased seat count in database
-      await supabase
+      // Step 1: Update DB first (optimistic)
+      const { error: dbError } = await supabase
         .from("organizations")
         .update({ seat_count: newPurchasedSeats })
         .eq("id", org.id);
+
+      if (dbError) {
+        console.error("[SEAT_UPDATE] DB update failed, aborting before Stripe call:", {
+          orgId: org.id,
+          oldSeats: oldSeatCount,
+          newSeats: newPurchasedSeats,
+          error: dbError,
+        });
+        return NextResponse.json({
+          error: "Failed to update seats in database"
+        }, { status: 500 });
+      }
+
+      // Step 2: Update Stripe
+      try {
+        await stripe.subscriptionItems.update(org.stripe_subscription_item_id, {
+          quantity: newPurchasedSeats,
+          proration_behavior: "create_prorations",
+        });
+
+        console.log("[SEAT_UPDATE] Success - DB and Stripe updated:", {
+          orgId: org.id,
+          oldSeats: oldSeatCount,
+          newSeats: newPurchasedSeats,
+          usedSeats: newUsedSeats,
+        });
+
+      } catch (stripeError) {
+        console.error("[SEAT_UPDATE] Stripe update failed, initiating rollback:", {
+          orgId: org.id,
+          oldSeats: oldSeatCount,
+          attemptedSeats: newPurchasedSeats,
+          error: stripeError,
+        });
+
+        // Step 3: Rollback DB change
+        const { error: rollbackError } = await supabase
+          .from("organizations")
+          .update({ seat_count: oldSeatCount })
+          .eq("id", org.id);
+
+        if (rollbackError) {
+          // CRITICAL: Rollback failed - manual intervention required
+          console.error("[SEAT_UPDATE] CRITICAL: Rollback failed - database inconsistent:", {
+            orgId: org.id,
+            dbSeatCount: newPurchasedSeats,
+            stripeSeatCount: oldSeatCount,
+            rollbackError,
+            stripeError,
+            timestamp: new Date().toISOString(),
+            severity: "CRITICAL",
+            action_required: "Manual review and correction needed",
+          });
+
+          return NextResponse.json({
+            error: "Critical: Seat update failed and rollback unsuccessful. Support has been notified."
+          }, { status: 500 });
+        }
+
+        console.log("[SEAT_UPDATE] Rollback successful - DB restored to original state:", {
+          orgId: org.id,
+          restoredSeats: oldSeatCount,
+        });
+
+        return NextResponse.json({
+          error: "Failed to update Stripe subscription. No charges applied."
+        }, { status: 500 });
+      }
     }
 
     return NextResponse.json({
