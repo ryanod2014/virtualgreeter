@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TKT-005a",
+  "branch": "agent/tkt-005a",
+  "started_at": "2025-12-06T06:38:54Z",
+  "files_locking": [
+    "packages/domain/src/database.types.ts"
+  ]
+}
