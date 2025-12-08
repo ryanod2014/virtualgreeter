@@ -1,0 +1,10 @@
+{
+  "ticket_id": "TKT-054",
+  "branch": "agent/tkt-054",
+  "started_at": "2025-12-06T09:10:00Z",
+  "files_locking": [
+    "apps/dashboard/src/features/call-logs/exportCSV.ts",
+    "apps/dashboard/src/features/call-logs/csvWorker.ts",
+    "apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx"
+  ]
+}

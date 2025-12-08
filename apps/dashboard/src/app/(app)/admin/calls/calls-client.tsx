@@ -55,6 +55,7 @@ import {
 } from "@/lib/components/call-log-filter-conditions";
 import { formatLocationWithFlag } from "@/lib/utils/country-flag";
 import { getCountryByCode } from "@/lib/utils/countries";
+import { exportCallLogsToCSV } from "@/features/call-logs/exportCSV";
 
 interface Agent {
   id: string;
@@ -146,6 +147,10 @@ export function CallsClient({
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
   const [videoModalCallId, setVideoModalCallId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // CSV export state
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
 
   // Filter state - multi-select fields use arrays
   const [filters, setFilters] = useState({
@@ -419,64 +424,29 @@ export function CallsClient({
     }
   }, [searchParams, calls]);
 
-  // Download filtered calls as CSV
+  // Download filtered calls as CSV using Web Worker
   const downloadCSV = () => {
-    const headers = [
-      "Date",
-      "Time",
-      "Agent",
-      "Status",
-      "Duration (seconds)",
-      "City",
-      "Region",
-      "Country",
-      "Page URL",
-      "Disposition",
-      "Recording",
-    ];
+    setIsExporting(true);
+    setExportProgress(0);
 
-    const escapeCSV = (value: string | null | undefined): string => {
-      if (value == null) return "";
-      const str = String(value);
-      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-        return `"${str.replace(/"/g, '""')}"`;
-      }
-      return str;
-    };
-
-    const rows = filteredCalls.map((call) => {
-      const date = new Date(call.created_at);
-      const recordingLink = call.recording_url
-        ? `${window.location.origin}/admin/calls?callId=${call.id}&autoplay=true`
-        : "";
-
-      return [
-        date.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" }),
-        date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }),
-        call.agent?.display_name ?? "",
-        call.status,
-        call.duration_seconds?.toString() ?? "",
-        call.visitor_city ?? "",
-        call.visitor_region ?? "",
-        call.visitor_country ?? "",
-        call.page_url ?? "",
-        call.disposition?.name ?? "",
-        recordingLink,
-      ].map(escapeCSV).join(",");
+    exportCallLogsToCSV({
+      calls: filteredCalls,
+      fromDate: dateRange.from,
+      toDate: dateRange.to,
+      onProgress: (progress) => {
+        setExportProgress(progress);
+      },
+      onComplete: () => {
+        setIsExporting(false);
+        setExportProgress(0);
+      },
+      onError: (error) => {
+        console.error('CSV export failed:', error);
+        alert(`Export failed: ${error}`);
+        setIsExporting(false);
+        setExportProgress(0);
+      },
     });
-
-    const csvContent = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    const fromDate = dateRange.from.split("T")[0];
-    const toDate = dateRange.to.split("T")[0];
-    link.download = `call-logs_${fromDate}_to_${toDate}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -555,11 +525,21 @@ export function CallsClient({
             {filteredCalls.length > 0 && (
               <button
                 onClick={downloadCSV}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-                title="Download filtered calls as CSV"
+                disabled={isExporting}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={isExporting ? `Exporting... ${exportProgress}%` : "Download filtered calls as CSV"}
               >
-                <FileDown className="w-4 h-4" />
-                Export CSV
+                {isExporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Exporting {exportProgress}%
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="w-4 h-4" />
+                    Export CSV
+                  </>
+                )}
               </button>
             )}
 
