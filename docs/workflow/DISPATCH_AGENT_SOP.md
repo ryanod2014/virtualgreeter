@@ -151,6 +151,21 @@ Read the blocker JSON:
 
 **Auto-Create QA Continuation Ticket:**
 
+**IMPORTANT: Before creating the continuation, gather previous attempt context:**
+
+```bash
+# 1. Get the git diff of what dev agent changed (from main to branch)
+cd /Users/ryanodonnell/projects/Digital_greeter
+git diff main..origin/[branch] --stat
+git diff main..origin/[branch] -- [files_to_modify]
+
+# 2. Check for previous continuation prompts
+ls docs/prompts/active/dev-agent-TKT-XXX-v*.md
+
+# 3. Read previous QA reports for this ticket
+ls docs/agent-output/qa-results/ | grep TKT-XXX
+```
+
 1. Create prompt file: `docs/prompts/active/dev-agent-TKT-XXX-v2.md`
 
 ```markdown
@@ -159,6 +174,20 @@ Read the blocker JSON:
 > **Type:** Continuation (QA FAILED)
 > **Original Ticket:** TKT-XXX  
 > **Branch:** `[branch from blocker]` (ALREADY EXISTS - do NOT create new branch)
+> **Attempt:** v2 (previous: v1)
+
+---
+
+## 🔴 PREVIOUS ATTEMPT FAILED - DO NOT REPEAT
+
+**What v1 Dev Agent tried:**
+[Run: git diff main..origin/[branch] -- [files] and summarize the changes]
+
+**Why it didn't work:**
+[Analyze QA feedback - what specifically was wrong with the approach?]
+
+**Key mistake to avoid:**
+[One-line summary of what NOT to do again]
 
 ---
 
@@ -177,12 +206,18 @@ Read the blocker JSON:
 
 ## Your Task
 
-1. Checkout existing branch: `git checkout [branch]`
-2. Pull latest: `git pull origin [branch]`
-3. Read the QA failure report carefully
-4. Fix ALL issues identified by QA
-5. Verify with grep/code inspection BEFORE claiming completion
-6. Push for re-QA
+1. **Review previous attempt first:**
+   ```bash
+   git log --oneline -5 origin/[branch]
+   git diff main..origin/[branch] -- [files]
+   ```
+2. Checkout existing branch: `git checkout [branch]`
+3. Pull latest: `git pull origin [branch]`
+4. Read the QA failure report carefully
+5. **Understand WHY the previous fix failed before coding**
+6. Fix ALL issues identified by QA
+7. Verify with grep/code inspection BEFORE claiming completion
+8. Push for re-QA
 
 ---
 
@@ -195,6 +230,14 @@ Read the blocker JSON:
 ## Files in Scope
 
 [Original files_to_modify]
+
+---
+
+## 📜 Attempt History
+
+| Version | What Was Tried | Why It Failed |
+|---------|----------------|---------------|
+| v1 | [Summary of changes] | [QA feedback summary] |
 ```
 
 2. Update ticket status via CLI:
@@ -203,6 +246,49 @@ Read the blocker JSON:
    ```
 3. Archive blocker: `mv docs/agent-output/blocked/QA-*.json docs/agent-output/archive/`
 4. Log: `"Auto-created TKT-XXX-v2 for QA rework"`
+
+---
+
+#### v3+ Attempts (Same Issue Recurring)
+
+**If this is the 3rd+ attempt for the SAME issue:**
+
+Add an escalation warning and more explicit instructions:
+
+```markdown
+## 🚨 CRITICAL: FAILED [N] TIMES WITH SAME ISSUE
+
+**This ticket has failed QA [N] times for the same or similar issues.**
+
+Previous attempts:
+| Version | What Was Tried | Why It Failed |
+|---------|----------------|---------------|
+| v1 | [Summary] | [Failure reason] |
+| v2 | [Summary] | [Failure reason] |
+| v[N-1] | [Summary] | [Failure reason] |
+
+**Pattern Analysis:**
+[Dispatch agent should analyze: Is there a common mistake? Are instructions unclear?]
+
+**EXPLICIT FIX INSTRUCTIONS:**
+[Provide exact code changes if possible - not just what to do, but HOW]
+
+Example:
+```typescript
+// ❌ WRONG (what v1 and v2 did):
+const config = levelConfigs[value];
+
+// ✅ CORRECT (what you MUST do):
+const config = levelConfigs[value ?? "default"];
+```
+
+**If you cannot fix this after reading these instructions, write a BLOCKED report explaining what's unclear.**
+```
+
+**Escalation Rule:** If a ticket fails **3+ times** with the same issue:
+1. Create the v3+ continuation with explicit code examples
+2. Flag for human review: Add to `docs/agent-output/inbox/TKT-XXX-escalation.json`
+3. Consider if the ticket spec itself is unclear
 
 ---
 
@@ -239,6 +325,16 @@ IF mixed or unclear:
 
 **Auto-Create Continuation Ticket:**
 
+**First, gather previous attempt context:**
+```bash
+# Get what dev agent changed
+git diff main..origin/[branch] --stat
+git log --oneline -5 origin/[branch]
+
+# Check for previous continuations
+ls docs/prompts/active/dev-agent-TKT-XXX-v*.md
+```
+
 1. Create prompt file: `docs/prompts/active/dev-agent-TKT-XXX-v2.md`
 
 ```markdown
@@ -247,6 +343,17 @@ IF mixed or unclear:
 > **Type:** Continuation (CI failed)
 > **Original Ticket:** TKT-XXX  
 > **Branch:** `[branch from blocker]` (ALREADY EXISTS - do NOT create new branch)
+> **Attempt:** v2 (previous: v1)
+
+---
+
+## 🔴 PREVIOUS ATTEMPT SUMMARY
+
+**What v1 changed:**
+[Run: git diff main..origin/[branch] --stat and list key changes]
+
+**What broke:**
+[Which tests failed and likely cause]
 
 ---
 
@@ -259,11 +366,12 @@ CI tests failed with [X] regressions outside your ticket scope.
 [List from blocker.failed_tests]
 
 **Your task:**
-1. Checkout existing branch: `git checkout [branch]`
-2. Pull latest: `git pull origin [branch]`
-3. Run tests locally: `pnpm test`
-4. Fix the regressions WITHOUT breaking your original feature
-5. Push and CI will re-run automatically
+1. **Review what you changed:** `git diff main..origin/[branch]`
+2. Checkout existing branch: `git checkout [branch]`
+3. Pull latest: `git pull origin [branch]`
+4. Run tests locally: `pnpm test`
+5. Fix the regressions WITHOUT breaking your original feature
+6. Push and CI will re-run automatically
 
 ---
 
@@ -276,6 +384,14 @@ CI tests failed with [X] regressions outside your ticket scope.
 ## Files in Scope
 
 [Original files + regression test files]
+
+---
+
+## 📜 Attempt History
+
+| Version | Changes Made | Why It Failed |
+|---------|--------------|---------------|
+| v1 | [git diff summary] | [Test failures] |
 ```
 
 2. Update ticket status via CLI:
@@ -313,6 +429,13 @@ Read the blocker JSON:
 
 **Action:** AUTO-HANDLE - Create continuation ticket for dev to fix regression
 
+**First, gather context on what dev agent changed:**
+```bash
+git diff main..origin/[branch] --stat
+git log --oneline -5 origin/[branch]
+ls docs/prompts/active/dev-agent-TKT-XXX-v*.md
+```
+
 **Continuation Ticket Template:**
 
 ```markdown
@@ -321,6 +444,20 @@ Read the blocker JSON:
 > **Type:** Continuation (Regression Failure)
 > **Original Ticket:** TKT-XXX  
 > **Branch:** `[branch from blocker]` (ALREADY EXISTS - do NOT create new branch)
+> **Attempt:** v2 (previous: v1)
+
+---
+
+## 🔴 WHAT YOUR PREVIOUS CHANGES BROKE
+
+**Files you modified:**
+[From: git diff main..origin/[branch] --stat]
+
+**Tests that broke (OUTSIDE your scope):**
+[From regression_output - list specific test files]
+
+**Likely cause:**
+[Analyze: Which of your changes could have affected these tests?]
 
 ---
 
@@ -330,15 +467,24 @@ Read the blocker JSON:
 Your changes broke tests in files OUTSIDE your ticket scope. This means you accidentally broke functionality that should not have been affected.
 
 **Your task:**
-1. Checkout existing branch: `git checkout [branch]`
-2. Pull latest: `git pull origin [branch]`
-3. Run tests: `pnpm test`
-4. Identify which tests are failing OUTSIDE your ticket's files
-5. Fix the regressions WITHOUT breaking your original feature
-6. Verify ALL tests pass before pushing
-7. Push and regression tests will re-run automatically
+1. **Understand what you broke:** `git diff main..origin/[branch]`
+2. Checkout existing branch: `git checkout [branch]`
+3. Pull latest: `git pull origin [branch]`
+4. Run tests: `pnpm test`
+5. Identify which tests are failing OUTSIDE your ticket's files
+6. Fix the regressions WITHOUT breaking your original feature
+7. Verify ALL tests pass before pushing
+8. Push and regression tests will re-run automatically
 
 **⚠️ IMPORTANT:** Do NOT modify your original feature work. Only fix the unintended side effects.
+
+---
+
+## 📜 Attempt History
+
+| Version | Changes Made | What Broke |
+|---------|--------------|------------|
+| v1 | [git diff summary] | [Test failures] |
 
 ---
 
