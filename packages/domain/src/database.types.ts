@@ -115,6 +115,7 @@ export interface WidgetSettings {
   auto_hide_delay: number | null; // seconds before widget auto-hides (null = never)
   show_minimize_button: boolean; // whether to show minimize/collapse button on widget
   theme: WidgetTheme; // widget color theme - auto follows user's system preference
+  cobrowse_enabled: boolean; // whether co-browse screen sharing is enabled
 }
 
 // Facebook integration settings for organization

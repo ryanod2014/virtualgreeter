@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, Building2, Upload, Trash2, Check, Loader2, Phone, Mail } from "lucide-react";
+import { ArrowLeft, Building2, Upload, Trash2, Check, Loader2, Phone, Mail, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Organization, User } from "@ghost-greeter/domain/database.types";
 
@@ -17,16 +17,17 @@ export function OrganizationSettingsClient({ organization: initialOrg, user: ini
   const [name, setName] = useState(organization.name);
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(user.phone || "");
+  const [cobrowseEnabled, setCobrowseEnabled] = useState(organization.default_widget_settings.cobrowse_enabled ?? true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("Changes saved successfully");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const supabase = createClient();
 
-  const hasOrgChanges = name !== organization.name;
+  const hasOrgChanges = name !== organization.name || cobrowseEnabled !== (organization.default_widget_settings.cobrowse_enabled ?? true);
   const hasEmailChanges = email !== user.email;
   const hasPhoneChanges = phone !== (user.phone || "");
   const hasUserChanges = hasEmailChanges || hasPhoneChanges;
@@ -41,15 +42,32 @@ export function OrganizationSettingsClient({ organization: initialOrg, user: ini
     setSuccessMessage("Changes saved successfully");
 
     try {
-      // Update organization if name changed
+      // Update organization if name or widget settings changed
       if (hasOrgChanges) {
+        const updates: Partial<Organization> = {};
+
+        if (name !== organization.name) {
+          updates.name = name.trim();
+        }
+
+        if (cobrowseEnabled !== (organization.default_widget_settings.cobrowse_enabled ?? true)) {
+          updates.default_widget_settings = {
+            ...organization.default_widget_settings,
+            cobrowse_enabled: cobrowseEnabled,
+          };
+        }
+
         const { error: updateError } = await supabase
           .from("organizations")
-          .update({ name: name.trim() })
+          .update(updates)
           .eq("id", organization.id);
 
         if (updateError) throw updateError;
-        setOrganization({ ...organization, name: name.trim() });
+        setOrganization({
+          ...organization,
+          name: updates.name ?? organization.name,
+          default_widget_settings: updates.default_widget_settings ?? organization.default_widget_settings,
+        });
       }
 
       // Update email if changed (requires auth update + confirmation)
@@ -356,6 +374,37 @@ export function OrganizationSettingsClient({ organization: initialOrg, user: ini
                 Your phone number for account-related communications
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Co-Browse Settings Section */}
+        <div className="glass rounded-2xl p-6">
+          <h2 className="text-lg font-semibold mb-4">Privacy Settings</h2>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Eye className="w-5 h-5 text-muted-foreground" />
+                <h3 className="font-medium">Enable Co-Browse</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                When enabled, visitors&apos; screens are shared with agents during calls.
+                When disabled, only video and audio are transmitted.
+              </p>
+            </div>
+            <button
+              onClick={() => setCobrowseEnabled(!cobrowseEnabled)}
+              className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                cobrowseEnabled ? "bg-primary" : "bg-muted"
+              }`}
+              role="switch"
+              aria-checked={cobrowseEnabled}
+            >
+              <span
+                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  cobrowseEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
           </div>
         </div>
 
