@@ -1,0 +1,30 @@
+{
+  "ticket_id": "TKT-059",
+  "type": "docs",
+  "status": "complete",
+  "docs_updated": [
+    "docs/features/admin/call-logs.md",
+    "docs/features/platform/call-lifecycle.md",
+    "apps/server/src/lib/call-logger.ts"
+  ],
+  "changes_summary": {
+    "call-logs.md": [
+      "Added 'cancelled' status to state machine diagram",
+      "Added 'cancelled' state definition",
+      "Updated CallLogEntry status enum to include 'cancelled'",
+      "Updated markCallCancelled function description",
+      "Updated cancelled call edge case documentation",
+      "Updated Total Rings statistic note to include cancelled calls"
+    ],
+    "call-lifecycle.md": [
+      "Updated call:cancel event description to reflect audit trail preservation",
+      "Updated visitor cancels edge case to reflect DB preservation"
+    ],
+    "call-logger.ts": [
+      "Added comprehensive JSDoc comments to markCallCancelled function",
+      "Documented rationale for preserving cancelled calls",
+      "Added usage example"
+    ]
+  },
+  "completed_at": "2025-12-08T20:05:25Z"
+}

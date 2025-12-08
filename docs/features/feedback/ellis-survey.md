@@ -184,11 +184,11 @@ USER SUBMITS
     │
     └─► onClose()
 
-USER DISMISSES
+USER DISMISSES (Updated in TKT-045)
     │
     ├─► supabase.from("pmf_surveys").insert({
     │       ...same fields...
-    │       disappointment_level: "not_disappointed", // DEFAULT for dismissed
+    │       disappointment_level: null, // NULL - excluded from PMF calculation
     │       dismissed: true
     │   })
     │
@@ -206,8 +206,8 @@ USER DISMISSES
 |---|----------|---------|------------------|----------|-------|
 | 1 | Happy path - full submit | Timer + user action | Survey saved with response | ✅ | |
 | 2 | User dismisses without selecting | Can't happen | Close button hidden until selection | ✅ | Intentional UX |
-| 3 | User selects then dismisses | Skip/X button | Saved as dismissed=true, not_disappointed default | ✅ | |
-| 4 | User dismisses via backdrop | Backdrop click | Same as dismiss - tracked with default | ✅ | Only works after selection |
+| 3 | User selects then dismisses | Skip/X button | Saved as dismissed=true, disappointment_level=null | ✅ | TKT-045: Excluded from PMF |
+| 4 | User dismisses via backdrop | Backdrop click | Same as dismiss - tracked with null level | ✅ | TKT-045: Excluded from PMF |
 | 5 | New user (< 14 days) | Eligibility check | Not eligible, no survey shown | ✅ | MIN_DAYS_SINCE_SIGNUP = 14 |
 | 6 | Recently surveyed (< 90 days) | Eligibility check | Not eligible, no survey shown | ✅ | MIN_DAYS_SINCE_LAST_SURVEY = 90 |
 | 7 | User with 0-1 completed calls | Eligibility check | Not eligible, no survey shown | ✅ | MIN_COMPLETED_CALLS = 2 |
@@ -275,6 +275,17 @@ USER DISMISSES
 | Cooldown not updated | User might see survey sooner, not critical |
 | Session tracking fails | localStorage fallback could help but not implemented |
 
+### Data Integrity (TKT-045)
+| Concern | Solution |
+|---------|----------|
+| Dismissed surveys skewed PMF negatively | **Fixed**: Dismissal now sets `disappointment_level: null` instead of `"not_disappointed"` |
+| PMF calculation accuracy | Platform feedback query: `.eq("dismissed", false).not("disappointment_level", "is", null)` |
+| Excluding null responses from stats | Both filters ensure dismissed surveys don't inflate negative sentiment |
+
+**Implementation:**
+- `apps/dashboard/src/features/surveys/ellis-survey-modal.tsx:126` - Set `null` on dismiss
+- `apps/dashboard/src/app/(app)/platform/feedback/page.tsx:32` - Filter excludes `null` values
+
 ---
 
 ## 7. FIRST PRINCIPLES REVIEW
@@ -328,7 +339,7 @@ USER DISMISSES
 
 ## 10. OPEN QUESTIONS
 
-1. **Why is dismissal tracked as "not_disappointed"?** - This seems to skew data negatively. Should it be null or a separate category?
+1. ~~**Why is dismissal tracked as "not_disappointed"?**~~ - **RESOLVED in TKT-045**: Dismissed surveys now set `disappointment_level: null` and are excluded from PMF calculations via dual filters: `.eq("dismissed", false)` and `.not("disappointment_level", "is", null)` in the platform feedback query (page.tsx:32).
 
 2. **Preview page says 30-day cooldown, code says 90 days** - Which is correct? Code shows `MIN_DAYS_SINCE_LAST_SURVEY = 90`.
 

@@ -303,7 +303,19 @@ export async function markCallRejected(requestId: string): Promise<void> {
 }
 
 /**
- * Update call log when visitor cancels the call request
+ * Update call log when visitor cancels the call request.
+ *
+ * Marks the call as "cancelled" in the database to preserve an audit trail
+ * for visitor behavior analysis. Previously, cancelled calls were deleted,
+ * but this prevented tracking of visitor engagement patterns.
+ *
+ * @param requestId - The unique identifier for the call request
+ * @returns Promise that resolves when the update is complete
+ *
+ * @example
+ * ```typescript
+ * await markCallCancelled('req_abc123');
+ * ```
  */
 export async function markCallCancelled(requestId: string): Promise<void> {
   if (!isSupabaseConfigured || !supabase) return;

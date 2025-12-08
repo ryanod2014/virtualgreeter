@@ -98,18 +98,19 @@ Call Logs serves as the primary reporting interface for all call data in the pla
 ```mermaid
 stateDiagram-v2
     [*] --> pending: Call request initiated
-    
+
     pending --> accepted: Agent clicks Accept
     pending --> rejected: Agent clicks Reject
     pending --> missed: RNA timeout expires
-    pending --> [*]: Visitor cancels (record deleted)
-    
+    pending --> cancelled: Visitor cancels (record preserved)
+
     accepted --> completed: Call ends normally
     accepted --> completed: Max duration timeout
     accepted --> completed: Reconnect failed
-    
+
     rejected --> [*]: Final state
     missed --> [*]: Final state
+    cancelled --> [*]: Final state
     completed --> [*]: Final state
 ```
 
@@ -120,6 +121,7 @@ stateDiagram-v2
 | `accepted` | Call in progress | Agent accepts call | Call ends (any reason) |
 | `rejected` | Agent declined the call | Agent clicks reject | Final state |
 | `missed` | RNA timeout, agent didn't answer | Timeout expires | Final state |
+| `cancelled` | Visitor cancelled call during ring | Visitor clicks cancel | Final state |
 | `completed` | Call finished normally | Call ended by either party | Final state |
 
 ---
@@ -135,7 +137,7 @@ stateDiagram-v2
 | Recording play | Play button click | Opens video modal or plays audio | Audio/video playback |
 | Transcription expand | Transcribed badge click | Expands row to show transcription | Local state change |
 | AI Summary expand | AI Summary badge click | Expands row to show summary | Local state change |
-| CSV export | Export CSV button click | Generates and downloads CSV file | File download |
+| CSV export | Export CSV button click | Generates CSV using Web Worker with progress tracking | File download, non-blocking UI |
 
 ### Key Functions/Components
 | Function/Component | File | Purpose |
@@ -145,18 +147,20 @@ stateDiagram-v2
 | `AgentCallsPage` | `apps/dashboard/src/app/(app)/dashboard/calls/page.tsx` | Server component for agent view |
 | `AgentCallsClient` | `apps/dashboard/src/app/(app)/dashboard/calls/agent-calls-client.tsx` | Client component for agent view |
 | `calculateAgentStats` | `apps/dashboard/src/lib/stats/agent-stats.ts` | Calculates all call statistics from call data |
+| `exportCallLogsToCSV` | `apps/dashboard/src/features/call-logs/exportCSV.ts` | Exports call logs to CSV using Web Worker |
+| `csvWorker` | `apps/dashboard/src/features/call-logs/csvWorker.ts` | Web Worker for non-blocking CSV generation |
 | `createCallLog` | `apps/server/src/lib/call-logger.ts` | Creates new call log entry on call request |
 | `markCallAccepted` | `apps/server/src/lib/call-logger.ts` | Updates log when call accepted |
 | `markCallEnded` | `apps/server/src/lib/call-logger.ts` | Updates log when call completes |
 | `markCallMissed` | `apps/server/src/lib/call-logger.ts` | Updates log on RNA timeout |
 | `markCallRejected` | `apps/server/src/lib/call-logger.ts` | Updates log when agent rejects |
-| `markCallCancelled` | `apps/server/src/lib/call-logger.ts` | Deletes log when visitor cancels |
+| `markCallCancelled` | `apps/server/src/lib/call-logger.ts` | Marks call as cancelled when visitor cancels (preserves audit trail) |
 
 ### Data Fields Retrieved
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | UUID | Unique call identifier |
-| `status` | enum | pending, accepted, rejected, completed, missed |
+| `status` | enum | pending, accepted, rejected, completed, missed, cancelled |
 | `page_url` | string | URL where visitor initiated call |
 | `duration_seconds` | number | Call length (completed calls only) |
 | `recording_url` | string | S3 URL to recording file |
@@ -181,7 +185,7 @@ stateDiagram-v2
 ### Statistics Calculated
 | Statistic | Calculation | Notes |
 |-----------|-------------|-------|
-| Total Rings | Count of all calls | Every call counts as a ring |
+| Total Rings | Count of all calls | Every call counts as a ring (including cancelled) |
 | Total Answers | Count where status = accepted OR completed | Answered calls |
 | Missed Calls | Count where status = missed | RNA timeouts |
 | Rejected | Count where status = rejected | Agent declined |
@@ -202,7 +206,7 @@ stateDiagram-v2
 | 1 | Normal completed call | Call ends normally | Shows in table with duration | ✅ | |
 | 2 | Missed call (RNA) | Agent doesn't answer | Status = "missed", no duration | ✅ | |
 | 3 | Rejected call | Agent rejects | Status = "rejected", no duration | ✅ | |
-| 4 | Cancelled call | Visitor cancels during ring | Record deleted from DB | ✅ | Does not appear in logs |
+| 4 | Cancelled call | Visitor cancels during ring | Status = "cancelled", preserves in DB | ✅ | Appears in logs with cancelled status for audit trail |
 | 5 | Very long call (>1hr) | Call duration exceeds 1 hour | Duration displayed as "1h 23m" | ✅ | formatDuration handles |
 | 6 | Call with no agent assigned | Abandoned/orphan | agent column shows "Unknown" | ✅ | Null agent handled |
 | 7 | Filtering returns zero results | No matching calls | Empty state shown | ✅ | "No calls found" message |
@@ -223,7 +227,7 @@ stateDiagram-v2
 |-------|-----------------|----------------|---------------|
 | DB query failure | Supabase unavailable | Empty table / error | Refresh page |
 | Recording URL expired | S3 presigned URL timeout | Playback fails | Re-fetch page |
-| Large CSV export | Too many rows | May timeout | Reduce date range |
+| Large CSV export (5000+ rows) | Very large data set | Shows progress indicator during generation | Export completes in background without blocking UI |
 | Invalid date range | from > to | Empty results | Fix date selection |
 | Filter with special chars | Regex injection attempt | Escaped, no match | Clear filter |
 
@@ -245,7 +249,7 @@ stateDiagram-v2
 | 7 | Click Play on recording | Video modal opens | ✅ | Auto-plays |
 | 8 | Click Transcribed badge | Row expands with text | ✅ | Scrollable if long |
 | 9 | Click AI Summary badge | Row expands with summary | ✅ | Formatted text |
-| 10 | Click Export CSV | File downloads | ✅ | Named with date range |
+| 10 | Click Export CSV | Progress indicator shows export status (0-100%), file downloads when complete | ✅ | UI remains responsive during export |
 
 **Agent View:**
 | Step | User Action | System Response | Clear? | Issues |
@@ -272,7 +276,7 @@ stateDiagram-v2
 | Complex joins | Single query with relations | ✅ Efficient |
 | Client-side filtering | URL conditions filtered after fetch | ⚠️ Could be slow with 500 records |
 | Stats calculation | Done on full result set client-side | ✅ Fast for 500 records |
-| CSV generation | Client-side, may block UI | ⚠️ Large exports may freeze |
+| CSV generation | Web Worker-based, non-blocking | ✅ Exports run off main thread with progress tracking |
 
 ### Security
 | Concern | Mitigation |
@@ -324,6 +328,8 @@ stateDiagram-v2
 | Agent page server component | `apps/dashboard/src/app/(app)/dashboard/calls/page.tsx` | 1-147 | Agent-specific query |
 | Agent page client component | `apps/dashboard/src/app/(app)/dashboard/calls/agent-calls-client.tsx` | 1-1040 | Agent UI |
 | Statistics calculation | `apps/dashboard/src/lib/stats/agent-stats.ts` | 1-145 | All stat calculations |
+| CSV export interface | `apps/dashboard/src/features/call-logs/exportCSV.ts` | 1-78 | Web Worker orchestration and file download |
+| CSV worker | `apps/dashboard/src/features/call-logs/csvWorker.ts` | 1-126 | CSV generation in Web Worker with progress reporting |
 | Call logger (create) | `apps/server/src/lib/call-logger.ts` | 55-123 | createCallLog function |
 | Call logger (update) | `apps/server/src/lib/call-logger.ts` | 129-302 | markCallAccepted, markCallEnded, etc. |
 | Database types | `packages/domain/src/database.types.ts` | 282-317 | call_logs table schema |

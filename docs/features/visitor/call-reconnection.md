@@ -4,6 +4,8 @@
 
 Call Reconnection allows visitors to maintain their active call state when navigating between pages on a website, or when recovering from brief network interruptions. The system stores a reconnect token in localStorage that enables both the visitor and agent to re-establish their WebRTC connection without losing the call.
 
+**IMPORTANT:** This is different from the [Visitor Disconnect Rejoin (TKT-024)](./visitor-disconnect-rejoin.md) feature, which handles browser crashes/accidental closes. See comparison table in Section 9.
+
 ## Affected Users
 - [x] Website Visitor
 - [x] Agent
@@ -280,9 +282,24 @@ The `call_logs` table stores reconnection state:
 ## 9. RELATED FEATURES
 
 - [Call Lifecycle](../platform/call-lifecycle.md) - Overall call state machine
+- [Visitor Disconnect Rejoin (TKT-024)](./visitor-disconnect-rejoin.md) - **Different feature:** Handles browser crash/close with 60s rejoin window
 - [WebRTC Signaling](../platform/webrtc-signaling.md) - How WebRTC connection is re-established
 - [Widget Lifecycle](./widget-lifecycle.md) - Widget initialization that triggers reconnect
 - [Visitor Reassignment](../platform/visitor-reassignment.md) - What happens if reconnect fails
+
+### Comparison: V4 vs TKT-024
+
+| Aspect | **V4: This Feature (Page Nav)** | **TKT-024: Disconnect Rejoin** |
+|--------|-------------------------------|-------------------------------|
+| **Trigger** | Visitor navigates to another page on same site | Visitor's browser crashes or closes entirely |
+| **Socket State** | Socket stays connected (same session) | Socket fully disconnects, visitor gets new socket ID |
+| **User Visibility** | None (automatic, seamless) | Rejoin prompt with countdown timer |
+| **User Action** | None required | Must click "Rejoin Call" button |
+| **Agent Notification** | None (seamless) | "Visitor disconnected - waiting for reconnection" status |
+| **Timeout** | 30s (CALL_RECONNECT_TIMEOUT) | 60s (VISITOR_RECONNECT_WINDOW_MS) |
+| **Code Path** | `CALL_RECONNECT` handler in socket-handlers.ts | `call:rejoin` → handleRejoinRequest → handleVisitorRejoin |
+| **Server State** | Call stays in normal "in_call" state | Call enters "waiting_reconnection" state |
+| **Use Case** | Multi-page website browsing during call | Handling real-world interruptions (crashes, accidents) |
 
 ---
 

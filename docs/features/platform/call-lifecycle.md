@@ -102,7 +102,7 @@ stateDiagram-v2
 | `call:request` | Widget → Server | Creates CallRequest, notifies agent | DB: creates call_log (pending), starts RNA timeout (configurable) |
 | `call:accept` | Dashboard → Server | Converts request to ActiveCall | DB: marks accepted, generates reconnect token, starts max duration timeout |
 | `call:reject` | Dashboard → Server | Removes request, tries next agent | DB: marks rejected, may create new call_log |
-| `call:cancel` | Widget → Server | Removes request | DB: deletes call_log |
+| `call:cancel` | Widget → Server | Removes request | DB: marks call_log as cancelled (preserves audit trail) |
 | `call:end` | Either → Server | Ends active call | DB: marks completed with duration, clears max duration timeout |
 | `call:reconnect` | Either → Server | Attempts to restore interrupted call | DB: updates reconnect token |
 | `call:incoming` | Server → Dashboard | Shows incoming call modal | Agent UI: ring sound, notification |
@@ -195,7 +195,7 @@ CALL ENDS (Normal or Max Duration)
 |---|----------|---------|------------------|----------|-------|
 | 1 | Happy path | Normal flow | Works as designed | ✅ | |
 | 2 | Agent doesn't answer (RNA) | 15s timeout | Agent marked away, call rerouted | ✅ | |
-| 3 | Visitor cancels during ring | Cancel button | Request deleted from pending, DB deleted | ✅ | |
+| 3 | Visitor cancels during ring | Cancel button | Request deleted from pending, DB marked cancelled | ✅ | Preserves audit trail |
 | 4 | Agent rejects call | Reject button | Reroutes to next agent or hides widget | ✅ | |
 | 5 | All agents busy at request | Agent in_call | Finds alternative agent immediately | ✅ | |
 | 6 | No agents available | None online | Widget hidden with "got pulled away" | ✅ | |
@@ -205,7 +205,9 @@ CALL ENDS (Normal or Max Duration)
 | 10 | Agent accepts at exact RNA timeout | Race condition | 100ms grace period protects agent | ✅ | |
 | 11 | Visitor has existing call, requests new | Rapid calls | Old call cleaned up first | ✅ | |
 | 12 | Agent disconnects during call | Network loss | Call ends, visitor notified | ✅ | |
-| 13 | Visitor disconnects during call | Network loss | Call ends, agent notified | ✅ | |
+| 13 | Visitor disconnects during call (browser crash/close) | Socket disconnect | 60s rejoin window, agent sees "waiting" status | ✅ | **TKT-024** - See visitor-disconnect-rejoin.md |
+| 13a | Visitor rejoins within 60s | Returns with token | Call resumes, new token issued | ✅ | **TKT-024** |
+| 13b | Visitor doesn't rejoin in 60s | Timeout expires | Call ends with "reconnect_failed" reason | ✅ | **TKT-024** |
 | 14 | Call reconnect token expired | >5 min gap | Reconnect fails, normal flow | ✅ | |
 | 15 | Agent offline at call request | Status offline | Immediately finds alternative | ✅ | |
 | 16 | Agent goes away during ring | Manual away | Call rerouted to next agent | ✅ | |
@@ -372,6 +374,8 @@ Looking at the widget code, there's no explicit debounce on the Call button. The
 ## 9. RELATED FEATURES
 - [Agent Assignment Algorithm (P2)](./agent-assignment.md) - How agents are selected
 - [Visitor Call (V3)](../visitor/visitor-call.md) - Visitor-side call experience
+- [Visitor Disconnect Rejoin (TKT-024)](../visitor/visitor-disconnect-rejoin.md) - **NEW:** 60s window when visitor crashes/closes browser
+- [Call Reconnection (V4)](../visitor/call-reconnection.md) - Page navigation reconnection (different from disconnect rejoin)
 - [Incoming Call (A2)](../agent/incoming-call.md) - Agent-side incoming call
 - [RNA Timeout (A3)](../agent/rna-timeout.md) - Ring-no-answer handling
 - [Visitor Reassignment (P4)](./visitor-reassignment.md) - Fallback routing
