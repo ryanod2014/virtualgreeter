@@ -1473,10 +1473,17 @@ pnpm build`}
             const fileName = b.fileName || '';
             
             // Determine if this blocker is auto-handleable (no human decision needed)
-            // QA failures (QA-*-FAILED) and CI failures (CI-TKT-*) are auto-handled by Dispatch Agent
+            // Check BOTH filename pattern AND blocker_type inside the JSON
             const isQAFailure = fileName.startsWith('QA-') && fileName.includes('FAILED');
             const isCIFailure = fileName.startsWith('CI-');
-            const isAutoHandleable = isQAFailure || isCIFailure;
+            
+            // These blocker_types ALWAYS require human intervention, even if filename says QA/CI
+            const humanRequiredTypes = ['external_setup_incomplete', 'external_setup', 'clarification', 'environment'];
+            const blockerType = parsed.blocker_type || '';
+            const needsHuman = humanRequiredTypes.includes(blockerType) || parsed.dispatch_action === 'route_to_inbox';
+            
+            // Auto-handleable only if filename pattern matches AND blocker_type doesn't require human
+            const isAutoHandleable = (isQAFailure || isCIFailure) && !needsHuman;
             
             // Convert blocker to finding-like format so it shows in the list
             return {
@@ -1494,7 +1501,9 @@ pnpm build`}
               _raw: b,
               _isDevBlocker: true,
               _isAutoHandleable: isAutoHandleable,
-              _blockerType: isQAFailure ? 'qa_failure' : isCIFailure ? 'ci_failure' : 'clarification'
+              _needsHuman: needsHuman,
+              _blockerType: blockerType || (isQAFailure ? 'qa_failure' : isCIFailure ? 'ci_failure' : 'clarification'),
+              human_actions_required: parsed.human_actions_required || []
             };
           } catch (e) {
             return null;
