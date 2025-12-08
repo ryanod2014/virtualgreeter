@@ -1,31 +1,3 @@
-/**
- * Socket Handlers - Real-time signaling for agents and visitors
- * 
- * AUTHENTICATION MODEL:
- * ============================================================================
- * 
- * AGENTS:
- * - Must call AGENT_LOGIN first with valid Supabase JWT token
- * - Token is verified via verifyAgentToken() in lib/auth.ts
- * - On successful login:
- *   - socket.data.agentId is set (used for auth checks)
- *   - Agent is registered in PoolManager with socket.id mapping
- * - All subsequent agent operations verify socket.data.agentId is set
- * - If socket.data.agentId is missing, operation is rejected with AUTH_REQUIRED error
- * 
- * VISITORS:
- * - No authentication required (public widget)
- * - Identified by socket.data.visitorId (ephemeral UUID assigned on VISITOR_JOIN)
- * - Rate limiting applied at HTTP layer (see rate-limit middleware in index.ts)
- * - Country-based blocking may apply (see isCountryBlocked)
- * 
- * SOCKET DATA STRUCTURE:
- * - socket.data.agentId: string | undefined - Set on AGENT_LOGIN success
- * - socket.data.visitorId: string | undefined - Set on VISITOR_JOIN
- * 
- * ============================================================================
- */
-
 import type { Server, Socket } from "socket.io";
 import type {
   WidgetToServerEvents,
@@ -76,12 +48,7 @@ import {
 import { recordEmbedVerification } from "../../lib/embed-tracker.js";
 import { recordPageview } from "../../lib/pageview-logger.js";
 import { getWidgetSettings } from "../../lib/widget-settings.js";
-import {
-  startVisitorReconnectWindow,
-  cancelVisitorReconnectWindow,
-  isCallWaitingForReconnection,
-} from "../calls/callLifecycle.js";
-import { handleRejoinRequest } from "./handleRejoin.js";
+import { canAgentGoAvailable, getAgentOrgId } from "../agents/agentStatus.js";
 import { getClientIP, getLocationFromIP } from "../../lib/geolocation.js";
 import { isCountryBlocked } from "../../lib/country-blocklist.js";
 import { trackWidgetView, trackCallStarted } from "../../lib/greetnow-retargeting.js";
@@ -486,10 +453,17 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       };
 
       const agentState = poolManager.registerAgent(socket.id, profile);
-      
-      // Store agentId on socket.data for auth verification in subsequent handlers
-      socket.data.agentId = data.agentId;
-      
+
+      // Check if org is operational - if not, force agent to away status
+      if (verification.organizationId) {
+        const availabilityCheck = await canAgentGoAvailable(verification.organizationId);
+        if (!availabilityCheck.canGoAvailable && agentState.profile.status !== "away") {
+          console.log(`[Socket] Forcing agent ${data.agentId} to away - org not operational: ${availabilityCheck.reason}`);
+          poolManager.updateAgentStatus(data.agentId, "away");
+          agentState.profile.status = "away";
+        }
+      }
+
       console.log("[Socket] 🟢 AGENT_LOGIN successful:", {
         agentId: data.agentId,
         socketId: socket.id,
@@ -502,7 +476,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       if (verification.organizationId) {
         await startSession(data.agentId, verification.organizationId);
       }
-      
+
       socket.emit(SOCKET_EVENTS.LOGIN_SUCCESS, { agentState });
       
       // Send initial stats
@@ -547,16 +521,6 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     });
 
     socket.on(SOCKET_EVENTS.AGENT_STATUS, async (data: AgentStatusPayload) => {
-      // Auth check: Verify socket is authenticated as agent
-      if (!socket.data.agentId) {
-        console.warn(`[Socket] AGENT_STATUS rejected - socket ${socket.id} not authenticated`);
-        socket.emit(SOCKET_EVENTS.ERROR, {
-          code: ERROR_CODES.AUTH_INVALID_TOKEN,
-          message: "Not authenticated as agent",
-        });
-        return;
-      }
-      
       const agent = poolManager.getAgentBySocketId(socket.id);
       if (agent) {
         poolManager.updateAgentStatus(agent.agentId, data.status);
@@ -663,12 +627,27 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       }
 
       try {
+        // Check if agent's organization allows them to go available
+        const orgId = await getAgentOrgId(agent.agentId);
+        if (orgId) {
+          const availabilityCheck = await canAgentGoAvailable(orgId);
+          if (!availabilityCheck.canGoAvailable) {
+            console.log(`[Socket] Agent ${agent.agentId} blocked from going available: ${availabilityCheck.reason}`);
+            ack?.({
+              success: false,
+              status: agent.profile.status,
+              error: availabilityCheck.message ?? "Unable to go available"
+            });
+            return;
+          }
+        }
+
         console.log(`[Socket] Agent ${agent.agentId} is back from away`);
         poolManager.updateAgentStatus(agent.agentId, "idle");
-        
+
         // Track status change for activity reporting
         await recordStatusChange(agent.agentId, "idle", "back_from_away");
-        
+
         // Send acknowledgment first so client knows the status change succeeded
         ack?.({ success: true, status: "idle" });
         
@@ -738,16 +717,6 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     });
 
     socket.on(SOCKET_EVENTS.CALL_ACCEPT, async (data: CallAcceptPayload) => {
-      // Auth check: Verify socket is authenticated as agent
-      if (!socket.data.agentId) {
-        console.warn(`[Socket] CALL_ACCEPT rejected - socket ${socket.id} not authenticated`);
-        socket.emit(SOCKET_EVENTS.ERROR, {
-          code: ERROR_CODES.AUTH_INVALID_TOKEN,
-          message: "Not authenticated as agent",
-        });
-        return;
-      }
-      
       // Clear RNA timeout since agent answered
       clearRNATimeout(data.requestId);
 
@@ -831,16 +800,6 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     });
 
     socket.on(SOCKET_EVENTS.CALL_REJECT, async (data: CallRejectPayload) => {
-      // Auth check: Verify socket is authenticated as agent
-      if (!socket.data.agentId) {
-        console.warn(`[Socket] CALL_REJECT rejected - socket ${socket.id} not authenticated`);
-        socket.emit(SOCKET_EVENTS.ERROR, {
-          code: ERROR_CODES.AUTH_INVALID_TOKEN,
-          message: "Not authenticated as agent",
-        });
-        return;
-      }
-      
       // Clear RNA timeout since agent responded (even if rejected)
       clearRNATimeout(data.requestId);
       
@@ -936,21 +895,17 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     socket.on(SOCKET_EVENTS.CALL_END, async (data: CallEndPayload) => {
       // Clear max call duration timeout since call is ending normally
       clearMaxCallDurationTimeout(data.callId);
-
-      // TKT-024: Cancel any pending reconnection window
-      // If agent ends the call while visitor is disconnected, the reconnection window should be cancelled
-      cancelVisitorReconnectWindow(data.callId);
-
+      
       const call = poolManager.endCall(data.callId);
       if (call) {
         console.log("[Socket] Call ended:", data.callId, "by socket:", socket.id);
-
+        
         // Mark call as completed in database
         markCallEnded(data.callId);
-
+        
         // Track idle status for activity reporting (call ended)
         await recordStatusChange(call.agentId, "idle", "call_ended");
-
+        
         // Determine who ended the call
         const agent = poolManager.getAgentBySocketId(socket.id);
         const isAgentEnding = !!agent;
@@ -1020,34 +975,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
 
       if (data.role === "visitor") {
         // Visitor is reconnecting after page navigation or server restart
-
-        // TKT-024: Check if this call is in the reconnection window (visitor disconnected during call)
-        // This is different from page navigation - visitor's socket actually disconnected
-        if (isCallWaitingForReconnection(callInfo.id)) {
-          console.log(`[Socket] 🔄 Visitor rejoining call ${callInfo.id} within reconnection window`);
-
-          // Use the rejoin handler which will cancel the reconnection timeout and restore the call
-          const success = await handleRejoinRequest(
-            io,
-            socket,
-            poolManager,
-            data.reconnectToken,
-            callInfo.visitor_id
-          );
-
-          if (success) {
-            console.log(`[Socket] ✅ Visitor ${callInfo.visitor_id} successfully rejoined call ${callInfo.id}`);
-          } else {
-            console.log(`[Socket] ❌ Failed to rejoin call ${callInfo.id}`);
-            socket.emit(SOCKET_EVENTS.CALL_RECONNECT_FAILED, {
-              callId: callInfo.id,
-              reason: "error",
-              message: "Failed to rejoin call",
-            });
-          }
-          return;
-        }
-
+        
         // Check if there's a pending reconnect (agent reconnected first in server restart scenario)
         const existingReconnect = pendingReconnects.get(callInfo.id);
         if (existingReconnect && existingReconnect.agentSocketId) {
@@ -1552,25 +1480,27 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       // Check if this was a visitor
       const visitor = poolManager.getVisitorBySocketId(socket.id);
       if (visitor) {
-        // Check if visitor has an active call
+        // End any active call
         const activeCall = poolManager.getActiveCallByVisitorId(visitor.visitorId);
         if (activeCall) {
-          // TKT-024: Instead of immediately ending the call, start a 60-second reconnection window
-          // This allows visitors to rejoin if they accidentally closed the browser or crashed
-          console.log(`[Socket] Visitor ${visitor.visitorId} disconnected during call ${activeCall.callId}, starting reconnection window`);
-
-          // Start the reconnection window (60 seconds)
-          startVisitorReconnectWindow(
-            io,
-            poolManager,
-            activeCall.callId,
-            visitor.visitorId,
-            activeCall.agentId
-          );
-
-          // Note: We do NOT clear max call duration timeout yet - that happens when:
-          // 1. Visitor rejoins successfully, OR
-          // 2. Reconnection window expires and call truly ends
+          // Clear max call duration timeout
+          clearMaxCallDurationTimeout(activeCall.callId);
+          
+          // Mark call as completed in database
+          markCallEnded(activeCall.callId);
+          
+          // Track agent going back to idle for activity reporting
+          await recordStatusChange(activeCall.agentId, "idle", "call_ended");
+          
+          poolManager.endCall(activeCall.callId);
+          const callAgent = poolManager.getAgent(activeCall.agentId);
+          if (callAgent) {
+            const agentSocket = io.sockets.sockets.get(callAgent.socketId);
+            agentSocket?.emit(SOCKET_EVENTS.CALL_ENDED, {
+              callId: activeCall.callId,
+              reason: "visitor_ended",
+            });
+          }
         }
 
         // Get the agent BEFORE unregistering visitor so we can update their stats
