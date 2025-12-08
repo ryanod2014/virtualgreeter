@@ -29,16 +29,16 @@ async function initReader(): Promise<ReaderModel | null> {
   if (dbLoadAttempted) {
     return dbReader;
   }
-  
+
   dbLoadAttempted = true;
   const dbPath = getDbPath();
-  
+
   if (!fs.existsSync(dbPath)) {
     console.warn("[Geolocation] MaxMind database not found at: " + dbPath);
     console.warn("[Geolocation] Download GeoLite2-City.mmdb from https://dev.maxmind.com/geoip/geolite2-free-geolocation-data");
     return null;
   }
-  
+
   try {
     dbReader = await Reader.open(dbPath);
     console.log("[Geolocation] MaxMind database loaded successfully");
@@ -70,7 +70,7 @@ export async function getLocationFromIP(ipAddress: string): Promise<VisitorLocat
 
   try {
     const response = reader.city(ipAddress);
-    
+
     const location: VisitorLocation = {
       city: response.city?.names?.en || null,
       region: response.subdivisions?.[0]?.names?.en || null,
