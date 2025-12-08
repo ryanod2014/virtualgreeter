@@ -10,8 +10,8 @@
       "ticket_id": "TKT-045",
       "branch": "agent/tkt-045",
       "started_at": "2025-12-06T03:15:00Z",
-      "completed_at": "2025-12-06T09:15:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-045-2025-12-06T0915.md"
+      "completed_at": "2025-12-08T08:25:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-045-2025-12-08T0825.md"
     },
     {
       "ticket_id": "SEC-001",
