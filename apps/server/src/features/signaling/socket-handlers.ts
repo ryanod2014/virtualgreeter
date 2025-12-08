@@ -1,3 +1,31 @@
+/**
+ * Socket Handlers - Real-time signaling for agents and visitors
+ * 
+ * AUTHENTICATION MODEL:
+ * ============================================================================
+ * 
+ * AGENTS:
+ * - Must call AGENT_LOGIN first with valid Supabase JWT token
+ * - Token is verified via verifyAgentToken() in lib/auth.ts
+ * - On successful login:
+ *   - socket.data.agentId is set (used for auth checks)
+ *   - Agent is registered in PoolManager with socket.id mapping
+ * - All subsequent agent operations verify socket.data.agentId is set
+ * - If socket.data.agentId is missing, operation is rejected with AUTH_REQUIRED error
+ * 
+ * VISITORS:
+ * - No authentication required (public widget)
+ * - Identified by socket.data.visitorId (ephemeral UUID assigned on VISITOR_JOIN)
+ * - Rate limiting applied at HTTP layer (see rate-limit middleware in index.ts)
+ * - Country-based blocking may apply (see isCountryBlocked)
+ * 
+ * SOCKET DATA STRUCTURE:
+ * - socket.data.agentId: string | undefined - Set on AGENT_LOGIN success
+ * - socket.data.visitorId: string | undefined - Set on VISITOR_JOIN
+ * 
+ * ============================================================================
+ */
+
 import type { Server, Socket } from "socket.io";
 import type {
   WidgetToServerEvents,
@@ -452,6 +480,10 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       };
 
       const agentState = poolManager.registerAgent(socket.id, profile);
+      
+      // Store agentId on socket.data for auth verification in subsequent handlers
+      socket.data.agentId = data.agentId;
+      
       console.log("[Socket] 🟢 AGENT_LOGIN successful:", {
         agentId: data.agentId,
         socketId: socket.id,
@@ -509,6 +541,16 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     });
 
     socket.on(SOCKET_EVENTS.AGENT_STATUS, async (data: AgentStatusPayload) => {
+      // Auth check: Verify socket is authenticated as agent
+      if (!socket.data.agentId) {
+        console.warn(`[Socket] AGENT_STATUS rejected - socket ${socket.id} not authenticated`);
+        socket.emit(SOCKET_EVENTS.ERROR, {
+          code: ERROR_CODES.AUTH_INVALID_TOKEN,
+          message: "Not authenticated as agent",
+        });
+        return;
+      }
+      
       const agent = poolManager.getAgentBySocketId(socket.id);
       if (agent) {
         poolManager.updateAgentStatus(agent.agentId, data.status);
@@ -690,6 +732,16 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     });
 
     socket.on(SOCKET_EVENTS.CALL_ACCEPT, async (data: CallAcceptPayload) => {
+      // Auth check: Verify socket is authenticated as agent
+      if (!socket.data.agentId) {
+        console.warn(`[Socket] CALL_ACCEPT rejected - socket ${socket.id} not authenticated`);
+        socket.emit(SOCKET_EVENTS.ERROR, {
+          code: ERROR_CODES.AUTH_INVALID_TOKEN,
+          message: "Not authenticated as agent",
+        });
+        return;
+      }
+      
       // Clear RNA timeout since agent answered
       clearRNATimeout(data.requestId);
 
@@ -773,6 +825,16 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
     });
 
     socket.on(SOCKET_EVENTS.CALL_REJECT, async (data: CallRejectPayload) => {
+      // Auth check: Verify socket is authenticated as agent
+      if (!socket.data.agentId) {
+        console.warn(`[Socket] CALL_REJECT rejected - socket ${socket.id} not authenticated`);
+        socket.emit(SOCKET_EVENTS.ERROR, {
+          code: ERROR_CODES.AUTH_INVALID_TOKEN,
+          message: "Not authenticated as agent",
+        });
+        return;
+      }
+      
       // Clear RNA timeout since agent responded (even if rejected)
       clearRNATimeout(data.requestId);
       
