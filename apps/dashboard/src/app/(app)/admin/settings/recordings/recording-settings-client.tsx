@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { RecordingSettings } from "@ghost-greeter/domain/database.types";
+import { RetentionWarningModal } from "./RetentionWarningModal";
+import { countAffectedRecordings, triggerRetentionDeletion } from "./actions";
 
 // Pricing constants (2x API costs)
 const TRANSCRIPTION_COST_PER_MIN = 0.01; // ~2x Deepgram Nova-2
@@ -64,6 +66,9 @@ export function RecordingSettingsClient({
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [affectedRecordingsCount, setAffectedRecordingsCount] = useState(0);
+  const [pendingSettings, setPendingSettings] = useState<RecordingSettings | null>(null);
 
   const supabase = createClient();
 
@@ -77,16 +82,63 @@ export function RecordingSettingsClient({
   const handleSave = async () => {
     if (!hasChanges) return;
 
+    // Check if retention is being reduced
+    const isRetentionReduced =
+      settings.retention_days !== savedSettings.retention_days &&
+      (savedSettings.retention_days === -1 ||
+       (settings.retention_days !== -1 && settings.retention_days < savedSettings.retention_days));
+
+    if (isRetentionReduced) {
+      // Count affected recordings before showing modal
+      setIsSaving(true);
+      setError(null);
+
+      try {
+        const result = await countAffectedRecordings({
+          organizationId,
+          newRetentionDays: settings.retention_days,
+        });
+
+        if (result.error) {
+          setError(result.error);
+          setIsSaving(false);
+          return;
+        }
+
+        // If there are recordings to delete, show confirmation modal
+        if (result.count > 0) {
+          setAffectedRecordingsCount(result.count);
+          setPendingSettings(settings);
+          setIsModalOpen(true);
+          setIsSaving(false);
+          return;
+        }
+
+        // No recordings to delete, proceed with save
+        setIsSaving(false);
+      } catch (err) {
+        console.error("Error checking recordings:", err);
+        setError("Failed to check recordings. Please try again.");
+        setIsSaving(false);
+        return;
+      }
+    }
+
+    // Proceed with normal save (no retention reduction or no affected recordings)
+    await performSave(settings);
+  };
+
+  const performSave = async (settingsToSave: RecordingSettings) => {
     setIsSaving(true);
     setError(null);
     setSaveSuccess(false);
 
     try {
-      console.log("[RecordingSettings] Saving:", settings);
-      
+      console.log("[RecordingSettings] Saving:", settingsToSave);
+
       const { error: updateError } = await supabase
         .from("organizations")
-        .update({ recording_settings: settings })
+        .update({ recording_settings: settingsToSave })
         .eq("id", organizationId);
 
       if (updateError) {
@@ -95,7 +147,7 @@ export function RecordingSettingsClient({
       }
 
       console.log("[RecordingSettings] ✅ Saved successfully");
-      setSavedSettings(settings); // Update saved state so hasChanges works correctly
+      setSavedSettings(settingsToSave); // Update saved state so hasChanges works correctly
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
@@ -104,6 +156,29 @@ export function RecordingSettingsClient({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleConfirmDeletion = async () => {
+    if (!pendingSettings) return;
+
+    // Trigger the deletion
+    const result = await triggerRetentionDeletion({
+      organizationId,
+      newRetentionDays: pendingSettings.retention_days,
+      deletedBy: "admin", // In production, would use actual user ID
+    });
+
+    if (!result.success) {
+      setError(result.error || "Failed to delete recordings");
+      throw new Error(result.error || "Deletion failed");
+    }
+
+    // Save the new settings
+    await performSave(pendingSettings);
+
+    // Reset modal state
+    setPendingSettings(null);
+    setAffectedRecordingsCount(0);
   };
 
   const retentionOptions = [
@@ -422,6 +497,20 @@ export function RecordingSettingsClient({
           </div>
         </div>
       </div>
+
+      {/* Retention Warning Modal */}
+      <RetentionWarningModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setPendingSettings(null);
+          setAffectedRecordingsCount(0);
+        }}
+        onConfirm={handleConfirmDeletion}
+        oldRetentionDays={savedSettings.retention_days}
+        newRetentionDays={pendingSettings?.retention_days ?? savedSettings.retention_days}
+        affectedCount={affectedRecordingsCount}
+      />
     </div>
   );
 }
