@@ -17,9 +17,28 @@ echo ""
 # Determine script directory and project root
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SERVER_DIR="$(dirname "$SCRIPT_DIR")"
-PROJECT_ROOT="$(dirname "$(dirname "$SERVER_DIR")")"
 DATA_DIR="$SERVER_DIR/data"
-CREDENTIALS_FILE="$PROJECT_ROOT/docs/data/.agent-credentials.json"
+
+# Find project root using git (works in main repo AND worktrees)
+# First try to find the main worktree (where .git directory lives)
+if git rev-parse --show-toplevel &>/dev/null; then
+    GIT_ROOT="$(git rev-parse --show-toplevel)"
+    
+    # Check if we're in a worktree by looking for .git file (not directory)
+    if [ -f "$GIT_ROOT/.git" ]; then
+        # We're in a worktree - find the main repo
+        MAIN_REPO="$(git rev-parse --git-common-dir | sed 's|/\.git$||')"
+    else
+        # We're in the main repo
+        MAIN_REPO="$GIT_ROOT"
+    fi
+else
+    # Fallback to relative path calculation
+    MAIN_REPO="$(dirname "$(dirname "$SERVER_DIR")")"
+fi
+
+# Also check environment variable override
+PROJECT_ROOT="${MAIN_REPO_PATH:-$MAIN_REPO}"
 
 echo "📂 Directories:"
 echo "   Project Root: $PROJECT_ROOT"
@@ -27,11 +46,38 @@ echo "   Server Dir:   $SERVER_DIR"
 echo "   Data Dir:     $DATA_DIR"
 echo ""
 
-# Check if credentials file exists
-if [ ! -f "$CREDENTIALS_FILE" ]; then
-    echo -e "${RED}❌ Error: Credentials file not found at: $CREDENTIALS_FILE${NC}"
+# Search for credentials in multiple locations (priority order)
+CREDENTIALS_LOCATIONS=(
+    "${AGENT_CREDENTIALS_PATH:-}"                           # 1. Environment variable
+    "$PROJECT_ROOT/docs/data/.agent-credentials.json"       # 2. Main repo
+    "$GIT_ROOT/docs/data/.agent-credentials.json"           # 3. Current git root (might be worktree)
+    "$(dirname "$SERVER_DIR")/docs/data/.agent-credentials.json"  # 4. Relative fallback
+)
+
+CREDENTIALS_FILE=""
+for loc in "${CREDENTIALS_LOCATIONS[@]}"; do
+    if [ -n "$loc" ] && [ -f "$loc" ]; then
+        CREDENTIALS_FILE="$loc"
+        break
+    fi
+done
+
+# Check if credentials file was found
+if [ -z "$CREDENTIALS_FILE" ]; then
+    echo -e "${RED}❌ Error: Could not find .agent-credentials.json${NC}"
     echo ""
-    echo "Please ensure the credentials file exists with the following structure:"
+    echo "Searched locations:"
+    for loc in "${CREDENTIALS_LOCATIONS[@]}"; do
+        if [ -n "$loc" ]; then
+            echo "  - $loc"
+        fi
+    done
+    echo ""
+    echo "Options:"
+    echo "  1. Create the file in the main repository"
+    echo "  2. Set AGENT_CREDENTIALS_PATH environment variable"
+    echo ""
+    echo "File structure:"
     echo '{'
     echo '  "maxmind": {'
     echo '    "license_key": "your-license-key-here"'
@@ -39,6 +85,8 @@ if [ ! -f "$CREDENTIALS_FILE" ]; then
     echo '}'
     exit 1
 fi
+
+echo -e "${GREEN}✓ Found credentials: $CREDENTIALS_FILE${NC}"
 
 # Extract license key using jq if available, otherwise use grep/sed
 if command -v jq &> /dev/null; then
