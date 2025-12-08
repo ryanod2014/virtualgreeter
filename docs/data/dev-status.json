@@ -7,6 +7,13 @@
   "in_progress": [],
   "completed": [
     {
+      "ticket_id": "TKT-020",
+      "branch": "agent/tkt-020",
+      "started_at": "2025-12-08T06:47:58.937Z",
+      "completed_at": "2025-12-08T06:56:20.000Z",
+      "completion_file": "docs/agent-output/completions/TKT-020-2025-12-07T2355.md"
+    },
+    {
       "ticket_id": "TKT-001",
       "branch": "agent/TKT-001-cobrowse-sanitization",
       "completed_at": "2025-12-05T08:46:05.033Z",
