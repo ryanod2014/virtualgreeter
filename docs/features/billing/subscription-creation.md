@@ -108,7 +108,9 @@ Converts signup completions into paying customers by collecting payment informat
 | `PaywallStep3` | `apps/dashboard/src/app/paywall/billing/page.tsx` | Billing frequency selection + downsell |
 | `POST /api/billing/setup-intent` | `apps/dashboard/src/app/api/billing/setup-intent/route.ts` | Creates Stripe SetupIntent |
 | `POST /api/billing/create-subscription` | `apps/dashboard/src/app/api/billing/create-subscription/route.ts` | Creates Stripe subscription |
-| `getPriceIdForFrequency` | `apps/dashboard/src/lib/stripe.ts` | Maps billing frequency to Stripe Price ID |
+| `getPriceIdForFrequency` | `apps/dashboard/src/lib/stripe.ts` | Maps billing frequency to Stripe Price ID (no fallback) |
+| `isPriceIdConfigured` | `apps/dashboard/src/lib/stripe.ts` | Checks if a billing frequency has configured price ID |
+| `getAvailableBillingFrequencies` | `apps/dashboard/src/lib/stripe.ts` | Returns list of frequencies with configured price IDs |
 | `trackFunnelEvent` | `apps/dashboard/src/lib/funnel-tracking.ts` | Tracks conversion funnel analytics |
 
 ### Data Flow
@@ -148,11 +150,16 @@ STEP 2: SEAT SELECTION (/paywall/seats)
 
 STEP 3: BILLING PREFERENCE (/paywall/billing)
     │
+    ├─► Page Load
+    │   ├─► Check isPriceIdConfigured() for each billing option
+    │   ├─► Hide billing options without configured price IDs
+    │   └─► Show configuration error if no options available
+    │
     ├─► Load seatCount from localStorage
     │
-    ├─► User selects: monthly | annual
+    ├─► User selects: monthly | annual (only if configured)
     │
-    ├─► If monthly & !exitPopupShown:
+    ├─► If monthly & !exitPopupShown & hasSixMonth:
     │   └─► Show 6-month downsell popup
     │       ├─► Accept 6-month → createSubscriptionAndContinue('six_month')
     │       └─► Decline → createSubscriptionAndContinue('monthly')
@@ -175,6 +182,7 @@ STEP 3: BILLING PREFERENCE (/paywall/billing)
             │   ├─► Verify customer has default_payment_method
             │   ├─► Calculate trial_end (7 days from now)
             │   ├─► getPriceIdForFrequency(billingPreference)
+            │   ├─► If priceId empty: return error with env var name
             │   └─► stripe.subscriptions.create({
             │       │   customer, items: [{ price, quantity: seatCount }],
             │       │   trial_end, default_payment_method, metadata
@@ -212,7 +220,7 @@ STEP 3: BILLING PREFERENCE (/paywall/billing)
 | 15 | Invalid billing preference | Tampered request | Defaults to 'monthly' | ✅ | Server validates |
 | 16 | Seat count = 0 | Tampered request | Error: "Invalid seat count" | ✅ | |
 | 17 | Dev mode (no Stripe keys) | STRIPE_SECRET_KEY not set | DB updated without Stripe call | ✅ | For local dev |
-| 18 | Missing price ID for frequency | Price not configured in env | Falls back to monthly price ID with warning | ⚠️ | Logs warning |
+| 18 | Missing price ID for frequency | Price not configured in env | Error shown, billing option hidden | ✅ | No fallback to prevent billing disputes |
 
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
@@ -225,6 +233,7 @@ STEP 3: BILLING PREFERENCE (/paywall/billing)
 | "Customer not found" | Stripe customer deleted | Error message | Contact support |
 | "Failed to create subscription" | Stripe API error | Generic error | Retry |
 | Card validation errors | Invalid card data | Stripe-specific message | Fix card info, retry |
+| "Billing configuration error" | Required price ID not configured | Clear error with env var name | Admin must configure environment |
 
 ---
 
@@ -253,10 +262,11 @@ STEP 3: BILLING PREFERENCE (/paywall/billing)
 **Step 3 - Billing:**
 | Step | User Action | System Response | Clear? | Issues |
 |------|------------|-----------------|--------|--------|
-| 1 | View plan options | Monthly vs Annual comparison | ✅ | Savings highlighted |
+| 0 | Page load (missing config) | Red error banner, button disabled | ✅ | Clear admin guidance |
+| 1 | View plan options | Only configured options shown | ✅ | Prevents invalid selections |
 | 2 | Select annual | Green savings callout | ✅ | |
 | 3 | Select monthly | Red "overpaying" callout | ⚠️ | Slightly aggressive |
-| 4 | Click continue (monthly) | 6-month popup appears | ✅ | One-time offer |
+| 4 | Click continue (monthly) | 6-month popup appears (if configured) | ✅ | One-time offer |
 | 5 | Accept/decline popup | Subscription created | ✅ | |
 
 ### Accessibility
@@ -355,7 +365,7 @@ STEP 3: BILLING PREFERENCE (/paywall/billing)
 
 5. **How long should dev mode be supported?** - Dev mode allows subscription flow without Stripe. Good for local dev but could mask integration issues.
 
-6. **Price ID fallback behavior** - If annual or 6-month price IDs aren't configured, system falls back to monthly price ID with a console warning. Should this be a hard error instead?
+6. **~~Price ID fallback behavior~~** - ✅ RESOLVED (TKT-020): System now throws explicit errors when price IDs are missing instead of silently falling back. Billing options without configured price IDs are hidden from users.
 
 
 
