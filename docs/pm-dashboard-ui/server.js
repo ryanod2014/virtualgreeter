@@ -220,6 +220,13 @@ async function processNextJob() {
       case 'qa_launch':
         result = await launchQAAgent(claimed);
         break;
+      case 'dev_launch':
+        result = await launchDevAgent(claimed);
+        break;
+      case 'worktree_cleanup':
+        cleanupConflictingWorktrees(claimed.ticket_id, claimed.branch);
+        result = { cleaned: true };
+        break;
       default:
         throw new Error(`Unknown job type: ${claimed.job_type}`);
     }
@@ -329,6 +336,130 @@ function createRegressionBlocker(job, output) {
 }
 
 /**
+ * Clean up worktrees that might conflict with a branch
+ * Called automatically before dev/QA agent launches
+ */
+function cleanupConflictingWorktrees(ticketId, branch) {
+  const { execSync } = require('child_process');
+  
+  try {
+    // Get list of worktrees
+    const output = execSync('git worktree list --porcelain', { 
+      cwd: PROJECT_ROOT,
+      encoding: 'utf8'
+    });
+    
+    // Parse worktrees and find conflicts
+    const lines = output.split('\n');
+    let currentWorktree = null;
+    
+    for (const line of lines) {
+      if (line.startsWith('worktree ')) {
+        currentWorktree = line.replace('worktree ', '');
+      } else if (line.startsWith('branch ') && currentWorktree) {
+        const worktreeBranch = line.replace('branch refs/heads/', '');
+        
+        // If this worktree uses the same branch and isn't the main repo
+        if (branch && worktreeBranch === branch && !currentWorktree.endsWith('Digital_greeter')) {
+          console.log(`🧹 Removing conflicting worktree: ${currentWorktree}`);
+          try {
+            execSync(`git worktree remove "${currentWorktree}" --force`, {
+              cwd: PROJECT_ROOT,
+              encoding: 'utf8'
+            });
+            console.log(`✅ Removed: ${currentWorktree}`);
+          } catch (e) {
+            // Try rm -rf as fallback
+            execSync(`rm -rf "${currentWorktree}"`, { encoding: 'utf8' });
+            execSync('git worktree prune', { cwd: PROJECT_ROOT, encoding: 'utf8' });
+            console.log(`✅ Force removed: ${currentWorktree}`);
+          }
+        }
+        currentWorktree = null;
+      }
+    }
+    
+    // Also clean up any worktrees for this ticket ID (qa-TKT-*, TKT-*)
+    const ticketPattern = ticketId.toUpperCase();
+    for (const line of lines) {
+      if (line.startsWith('worktree ')) {
+        const wtPath = line.replace('worktree ', '');
+        const wtName = path.basename(wtPath);
+        
+        // Remove qa-TKT-XXX worktrees for this ticket (old QA runs)
+        if (wtName.toUpperCase().includes(ticketPattern) && wtName.startsWith('qa-')) {
+          console.log(`🧹 Removing old QA worktree: ${wtPath}`);
+          try {
+            execSync(`git worktree remove "${wtPath}" --force`, {
+              cwd: PROJECT_ROOT,
+              encoding: 'utf8'
+            });
+          } catch (e) {
+            execSync(`rm -rf "${wtPath}"`, { encoding: 'utf8' });
+          }
+        }
+      }
+    }
+    
+    // Final prune
+    execSync('git worktree prune', { cwd: PROJECT_ROOT, encoding: 'utf8' });
+    
+  } catch (e) {
+    console.error('Worktree cleanup error:', e.message);
+  }
+}
+
+/**
+ * Launch Dev agent for a ticket (for continuation tickets)
+ */
+function launchDevAgent(job) {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(PROJECT_ROOT, 'scripts/launch-agents.sh');
+    
+    if (!fs.existsSync(scriptPath)) {
+      reject(new Error('Dev launch script not found'));
+      return;
+    }
+    
+    // Clean up conflicting worktrees FIRST
+    console.log(`🧹 Cleaning up conflicting worktrees for ${job.ticket_id}...`);
+    cleanupConflictingWorktrees(job.ticket_id, job.branch);
+    
+    console.log(`🛠️ Launching Dev agent for ${job.ticket_id}...`);
+    
+    const proc = spawn('bash', [scriptPath, job.ticket_id], {
+      cwd: PROJECT_ROOT,
+      env: process.env
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+      process.stdout.write(data);
+    });
+    
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+      process.stderr.write(data);
+    });
+    
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ launched: true, output: stdout.slice(-2000) });
+      } else {
+        resolve({ launched: false, output: (stdout + stderr).slice(-2000) });
+      }
+    });
+    
+    proc.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
  * Launch QA agent for a ticket (starts tmux session)
  */
 function launchQAAgent(job) {
@@ -339,6 +470,10 @@ function launchQAAgent(job) {
       reject(new Error('QA launch script not found'));
       return;
     }
+    
+    // Clean up conflicting worktrees FIRST
+    console.log(`🧹 Cleaning up conflicting worktrees for ${job.ticket_id}...`);
+    cleanupConflictingWorktrees(job.ticket_id, job.branch);
     
     console.log(`🔍 Launching QA agent for ${job.ticket_id}...`);
     
