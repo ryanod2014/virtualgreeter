@@ -1,0 +1,26 @@
+{
+  "ticket_id": "TKT-062",
+  "ticket_title": "ip-api.com Rate Limit Risk at Scale",
+  "branch": "agent/tkt-062-maxmind-geolocation",
+  "blocked_at": "2025-12-08T01:38:00Z",
+  "blocker_type": "external_setup_incomplete",
+  "summary": "MaxMind GeoLite2 database file not deployed - geolocation integration cannot be verified",
+  "failures": [
+    {
+      "category": "external_integration",
+      "criterion": "Issue described in F-033 is resolved",
+      "expected": "MaxMind geolocation works with database file present at apps/server/data/GeoLite2-City.mmdb",
+      "actual": "Database file does not exist at expected location. Code fails back to null geolocation, allowing all blocked IPs through.",
+      "evidence": "ls -la apps/server/data/ shows directory does not exist. find apps/server -name '*.mmdb' returns no results. Database file is gitignored (*.mmdb in .gitignore), confirming it must be manually deployed."
+    },
+    {
+      "category": "external_integration",
+      "criterion": "Change is tested and verified",
+      "expected": "Real IP geolocation lookups succeed with MaxMind database",
+      "actual": "Cannot test real geolocation without database file. Unit tests pass but use mock data.",
+      "evidence": "Code at geolocation.ts:36-39 logs warning when database not found and returns null for all lookups, bypassing blocklist entirely."
+    }
+  ],
+  "recommendation": "Human must: (1) Create MaxMind account at https://dev.maxmind.com/geoip/geolite2-free-geolocation-data, (2) Download GeoLite2-City.mmdb file, (3) Deploy to apps/server/data/ directory, (4) Set MAXMIND_DB_PATH environment variable if using custom location. After deployment, rerun QA to verify integration works.",
+  "dispatch_action": "create_continuation_ticket"
+}
