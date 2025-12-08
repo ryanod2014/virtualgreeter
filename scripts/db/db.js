@@ -1250,7 +1250,7 @@ export const jobs = {
       data.max_attempts || 3
     );
     
-    events.log('job_created', 'system', 'job', id, { job_type: data.job_type, ticket_id: data.ticket_id });
+    logEvent('job_created', 'system', 'job', id, { job_type: data.job_type, ticket_id: data.ticket_id });
     
     return db.prepare('SELECT * FROM jobs WHERE id = ?').get(id);
   },
@@ -1316,7 +1316,7 @@ export const jobs = {
       WHERE id = ?
     `).run(newStatus, error, now(), id);
     
-    events.log('job_failed', 'system', 'job', id, { error, will_retry: newStatus === 'pending' });
+    logEvent('job_failed', 'system', 'job', id, { error, will_retry: newStatus === 'pending' });
     
     return newStatus;
   },

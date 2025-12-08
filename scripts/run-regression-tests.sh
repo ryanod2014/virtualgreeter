@@ -66,36 +66,39 @@ fi
 log "Running regression tests for $TICKET_ID on branch $BRANCH"
 
 # =============================================================================
-# Determine working directory
+# Determine working directory - ALWAYS use a worktree, NEVER touch main repo!
 # =============================================================================
 
 WORKTREE_DIR="$WORKTREE_BASE/$TICKET_ID"
+TEMP_WORKTREE="$WORKTREE_BASE/regression-$TICKET_ID"
+CREATED_TEMP_WORKTREE=false
 
 if [ -d "$WORKTREE_DIR" ]; then
     WORK_DIR="$WORKTREE_DIR"
-    log "Using worktree: $WORK_DIR"
+    log "Using existing worktree: $WORK_DIR"
 else
-    # Fall back to main repo with branch checkout
-    WORK_DIR="$MAIN_REPO_DIR"
-    log "Using main repo with branch checkout"
+    # Create a temporary worktree for testing - NEVER checkout in main repo
+    log "Creating temporary worktree for testing..."
     
-    # Stash any uncommitted changes
-    cd "$WORK_DIR"
-    STASH_NEEDED=false
-    if [ -n "$(git status --porcelain)" ]; then
-        STASH_NEEDED=true
-        git stash push -m "Regression test stash for $TICKET_ID"
-    fi
-    
-    # Checkout the branch
+    cd "$MAIN_REPO_DIR"
     git fetch origin "$BRANCH" 2>/dev/null || true
-    git checkout "$BRANCH" 2>/dev/null || git checkout "origin/$BRANCH" 2>/dev/null || {
-        log_error "Could not checkout branch $BRANCH"
-        if [ "$STASH_NEEDED" = true ]; then
-            git stash pop
-        fi
+    
+    # Remove existing temp worktree if present
+    if [ -d "$TEMP_WORKTREE" ]; then
+        git worktree remove "$TEMP_WORKTREE" --force 2>/dev/null || rm -rf "$TEMP_WORKTREE"
+    fi
+    git worktree prune 2>/dev/null || true
+    
+    # Create worktree from the branch
+    if git worktree add "$TEMP_WORKTREE" "origin/$BRANCH" --detach 2>/dev/null || \
+       git worktree add "$TEMP_WORKTREE" "$BRANCH" 2>/dev/null; then
+        WORK_DIR="$TEMP_WORKTREE"
+        CREATED_TEMP_WORKTREE=true
+        log "Created temporary worktree: $WORK_DIR"
+    else
+        log_error "Could not create worktree for branch $BRANCH"
         exit 2
-    }
+    fi
 fi
 
 cd "$WORK_DIR"
@@ -299,10 +302,12 @@ curl -s -X POST "$DASHBOARD_URL/api/v2/tests/regression" \
 # Cleanup
 # =============================================================================
 
-# If we stashed changes, restore them
-if [ "$WORK_DIR" = "$MAIN_REPO_DIR" ] && [ "$STASH_NEEDED" = true ]; then
-    git checkout - 2>/dev/null || true
-    git stash pop 2>/dev/null || true
+# Remove temporary worktree if we created one
+if [ "$CREATED_TEMP_WORKTREE" = true ] && [ -d "$TEMP_WORKTREE" ]; then
+    log "Cleaning up temporary worktree..."
+    cd "$MAIN_REPO_DIR"
+    git worktree remove "$TEMP_WORKTREE" --force 2>/dev/null || rm -rf "$TEMP_WORKTREE"
+    git worktree prune 2>/dev/null || true
 fi
 
 # =============================================================================
