@@ -1,0 +1,25 @@
+{
+  "ticket_id": "TKT-052",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "apps/dashboard/src/features/cobrowse/CobrowseViewer.TKT-052.test.tsx"
+  ],
+  "test_count": 6,
+  "behaviors_tested": [
+    "Shows loading spinner with 'Loading visitor's screen...' when awaiting first snapshot",
+    "Shows placeholder after first snapshot received when no active snapshot",
+    "Shows 'Updating...' indicator when receiving subsequent snapshots",
+    "Clears 'Updating...' indicator after 500ms timeout",
+    "Handles rapid snapshot updates without leaving stale timers",
+    "Properly transitions from loading to active to placeholder states"
+  ],
+  "completed_at": "2025-12-08T20:24:31Z",
+  "notes": [
+    "Created dedicated TKT-052 test file with 6 tests covering all loading state behaviors",
+    "Tests use fake timers to verify 500ms timeout behavior",
+    "Tests verify state transitions between loading/active/placeholder states",
+    "All TKT-052 tests passed successfully",
+    "Pre-existing test file exists with 31 passing tests (1 test needs update for TKT-052 behavior change)"
+  ]
+}
