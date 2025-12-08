@@ -53,7 +53,9 @@ export async function updateSession(request: NextRequest) {
   );
 
   if (isProtectedPath && !user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   // Auth routes - redirect based on user role if already authenticated
