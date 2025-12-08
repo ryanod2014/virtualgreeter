@@ -1225,6 +1225,146 @@ export const worktrees = {
 };
 
 // =============================================================================
+// JOBS (Background Job Queue)
+// =============================================================================
+
+export const jobs = {
+  /**
+   * Create a new job
+   */
+  create(data) {
+    const db = getDB();
+    const id = generateId();
+    
+    db.prepare(`
+      INSERT INTO jobs (id, job_type, ticket_id, branch, payload, priority, scheduled_for, max_attempts)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      data.job_type,
+      data.ticket_id || null,
+      data.branch || null,
+      toJSON(data.payload || {}),
+      data.priority || 5,
+      data.scheduled_for || null,
+      data.max_attempts || 3
+    );
+    
+    events.log('job_created', 'system', 'job', id, { job_type: data.job_type, ticket_id: data.ticket_id });
+    
+    return db.prepare('SELECT * FROM jobs WHERE id = ?').get(id);
+  },
+  
+  /**
+   * Get next pending job (respects priority and schedule)
+   */
+  getNext() {
+    const db = getDB();
+    return db.prepare(`
+      SELECT * FROM jobs 
+      WHERE status = 'pending' 
+        AND (scheduled_for IS NULL OR datetime(scheduled_for) <= datetime('now'))
+        AND attempt < max_attempts
+      ORDER BY priority ASC, created_at ASC 
+      LIMIT 1
+    `).get();
+  },
+  
+  /**
+   * Claim a job for processing
+   */
+  claim(id) {
+    const db = getDB();
+    const result = db.prepare(`
+      UPDATE jobs 
+      SET status = 'running', started_at = ?, attempt = attempt + 1, updated_at = ?
+      WHERE id = ? AND status = 'pending'
+    `).run(now(), now(), id);
+    
+    if (result.changes > 0) {
+      return db.prepare('SELECT * FROM jobs WHERE id = ?').get(id);
+    }
+    return null;
+  },
+  
+  /**
+   * Mark job as completed
+   */
+  complete(id, result) {
+    const db = getDB();
+    db.prepare(`
+      UPDATE jobs 
+      SET status = 'completed', completed_at = ?, result = ?, updated_at = ?
+      WHERE id = ?
+    `).run(now(), toJSON(result), now(), id);
+    
+    events.log('job_completed', 'system', 'job', id, result);
+  },
+  
+  /**
+   * Mark job as failed (may retry)
+   */
+  fail(id, error) {
+    const db = getDB();
+    const job = db.prepare('SELECT * FROM jobs WHERE id = ?').get(id);
+    
+    const newStatus = job.attempt >= job.max_attempts ? 'failed' : 'pending';
+    
+    db.prepare(`
+      UPDATE jobs 
+      SET status = ?, error = ?, updated_at = ?
+      WHERE id = ?
+    `).run(newStatus, error, now(), id);
+    
+    events.log('job_failed', 'system', 'job', id, { error, will_retry: newStatus === 'pending' });
+    
+    return newStatus;
+  },
+  
+  /**
+   * Get pending jobs count by type
+   */
+  getPendingCounts() {
+    const db = getDB();
+    return db.prepare(`
+      SELECT job_type, COUNT(*) as count 
+      FROM jobs 
+      WHERE status = 'pending'
+      GROUP BY job_type
+    `).all();
+  },
+  
+  /**
+   * Get jobs for a ticket
+   */
+  getForTicket(ticketId) {
+    const db = getDB();
+    return db.prepare('SELECT * FROM jobs WHERE ticket_id = ? ORDER BY created_at DESC').all(ticketId);
+  },
+  
+  /**
+   * List jobs with optional filters
+   */
+  list(filters = {}) {
+    const db = getDB();
+    let sql = 'SELECT * FROM jobs WHERE 1=1';
+    const params = [];
+    
+    if (filters.status) {
+      sql += ' AND status = ?';
+      params.push(filters.status);
+    }
+    if (filters.job_type) {
+      sql += ' AND job_type = ?';
+      params.push(filters.job_type);
+    }
+    
+    sql += ' ORDER BY created_at DESC LIMIT 100';
+    return db.prepare(sql).all(...params);
+  }
+};
+
+// =============================================================================
 // HIGH-LEVEL WORKFLOW FUNCTIONS
 // =============================================================================
 
@@ -1306,6 +1446,7 @@ export default {
   testRuns,
   events,
   worktrees,
+  jobs,
   logEvent,
   getNextBatch,
   getDashboardData

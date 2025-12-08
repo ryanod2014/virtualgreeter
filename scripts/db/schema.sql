@@ -368,6 +368,50 @@ CREATE INDEX IF NOT EXISTS idx_events_entity ON events(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
 
 -- =============================================================================
+-- JOBS TABLE
+-- Background job queue for automated tasks
+-- Enables event-driven automation without external scripts
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY,                    -- UUID
+    
+    job_type TEXT NOT NULL,                 -- regression_test, qa_launch, dispatch, etc.
+    
+    -- Status
+    status TEXT DEFAULT 'pending',          -- pending, running, completed, failed, cancelled
+    
+    -- Related entities
+    ticket_id TEXT,
+    branch TEXT,
+    
+    -- Job configuration (JSON)
+    payload TEXT DEFAULT '{}',              -- Job-specific data
+    
+    -- Timing
+    priority INTEGER DEFAULT 5,             -- 1=highest, 10=lowest
+    scheduled_for TEXT,                     -- NULL = immediate, or future timestamp
+    created_at TEXT DEFAULT (datetime('now')),
+    started_at TEXT,
+    completed_at TEXT,
+    
+    -- Result
+    result TEXT,                            -- JSON with job results
+    error TEXT,                             -- Error message if failed
+    
+    -- Retry handling
+    attempt INTEGER DEFAULT 0,
+    max_attempts INTEGER DEFAULT 3,
+    
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs(job_type);
+CREATE INDEX IF NOT EXISTS idx_jobs_ticket ON jobs(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_pending ON jobs(status, priority, created_at) 
+    WHERE status = 'pending';
+
+-- =============================================================================
 -- METADATA TABLE
 -- Schema version and migration tracking
 -- =============================================================================

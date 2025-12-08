@@ -41,6 +41,8 @@ export function WorkbenchClient({ agentProfile, user, organizationId }: Workbenc
     transcription_enabled: false,
     ai_summary_enabled: false,
     ai_summary_prompt_format: null,
+    rna_timeout_seconds: 30,
+    max_call_duration_minutes: 60,
   });
 
   useEffect(() => {

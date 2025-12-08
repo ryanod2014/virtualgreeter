@@ -107,6 +107,275 @@ function syncTicketsToDb() {
   }
 }
 
+// =============================================================================
+// JOB QUEUE SYSTEM
+// Event-driven automation - no external scripts needed
+// =============================================================================
+
+const { spawn } = require('child_process');
+const PROJECT_ROOT = path.join(__dirname, '../..');
+
+/**
+ * Handle ticket status changes - queue appropriate jobs
+ */
+function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
+  if (!dbModule?.jobs) {
+    console.log('⚠️ Jobs module not available, skipping automation');
+    return;
+  }
+  
+  console.log(`📋 Ticket ${ticketId}: ${oldStatus} → ${newStatus}`);
+  
+  // Dev completed → Queue regression tests
+  if (newStatus === 'dev_complete') {
+    console.log(`🧪 Queueing regression tests for ${ticketId}`);
+    dbModule.jobs.create({
+      job_type: 'regression_test',
+      ticket_id: ticketId,
+      branch: ticket.branch,
+      priority: 3,  // High priority
+      payload: {
+        ticket_title: ticket.title,
+        triggered_by: 'status_change'
+      }
+    });
+    startJobWorker();
+  }
+  
+  // Regression passed → Queue QA agent launch
+  if (newStatus === 'in_review') {
+    console.log(`🔍 Queueing QA agent for ${ticketId}`);
+    dbModule.jobs.create({
+      job_type: 'qa_launch',
+      ticket_id: ticketId,
+      branch: ticket.branch,
+      priority: 5,
+      payload: {
+        ticket_title: ticket.title,
+        triggered_by: 'regression_passed'
+      }
+    });
+    startJobWorker();
+  }
+}
+
+// Job worker state
+let jobWorkerRunning = false;
+let jobWorkerInterval = null;
+
+/**
+ * Start the job worker if not already running
+ */
+function startJobWorker() {
+  if (jobWorkerRunning) return;
+  
+  jobWorkerRunning = true;
+  console.log('🔄 Job worker started');
+  
+  // Poll for jobs every 2 seconds
+  jobWorkerInterval = setInterval(processNextJob, 2000);
+  
+  // Process first job immediately
+  processNextJob();
+}
+
+/**
+ * Stop the job worker
+ */
+function stopJobWorker() {
+  if (jobWorkerInterval) {
+    clearInterval(jobWorkerInterval);
+    jobWorkerInterval = null;
+  }
+  jobWorkerRunning = false;
+  console.log('⏹️ Job worker stopped');
+}
+
+/**
+ * Process the next pending job
+ */
+async function processNextJob() {
+  if (!dbModule?.jobs) return;
+  
+  const job = dbModule.jobs.getNext();
+  if (!job) {
+    // No pending jobs, stop the worker
+    stopJobWorker();
+    return;
+  }
+  
+  // Claim the job
+  const claimed = dbModule.jobs.claim(job.id);
+  if (!claimed) return;  // Another worker got it
+  
+  console.log(`⚡ Processing job: ${claimed.job_type} for ${claimed.ticket_id || 'N/A'}`);
+  
+  try {
+    let result;
+    
+    switch (claimed.job_type) {
+      case 'regression_test':
+        result = await runRegressionTest(claimed);
+        break;
+      case 'qa_launch':
+        result = await launchQAAgent(claimed);
+        break;
+      default:
+        throw new Error(`Unknown job type: ${claimed.job_type}`);
+    }
+    
+    dbModule.jobs.complete(claimed.id, result);
+    console.log(`✅ Job ${claimed.job_type} completed`);
+    
+  } catch (error) {
+    console.error(`❌ Job ${claimed.job_type} failed:`, error.message);
+    const status = dbModule.jobs.fail(claimed.id, error.message);
+    if (status === 'pending') {
+      console.log(`🔄 Will retry job ${claimed.id}`);
+    }
+  }
+}
+
+/**
+ * Run regression tests for a ticket (shell-based, non-AI)
+ */
+function runRegressionTest(job) {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(PROJECT_ROOT, 'scripts/run-regression-tests.sh');
+    
+    if (!fs.existsSync(scriptPath)) {
+      reject(new Error('Regression test script not found'));
+      return;
+    }
+    
+    console.log(`🧪 Running regression tests for ${job.ticket_id}...`);
+    
+    const proc = spawn('bash', [scriptPath, job.ticket_id, job.branch || ''], {
+      cwd: PROJECT_ROOT,
+      env: { ...process.env, DASHBOARD_URL: `http://localhost:${PORT}` }
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+      // Stream output to console
+      process.stdout.write(data);
+    });
+    
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+      process.stderr.write(data);
+    });
+    
+    proc.on('close', (code) => {
+      if (code === 0) {
+        // Tests passed → Update ticket status to in_review
+        console.log(`✅ Regression tests passed for ${job.ticket_id}`);
+        
+        if (dbModule?.tickets) {
+          dbModule.tickets.update(job.ticket_id, { status: 'in_review' });
+        }
+        
+        resolve({ passed: true, output: stdout.slice(-5000) });
+      } else {
+        // Tests failed → Update ticket status to blocked
+        console.log(`❌ Regression tests failed for ${job.ticket_id}`);
+        
+        if (dbModule?.tickets) {
+          dbModule.tickets.update(job.ticket_id, { status: 'blocked' });
+        }
+        
+        // Create blocker file for dispatch agent
+        createRegressionBlocker(job, stdout + stderr);
+        
+        resolve({ passed: false, output: (stdout + stderr).slice(-5000) });
+      }
+    });
+    
+    proc.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
+ * Create a blocker file for regression failures
+ */
+function createRegressionBlocker(job, output) {
+  const blockerDir = path.join(PROJECT_ROOT, 'docs/agent-output/blocked');
+  const blockerPath = path.join(blockerDir, `REGRESSION-${job.ticket_id}-${Date.now()}.json`);
+  
+  const blocker = {
+    ticket_id: job.ticket_id,
+    blocker_type: 'regression_failure',
+    branch: job.branch,
+    blocked_at: new Date().toISOString(),
+    summary: 'Regression tests failed - dev broke code outside ticket scope',
+    output: output.slice(-10000),
+    dispatch_action: 'create_continuation_ticket'
+  };
+  
+  try {
+    if (!fs.existsSync(blockerDir)) {
+      fs.mkdirSync(blockerDir, { recursive: true });
+    }
+    fs.writeFileSync(blockerPath, JSON.stringify(blocker, null, 2));
+    console.log(`📝 Created blocker: ${blockerPath}`);
+  } catch (e) {
+    console.error('Failed to create blocker file:', e.message);
+  }
+}
+
+/**
+ * Launch QA agent for a ticket (starts tmux session)
+ */
+function launchQAAgent(job) {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(PROJECT_ROOT, 'scripts/launch-qa-agents.sh');
+    
+    if (!fs.existsSync(scriptPath)) {
+      reject(new Error('QA launch script not found'));
+      return;
+    }
+    
+    console.log(`🔍 Launching QA agent for ${job.ticket_id}...`);
+    
+    const proc = spawn('bash', [scriptPath, job.ticket_id], {
+      cwd: PROJECT_ROOT,
+      env: process.env
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+      process.stdout.write(data);
+    });
+    
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+      process.stderr.write(data);
+    });
+    
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ launched: true, output: stdout.slice(-2000) });
+      } else {
+        // Don't reject - QA launch failures shouldn't break the job queue
+        // The script already handles creating blockers if needed
+        resolve({ launched: false, output: (stdout + stderr).slice(-2000) });
+      }
+    });
+    
+    proc.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
 // Read JSON file safely
 function readJSON(filename) {
   const filepath = path.join(DATA_DIR, filename);
@@ -1422,7 +1691,18 @@ function handleAPI(req, res, body) {
     try {
       const ticketId = url.split('/').pop().toUpperCase();
       const data = JSON.parse(body);
+      
+      // Get old ticket to detect status change
+      const oldTicket = dbModule.tickets.get(ticketId);
       const ticket = dbModule.tickets.update(ticketId, data);
+      
+      // =========================================================================
+      // EVENT-DRIVEN: Queue jobs on status change
+      // =========================================================================
+      if (oldTicket && data.status && oldTicket.status !== data.status) {
+        handleTicketStatusChange(ticketId, oldTicket.status, data.status, ticket);
+      }
+      
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(ticket));
     } catch (e) {
@@ -1493,9 +1773,67 @@ function handleAPI(req, res, body) {
   }
   
   // ---------------------------------------------------------------------------
+  // JOBS v2 (Background Job Queue)
+  // ---------------------------------------------------------------------------
+
+  // GET /api/v2/jobs - List jobs
+  if (req.method === 'GET' && url.startsWith('/api/v2/jobs')) {
+    try {
+      const params = new URLSearchParams(url.split('?')[1] || '');
+      const filters = {};
+      if (params.get('status')) filters.status = params.get('status');
+      if (params.get('job_type')) filters.job_type = params.get('job_type');
+      
+      const jobs = dbModule.jobs.list(filters);
+      const pendingCounts = dbModule.jobs.getPendingCounts();
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        jobs, 
+        count: jobs.length,
+        pending: pendingCounts,
+        worker_running: jobWorkerRunning
+      }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // POST /api/v2/jobs - Create a job manually
+  if (req.method === 'POST' && url === '/api/v2/jobs') {
+    try {
+      const data = JSON.parse(body);
+      const job = dbModule.jobs.create(data);
+      startJobWorker();  // Ensure worker is running
+      
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(job));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // POST /api/v2/jobs/start-worker - Start the job worker
+  if (req.method === 'POST' && url === '/api/v2/jobs/start-worker') {
+    try {
+      startJobWorker();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ started: true, running: jobWorkerRunning }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
   // DECISIONS v2
   // ---------------------------------------------------------------------------
-  
+
   // GET /api/v2/decisions - List decision threads
   if (req.method === 'GET' && url.startsWith('/api/v2/decisions')) {
     try {
