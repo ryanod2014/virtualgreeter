@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-005c-1",
+  "source": "dev-agent-TKT-005c",
+  "title": "Pre-existing TypeScript errors in test files",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/widget/src/features/cobrowse/useCobrowse.test.ts (and others)",
+  "line": 111,
+  "issue": "Multiple test files have TypeScript errors preventing typecheck from passing. Widget package has 38 type errors across multiple test files (useCobrowse.test.ts, useSignaling.test.ts, VideoSequencer.test.tsx, LiveCallView.test.tsx, useWebRTC.test.ts, main.test.ts, Widget.test.tsx). Server package has 21 type errors in test files (agentStatus.test.ts, stripe-webhook-handler.test.ts, pool-manager.test.ts, socket-handlers.test.ts, health.test.ts). These are pre-existing errors unrelated to TKT-005c webhook implementation.",
+  "suggestion": "Fix type errors in test files to allow CI/CD pipeline to pass typecheck. Common issues include: 1) Mock type mismatches with actual function signatures, 2) Possibly undefined checks missing (use optional chaining or assertions), 3) Unused variables (remove or prefix with underscore), 4) Missing type imports with verbatimModuleSyntax enabled. Consider addressing these systematically or updating tsconfig to be more lenient for test files.",
+  "status": "pending",
+  "found_at": "2025-12-08T09:03:00Z"
+}
