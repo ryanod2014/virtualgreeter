@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-023-1",
+  "source": "dev-agent-TKT-023",
+  "title": "Same Stripe-DB update order vulnerability in update-settings route",
+  "category": "bug",
+  "severity": "high",
+  "file": "apps/dashboard/src/app/api/billing/update-settings/route.ts",
+  "line": 85,
+  "issue": "The update-settings route has the same vulnerability as the seats route: it updates Stripe before updating the database (lines 85-89 and 131-134 update Stripe, then lines 142-145 update DB). If the DB update fails after Stripe succeeds, the customer will be charged for settings not reflected in the app, creating an inconsistent state.",
+  "suggestion": "Apply the same atomic update pattern implemented in TKT-023: (1) Update DB first (optimistic), (2) Call Stripe, (3) If Stripe fails, rollback DB change, (4) Add Sentry monitoring for rollback failures. This ensures DB failure prevents Stripe charges and Stripe failures trigger DB rollback.",
+  "status": "pending",
+  "found_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
