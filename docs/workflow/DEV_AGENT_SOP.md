@@ -38,7 +38,7 @@ echo "Session started: $AGENT_SESSION_ID"
 ./scripts/agent-cli.sh block --session $AGENT_SESSION_ID --reason "Description of blocker" --type clarification
 ```
 
-**Blocker types:** `clarification`, `environment`, `ci_failure`, `dependency`
+**Blocker types:** `clarification`, `environment`, `ci_failure`, `dependency`, `external_setup`
 
 ---
 
@@ -109,6 +109,49 @@ If the ticket is missing ANY of the following → **BLOCKED immediately**:
 
 **If ANY is missing or unclear → Report BLOCKED with question asking for clarification.**
 
+### 1.2.1 ⚠️ External Service Check (CRITICAL)
+
+**Before writing ANY code, check if this ticket requires external services.**
+
+If the ticket mentions ANY of these, you likely need human setup:
+
+| Keyword | Requires | Example |
+|---------|----------|---------|
+| MaxMind, GeoIP, geolocation | Account + database download | "use maxmind for IP lookup" |
+| Stripe, payment | API keys + test account | "integrate Stripe billing" |
+| AWS, S3, Lambda | AWS account + credentials | "store files in S3" |
+| SendGrid, email service | API key | "send emails via SendGrid" |
+| Twilio, SMS | Account + phone numbers | "send SMS notifications" |
+| OAuth, social login | App registration + secrets | "add Google login" |
+| Any "free tier" API | Account creation | "use ip-api.com" or similar |
+
+**⚠️ BLOCK IMMEDIATELY if:**
+1. Ticket mentions a third-party service not in `docs/data/.agent-credentials.json`
+2. You would need to CREATE an account (not just log into existing one)
+3. You would need to DOWNLOAD external files (databases, SDKs, etc.)
+4. You would need LICENSE AGREEMENTS or terms acceptance
+5. Service requires BILLING/PAYMENT setup even for free tier
+
+**Example: "Use MaxMind for geolocation"**
+
+❌ **WRONG:** Implement the code assuming database will be there later
+✅ **RIGHT:** Block immediately with:
+```json
+{
+  "category": "external_setup",
+  "title": "MaxMind requires account creation and database download",
+  "issue": "To implement MaxMind geolocation, human must: (1) Create MaxMind account at dev.maxmind.com, (2) Accept license agreement, (3) Download GeoLite2-City.mmdb database (~70MB), (4) Deploy database to apps/server/data/",
+  "options": [
+    {"id": 1, "label": "Human creates account and provides database file path"},
+    {"id": 2, "label": "Use alternative service that doesn't require account (if any)"},
+    {"id": 3, "label": "Proceed knowing feature won't work until human completes setup"}
+  ],
+  "recommendation": "Option 1 - Cannot verify implementation without actual database"
+}
+```
+
+**Why this matters:** Code that "works" but requires unverified external resources is NOT complete. Unit tests with mocks don't prove the integration works. The ticket is NOT done until the external dependency is actually configured and tested.
+
 ### 1.3 Pre-Flight Checklist
 
 Complete this checklist before writing any code:
@@ -122,6 +165,10 @@ Complete this checklist before writing any code:
 - [ ] I identified all files I'll need to modify
 - [ ] I understand every acceptance criterion
 - [ ] I understand every risk listed
+- [ ] **⚠️ EXTERNAL SERVICES CHECK:**
+  - [ ] Does this ticket require any third-party services?
+  - [ ] If YES: Are credentials/resources in `.agent-credentials.json`?
+  - [ ] If NO credentials exist: **STOP → Block with `external_setup`**
 
 **If ANYTHING is unclear → STOP and report BLOCKED**
 
@@ -764,6 +811,134 @@ Use this format when you're blocked by **technical issues**, not missing informa
    - Cancels the ticket if issue is too complex
 4. PM creates continuation ticket with resolution
 5. You (or another agent) continues from where you left off
+
+---
+
+## External Setup Blockers (Third-Party Services)
+
+Use this format when you're blocked because **the ticket requires setting up a new external service, account, or resource.**
+
+**Use `external_setup` blocker when:**
+- Ticket requires creating a NEW account on a third-party service
+- Ticket requires downloading external files (databases, SDKs, data files)
+- Ticket requires API keys/credentials that aren't in `.agent-credentials.json`
+- Ticket requires accepting license agreements or terms of service
+- Ticket requires billing/payment setup (even for free tiers)
+- You CANNOT fully verify your implementation without the external resource
+
+**File path:** `docs/agent-output/blocked/EXT-TKT-XXX-[TIMESTAMP].json`
+
+```json
+{
+  "id": "EXT-TKT-XXX-[number]",
+  "type": "blocker",
+  "category": "external_setup",
+  "source": "dev-agent-TKT-XXX",
+  "severity": "critical",
+  "title": "[Service] requires account creation / resource download",
+  "feature": "[Feature from your ticket]",
+  "status": "pending",
+  "found_at": "[ISO date]",
+  
+  "issue": "[What external setup is needed and why you can't proceed]",
+  
+  "external_service": {
+    "name": "[Service name - e.g., MaxMind, Stripe, AWS]",
+    "type": "account_creation | database_download | api_key | license | billing",
+    "signup_url": "[URL where human creates account]",
+    "documentation_url": "[URL for setup docs]"
+  },
+  
+  "human_actions_required": [
+    "[Step 1 - e.g., Create account at https://...]",
+    "[Step 2 - e.g., Accept license agreement]",
+    "[Step 3 - e.g., Download database file to apps/server/data/]",
+    "[Step 4 - e.g., Add API key to .env.local]"
+  ],
+  
+  "what_i_can_do_now": [
+    "[e.g., Write code that uses the service - but cannot verify]",
+    "[e.g., Write unit tests with mocks - but integration untested]"
+  ],
+  
+  "what_i_cannot_verify": [
+    "[e.g., Actual API calls work correctly]",
+    "[e.g., Database file format is correct]",
+    "[e.g., Integration with live service works]"
+  ],
+  
+  "blocker_context": {
+    "ticket_id": "TKT-XXX",
+    "branch": "agent/TKT-XXX-[description]",
+    "progress": {
+      "done": ["[What you completed before hitting this]"],
+      "blocked_on": "[Specific step that needs external setup]"
+    }
+  }
+}
+```
+
+### Example: MaxMind Geolocation Service
+
+```json
+{
+  "id": "EXT-TKT-062-1",
+  "type": "blocker",
+  "category": "external_setup",
+  "source": "dev-agent-TKT-062",
+  "severity": "critical",
+  "title": "MaxMind requires account creation and database download",
+  "feature": "Blocklist Settings",
+  "status": "pending",
+  "found_at": "2025-12-06T05:00:00Z",
+  
+  "issue": "The ticket asks to use MaxMind for IP geolocation, but this requires: (1) creating a MaxMind account, (2) accepting their license, (3) downloading a 70MB database file. I cannot verify the implementation works without these.",
+  
+  "external_service": {
+    "name": "MaxMind GeoLite2",
+    "type": "account_creation",
+    "signup_url": "https://dev.maxmind.com/geoip/geolite2-free-geolocation-data",
+    "documentation_url": "https://dev.maxmind.com/geoip/geolocate-an-ip/databases"
+  },
+  
+  "human_actions_required": [
+    "1. Create free MaxMind account at https://dev.maxmind.com",
+    "2. Accept the GeoLite2 EULA",
+    "3. Download GeoLite2-City.mmdb from the account dashboard",
+    "4. Place file at apps/server/data/GeoLite2-City.mmdb",
+    "5. (Optional) Set MAXMIND_DB_PATH env var if using different location"
+  ],
+  
+  "what_i_can_do_now": [
+    "Write code that uses @maxmind/geoip2-node library",
+    "Write unit tests with mocked database responses"
+  ],
+  
+  "what_i_cannot_verify": [
+    "Actual IP lookups work correctly",
+    "Database file is valid and contains expected data",
+    "Country blocklist actually blocks visitors from specified countries"
+  ],
+  
+  "blocker_context": {
+    "ticket_id": "TKT-062",
+    "branch": "agent/tkt-062-maxmind-geolocation",
+    "progress": {
+      "done": ["Researched MaxMind integration approach"],
+      "blocked_on": "Cannot proceed without MaxMind account and database file"
+    }
+  }
+}
+```
+
+**⚠️ CRITICAL: Do NOT proceed to write code** if you can't verify it works. Mocked unit tests are not sufficient proof that a third-party integration works.
+
+**What happens next:**
+1. PM routes blocker to human inbox
+2. Human creates accounts, downloads files, adds credentials
+3. Human updates ticket with file paths and credentials location
+4. PM creates continuation ticket with setup complete
+5. You (or another agent) continues with verified external resources
 
 ---
 

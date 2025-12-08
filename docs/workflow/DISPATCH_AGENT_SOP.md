@@ -59,8 +59,11 @@ echo "Dispatch Session started: $AGENT_SESSION_ID"
 | `CI-TKT-*` | Auto-create continuation ticket | ❌ NO |
 | `BLOCKED-TKT-*` | Route to inbox | ✅ YES |
 | `ENV-TKT-*` | Route to inbox | ✅ YES |
+| `EXT-TKT-*` | Route to inbox (external setup needed) | ✅ YES |
 
-**Only clarifications and environment issues need human decisions.** Everything else gets auto-processed into continuation tickets for dev agents to pick up.
+**Only clarifications, environment issues, and external setup need human decisions.** Everything else gets auto-processed into continuation tickets for dev agents to pick up.
+
+**⚠️ EXT-TKT-* Blockers (External Setup):** These require human to create accounts, download files, or set up third-party services. Agent CANNOT proceed until human completes setup.
 
 ---
 
@@ -105,6 +108,7 @@ For each blocker file, determine its type from the filename prefix:
 | `CI-TKT-*` | CI Failure | ✅ YES | Tests failed on agent branch |
 | `BLOCKED-TKT-*` | Clarification | ❌ NO | Agent has a question (needs human) |
 | `ENV-TKT-*` | Environment | ❌ NO | Infra/credentials issue (needs human) |
+| `EXT-TKT-*` | External Setup | ❌ NO | Third-party service needs human setup |
 
 ### Step 1.2: Route Each Blocker
 
@@ -304,6 +308,36 @@ These ALWAYS need human intervention.
 2. Flag: "URGENT: Environment issue blocking TKT-XXX"
 3. Log: `"Routed ENV-TKT-XXX to inbox - needs human intervention"`
 
+#### External Setup Blockers (EXT-TKT-*)
+
+These ALWAYS need human intervention. Agent needs third-party service set up (accounts, database downloads, API keys, etc.)
+
+1. Read the blocker JSON for `human_actions_required`:
+```json
+{
+  "category": "external_setup",
+  "ticket_id": "TKT-062",
+  "external_service": {
+    "name": "MaxMind GeoLite2",
+    "signup_url": "https://dev.maxmind.com/..."
+  },
+  "human_actions_required": [
+    "1. Create MaxMind account at URL",
+    "2. Download GeoLite2-City.mmdb",
+    "3. Place at apps/server/data/"
+  ]
+}
+```
+
+2. Create CRITICAL priority decision thread with:
+   - Service name and signup URL
+   - Step-by-step setup instructions for human
+   - Note: "Agent CANNOT proceed until human completes these steps"
+
+3. Log: `"Routed EXT-TKT-XXX to inbox - human must set up [service name]"`
+
+**⚠️ This is NOT something that can be auto-handled.** The agent literally cannot create accounts, accept licenses, or download authenticated files. Human MUST do this.
+
 ---
 
 ## Task 2: RESPOND TO QUESTIONS
@@ -427,6 +461,7 @@ This catches any inconsistencies between files.
 |---------|--------|--------|
 | BLOCKED-TKT-063 | Clarification needed | Awaiting human decision |
 | ENV-TKT-070 | Environment issue | Awaiting human intervention |
+| EXT-TKT-062 | External setup (MaxMind) | Awaiting human to create account |
 
 ### Questions Answered
 | Thread | Summary |
@@ -463,10 +498,10 @@ This catches any inconsistencies between files.
    ┌───────────┐           ┌───────────┐           ┌───────────┐
    │ QA-*-FAIL │           │ CI-TKT-*  │           │BLOCKED-*  │
    │           │           │           │           │ ENV-TKT-* │
-   └─────┬─────┘           └─────┬─────┘           └─────┬─────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-   ┌───────────┐          ┌───────────┐           ┌───────────┐
+   └─────┬─────┘           └─────┬─────┘           │ EXT-TKT-* │
+         │                       │                 └─────┬─────┘
+         ▼                       ▼                       │
+   ┌───────────┐          ┌───────────┐           ┌─────▼─────┐
    │  AUTO:    │          │ Compare   │           │  INBOX:   │
    │  Create   │          │ to scope  │           │  Human    │
    │  rework   │          └─────┬─────┘           │  needed   │

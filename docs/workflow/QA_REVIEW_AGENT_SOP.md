@@ -365,6 +365,13 @@ Create a comprehensive checklist based on your protocol:
 - [ ] No obvious security issues
 - [ ] No hardcoded values that should be configurable
 
+### ⚠️ MANDATORY: External Services Verification
+- [ ] Checked ticket for `external_services` field
+- [ ] If external services required: Are they ACTUALLY configured?
+- [ ] If database file needed: Does file exist at expected path?
+- [ ] If API keys needed: Are they in `.env` or credentials file?
+- [ ] **FAIL if external resources are missing** (see "External Services Check" below)
+
 ### ⚠️ MANDATORY: Browser Tests
 - [ ] Started dev server (`pnpm dev`)
 - [ ] Navigated to affected page with Playwright
@@ -992,6 +999,8 @@ playwright_evaluate({
 7. **MUST use Playwright MCP** - Browser testing is MANDATORY, not optional
 8. **MUST take screenshots** - Every test needs visual evidence
 9. **Check scope** - Ensure changes are within `files_to_modify`
+10. **Verify external integrations** - Mocked tests don't prove third-party services work
+11. **FAIL if "Post-Merge Actions Required"** - If human setup is needed, ticket is NOT done
 
 ---
 
@@ -1071,6 +1080,112 @@ In your QA report, include a section:
 ### If You Skip Edge Case Testing
 
 Your QA will be considered **INCOMPLETE** and may be rejected. The whole point of QA is to catch bugs before they reach production.
+
+---
+
+## ⚠️ MANDATORY: External Services Verification
+
+**Mocked tests are NOT proof that external integrations work.**
+
+If the ticket integrates with ANY third-party service, you MUST verify the actual integration works, not just that the code exists.
+
+### Step 1: Check for External Dependencies
+
+Look for these patterns in the ticket and code:
+
+| Pattern in Code | External Dependency | What to Verify |
+|-----------------|---------------------|----------------|
+| `@maxmind/geoip2-node` | MaxMind database | File exists at expected path |
+| `stripe` package | Stripe API | API keys configured, test mode works |
+| `@sendgrid/mail` | SendGrid | API key set, can send test email |
+| `aws-sdk`, `@aws-sdk/*` | AWS services | Credentials configured, bucket exists |
+| `twilio` | Twilio | Credentials set, phone number valid |
+| Database file reads | Local database | File exists and contains valid data |
+
+### Step 2: Verify External Resources Exist
+
+```bash
+# Check for database files
+ls -la apps/server/data/*.mmdb 2>/dev/null || echo "❌ No MaxMind database found"
+
+# Check for env vars
+grep -E "MAXMIND|STRIPE|SENDGRID|AWS|TWILIO" .env.local 2>/dev/null || echo "⚠️ Check .env for API keys"
+
+# Check credentials file
+cat docs/data/.agent-credentials.json | jq 'keys'
+```
+
+### Step 3: Test the Actual Integration
+
+**❌ WRONG:** Unit tests pass with mocks → "PASS"
+
+**✅ RIGHT:** Verify the actual service works:
+
+| Service Type | How to Verify |
+|--------------|---------------|
+| Database file | `ls -la [expected-path]` → file exists and has size > 0 |
+| API key | Make a real API call (in test mode) |
+| Geolocation | Look up a known IP address and verify country |
+| Email | Check if test email can be sent |
+| Payment | Verify Stripe dashboard shows test connection |
+
+### Step 4: Fail if External Setup is Incomplete
+
+**If external resources are missing, the ticket is NOT complete.**
+
+Even if:
+- ✅ Code looks correct
+- ✅ Unit tests pass (with mocks)
+- ✅ Build passes
+- ✅ Dev agent wrote "complete" report
+
+**FAIL the QA** if you cannot verify the actual integration works.
+
+### Example: TKT-062 MaxMind (What QA Should Have Caught)
+
+**Dev Completion Report said:**
+> "Replaced ip-api.com with MaxMind GeoLite2"
+
+**What QA should have checked:**
+```bash
+# Does the database file exist?
+ls -la apps/server/data/GeoLite2-City.mmdb
+# Result: No such file ❌
+
+# Can we test a real IP lookup?
+curl -X POST localhost:3001/api/test-geolocation -d '{"ip":"8.8.8.8"}'
+# Result: Error - database not found ❌
+```
+
+**Correct QA Result: FAIL**
+```json
+{
+  "blocker_type": "external_setup_incomplete",
+  "summary": "MaxMind database file not deployed - integration cannot be verified",
+  "failures": [{
+    "category": "external_integration",
+    "criterion": "MaxMind geolocation works",
+    "expected": "IP lookup returns country code",
+    "actual": "Database file not found at apps/server/data/GeoLite2-City.mmdb",
+    "evidence": "ls -la shows file does not exist"
+  }],
+  "recommendation": "Human must: (1) Create MaxMind account, (2) Download GeoLite2-City.mmdb, (3) Deploy to apps/server/data/"
+}
+```
+
+### Red Flags in Completion Reports
+
+Watch for these phrases that suggest external setup wasn't done:
+
+| Red Flag | What It Means |
+|----------|---------------|
+| "Post-Merge Actions Required" | Something isn't done yet! |
+| "Database setup required" | External file needs to be downloaded |
+| "Requires API key" | Human needs to get credentials |
+| "Will fail gracefully if..." | Feature won't work without setup |
+| "Tests pass with mocks" | Real integration not verified |
+
+**If you see "Post-Merge Actions Required" → The ticket is NOT complete. FAIL it.**
 
 ---
 

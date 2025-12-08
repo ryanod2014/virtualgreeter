@@ -119,6 +119,53 @@ Agent hit a technical issue they can't solve (type error, pnpm fails, pre-existi
 4. Continue from: [Where they left off]
 ```
 
+##### For EXTERNAL SETUP Blockers (EXT-TKT-*)
+
+Agent needs a third-party service set up that requires human action (account creation, database download, API keys, etc.)
+
+**This is NOT something agents can do themselves.** These require:
+- Creating accounts on external services
+- Accepting license agreements
+- Downloading files from authenticated dashboards
+- Setting up billing/payment (even for free tiers)
+
+**Present to human with these steps:**
+
+1. **Review the blocker's `human_actions_required` list**
+2. **Human completes ALL setup steps:**
+   - Create accounts as needed
+   - Download required files (databases, SDKs)
+   - Add credentials to `.agent-credentials.json`
+   - Place files in expected locations
+3. **PM verifies setup is complete:**
+   ```bash
+   # Example: Verify MaxMind database
+   ls -la apps/server/data/GeoLite2-City.mmdb
+   
+   # Example: Verify credentials added
+   cat docs/data/.agent-credentials.json | jq '.services.maxmind'
+   ```
+4. **Create continuation ticket with setup info:**
+
+```markdown
+## 🔌 External Service Setup Complete
+
+**Service:** [e.g., MaxMind GeoLite2]
+
+**Setup Completed:**
+- ✅ Account created at [URL]
+- ✅ Database file at: `apps/server/data/GeoLite2-City.mmdb`
+- ✅ Credentials added to `.agent-credentials.json`
+
+**What agent should do now:**
+1. Verify file exists: `ls -la apps/server/data/GeoLite2-City.mmdb`
+2. Implement the integration code
+3. Test with REAL data (not just mocks)
+4. Verify acceptance criteria with actual service
+```
+
+**⚠️ IMPORTANT: Tickets requiring external setup should NEVER have status "ready" until human completes setup.**
+
 Archive the blocker file to `docs/agent-output/archive/`
 
 ##### For CI FAILURE Blockers (CI-TKT-*)
@@ -279,6 +326,12 @@ Before a ticket is ready for dev, verify ALL fields:
 - [ ] **Verification:**
   - [ ] `dev_checks` has typecheck + build + quick test
   - [ ] `qa_notes` has context for QA agent
+
+- [ ] **⚠️ External Services Check (CRITICAL):**
+  - [ ] Does ticket mention third-party services? (MaxMind, Stripe, AWS, etc.)
+  - [ ] If YES: Is `external_services` field populated?
+  - [ ] If credentials NOT in `.agent-credentials.json`: Mark ticket as `blocked` until human sets up
+  - [ ] If account creation needed: **DO NOT set status to "ready"**
 
 - [ ] **Size Check:**
   - [ ] ≤5 files to modify
