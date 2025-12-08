@@ -169,7 +169,7 @@ get_branch_for_ticket() {
         "agent/${TICKET_UPPER}-"* \
         "agent/${TICKET_ID}-"*; do
         
-        local BRANCH=$(git branch -a | grep -E "$pattern" | head -1 | sed 's/^[* ]*//' | sed 's|remotes/origin/||')
+        local BRANCH=$(git branch -a | grep -E "$pattern" | head -1 | sed 's/^[* +]*//' | sed 's|remotes/origin/||' | tr -d ' ')
         if [ -n "$BRANCH" ]; then
             echo "$BRANCH"
             return
