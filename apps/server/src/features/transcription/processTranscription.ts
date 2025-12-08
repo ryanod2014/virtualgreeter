@@ -162,7 +162,7 @@ export async function processTranscriptionWithRetry(audioUrl: string): Promise<P
     }
 
     if (attempt < MAX_RETRY_ATTEMPTS) {
-      const delayMs = RETRY_DELAYS_MS[attempt - 1];
+      const delayMs = RETRY_DELAYS_MS[attempt - 1] || 1000;
       console.log(`[Transcription] Waiting ${delayMs}ms before retry...`);
       await sleep(delayMs);
     }

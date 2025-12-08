@@ -14,6 +14,20 @@ import type { RecordingSettings } from "@ghost-greeter/domain/database.types";
 const TRANSCRIPTION_COST_PER_MIN = 0.01; // ~2x Deepgram Nova-2
 const AI_SUMMARY_COST_PER_MIN = 0.02; // ~2x LLM token costs
 
+// Retry configuration
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAYS_MS = [1000, 4000, 16000]; // 1s, 4s, 16s exponential backoff
+
+// Non-retriable error patterns - these errors won't benefit from retry
+const NON_RETRIABLE_ERRORS = [
+  "DEEPGRAM_API_KEY not configured",
+  "No transcription returned from Deepgram", // Empty/silent audio
+  "audio too short",
+  "invalid audio format",
+  "unsupported audio",
+  "audio duration is 0",
+];
+
 // Default AI summary format
 const DEFAULT_AI_SUMMARY_FORMAT = `## Summary
 Brief 2-3 sentence overview of the call.
@@ -50,10 +64,42 @@ interface TranscriptionResult {
   error?: string;
 }
 
+interface RetryAttempt {
+  attempt: number;
+  timestamp: string;
+  error: string;
+}
+
+interface ProcessingResult {
+  success: boolean;
+  transcription?: string;
+  durationSeconds?: number;
+  error?: string;
+  totalAttempts: number;
+  retryLog: RetryAttempt[];
+}
+
 interface AISummaryResult {
   success: boolean;
   summary?: string;
   error?: string;
+}
+
+/**
+ * Check if an error is non-retriable (shouldn't be retried)
+ */
+function isNonRetriableError(error: string): boolean {
+  const lowerError = error.toLowerCase();
+  return NON_RETRIABLE_ERRORS.some(pattern =>
+    lowerError.includes(pattern.toLowerCase())
+  );
+}
+
+/**
+ * Sleep for specified milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
