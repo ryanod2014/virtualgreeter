@@ -156,8 +156,8 @@ function scanForNewBlockers() {
               const ticket = dbModule.tickets.get(ticketId);
               
               // Only merge if ticket is in a state that needs merging
-              // Skip terminal states: merged, done, blocked, qa_failed
-              const terminalStates = ['merged', 'done', 'blocked', 'qa_failed'];
+              // Skip terminal states (merged is the final success state)
+              const terminalStates = ['merged', 'blocked', 'qa_failed'];
               const shouldMerge = ticket && 
                                   !terminalStates.includes(ticket.status) && 
                                   ticket.branch;  // Must have a branch to merge
@@ -219,7 +219,8 @@ let lastTicketsSyncTime = 0;
 const SYNC_COOLDOWN_MS = 60000; // Only sync once per minute
 
 // Status progression order - never downgrade a ticket's status
-const STATUS_ORDER = ['ready', 'in_progress', 'dev_complete', 'in_review', 'qa_approved', 'finalizing', 'qa_pending', 'blocked', 'qa_failed', 'merged', 'done'];
+// 'merged' is the terminal state (no separate 'done' - they mean the same thing)
+const STATUS_ORDER = ['ready', 'in_progress', 'dev_complete', 'in_review', 'qa_approved', 'finalizing', 'qa_pending', 'blocked', 'qa_failed', 'merged'];
 
 function getStatusRank(status) {
   const idx = STATUS_ORDER.indexOf(status);
@@ -2875,10 +2876,9 @@ function handleAPI(req, res, body) {
         }
       }
       
-      // Also include tickets from database with merged/done status
+      // Also include tickets from database with merged status
       const mergedTickets = dbModule?.tickets?.list({ status: 'merged' }) || [];
-      const doneTickets = dbModule?.tickets?.list({ status: 'done' }) || [];
-      for (const t of [...mergedTickets, ...doneTickets]) {
+      for (const t of mergedTickets) {
         allMerged.add(t.id);
       }
       
@@ -2930,10 +2930,9 @@ function handleAPI(req, res, body) {
           }
         }
         
-        // Also include tickets from database with merged/done status
+        // Also include tickets from database with merged status
         const mergedTickets = dbModule?.tickets?.list({ status: 'merged' }) || [];
-        const doneTickets = dbModule?.tickets?.list({ status: 'done' }) || [];
-        for (const t of [...mergedTickets, ...doneTickets]) {
+        for (const t of mergedTickets) {
           allMerged.add(t.id);
         }
         
