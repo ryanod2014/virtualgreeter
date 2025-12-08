@@ -14,6 +14,7 @@ import type { Request, Response } from "express";
 import type Stripe from "stripe";
 import { stripe, webhookSecret } from "../../lib/stripe.js";
 import { supabase, isSupabaseConfigured } from "../../lib/supabase.js";
+import { sendPaymentFailedEmail } from "../../lib/email.js";
 
 // Type guard for Stripe subscription object
 function isSubscription(obj: unknown): obj is Stripe.Subscription {
@@ -163,11 +164,11 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<boolean> {
 
 /**
  * Handle invoice.payment_failed event
- * Logs the failure and updates status to past_due
+ * Logs the failure, updates status to past_due, and sends email to admin
  */
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<boolean> {
-  const customerId = typeof invoice.customer === "string" 
-    ? invoice.customer 
+  const customerId = typeof invoice.customer === "string"
+    ? invoice.customer
     : invoice.customer?.id;
 
   if (!customerId) {
@@ -181,7 +182,45 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<bool
   console.warn(`[StripeWebhook] Payment failed for org ${org.id} (${org.name}), invoice: ${invoice.id}`);
 
   // Update status to past_due to reflect payment issues
-  return updateOrgSubscriptionStatus(org.id, "past_due", org.subscription_status, "invoice.payment_failed");
+  const statusUpdated = await updateOrgSubscriptionStatus(org.id, "past_due", org.subscription_status, "invoice.payment_failed");
+
+  if (statusUpdated) {
+    // Send email notification to admin only
+    await sendEmailToAdmin(org.id, org.name);
+  }
+
+  return statusUpdated;
+}
+
+/**
+ * Send payment failure email to organization admin
+ */
+async function sendEmailToAdmin(orgId: string, orgName: string): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) {
+    console.error("[StripeWebhook] Supabase not configured - cannot get admin email");
+    return;
+  }
+
+  try {
+    // Get admin user for this organization
+    const { data: admin, error } = await supabase
+      .from("users")
+      .select("email")
+      .eq("organization_id", orgId)
+      .eq("role", "admin")
+      .single();
+
+    if (error || !admin) {
+      console.error(`[StripeWebhook] Could not find admin for org ${orgId}:`, error);
+      return;
+    }
+
+    // Send the payment failure email
+    await sendPaymentFailedEmail(admin.email, orgName);
+  } catch (error) {
+    console.error("[StripeWebhook] Error sending payment failure email:", error);
+    // Don't throw - email failure shouldn't fail the webhook
+  }
 }
 
 /**
