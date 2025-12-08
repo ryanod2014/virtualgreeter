@@ -1,7 +1,7 @@
 # Feature: Co-Browse Viewer (A5)
 
 ## Quick Summary
-The Co-Browse Viewer allows agents to see a real-time, read-only view of the visitor's screen during an active call. It displays the visitor's DOM, tracks their mouse cursor position, synchronizes scroll state, and highlights text selections - all without allowing any agent interaction with the visitor's page.
+The Co-Browse Viewer allows agents to see a real-time, read-only view of the visitor's screen during an active call. It displays the visitor's DOM, tracks their mouse cursor position, synchronizes scroll state, and highlights text selections - all without allowing any agent interaction with the visitor's page. Organizations can disable co-browse screen sharing via organization settings for privacy compliance (TKT-009).
 
 ## Affected Users
 - [ ] Website Visitor
@@ -32,14 +32,15 @@ Co-browsing enables agents to see exactly what the visitor is looking at during 
 ### High-Level Flow
 
 1. **Call Starts** - Visitor and agent are connected via WebRTC call
-2. **Widget Activates Co-Browse** - `useCobrowse` hook detects `isInCall: true`
-3. **Loading State** - Agent sees "Loading visitor's screen..." with spinner (TKT-052)
-4. **Initial Snapshot** - DOM is captured, sanitized, and sent to server
-5. **First Render** - Loading state dismissed, DOM displayed in iframe
-6. **Continuous Updates** - DOM snapshots every 2s, mouse at ~20fps, scroll at 10fps (with "Updating..." indicator)
-7. **Server Relay** - Events forwarded from visitor socket to agent socket
-8. **Agent View** - `CobrowseViewer` renders DOM in sandboxed iframe with overlays
-9. **Call Ends** - Co-browse cleanup, stops all tracking
+2. **Widget Checks Settings** - Widget verifies `widgetSettings.cobrowse_enabled` is true (TKT-009)
+3. **Widget Activates Co-Browse** - `useCobrowse` hook detects `isInCall: true` AND `cobrowse_enabled: true`
+4. **Loading State** - Agent sees "Loading visitor's screen..." with spinner (TKT-052)
+5. **Initial Snapshot** - DOM is captured, sanitized, and sent to server
+6. **First Render** - Loading state dismissed, DOM displayed in iframe
+7. **Continuous Updates** - DOM snapshots every 2s, mouse at ~20fps, scroll at 10fps (with "Updating..." indicator)
+8. **Server Relay** - Events forwarded from visitor socket to agent socket
+9. **Agent View** - `CobrowseViewer` renders DOM in sandboxed iframe with overlays
+10. **Call Ends** - Co-browse cleanup, stops all tracking
 
 ### State Machine
 
@@ -150,6 +151,7 @@ stateDiagram-v2
 
 | # | Scenario | Trigger | Current Behavior | Correct? | Notes |
 |---|----------|---------|------------------|----------|-------|
+| 0 | Co-browse disabled by org | Admin disables in settings | No co-browse during call, only video/audio | ✅ | TKT-009: Privacy compliance |
 | 1 | Happy path | Call starts | DOM displayed, cursor tracked | ✅ | Works smoothly |
 | 2 | Large DOM (>1MB) | Complex page | Sent as-is, may lag | ⚠️ | No compression or chunking |
 | 3 | Frequent DOM changes | React app re-renders | MutationObserver triggers | ✅ | Debouncing via significant change filter |
@@ -180,11 +182,13 @@ stateDiagram-v2
 
 | Step | User Action | System Response | Clear? | Issues |
 |------|------------|-----------------|--------|--------|
-| Call starts | Agent answers | Co-browse viewer appears | ✅ | Could show loading state |
+| Call starts | Agent answers | Loading spinner + "Loading visitor's screen..." | ✅ | Fixed in TKT-052 |
+| First snapshot | Visitor DOM captured | Loading state dismissed, view appears | ✅ | Clear transition |
 | Viewing | Agent looks at viewer | See visitor's page | ✅ | Clear "Live View" badge |
 | Cursor track | Visitor moves mouse | Red cursor moves | ✅ | High visibility cursor |
 | Scroll sync | Visitor scrolls | View updates | ✅ | Slight delay acceptable |
 | Selection | Visitor selects text | Blue highlight + text shown | ✅ | Footer shows selected text |
+| Updates | Visitor navigates/changes | Brief "Updating..." indicator (500ms) | ✅ | Subtle blue badge (TKT-052) |
 | End call | Call ends | Viewer shows placeholder | ✅ | "Visitor's screen will appear here" |
 
 ### Accessibility
@@ -194,7 +198,7 @@ stateDiagram-v2
 | Keyboard navigation | N/A | View-only, no interaction needed |
 | Screen reader | ⚠️ | Could add aria-label for viewer |
 | Color contrast | ✅ | Red cursor on white bg, good contrast |
-| Loading states | ⚠️ | No explicit "Loading DOM..." state |
+| Loading states | ✅ | Spinner + message shown (TKT-052) |
 
 ---
 
@@ -259,7 +263,7 @@ docClone.querySelectorAll('input[type="password"]').forEach((input) => {
 | Issue | Impact | Severity | Suggested Fix |
 |-------|--------|----------|--------------|
 | Password fields visible in DOM | Privacy/security risk | 🔴 High | Sanitize password inputs before snapshot |
-| No loading state | Agent sees stale/blank before first snapshot | 🟡 Medium | Add "Loading visitor's screen..." |
+| ~~No loading state~~ | ~~Agent sees stale/blank before first snapshot~~ | ~~🟡 Medium~~ | ✅ Fixed by TKT-052 |
 | ~~Iframes not captured~~ | ~~Embedded content invisible~~ | ~~🟡 Medium~~ | ✅ Fixed by TKT-053 |
 | Canvas blank | Charts/graphs invisible | 🟡 Medium | Could convert canvas to image |
 | No delta encoding | Large payloads | 🟢 Low | Consider diff-based updates |
@@ -268,9 +272,32 @@ docClone.querySelectorAll('input[type="password"]').forEach((input) => {
 
 ## 8. CODE REFERENCES
 
+### TKT-052: Loading State Implementation
+
+**Added in TKT-052** - Loading state improvements for co-browse viewer:
+
+| Purpose | File | Lines | Notes |
+|---------|------|-------|-------|
+| State tracking | `apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx` | 20-21 | `hasReceivedFirstSnapshot` and `isUpdating` states |
+| Loading UI | `apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx` | 166-182 | Spinner with "Loading visitor's screen..." |
+| Update indicator | `apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx` | 209-215 | Blue "Updating..." badge (500ms timeout) |
+| Snapshot tracking | `apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx` | 90-98 | Sets `hasReceivedFirstSnapshot` on first snapshot |
+| Loader icon | `apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx` | 5 | Import `Loader2` from lucide-react |
+
+**Key Implementation Details:**
+- **Initial load**: Shows spinner until `hasReceivedFirstSnapshot` becomes true
+- **Subsequent updates**: Brief "Updating..." indicator with 500ms timeout to avoid flicker
+- **State management**: Distinguishes between "never loaded" vs "waiting for update"
+- **Visual feedback**: Animated spinner on first load, subtle badge on updates
+
+### All Code References
+
 | Purpose | File | Lines | Notes |
 |---------|------|-------|-------|
 | Co-browse sender hook | `apps/widget/src/features/cobrowse/useCobrowse.ts` | 1-292 | Complete sender implementation |
+| Co-browse enable check | `apps/widget/src/Widget.tsx` | 453-456 | Conditional initialization based on cobrowse_enabled |
+| Widget settings type | `packages/domain/src/types.ts` | 280 | cobrowse_enabled boolean field (TKT-009) |
+| Server default settings | `apps/server/src/lib/widget-settings.ts` | 20 | Default cobrowse_enabled: true |
 | DOM snapshot capture | `apps/widget/src/features/cobrowse/useCobrowse.ts` | 37-122 | Clone, sanitize, serialize |
 | Mouse tracking | `apps/widget/src/features/cobrowse/useCobrowse.ts` | 127-139 | Throttled mouse events |
 | Scroll tracking | `apps/widget/src/features/cobrowse/useCobrowse.ts` | 144-156 | Throttled scroll events |
@@ -297,6 +324,7 @@ docClone.querySelectorAll('input[type="password"]').forEach((input) => {
 
 ## 9. RELATED FEATURES
 
+- [Organization Settings (D8)](../admin/organization-settings.md) - Admin can disable co-browse via Privacy Settings (TKT-009)
 - [Visitor Call (V3)](../visitor/visitor-call.md) - Co-browse activates when call starts
 - [WebRTC Signaling (P5)](../platform/webrtc-signaling.md) - Shares same socket connection
 - [Call Lifecycle (P3)](../platform/call-lifecycle.md) - Co-browse tied to call state
@@ -310,9 +338,10 @@ docClone.querySelectorAll('input[type="password"]').forEach((input) => {
    - This is a potential security/privacy concern
    - Recommendation: Add input[type="password"] sanitization
 
-2. **Should there be a "co-browse disabled" option?**
-   - Some visitors might prefer privacy during calls
-   - No toggle currently exists - cobrowse is automatic
+2. ~~**Should there be a "co-browse disabled" option?**~~
+   - ~~Some visitors might prefer privacy during calls~~
+   - ~~No toggle currently exists - cobrowse is automatic~~
+   - **✅ RESOLVED by TKT-009:** Organization-level co-browse toggle added to Organization Settings (Privacy Settings section). When disabled, widget does not initialize co-browse during calls. Defaults to enabled for backward compatibility.
 
 3. ~~**How should iframe content be handled?**~~
    - ~~Cross-origin iframes cannot be captured due to CORS~~
