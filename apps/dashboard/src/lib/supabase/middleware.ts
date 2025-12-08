@@ -1,6 +1,24 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+/**
+ * Middleware function to validate user sessions and handle authentication redirects.
+ *
+ * Responsibilities:
+ * - Refreshes the user's Supabase auth session on each request
+ * - Protects routes requiring authentication (/dashboard, /admin, /settings, /platform)
+ * - Redirects unauthenticated users to /login with ?next= parameter (TKT-006)
+ * - Redirects authenticated users away from auth pages (/login, /signup) to their dashboard
+ *
+ * @param request - The incoming Next.js request object
+ * @returns NextResponse with appropriate redirects or the original response
+ *
+ * @example
+ * // In middleware.ts:
+ * export async function middleware(request: NextRequest) {
+ *   return await updateSession(request);
+ * }
+ */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
     request: {
