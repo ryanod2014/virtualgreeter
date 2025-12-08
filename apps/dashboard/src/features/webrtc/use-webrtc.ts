@@ -17,6 +17,7 @@ interface UseWebRTCReturn {
   screenShareStream: MediaStream | null;
   isConnecting: boolean;
   isConnected: boolean;
+  isReconnecting: boolean;
   isVisitorScreenSharing: boolean;
   isAgentScreenSharing: boolean;
   error: string | null;
@@ -51,6 +52,9 @@ const ICE_SERVERS = [
   },
 ];
 
+// Max ICE restart attempts before showing error
+const MAX_ICE_RESTART_ATTEMPTS = 3;
+
 export function useWebRTC({
   socket,
   visitorId,
@@ -62,6 +66,7 @@ export function useWebRTC({
   const [agentScreenStream, setAgentScreenStream] = useState<MediaStream | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [isVisitorScreenSharing, setIsVisitorScreenSharing] = useState(false);
   const [isAgentScreenSharing, setIsAgentScreenSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +75,8 @@ export function useWebRTC({
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const screenSendersRef = useRef<RTCRtpSender[]>([]);
+  const iceRestartAttemptsRef = useRef(0);
+  const isReconnectingRef = useRef(false);
 
   // Clean up function
   const cleanup = useCallback(() => {
@@ -83,16 +90,64 @@ export function useWebRTC({
     }
     remoteStreamRef.current = null;
     screenSendersRef.current = [];
+    iceRestartAttemptsRef.current = 0;
+    isReconnectingRef.current = false;
     setLocalStream(null);
     setRemoteStream(null);
     setScreenShareStream(null);
     setAgentScreenStream(null);
     setIsConnecting(false);
     setIsConnected(false);
+    setIsReconnecting(false);
     setIsVisitorScreenSharing(false);
     setIsAgentScreenSharing(false);
     setError(null);
   }, []);
+
+  // Perform ICE restart when connection fails or disconnects
+  const performIceRestart = useCallback(async () => {
+    const pc = peerRef.current;
+    if (!pc || !socket || !visitorId) {
+      console.log("[WebRTC] Cannot perform ICE restart - missing peer or socket");
+      return;
+    }
+
+    iceRestartAttemptsRef.current += 1;
+    const attempt = iceRestartAttemptsRef.current;
+
+    console.log(`[WebRTC] ICE restart attempt ${attempt}/${MAX_ICE_RESTART_ATTEMPTS}`);
+
+    if (attempt > MAX_ICE_RESTART_ATTEMPTS) {
+      console.error("[WebRTC] Max ICE restart attempts reached, giving up");
+      isReconnectingRef.current = false;
+      setIsReconnecting(false);
+      setError("Connection failed after multiple attempts");
+      return;
+    }
+
+    isReconnectingRef.current = true;
+    setIsReconnecting(true);
+    setError(null);
+
+    try {
+      // Create new offer with ICE restart flag
+      const offer = await pc.createOffer({ iceRestart: true });
+      await pc.setLocalDescription(offer);
+
+      console.log(`[WebRTC] Sending ICE restart offer (attempt ${attempt})`);
+      socket.emit(SOCKET_EVENTS.WEBRTC_SIGNAL, {
+        targetId: visitorId,
+        signal: offer,
+      });
+    } catch (err) {
+      console.error("[WebRTC] ICE restart failed:", err);
+      if (attempt >= MAX_ICE_RESTART_ATTEMPTS) {
+        isReconnectingRef.current = false;
+        setIsReconnecting(false);
+        setError("Connection failed after multiple attempts");
+      }
+    }
+  }, [socket, visitorId]);
 
   // Initialize call (agent is the initiator)
   const initializeCall = useCallback(async () => {
@@ -163,13 +218,59 @@ export function useWebRTC({
 
       // Handle connection state
       pc.onconnectionstatechange = () => {
-        console.log("[WebRTC] Connection state:", pc.connectionState);
-        if (pc.connectionState === "connected") {
-          setIsConnected(true);
-          setIsConnecting(false);
-        } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-          setError("Connection failed");
-          setIsConnecting(false);
+        const state = pc.connectionState;
+        console.log("[WebRTC] Connection state:", state);
+
+        switch (state) {
+          case "connected":
+            console.log("[WebRTC] Connection established successfully");
+            setIsConnected(true);
+            setIsConnecting(false);
+            isReconnectingRef.current = false;
+            setIsReconnecting(false);
+            // Reset restart attempts on successful connection
+            iceRestartAttemptsRef.current = 0;
+            break;
+          case "disconnected":
+            // Temporary disconnection - attempt ICE restart
+            console.warn("[WebRTC] Connection temporarily disconnected, attempting ICE restart");
+            performIceRestart();
+            break;
+          case "failed":
+            // Connection failed - attempt ICE restart
+            console.error("[WebRTC] Connection failed, attempting ICE restart");
+            performIceRestart();
+            break;
+          case "closed":
+            // Connection was closed intentionally
+            break;
+        }
+      };
+
+      // Handle ICE connection state for more granular feedback
+      pc.oniceconnectionstatechange = () => {
+        const state = pc.iceConnectionState;
+        console.log("[WebRTC] ICE connection state:", state);
+
+        switch (state) {
+          case "connected":
+          case "completed":
+            // ICE connected successfully
+            isReconnectingRef.current = false;
+            setIsReconnecting(false);
+            iceRestartAttemptsRef.current = 0;
+            break;
+          case "disconnected":
+            // ICE temporarily disconnected - may recover automatically
+            console.warn("[WebRTC] ICE temporarily disconnected");
+            break;
+          case "failed":
+            // ICE failed - trigger restart if not already doing so
+            console.error("[WebRTC] ICE connection failed");
+            if (!isReconnectingRef.current) {
+              performIceRestart();
+            }
+            break;
         }
       };
 
@@ -188,7 +289,7 @@ export function useWebRTC({
       setError(err instanceof Error ? err.message : "Failed to initialize call");
       setIsConnecting(false);
     }
-  }, [socket, visitorId, cleanup]);
+  }, [socket, visitorId, performIceRestart]);
 
   // Listen for incoming signals from visitor
   useEffect(() => {
@@ -357,6 +458,7 @@ export function useWebRTC({
     screenShareStream,
     isConnecting,
     isConnected,
+    isReconnecting,
     isVisitorScreenSharing,
     isAgentScreenSharing,
     error,
