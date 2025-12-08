@@ -132,12 +132,46 @@ Agent needs a third-party service set up that requires human action (account cre
 **Present to human with these steps:**
 
 1. **Review the blocker's `human_actions_required` list**
-2. **Human completes ALL setup steps:**
-   - Create accounts as needed
-   - Download required files (databases, SDKs)
-   - Add credentials to `.agent-credentials.json`
-   - Place files in expected locations
-3. **PM verifies setup is complete:**
+
+2. **Ask human to complete setup AND provide credentials in chat:**
+   
+   Tell human:
+   > "Please complete the setup steps and then paste the credentials here so I can add them to the credentials file for the dev agent."
+
+3. **Human completes setup and provides credentials in chat:**
+   ```
+   Created MaxMind account:
+   - Email: dev@company.com  
+   - Password: SecurePass123!
+   - License Key: abc123xyz
+   - Database downloaded to: apps/server/data/GeoLite2-City.mmdb
+   ```
+
+4. **PM/Dispatch adds credentials to `.agent-credentials.json`:**
+   ```bash
+   # Read current file first
+   cat docs/data/.agent-credentials.json
+   ```
+   
+   Then add the new service (merge, don't overwrite):
+   ```json
+   {
+     "services": {
+       "maxmind": {
+         "login_url": "https://www.maxmind.com/en/account/login",
+         "email": "dev@company.com",
+         "password": "SecurePass123!",
+         "license_key": "abc123xyz"
+       }
+     },
+     "api_keys": {
+       "maxmind_license": "abc123xyz"
+     },
+     "_LAST_UPDATED": "2025-12-07T12:00:00Z"
+   }
+   ```
+
+5. **Verify setup is complete:**
    ```bash
    # Example: Verify MaxMind database
    ls -la apps/server/data/GeoLite2-City.mmdb
@@ -145,7 +179,8 @@ Agent needs a third-party service set up that requires human action (account cre
    # Example: Verify credentials added
    cat docs/data/.agent-credentials.json | jq '.services.maxmind'
    ```
-4. **Create continuation ticket with setup info:**
+
+6. **Create continuation ticket with setup info:**
 
 ```markdown
 ## 🔌 External Service Setup Complete

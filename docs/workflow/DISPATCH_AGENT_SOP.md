@@ -333,8 +333,52 @@ These ALWAYS need human intervention. Agent needs third-party service set up (ac
    - Service name and signup URL
    - Step-by-step setup instructions for human
    - Note: "Agent CANNOT proceed until human completes these steps"
+   - **Request credentials:** Ask human to provide login/password/API keys in the chat
 
-3. Log: `"Routed EXT-TKT-XXX to inbox - human must set up [service name]"`
+3. **When human provides credentials in chat:**
+   
+   Human will reply with something like:
+   ```
+   Created MaxMind account:
+   - Email: dev@company.com
+   - Password: SecurePass123!
+   - License Key: abc123xyz
+   - Database downloaded to: apps/server/data/GeoLite2-City.mmdb
+   ```
+
+   **You MUST add these to the credentials file:**
+   
+   ```bash
+   # Read current credentials
+   cat docs/data/.agent-credentials.json
+   ```
+   
+   Then update the file to add the new service:
+   ```json
+   {
+     "services": {
+       "maxmind": {
+         "login_url": "https://www.maxmind.com/en/account/login",
+         "email": "dev@company.com",
+         "password": "SecurePass123!",
+         "license_key": "abc123xyz",
+         "notes": "GeoLite2 database at apps/server/data/GeoLite2-City.mmdb"
+       }
+     },
+     "api_keys": {
+       "maxmind_license": "abc123xyz"
+     }
+   }
+   ```
+
+   **⚠️ IMPORTANT:** 
+   - Merge with existing credentials (don't overwrite the whole file)
+   - Update `_LAST_UPDATED` timestamp
+   - Never commit this file (it's gitignored)
+
+4. After adding credentials, create continuation ticket with setup info
+
+5. Log: `"Routed EXT-TKT-XXX to inbox - human must set up [service name]"`
 
 **⚠️ This is NOT something that can be auto-handled.** The agent literally cannot create accounts, accept licenses, or download authenticated files. Human MUST do this.
 
