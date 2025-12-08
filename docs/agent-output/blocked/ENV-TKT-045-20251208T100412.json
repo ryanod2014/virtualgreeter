@@ -1,0 +1,46 @@
+{
+  "id": "ENV-TKT-045-1",
+  "type": "blocker",
+  "category": "environment",
+  "source": "dev-agent-TKT-045",
+  "severity": "critical",
+  "title": "Ticket TKT-045 already completed and merged to main",
+  "feature": "Ellis Survey (PMF)",
+  "status": "pending",
+  "found_at": "2025-12-08T10:04:12Z",
+
+  "issue": "This ticket (TKT-045) has already been completed, QA approved, and merged to main in commit c9d3f01 (dated Mon Dec 8 02:16:40 2025). The required changes to exclude dismissed surveys from PMF calculation are already live in the main branch:\n\n1. apps/dashboard/src/features/surveys/ellis-survey-modal.tsx - Sets disappointment_level to null on dismiss (line 126)\n2. apps/dashboard/src/app/(app)/platform/feedback/page.tsx - Filters out null disappointment_level values (line 32)\n\nThe current branch agent/tkt-045 contains the same implementation and has no differences from main for these files.",
+
+  "what_i_tried": [
+    "Verified the ticket spec requirements: exclude dismissed surveys from PMF calculation",
+    "Read the survey modal code - confirmed dismissal sets disappointment_level to null (line 126)",
+    "Read the feedback page code - confirmed query filters out null values (lines 31-32)",
+    "Checked git history - found merge commit c9d3f01 'Merge TKT-045: Exclude dismissed surveys from PMF calculation - QA Passed'",
+    "Compared current branch files with main - no differences found",
+    "Verified acceptance criteria are already met in production code"
+  ],
+
+  "error_details": {
+    "error_message": "Duplicate work detected - ticket already completed",
+    "file": "N/A",
+    "line": "N/A",
+    "stack_trace": "git log shows:\nc9d3f01 Merge TKT-045: Exclude dismissed surveys from PMF calculation - QA Passed\n\nChanges made:\n- ellis-survey-modal.tsx: disappointment_level: null on dismiss\n- page.tsx: .not('disappointment_level', 'is', null) filter added"
+  },
+
+  "suggested_resolution": "This ticket should be marked as already completed. The PM should:\n1. Verify the merge commit c9d3f01 contains the correct implementation\n2. Update ticket tracking to reflect completion status\n3. Clean up this agent worktree\n4. Investigate why this ticket was dispatched when already merged\n\nNote: The ticket spec file paths were incorrect (referenced files in feedback/ that don't exist, actual files are in surveys/ and platform/feedback/), but the work was correctly completed on the actual files.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-045",
+    "branch": "agent/tkt-045",
+    "time_spent": "30 minutes investigation",
+    "progress": {
+      "done": [
+        "Read and understood ticket requirements",
+        "Located actual implementation files",
+        "Verified changes already exist in codebase",
+        "Traced git history to find completion evidence"
+      ],
+      "blocked_on": "Ticket was already completed and merged - no work to do"
+    }
+  }
+}
