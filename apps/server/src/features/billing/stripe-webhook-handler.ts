@@ -28,6 +28,13 @@ function isInvoice(obj: unknown): obj is Stripe.Invoice {
 /**
  * Map Stripe subscription status to our database status
  * Our DB allows: 'active', 'paused', 'cancelled', 'trialing', 'past_due'
+ *
+ * SECURITY: Unknown statuses default to 'cancelled' (fail-safe).
+ * This prevents granting access when Stripe introduces new statuses that we haven't mapped yet.
+ * Logs a warning when an unknown status is encountered so it can be added to the mapping.
+ *
+ * @param stripeStatus - The status string from Stripe subscription
+ * @returns Database-compatible status string ('active' | 'trialing' | 'past_due' | 'cancelled' | 'paused')
  */
 function mapStripeStatusToDbStatus(stripeStatus: string): string {
   switch (stripeStatus) {
@@ -192,6 +199,13 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<bool
 /**
  * Handle customer.subscription.updated event
  * Syncs subscription status changes from Stripe
+ *
+ * ALERT: If an unknown Stripe status is encountered (mapped to 'cancelled' as fail-safe),
+ * this function logs a critical ops alert with the full subscription details so the
+ * unknown status can be investigated and added to the mapping.
+ *
+ * @param subscription - The Stripe subscription object from the webhook event
+ * @returns Promise<boolean> - True if update succeeded, false otherwise
  */
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<boolean> {
   const org = await getOrgByStripeSubscriptionId(subscription.id);

@@ -147,7 +147,8 @@ stateDiagram-v2
 | 1 | Happy path | Call starts | DOM displayed, cursor tracked | ✅ | Works smoothly |
 | 2 | Large DOM (>1MB) | Complex page | Sent as-is, may lag | ⚠️ | No compression or chunking |
 | 3 | Frequent DOM changes | React app re-renders | MutationObserver triggers | ✅ | Debouncing via significant change filter |
-| 4 | Visitor has iframe | Embedded content | iframe not captured | ⚠️ | See "What about iframes" below |
+| 4 | Visitor has same-origin iframe | Embedded content | iframe content captured via srcdoc | ✅ | TKT-053: Full support |
+| 4a | Visitor has cross-origin iframe | Embedded content | Styled placeholder shown | ✅ | TKT-053: Security restriction |
 | 5 | Visitor has canvas | Charts/graphics | Canvas shows blank | ⚠️ | Canvas state not captured |
 | 6 | Visitor has video | Video player | Video element visible but not playing | ✅ | Expected - DOM only |
 | 7 | Sensitive data in forms | Password fields | Text visible in DOM | 🔴 | See Security section |
@@ -253,7 +254,7 @@ docClone.querySelectorAll('input[type="password"]').forEach((input) => {
 |-------|--------|----------|--------------|
 | Password fields visible in DOM | Privacy/security risk | 🔴 High | Sanitize password inputs before snapshot |
 | No loading state | Agent sees stale/blank before first snapshot | 🟡 Medium | Add "Loading visitor's screen..." |
-| Iframes not captured | Embedded content invisible | 🟡 Medium | Document limitation or attempt capture |
+| ~~Iframes not captured~~ | ~~Embedded content invisible~~ | ~~🟡 Medium~~ | ✅ Fixed by TKT-053 |
 | Canvas blank | Charts/graphs invisible | 🟡 Medium | Could convert canvas to image |
 | No delta encoding | Large payloads | 🟢 Low | Consider diff-based updates |
 
@@ -307,10 +308,11 @@ docClone.querySelectorAll('input[type="password"]').forEach((input) => {
    - Some visitors might prefer privacy during calls
    - No toggle currently exists - cobrowse is automatic
 
-3. **How should iframe content be handled?**
-   - Cross-origin iframes cannot be captured due to CORS
-   - Same-origin iframes could theoretically be recursively captured
-   - Current: Iframe element shown but content blank
+3. ~~**How should iframe content be handled?**~~
+   - ~~Cross-origin iframes cannot be captured due to CORS~~
+   - ~~Same-origin iframes could theoretically be recursively captured~~
+   - ~~Current: Iframe element shown but content blank~~
+   - **✅ RESOLVED by TKT-053:** Same-origin iframes are now recursively captured via srcdoc. Cross-origin iframes show styled placeholders.
 
 4. **Should canvas elements be converted to images?**
    - `canvas.toDataURL()` could capture current state
@@ -360,8 +362,8 @@ style={{
 
 | Element Type | Captured? | What Agent Sees | Notes |
 |--------------|-----------|-----------------|-------|
-| **iframe (same-origin)** | Structure only | Empty iframe box | Content not serialized |
-| **iframe (cross-origin)** | Structure only | Empty iframe box | CORS prevents access |
+| **iframe (same-origin)** | ✅ Yes (TKT-053) | Full iframe content | Recursively captured via srcdoc |
+| **iframe (cross-origin)** | Placeholder (TKT-053) | Styled placeholder div | CORS prevents access - shows "Embedded content - not visible to agent" |
 | **canvas** | Element only | Blank box | No canvas.toDataURL() |
 | **video** | Element only | Video element (paused) | Video not streaming |
 | **SVG** | ✅ Yes | Full SVG content | Serializes correctly |

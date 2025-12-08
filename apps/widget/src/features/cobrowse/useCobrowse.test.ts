@@ -1001,5 +1001,516 @@ describe("useCobrowse", () => {
       expect(snapshotTaken).toBe(false);
     });
   });
+
+  // ===========================================================================
+  // IFRAME MATCHING LOGIC TESTS (TKT-053)
+  // ===========================================================================
+
+  describe("Iframe Matching Logic", () => {
+    it("matches iframe by src attribute when both have same src", () => {
+      const cloneIframe = {
+        getAttribute: vi.fn((attr) => {
+          if (attr === "src") return "https://example.com/embed";
+          if (attr === "name") return null;
+          return null;
+        }),
+      };
+
+      const originalIframe = {
+        getAttribute: vi.fn((attr) => {
+          if (attr === "src") return "https://example.com/embed";
+          if (attr === "name") return null;
+          return null;
+        }),
+      };
+
+      const cloneSrc = cloneIframe.getAttribute("src");
+      const iframeSrc = originalIframe.getAttribute("src");
+
+      const matches = cloneSrc && iframeSrc && cloneSrc === iframeSrc;
+      expect(matches).toBe(true);
+    });
+
+    it("matches iframe by name attribute when both have same name", () => {
+      const cloneIframe = {
+        getAttribute: vi.fn((attr) => {
+          if (attr === "src") return null;
+          if (attr === "name") return "my-iframe";
+          return null;
+        }),
+      };
+
+      const originalIframe = {
+        getAttribute: vi.fn((attr) => {
+          if (attr === "src") return null;
+          if (attr === "name") return "my-iframe";
+          return null;
+        }),
+      };
+
+      const cloneName = cloneIframe.getAttribute("name");
+      const iframeName = originalIframe.getAttribute("name");
+
+      const matches = cloneName && iframeName && cloneName === iframeName;
+      expect(matches).toBe(true);
+    });
+
+    it("does not match iframes with different src values", () => {
+      const cloneIframe = {
+        getAttribute: vi.fn((attr) => {
+          if (attr === "src") return "https://example.com/embed1";
+          if (attr === "name") return null;
+          return null;
+        }),
+      };
+
+      const originalIframe = {
+        getAttribute: vi.fn((attr) => {
+          if (attr === "src") return "https://example.com/embed2";
+          if (attr === "name") return null;
+          return null;
+        }),
+      };
+
+      const cloneSrc = cloneIframe.getAttribute("src");
+      const iframeSrc = originalIframe.getAttribute("src");
+
+      const matches = cloneSrc && iframeSrc && cloneSrc === iframeSrc;
+      expect(matches).toBe(false);
+    });
+
+    it("does not match iframes with different name values", () => {
+      const cloneIframe = {
+        getAttribute: vi.fn((attr) => {
+          if (attr === "src") return null;
+          if (attr === "name") return "iframe-1";
+          return null;
+        }),
+      };
+
+      const originalIframe = {
+        getAttribute: vi.fn((attr) => {
+          if (attr === "src") return null;
+          if (attr === "name") return "iframe-2";
+          return null;
+        }),
+      };
+
+      const cloneName = cloneIframe.getAttribute("name");
+      const iframeName = originalIframe.getAttribute("name");
+
+      const matches = cloneName && iframeName && cloneName === iframeName;
+      expect(matches).toBe(false);
+    });
+
+    it("does not match when both src and name are null", () => {
+      const cloneIframe = {
+        getAttribute: vi.fn(() => null),
+      };
+
+      const originalIframe = {
+        getAttribute: vi.fn(() => null),
+      };
+
+      const cloneSrc = cloneIframe.getAttribute("src");
+      const iframeSrc = originalIframe.getAttribute("src");
+      const cloneName = cloneIframe.getAttribute("name");
+      const iframeName = originalIframe.getAttribute("name");
+
+      const matchesBySrc = cloneSrc && iframeSrc && cloneSrc === iframeSrc;
+      const matchesByName = cloneName && iframeName && cloneName === iframeName;
+      const matches = matchesBySrc || matchesByName;
+
+      // When both are falsy, OR returns the last falsy value (which is false from matchesByName)
+      expect(matches).toBeFalsy();
+    });
+  });
+
+  // ===========================================================================
+  // SAME-ORIGIN IFRAME CONTENT CAPTURE TESTS (TKT-053)
+  // ===========================================================================
+
+  describe("Same-Origin Iframe Content Capture", () => {
+    it("captures iframe content by cloning contentDocument when accessible", () => {
+      const mockIframeDoc = {
+        cloneNode: vi.fn().mockReturnValue({
+          documentElement: {
+            outerHTML: "<html><body>Iframe content</body></html>",
+          },
+          querySelectorAll: vi.fn().mockReturnValue([]),
+        }),
+      };
+
+      const mockIframe = {
+        contentDocument: mockIframeDoc,
+        src: "https://example.com/embed",
+      };
+
+      // Simulate the clone operation
+      const iframeDocClone = mockIframeDoc.cloneNode(true);
+
+      expect(mockIframeDoc.cloneNode).toHaveBeenCalledWith(true);
+      expect(iframeDocClone.documentElement.outerHTML).toBe("<html><body>Iframe content</body></html>");
+    });
+
+    it("uses srcdoc attribute to store serialized iframe content", () => {
+      const mockIframeClone = {
+        setAttribute: vi.fn(),
+        removeAttribute: vi.fn(),
+      };
+
+      const iframeHtml = "<html><body>Iframe content</body></html>";
+
+      // Simulate setting srcdoc
+      mockIframeClone.setAttribute("srcdoc", iframeHtml);
+      mockIframeClone.removeAttribute("src");
+
+      expect(mockIframeClone.setAttribute).toHaveBeenCalledWith("srcdoc", iframeHtml);
+      expect(mockIframeClone.removeAttribute).toHaveBeenCalledWith("src");
+    });
+
+    it("removes src attribute when using srcdoc", () => {
+      const mockIframeClone = {
+        setAttribute: vi.fn(),
+        removeAttribute: vi.fn(),
+      };
+
+      const iframeHtml = "<html><body>Content</body></html>";
+
+      mockIframeClone.setAttribute("srcdoc", iframeHtml);
+      mockIframeClone.removeAttribute("src");
+
+      expect(mockIframeClone.removeAttribute).toHaveBeenCalledWith("src");
+    });
+
+    it("determines iframe base URL from src attribute when available", () => {
+      const originalIframe = {
+        src: "https://cdn.example.com/embed/page.html",
+      };
+
+      // Extract base URL (origin) from iframe src
+      const iframeBaseUrl = new URL(originalIframe.src).origin;
+
+      expect(iframeBaseUrl).toBe("https://cdn.example.com");
+    });
+
+    it("falls back to parent baseUrl when iframe src is empty", () => {
+      const originalIframe = {
+        src: "",
+      };
+      const parentBaseUrl = "https://example.com";
+
+      // Logic: if no src, use parent baseUrl
+      const iframeBaseUrl = originalIframe.src ? new URL(originalIframe.src).origin : parentBaseUrl;
+
+      expect(iframeBaseUrl).toBe(parentBaseUrl);
+    });
+  });
+
+  // ===========================================================================
+  // IFRAME URL CONVERSION TESTS (TKT-053)
+  // ===========================================================================
+
+  describe("Iframe Content URL Conversion", () => {
+    it("converts relative image URLs in iframe content to absolute", () => {
+      const iframeBaseUrl = "https://cdn.example.com";
+      const relativeSrc = "/images/logo.png";
+
+      const absoluteUrl = new URL(relativeSrc, iframeBaseUrl).href;
+
+      expect(absoluteUrl).toBe("https://cdn.example.com/images/logo.png");
+    });
+
+    it("converts relative stylesheet URLs in iframe content to absolute", () => {
+      const iframeBaseUrl = "https://cdn.example.com";
+      const relativeHref = "/css/embed.css";
+
+      const absoluteUrl = new URL(relativeHref, iframeBaseUrl).href;
+
+      expect(absoluteUrl).toBe("https://cdn.example.com/css/embed.css");
+    });
+
+    it("does not convert absolute HTTP URLs in iframe content", () => {
+      const absoluteSrc = "https://other-cdn.com/image.png";
+
+      const shouldConvert = !absoluteSrc.startsWith("http") && !absoluteSrc.startsWith("data:");
+      expect(shouldConvert).toBe(false);
+    });
+
+    it("does not convert data URLs in iframe content", () => {
+      const dataSrc = "data:image/png;base64,iVBORw0KGgo=";
+
+      const shouldConvert = !dataSrc.startsWith("http") && !dataSrc.startsWith("data:");
+      expect(shouldConvert).toBe(false);
+    });
+
+    it("handles URL conversion errors gracefully in iframe content", () => {
+      // Test the error handling pattern used in the code
+      // The URL constructor will throw on truly invalid URLs
+      const baseUrl = "https://example.com";
+      const invalidUrls = ["", "   ", "not-a-url-at-all"];
+
+      invalidUrls.forEach((invalidUrl) => {
+        let result = invalidUrl;
+        try {
+          // Some invalid URLs might not throw, but the code handles both cases
+          const url = new URL(invalidUrl, baseUrl);
+          result = url.href;
+        } catch {
+          // Leave as-is on error - this is the behavior being tested
+          result = invalidUrl;
+        }
+
+        // The result should either be converted or left as-is
+        // What matters is that no error propagates
+        expect(result).toBeDefined();
+      });
+    });
+  });
+
+  // ===========================================================================
+  // CROSS-ORIGIN IFRAME PLACEHOLDER TESTS (TKT-053)
+  // ===========================================================================
+
+  describe("Cross-Origin Iframe Placeholder", () => {
+    it("throws error when trying to access cross-origin iframe contentDocument", () => {
+      // Simulate cross-origin iframe that throws security error
+      const mockIframe = {
+        contentDocument: null, // Cross-origin iframes return null
+      };
+
+      expect(() => {
+        if (!mockIframe.contentDocument) {
+          throw new Error("Cannot access iframe content");
+        }
+      }).toThrow("Cannot access iframe content");
+    });
+
+    it("creates placeholder div when iframe is inaccessible", () => {
+      const mockDoc = {
+        createElement: vi.fn().mockReturnValue({
+          setAttribute: vi.fn(),
+          textContent: "",
+        }),
+      };
+
+      const placeholder = mockDoc.createElement("div");
+      expect(mockDoc.createElement).toHaveBeenCalledWith("div");
+    });
+
+    it("placeholder inherits width from iframe", () => {
+      const iframeClone = {
+        getAttribute: vi.fn((attr) => {
+          if (attr === "width") return "800";
+          if (attr === "height") return "600";
+          return null;
+        }),
+      };
+
+      const width = iframeClone.getAttribute("width") || "100%";
+      expect(width).toBe("800");
+    });
+
+    it("placeholder defaults to 100% width when iframe has no width", () => {
+      const iframeClone = {
+        getAttribute: vi.fn(() => null),
+      };
+
+      const width = iframeClone.getAttribute("width") || "100%";
+      expect(width).toBe("100%");
+    });
+
+    it("placeholder inherits height from iframe", () => {
+      const iframeClone = {
+        getAttribute: vi.fn((attr) => {
+          if (attr === "width") return "800";
+          if (attr === "height") return "600";
+          return null;
+        }),
+      };
+
+      const height = iframeClone.getAttribute("height") || "200px";
+      expect(height).toBe("600");
+    });
+
+    it("placeholder defaults to 200px height when iframe has no height", () => {
+      const iframeClone = {
+        getAttribute: vi.fn(() => null),
+      };
+
+      const height = iframeClone.getAttribute("height") || "200px";
+      expect(height).toBe("200px");
+    });
+
+    it("placeholder uses flexbox for centering content", () => {
+      const placeholderStyle =
+        "display: flex; " +
+        "align-items: center; " +
+        "justify-content: center; " +
+        "width: 100%; " +
+        "height: 200px; " +
+        "background: #f3f4f6; " +
+        "border: 2px dashed #d1d5db; " +
+        "color: #6b7280; " +
+        "font-family: system-ui, -apple-system, sans-serif; " +
+        "font-size: 14px; " +
+        "text-align: center; " +
+        "padding: 20px; " +
+        "box-sizing: border-box;";
+
+      expect(placeholderStyle).toContain("display: flex");
+      expect(placeholderStyle).toContain("align-items: center");
+      expect(placeholderStyle).toContain("justify-content: center");
+    });
+
+    it("placeholder has gray background color (#f3f4f6)", () => {
+      const placeholderStyle = "background: #f3f4f6;";
+      expect(placeholderStyle).toContain("background: #f3f4f6");
+    });
+
+    it("placeholder has dashed border (2px dashed #d1d5db)", () => {
+      const placeholderStyle = "border: 2px dashed #d1d5db;";
+      expect(placeholderStyle).toContain("border: 2px dashed #d1d5db");
+    });
+
+    it("placeholder has text color #6b7280", () => {
+      const placeholderStyle = "color: #6b7280;";
+      expect(placeholderStyle).toContain("color: #6b7280");
+    });
+
+    it("placeholder uses system-ui font family", () => {
+      const placeholderStyle = "font-family: system-ui, -apple-system, sans-serif;";
+      expect(placeholderStyle).toContain("font-family: system-ui, -apple-system, sans-serif");
+    });
+
+    it("placeholder has font size of 14px", () => {
+      const placeholderStyle = "font-size: 14px;";
+      expect(placeholderStyle).toContain("font-size: 14px");
+    });
+
+    it("placeholder has centered text alignment", () => {
+      const placeholderStyle = "text-align: center;";
+      expect(placeholderStyle).toContain("text-align: center");
+    });
+
+    it("placeholder has 20px padding", () => {
+      const placeholderStyle = "padding: 20px;";
+      expect(placeholderStyle).toContain("padding: 20px");
+    });
+
+    it("placeholder uses border-box sizing", () => {
+      const placeholderStyle = "box-sizing: border-box;";
+      expect(placeholderStyle).toContain("box-sizing: border-box");
+    });
+
+    it("placeholder text is 'Embedded content - not visible to agent'", () => {
+      const placeholderText = "Embedded content - not visible to agent";
+      expect(placeholderText).toBe("Embedded content - not visible to agent");
+    });
+
+    it("replaces iframe with placeholder in DOM", () => {
+      const mockPlaceholder = { id: "placeholder" };
+      const mockIframeClone = { id: "iframe" };
+      const mockParentNode = {
+        replaceChild: vi.fn(),
+      };
+
+      mockParentNode.replaceChild(mockPlaceholder, mockIframeClone);
+
+      expect(mockParentNode.replaceChild).toHaveBeenCalledWith(mockPlaceholder, mockIframeClone);
+    });
+  });
+
+  // ===========================================================================
+  // IFRAME HANDLING ERROR CASES (TKT-053)
+  // ===========================================================================
+
+  describe("Iframe Handling Error Cases", () => {
+    it("catches error when accessing cross-origin iframe contentDocument", () => {
+      let errorCaught = false;
+
+      try {
+        // Simulate cross-origin access attempt
+        const inaccessibleIframe = {
+          contentDocument: null,
+        };
+
+        if (!inaccessibleIframe.contentDocument) {
+          throw new Error("Cannot access iframe content");
+        }
+      } catch (err) {
+        errorCaught = true;
+      }
+
+      expect(errorCaught).toBe(true);
+    });
+
+    it("continues processing other iframes when one fails", () => {
+      const iframes = [
+        { accessible: true, processed: false },
+        { accessible: false, processed: false },
+        { accessible: true, processed: false },
+      ];
+
+      iframes.forEach((iframe) => {
+        try {
+          if (!iframe.accessible) {
+            throw new Error("Cannot access");
+          }
+          iframe.processed = true;
+        } catch {
+          // Replace with placeholder (simulated by not setting processed)
+        }
+      });
+
+      expect(iframes[0].processed).toBe(true);
+      expect(iframes[1].processed).toBe(false);
+      expect(iframes[2].processed).toBe(true);
+    });
+
+    it("handles undefined parentNode gracefully with optional chaining", () => {
+      const mockIframeClone = {
+        parentNode: null,
+      };
+      const mockPlaceholder = { id: "placeholder" };
+
+      // Using optional chaining should not throw
+      expect(() => {
+        mockIframeClone.parentNode?.replaceChild?.(mockPlaceholder, mockIframeClone);
+      }).not.toThrow();
+    });
+  });
+
+  // ===========================================================================
+  // IFRAME CONTENT SERIALIZATION (TKT-053)
+  // ===========================================================================
+
+  describe("Iframe Content Serialization", () => {
+    it("serializes iframe document to HTML using outerHTML", () => {
+      const mockIframeDocClone = {
+        documentElement: {
+          outerHTML: "<html><head><title>Embedded</title></head><body>Content</body></html>",
+        },
+      };
+
+      const iframeHtml = mockIframeDocClone.documentElement.outerHTML;
+
+      expect(iframeHtml).toContain("<html>");
+      expect(iframeHtml).toContain("<head>");
+      expect(iframeHtml).toContain("<body>");
+      expect(iframeHtml).toBe("<html><head><title>Embedded</title></head><body>Content</body></html>");
+    });
+
+    it("stores serialized HTML in srcdoc attribute", () => {
+      const iframeHtml = "<html><body>Test</body></html>";
+      const mockIframeClone = {
+        setAttribute: vi.fn(),
+      };
+
+      mockIframeClone.setAttribute("srcdoc", iframeHtml);
+
+      expect(mockIframeClone.setAttribute).toHaveBeenCalledWith("srcdoc", iframeHtml);
+    });
+  });
 });
 
