@@ -84,9 +84,153 @@ Test tickets that dev agents have completed and are awaiting review. Your job is
 2. **Use the browser** - Playwright MCP testing is MANDATORY
 3. **Take screenshots** - Every test needs visual evidence
 4. **Test edge cases** - Empty inputs, invalid data, rapid clicks, etc.
-5. **Make a decision:**
-   - ✅ **PASS** → Only if happy path AND edge cases pass
-   - ❌ **FAIL** → If ANY test fails, including edge cases
+5. **Make a decision** based on ticket type (see below)
+
+---
+
+## 🔀 Two Different Flows: UI vs Non-UI Tickets
+
+**CRITICAL: The outcome of QA depends on whether the ticket involves UI changes.**
+
+### Non-UI Tickets (Auto-Merge)
+
+For tickets that do NOT modify UI files (backend, API, database, etc.):
+
+```
+QA tests → All pass → Auto-merge to main
+                  ↓
+              FAIL → Create blocker, no merge
+```
+
+**What counts as non-UI:**
+- API route changes (`/api/**/*.ts`)
+- Database migrations
+- Server-side logic
+- CLI tools
+- Configuration files
+
+### UI Tickets (Requires PM Approval)
+
+For tickets that modify UI files (`.tsx`, `.css`, `/components/`, `/app/(dashboard)/`):
+
+```
+QA tests → All pass → Generate magic link → Submit to PM inbox → WAIT
+                                                                  ↓
+                                              PM approves → Merge to main
+                                              PM rejects → Create blocker
+```
+
+**You do NOT auto-merge UI tickets.** The PM must review the actual UI and approve.
+
+**What counts as UI:**
+- React components (`.tsx` files in `/components/`, `/features/`, `/app/`)
+- Styles (`.css`, Tailwind classes)
+- Layout changes
+- Any user-facing visual change
+
+### How to Determine Ticket Type
+
+Check the ticket's `files_to_modify` field:
+
+```bash
+cat docs/data/tickets.json | jq '.tickets[] | select(.id == "TKT-XXX") | .files_to_modify'
+```
+
+If ANY file matches these patterns → **UI ticket**:
+- `*.tsx` (except `*.test.tsx`)
+- `*/components/*`
+- `*/features/*`
+- `*/app/(dashboard)/*`
+- `*/app/(app)/*`
+- `*.css`
+
+---
+
+## 🔗 Magic Link Generation (UI Tickets Only)
+
+For UI tickets, after all tests pass, you MUST generate a magic login link.
+
+### Step 1: Create Test Account
+
+Create a Supabase user with the exact state needed to see the feature:
+
+```bash
+# Example: Create test user for payment failure testing
+# Use Supabase dashboard or API to create user
+# Email: test-{ticket-id}@review.local
+# Password: review-{ticket-id}-{random}
+```
+
+### Step 2: Set Up Required State
+
+Configure the database so the test account shows the feature:
+
+```bash
+# Example: Set org to past_due for PaymentBlocker testing
+sqlite3 apps/server/data/app.db "UPDATE organizations SET subscription_status='past_due' WHERE id='test-org';"
+```
+
+### Step 3: Generate Magic Link
+
+Call the PM dashboard API to create a review token:
+
+```bash
+curl -X POST http://localhost:3456/api/v2/review-tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticket_id": "TKT-XXX",
+    "user_email": "test-tkt-xxx@review.local",
+    "user_password": "review-tkt-xxx-abc123",
+    "redirect_path": "/admin/settings/billing",
+    "preview_base_url": "https://your-branch.vercel.app"
+  }'
+```
+
+Response:
+```json
+{
+  "success": true,
+  "token": "abc123...",
+  "magic_url": "https://your-branch.vercel.app/api/review-login?token=abc123...",
+  "expires_at": "2025-12-15T..."
+}
+```
+
+### Step 4: Submit to PM Inbox
+
+Include the `magic_url` in the inbox item (NOT preview_url + test_account):
+
+```bash
+curl -X POST http://localhost:3456/api/v2/inbox \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticket_id": "TKT-XXX",
+    "type": "ui_review",
+    "message": "UI changes ready for review",
+    "branch": "agent/tkt-xxx",
+    "files": ["src/components/Feature.tsx"],
+    "magic_url": "https://your-branch.vercel.app/api/review-login?token=abc123...",
+    "redirect_path": "/admin/settings/billing"
+  }'
+```
+
+### Step 5: WAIT for PM Approval
+
+**DO NOT mark the ticket as passed or merged.** 
+
+Update ticket status to `needs_pm_review`:
+
+```bash
+./scripts/agent-cli.sh update-ticket TKT-XXX --status needs_pm_review
+```
+
+The PM will:
+1. Click the magic link
+2. Land on the exact page, logged in
+3. Test the feature themselves
+4. Approve or reject in the PM dashboard
+
+Only AFTER PM approval will the ticket proceed to merge.
 
 ---
 
@@ -102,6 +246,155 @@ Your QA report will be considered INVALID if you:
 - ❌ Pass a feature without trying to break it
 
 **Good QA = Finding bugs.** If you test thoroughly and find nothing, that's fine. But if you test lazily and miss obvious bugs, that's bad QA.
+
+---
+
+## 📸 UI Change Requirements (MANDATORY)
+
+If the ticket modifies UI files (`.tsx`, `.css`, `/components/`, `/app/`), you MUST capture screenshots.
+
+### Screenshot Requirements
+
+**Without screenshots, UI changes are AUTO-REJECTED back to you.**
+
+1. **Capture screenshots** of every UI state:
+   - Before state (if applicable)
+   - After state showing the change
+   - Admin view vs regular user view (if different)
+   - Mobile viewport (375px width)
+   - Error states
+
+2. **Save screenshots to:**
+   ```
+   docs/agent-output/qa-screenshots/[TICKET-ID]-[description].png
+   ```
+   
+   Examples:
+   ```
+   docs/agent-output/qa-screenshots/TKT-005B-modal-admin.png
+   docs/agent-output/qa-screenshots/TKT-005B-modal-agent.png
+   docs/agent-output/qa-screenshots/TKT-005B-mobile.png
+   ```
+
+3. **Use Playwright MCP to capture:**
+   ```javascript
+   // Using Playwright MCP
+   await page.screenshot({ path: 'docs/agent-output/qa-screenshots/TKT-XXX-description.png' });
+   ```
+
+### Database Access for Testing
+
+Some UI changes require specific database states to test (e.g., `past_due` subscription status).
+
+**You have full database access for testing purposes.**
+
+Common test setup commands:
+```bash
+# Set organization to past_due status
+sqlite3 apps/server/data/app.db "UPDATE organizations SET subscription_status='past_due' WHERE id='test-org';"
+
+# Reset to active
+sqlite3 apps/server/data/app.db "UPDATE organizations SET subscription_status='active' WHERE id='test-org';"
+
+# Set user as admin
+sqlite3 apps/server/data/app.db "UPDATE users SET role='admin' WHERE email='test@example.com';"
+
+# Set user as agent
+sqlite3 apps/server/data/app.db "UPDATE users SET role='agent' WHERE email='test@example.com';"
+```
+
+**Always reset test data after testing:**
+```bash
+# Example cleanup
+sqlite3 apps/server/data/app.db "UPDATE organizations SET subscription_status='active' WHERE id LIKE 'test-%';"
+```
+
+---
+
+## 🔗 Preview URL Requirements (MANDATORY for UI Changes)
+
+For UI changes, you MUST provide a preview URL so PMs can interact with the feature live.
+
+### When to Provide Preview URL
+
+| Scenario | What to Provide |
+|----------|-----------------|
+| Simple UI (no auth needed) | Vercel preview URL with demo param |
+| Feature requiring auth | Preview URL + test account credentials |
+| Feature requiring DB state | Preview URL + test account + setup notes |
+
+### Vercel Preview URLs
+
+Every feature branch automatically gets a Vercel preview deployment:
+```
+https://[branch-name].vercel.app
+```
+
+For branches like `agent/tkt-005b-payment-blocker`, the preview URL would be:
+```
+https://agent-tkt-005b-payment-blocker.your-project.vercel.app
+```
+
+### Demo Mode (Development Only)
+
+For simple components that can render in isolation, use demo mode:
+```
+http://localhost:3000?demo=feature-name
+```
+
+Examples:
+- `?demo=payment-blocker-admin` - Shows PaymentBlocker as admin
+- `?demo=payment-blocker-agent` - Shows PaymentBlocker as agent
+
+**Note:** Demo mode only works in development. Use Vercel preview for remote PMs.
+
+### Test Account Requirements
+
+For features requiring authentication, create a test account:
+
+1. **Create test user** with predictable credentials:
+   ```bash
+   # Example: Create test user for payment failure testing
+   sqlite3 apps/server/data/app.db "INSERT INTO users (email, role) VALUES ('test-past-due-admin@example.com', 'admin');"
+   ```
+
+2. **Set up required DB state**:
+   ```bash
+   # Example: Set org to past_due for PaymentBlocker testing
+   sqlite3 apps/server/data/app.db "UPDATE organizations SET subscription_status='past_due' WHERE id='test-org';"
+   ```
+
+3. **Document in QA report** (included in inbox item):
+   ```json
+   {
+     "preview_url": "https://agent-tkt-005b.your-project.vercel.app/dashboard",
+     "test_account": {
+       "email": "test-past-due-admin@example.com",
+       "password": "test123",
+       "setup_notes": "Org is set to past_due status. Login to see PaymentBlocker modal."
+     }
+   }
+   ```
+
+### Including Preview in Inbox Item
+
+When QA passes, the inbox item is created with:
+
+```javascript
+createInboxItem(ticketId, {
+  type: 'ui_review',
+  message: 'UI changes ready for review',
+  branch: 'agent/tkt-005b-payment-blocker',
+  files: ['src/components/PaymentBlocker.tsx'],
+  screenshots: [...],
+  preview_url: 'https://agent-tkt-005b.vercel.app/dashboard',
+  test_account: {
+    email: 'test-admin@example.com',
+    password: 'test123',
+    setup_notes: 'Org is in past_due status'
+  }
+});
+```
 
 ---
 
@@ -591,26 +884,36 @@ For database changes:
 
 ### Step 6: Make Decision
 
-Based on your testing:
+Based on your testing AND the ticket type:
 
-#### All Tests Pass → APPROVED
-
-1. Create passing QA report
-2. Merge to main (if you have permissions) OR mark for human merge
-3. Archive agent files
-4. Update ticket status
-
-#### Any Test Fails → BLOCKED
+#### Any Test Fails → BLOCKED (Both UI and Non-UI)
 
 1. Document exactly what failed
 2. Create blocker file for dispatch
 3. Do NOT merge
+4. Update ticket status to `qa_failed`
+
+#### All Tests Pass → Depends on Ticket Type
+
+**Non-UI Tickets (Auto-Merge):**
+1. Create passing QA report
+2. Merge to main (if you have permissions) OR mark for human merge
+3. Archive agent files
+4. Update ticket status to `merged`
+
+**UI Tickets (Submit to PM):**
+1. Create test account with required state
+2. Generate magic login link (see "Magic Link Generation" section above)
+3. Create passing QA report (but NOT merged yet)
+4. Submit to PM inbox with magic_url
+5. Update ticket status to `needs_pm_review`
+6. **DO NOT MERGE** - wait for PM approval
 
 ---
 
 ### Step 7: Report Results
 
-#### If APPROVED:
+#### If APPROVED (Non-UI) or SUBMITTED (UI):
 
 **Create file:** `docs/agent-output/qa-results/QA-[TICKET-ID]-PASSED-[timestamp].md`
 

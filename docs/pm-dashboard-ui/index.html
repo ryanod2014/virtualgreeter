@@ -1456,10 +1456,382 @@ pnpm build`}
     // ================= INBOX VIEW =================
     // Unified inbox - blockers are now part of findings with type: "blocker"
     // Dev agent blockers from agent-output/blocked/ are shown FIRST
+    // UI Reviews from /api/v2/inbox are shown in a separate section
 
     function InboxView({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs, staging }) {
+      const [uiReviews, setUiReviews] = useState([]);
+      const [loadingReviews, setLoadingReviews] = useState(true);
+      
+      // Fetch UI reviews from inbox API
+      useEffect(() => {
+        fetch('/api/v2/inbox')
+          .then(res => res.json())
+          .then(data => {
+            setUiReviews(data.items || []);
+            setLoadingReviews(false);
+          })
+          .catch(err => {
+            console.error('Failed to load UI reviews:', err);
+            setLoadingReviews(false);
+          });
+      }, []);
+      
+      // Handle approve/reject
+      const handleApprove = async (ticketId) => {
+        try {
+          const res = await fetch(`/api/v2/inbox/${ticketId}/approve`, { method: 'POST' });
+          if (res.ok) {
+            setUiReviews(prev => prev.filter(r => r.ticket_id !== ticketId));
+          }
+        } catch (err) {
+          console.error('Failed to approve:', err);
+        }
+      };
+      
+      const handleReject = async (ticketId, reason) => {
+        try {
+          const res = await fetch(`/api/v2/inbox/${ticketId}/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason || 'Rejected by PM' })
+          });
+          if (res.ok) {
+            setUiReviews(prev => prev.filter(r => r.ticket_id !== ticketId));
+          }
+        } catch (err) {
+          console.error('Failed to reject:', err);
+        }
+      };
+      
       return (
         <div className="fade-in">
+          {/* UI Reviews Section */}
+          {uiReviews.length > 0 && (
+            <div style={{ marginBottom: '32px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>🖼️</span> UI Changes Awaiting Review
+                <span style={{ 
+                  background: 'var(--accent)', 
+                  color: 'white', 
+                  padding: '2px 8px', 
+                  borderRadius: '12px', 
+                  fontSize: '12px' 
+                }}>{uiReviews.length}</span>
+              </h2>
+              
+              {uiReviews.map(review => (
+                <div key={review.id} className="card" style={{ marginBottom: '16px', padding: '20px' }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    <div>
+                      <span style={{ 
+                        fontWeight: 700, 
+                        fontSize: '16px',
+                        color: 'var(--accent)'
+                      }}>{review.ticket_id}</span>
+                      <span style={{ 
+                        marginLeft: '8px',
+                        background: 'rgba(139, 92, 246, 0.1)',
+                        color: 'rgb(139, 92, 246)',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '12px'
+                      }}>UI Review</span>
+                      {review.branch && (
+                        <a 
+                          href={`https://github.com/AidanZealworkers/Digital_greeter/tree/${review.branch}`}
+                          target="_blank"
+                          style={{ marginLeft: '12px', color: 'var(--text-muted)', fontSize: '13px' }}
+                        >
+                          {review.branch}
+                        </a>
+                      )}
+                    </div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                      {new Date(review.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  
+                  {/* Message */}
+                  <div style={{ marginBottom: '16px', color: 'var(--text-secondary)' }}>
+                    {review.message}
+                  </div>
+                  
+                  {/* Screenshots */}
+                  {review.screenshots && review.screenshots.length > 0 ? (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Screenshots:</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                        {review.screenshots.map((screenshot, idx) => (
+                          <a 
+                            key={idx} 
+                            href={screenshot.path} 
+                            target="_blank"
+                            style={{ 
+                              display: 'block',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px',
+                              overflow: 'hidden',
+                              width: '200px'
+                            }}
+                          >
+                            <img 
+                              src={screenshot.path} 
+                              alt={screenshot.name}
+                              style={{ width: '100%', height: '120px', objectFit: 'cover' }}
+                            />
+                            <div style={{ 
+                              padding: '8px', 
+                              fontSize: '12px', 
+                              color: 'var(--text-muted)',
+                              background: 'var(--bg-elevated)',
+                              textAlign: 'center'
+                            }}>
+                              {screenshot.name || screenshot.filename}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      padding: '20px', 
+                      background: 'rgba(239, 68, 68, 0.1)', 
+                      borderRadius: '8px', 
+                      marginBottom: '16px',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      textAlign: 'center'
+                    }}>
+                      <span style={{ fontSize: '24px' }}>⚠️</span>
+                      <div style={{ fontWeight: 600, color: 'var(--critical)', marginTop: '8px' }}>
+                        Screenshots Missing
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        This should have been auto-rejected. If you see this, contact engineering.
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Files Changed */}
+                  {review.files && review.files.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Files Changed:</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {review.files.map((file, idx) => (
+                          <span key={idx} style={{ 
+                            background: 'var(--bg-elevated)', 
+                            padding: '4px 8px', 
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontFamily: 'monospace'
+                          }}>
+                            {file.split('/').pop()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Magic URL (One-Click Login) - Preferred */}
+                  {review.magic_url && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Try It Live:</div>
+                      <a 
+                        href={review.magic_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '14px 24px',
+                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          color: 'white',
+                          borderRadius: '10px',
+                          textDecoration: 'none',
+                          fontWeight: 700,
+                          fontSize: '16px',
+                          boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 6px 20px rgba(16, 185, 129, 0.5)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 4px 14px rgba(16, 185, 129, 0.4)';
+                        }}
+                      >
+                        <span style={{ fontSize: '20px' }}>🚀</span>
+                        Try It Live (Auto-Login)
+                        <span style={{ fontSize: '14px', opacity: 0.8 }}>↗</span>
+                      </a>
+                      <div style={{ 
+                        marginTop: '10px', 
+                        fontSize: '13px', 
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <span style={{ color: '#10b981' }}>✓</span>
+                        One click to see the feature - no login required
+                      </div>
+                      {review.redirect_path && (
+                        <div style={{ 
+                          marginTop: '6px', 
+                          fontSize: '12px', 
+                          color: 'var(--text-muted)',
+                          fontFamily: 'monospace'
+                        }}>
+                          Landing page: {review.redirect_path}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Legacy Preview URL (Manual Login) */}
+                  {!review.magic_url && review.preview_url && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Live Preview:</div>
+                      <a 
+                        href={review.preview_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 16px',
+                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                          color: 'white',
+                          borderRadius: '8px',
+                          textDecoration: 'none',
+                          fontWeight: 600,
+                          fontSize: '14px',
+                          boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)'
+                        }}
+                      >
+                        <span style={{ fontSize: '16px' }}>🔗</span>
+                        Open Preview
+                        <span style={{ fontSize: '12px', opacity: 0.8 }}>↗</span>
+                      </a>
+                      <div style={{ 
+                        marginTop: '8px', 
+                        fontSize: '12px', 
+                        color: 'var(--text-muted)',
+                        fontFamily: 'monospace',
+                        wordBreak: 'break-all'
+                      }}>
+                        {review.preview_url}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Test Account Credentials (only shown for legacy preview_url without magic_url) */}
+                  {!review.magic_url && review.test_account && (
+                    <div style={{ 
+                      marginBottom: '16px',
+                      padding: '16px',
+                      background: 'rgba(251, 191, 36, 0.1)',
+                      border: '1px solid rgba(251, 191, 36, 0.3)',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{ 
+                        fontWeight: 600, 
+                        marginBottom: '12px', 
+                        fontSize: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: '#f59e0b'
+                      }}>
+                        <span>🔐</span>
+                        Test Account Credentials
+                      </div>
+                      <div style={{ display: 'grid', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', width: '70px' }}>Email:</span>
+                          <code style={{ 
+                            background: 'var(--bg-elevated)', 
+                            padding: '4px 8px', 
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            fontFamily: 'monospace'
+                          }}>
+                            {review.test_account.email}
+                          </code>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', width: '70px' }}>Password:</span>
+                          <code style={{ 
+                            background: 'var(--bg-elevated)', 
+                            padding: '4px 8px', 
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            fontFamily: 'monospace'
+                          }}>
+                            {review.test_account.password}
+                          </code>
+                        </div>
+                        {review.test_account.setup_notes && (
+                          <div style={{ 
+                            marginTop: '8px',
+                            padding: '8px 12px',
+                            background: 'var(--bg-elevated)',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            color: 'var(--text-secondary)'
+                          }}>
+                            <strong>Setup:</strong> {review.test_account.setup_notes}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                    <button
+                      onClick={() => handleApprove(review.ticket_id)}
+                      disabled={!review.screenshots || review.screenshots.length === 0}
+                      style={{
+                        padding: '10px 20px',
+                        background: review.screenshots?.length > 0 ? '#22c55e' : 'var(--bg-elevated)',
+                        color: review.screenshots?.length > 0 ? 'white' : 'var(--text-muted)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontWeight: 600,
+                        cursor: review.screenshots?.length > 0 ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      ✓ Approve & Merge
+                    </button>
+                    <button
+                      onClick={() => {
+                        const reason = prompt('Rejection reason (will be sent to dev):');
+                        if (reason) handleReject(review.ticket_id, reason);
+                      }}
+                      style={{
+                        padding: '10px 20px',
+                        background: 'transparent',
+                        color: 'var(--critical)',
+                        border: '1px solid var(--critical)',
+                        borderRadius: '6px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✗ Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Findings Triage Section */}
           <TriageContent serverMode={serverMode} onSave={onSave} findingsData={findingsData} serverDecisions={serverDecisions} onDecisionsChange={onDecisionsChange} agentOutputs={agentOutputs} staging={staging} />
         </div>
       );

@@ -286,6 +286,42 @@ function syncTicketsToDb() {
 // =============================================================================
 
 /**
+ * Find QA screenshots for a ticket
+ * Looks in docs/agent-output/qa-screenshots/ for files matching the ticket ID
+ * Returns array of screenshot objects with name and path
+ */
+function findQAScreenshots(ticketId) {
+  const screenshotsDir = path.join(__dirname, '../agent-output/qa-screenshots');
+  const screenshots = [];
+  
+  if (!fs.existsSync(screenshotsDir)) {
+    console.log(`📷 No screenshots directory found for ${ticketId}`);
+    return screenshots;
+  }
+  
+  try {
+    const files = fs.readdirSync(screenshotsDir);
+    const ticketPattern = new RegExp(ticketId.replace(/-/g, '[-_]?'), 'i');
+    
+    for (const file of files) {
+      if (ticketPattern.test(file) && /\.(png|jpg|jpeg|gif|webp)$/i.test(file)) {
+        screenshots.push({
+          name: file.replace(/[-_]/g, ' ').replace(/\.(png|jpg|jpeg|gif|webp)$/i, ''),
+          filename: file,
+          path: `/api/v2/inbox/screenshots/${file}`
+        });
+      }
+    }
+    
+    console.log(`📷 Found ${screenshots.length} screenshots for ${ticketId}`);
+  } catch (e) {
+    console.error(`Error reading screenshots for ${ticketId}:`, e.message);
+  }
+  
+  return screenshots;
+}
+
+/**
  * Create an inbox item for human review
  * Used for UI changes that need screenshot approval
  */
@@ -308,12 +344,20 @@ function createInboxItem(ticketId, data) {
     message: data.message || 'Review required',
     branch: data.branch || null,
     files: data.files || [],
+    screenshots: data.screenshots || [],
+    // Magic URL (preferred) - one-click login for PM
+    magic_url: data.magic_url || null,
+    redirect_path: data.redirect_path || null,
+    // Legacy fields (fallback if no magic_url)
+    preview_url: data.preview_url || null,
+    test_account: data.test_account || null,  // { email, password, setup_notes }
     created_at: new Date().toISOString(),
     status: 'pending'
   };
-  
+
   fs.writeFileSync(filepath, JSON.stringify(inboxItem, null, 2));
-  console.log(`📬 Created inbox item: ${filename}`);
+  const urlType = inboxItem.magic_url ? 'magic link' : (inboxItem.preview_url ? 'preview URL' : '');
+  console.log(`📬 Created inbox item: ${filename} with ${inboxItem.screenshots.length} screenshots${urlType ? ` and ${urlType}` : ''}`);
   
   // Log event
   if (dbModule?.logEvent) {
@@ -417,13 +461,51 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
     );
     
     if (hasUIChanges) {
-      console.log(`🖼️ UI changes detected for ${ticketId} - routing to inbox for screenshot review`);
-      // Create inbox item for human screenshot review
+      console.log(`🖼️ UI changes detected for ${ticketId} - checking for QA screenshots...`);
+      
+      // Look for screenshots from QA
+      const qaScreenshots = findQAScreenshots(ticketId);
+      
+      if (!qaScreenshots || qaScreenshots.length === 0) {
+        // AUTO-REJECT: No screenshots - send back to QA
+        console.log(`🚫 No screenshots found for UI change ${ticketId} - auto-rejecting to QA`);
+        
+        dbModule.tickets.update(ticketId, { 
+          status: 'qa_failed',
+          qa_notes: 'AUTO-REJECTED: UI changes require screenshots. Please capture screenshots showing the UI changes and save to docs/agent-output/qa-screenshots/'
+        });
+        
+        // Log the auto-rejection
+        if (dbModule?.logEvent) {
+          dbModule.logEvent('ui_review_auto_rejected', 'system', 'ticket', ticketId, {
+            reason: 'missing_screenshots',
+            message: 'UI changes require QA screenshots before PM review'
+          });
+        }
+        
+        // Queue QA agent to retry with screenshots
+        dbModule.jobs.create({
+          job_type: 'qa_launch',
+          ticket_id: ticketId,
+          branch: ticket.branch,
+          priority: 1,
+          payload: { 
+            triggered_by: 'screenshot_required',
+            instructions: 'UI change requires screenshots. Capture screenshots and save to docs/agent-output/qa-screenshots/'
+          }
+        });
+        startJobWorker();
+        return; // Don't proceed further
+      }
+      
+      // HAS SCREENSHOTS - route to PM inbox for review
+      console.log(`✅ Found ${qaScreenshots.length} screenshots for ${ticketId} - routing to PM inbox`);
       createInboxItem(ticketId, {
         type: 'ui_review',
-        message: 'UI changes detected - please review screenshots',
+        message: 'UI changes ready for review - QA screenshots attached',
         branch: ticket.branch,
-        files: filesToModify.filter(f => f.endsWith('.tsx') || f.endsWith('.css'))
+        files: filesToModify.filter(f => f.endsWith('.tsx') || f.endsWith('.css')),
+        screenshots: qaScreenshots
       });
       // Don't auto-proceed - wait for human approval via inbox
     } else {
@@ -3051,8 +3133,185 @@ function handleAPI(req, res, body) {
   }
 
   // ---------------------------------------------------------------------------
+  // DEMO PAGES (For testing UI changes in inbox)
+  // ---------------------------------------------------------------------------
+
+  // GET /demos/:name - Serve demo HTML pages for PM preview
+  if (req.method === 'GET' && url.startsWith('/demos/')) {
+    const demoName = url.replace('/demos/', '').split('?')[0];
+    const demosDir = path.join(__dirname, 'demos');
+    const filepath = path.join(demosDir, `${demoName}.html`);
+
+    // Security: prevent directory traversal
+    if (demoName.includes('..') || demoName.includes('/')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid demo name' }));
+      return true;
+    }
+
+    if (fs.existsSync(filepath)) {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      fs.createReadStream(filepath).pipe(res);
+    } else {
+      res.writeHead(404, { 'Content-Type': 'text/html' });
+      res.end('<h1>Demo not found</h1><p>Available demos: payment-blocker</p>');
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // REVIEW TOKENS (Magic Links for PM Review)
+  // ---------------------------------------------------------------------------
+
+  // POST /api/v2/review-tokens - Create a magic login token for PM review
+  if (req.method === 'POST' && url === '/api/v2/review-tokens') {
+    try {
+      const data = JSON.parse(body);
+      const { ticket_id, user_email, user_password, redirect_path, preview_base_url } = data;
+
+      if (!ticket_id || !user_email || !user_password || !redirect_path) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Missing required fields: ticket_id, user_email, user_password, redirect_path' }));
+        return true;
+      }
+
+      // Generate crypto-random token
+      const crypto = require('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+
+      // Create token data
+      const tokenData = {
+        token,
+        ticket_id: ticket_id.toUpperCase(),
+        user_email,
+        user_password,
+        redirect_path,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+        used_count: 0
+      };
+
+      // Save to file
+      const tokensDir = path.join(__dirname, '../agent-output/review-tokens');
+      if (!fs.existsSync(tokensDir)) {
+        fs.mkdirSync(tokensDir, { recursive: true });
+      }
+      const filename = `${ticket_id.toUpperCase()}-${token.substring(0, 8)}.json`;
+      fs.writeFileSync(path.join(tokensDir, filename), JSON.stringify(tokenData, null, 2));
+
+      // Build magic URL - use preview_base_url if provided, otherwise use localhost
+      const baseUrl = preview_base_url || 'http://localhost:3000';
+      const magic_url = `${baseUrl}/api/review-login?token=${token}`;
+
+      console.log(`🔗 Created review token for ${ticket_id}: ${filename}`);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        token,
+        magic_url,
+        expires_at: tokenData.expires_at
+      }));
+    } catch (e) {
+      console.error('Error creating review token:', e);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // GET /api/v2/review-tokens/:token - Look up token details for login
+  if (req.method === 'GET' && url.match(/\/api\/v2\/review-tokens\/[a-f0-9]{64}$/)) {
+    try {
+      const token = url.split('/').pop();
+      const tokensDir = path.join(__dirname, '../agent-output/review-tokens');
+
+      // Find the token file
+      let tokenData = null;
+      if (fs.existsSync(tokensDir)) {
+        const files = fs.readdirSync(tokensDir).filter(f => f.endsWith('.json'));
+        for (const file of files) {
+          try {
+            const data = JSON.parse(fs.readFileSync(path.join(tokensDir, file), 'utf8'));
+            if (data.token === token) {
+              tokenData = data;
+              // Update used count
+              data.used_count = (data.used_count || 0) + 1;
+              data.last_used_at = new Date().toISOString();
+              fs.writeFileSync(path.join(tokensDir, file), JSON.stringify(data, null, 2));
+              break;
+            }
+          } catch (e) {
+            // Skip invalid files
+          }
+        }
+      }
+
+      if (!tokenData) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Token not found' }));
+        return true;
+      }
+
+      // Check expiry
+      if (new Date(tokenData.expires_at) < new Date()) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Token expired' }));
+        return true;
+      }
+
+      // Return credentials (only over localhost or trusted origins)
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        user_email: tokenData.user_email,
+        user_password: tokenData.user_password,
+        redirect_path: tokenData.redirect_path,
+        ticket_id: tokenData.ticket_id
+      }));
+    } catch (e) {
+      console.error('Error looking up review token:', e);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
   // INBOX v2 (Human Review Queue for UI Changes)
   // ---------------------------------------------------------------------------
+
+  // GET /api/v2/inbox/screenshots/:filename - Serve screenshot images
+  if (req.method === 'GET' && url.startsWith('/api/v2/inbox/screenshots/')) {
+    const filename = url.replace('/api/v2/inbox/screenshots/', '');
+    const screenshotsDir = path.join(__dirname, '../agent-output/qa-screenshots');
+    const filepath = path.join(screenshotsDir, filename);
+    
+    // Security: prevent directory traversal
+    if (filename.includes('..') || filename.includes('/')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid filename' }));
+      return true;
+    }
+    
+    if (fs.existsSync(filepath)) {
+      const ext = path.extname(filename).toLowerCase();
+      const mimeTypes = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+      };
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      
+      res.writeHead(200, { 'Content-Type': contentType });
+      fs.createReadStream(filepath).pipe(res);
+    } else {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Screenshot not found' }));
+    }
+    return true;
+  }
 
   // GET /api/v2/inbox - List pending inbox items
   if (req.method === 'GET' && url === '/api/v2/inbox') {
@@ -3653,7 +3912,30 @@ const server = http.createServer((req, res) => {
   let body = '';
   req.on('data', chunk => body += chunk);
   req.on('end', () => {
-    // Try API first
+    // Serve demo pages
+    if (req.url.startsWith('/demos/')) {
+      const demoName = req.url.replace('/demos/', '').split('?')[0];
+      const demosDir = path.join(__dirname, 'demos');
+      const filepath = path.join(demosDir, `${demoName}.html`);
+
+      // Security: prevent directory traversal
+      if (demoName.includes('..')) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid demo name' }));
+        return;
+      }
+
+      if (fs.existsSync(filepath)) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        fs.createReadStream(filepath).pipe(res);
+      } else {
+        res.writeHead(404, { 'Content-Type': 'text/html' });
+        res.end('<h1>Demo not found</h1><p>Available demos: payment-blocker</p>');
+      }
+      return;
+    }
+    
+    // Try API 
     if (req.url.startsWith('/api/')) {
       if (!handleAPI(req, res, body)) {
         res.writeHead(404);

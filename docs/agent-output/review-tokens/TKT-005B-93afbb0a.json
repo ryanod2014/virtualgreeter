@@ -1,0 +1,11 @@
+{
+  "token": "93afbb0a3d4ffe1c4384ee976c37ea18fe1561b7d492fc634d0b46718c8e1714",
+  "ticket_id": "TKT-005B",
+  "user_email": "test-pm-review@example.com",
+  "user_password": "test123",
+  "redirect_path": "/admin/settings/billing",
+  "created_at": "2025-12-09T00:24:32.556Z",
+  "expires_at": "2025-12-16T00:24:32.556Z",
+  "used_count": 9,
+  "last_used_at": "2025-12-09T00:29:41.171Z"
+}

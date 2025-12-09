@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TKT-005b Demo: Payment Blocker Modal</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #fff;
+      min-height: 100vh;
+    }
+    
+    /* Demo controls */
+    .demo-controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0,0,0,0.8);
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid #333;
+      z-index: 1000;
+    }
+    
+    .demo-controls h3 {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .demo-controls button {
+      display: block;
+      width: 100%;
+      padding: 10px 16px;
+      margin-bottom: 8px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .demo-controls button:last-child {
+      margin-bottom: 0;
+    }
+    
+    .demo-controls button.admin {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+    }
+    
+    .demo-controls button.agent {
+      background: #1f2937;
+      color: #9ca3af;
+      border: 1px solid #374151;
+    }
+    
+    .demo-controls button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    .demo-controls button.active {
+      ring: 2px solid #fff;
+      box-shadow: 0 0 0 2px #6366f1;
+    }
+    
+    /* Blurred dashboard background */
+    .dashboard-bg {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+      filter: blur(8px);
+      opacity: 0.5;
+    }
+    
+    .dashboard-bg::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: rgba(0,0,0,0.5);
+    }
+    
+    /* Modal overlay */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    
+    /* Modal */
+    .modal {
+      background: linear-gradient(180deg, #1a1a2e 0%, #16162a 100%);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 40px;
+      max-width: 480px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    
+    .modal-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      background: rgba(239, 68, 68, 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-icon svg {
+      width: 40px;
+      height: 40px;
+      color: #ef4444;
+    }
+    
+    .modal h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .modal p {
+      color: #9ca3af;
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+    
+    .modal-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .modal-button.primary {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+    }
+    
+    .modal-button.primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    }
+    
+    .modal-button.disabled {
+      background: #374151;
+      color: #6b7280;
+      cursor: not-allowed;
+    }
+    
+    .contact-info {
+      margin-top: 24px;
+      padding: 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      font-size: 14px;
+      color: #9ca3af;
+    }
+    
+    .contact-info strong {
+      color: #fff;
+    }
+    
+    /* Badge */
+    .role-badge {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .role-badge.admin {
+      background: rgba(99, 102, 241, 0.2);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+    
+    .role-badge.agent {
+      background: rgba(251, 191, 36, 0.2);
+      color: #fcd34d;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+    
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Demo controls -->
+  <div class="demo-controls">
+    <h3>TKT-005b Demo</h3>
+    <button class="admin active" onclick="showAdmin()">Admin View</button>
+    <button class="agent" onclick="showAgent()">Agent View</button>
+  </div>
+
+  <!-- Blurred dashboard background -->
+  <div class="dashboard-bg"></div>
+
+  <!-- Modal overlay -->
+  <div class="modal-overlay">
+    <!-- Admin Modal -->
+    <div class="modal" id="admin-modal">
+      <span class="role-badge admin">Admin View</span>
+      <div class="modal-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <h1>Payment Required</h1>
+      <p>Your subscription payment failed. Please update your payment method to restore access to your dashboard and continue using GreetNow.</p>
+      <button class="modal-button primary">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+        Update Payment Method
+      </button>
+    </div>
+
+    <!-- Agent Modal (hidden by default) -->
+    <div class="modal hidden" id="agent-modal">
+      <span class="role-badge agent">Agent View</span>
+      <div class="modal-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <h1>Account Suspended</h1>
+      <p>Your organization's subscription payment has failed. Dashboard access is temporarily suspended until payment is resolved.</p>
+      <button class="modal-button disabled">
+        Contact Your Administrator
+      </button>
+      <div class="contact-info">
+        <strong>Need help?</strong> Please contact your organization administrator to resolve the payment issue.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showAdmin() {
+      document.getElementById('admin-modal').classList.remove('hidden');
+      document.getElementById('agent-modal').classList.add('hidden');
+      document.querySelector('.demo-controls button.admin').classList.add('active');
+      document.querySelector('.demo-controls button.agent').classList.remove('active');
+    }
+    
+    function showAgent() {
+      document.getElementById('admin-modal').classList.add('hidden');
+      document.getElementById('agent-modal').classList.remove('hidden');
+      document.querySelector('.demo-controls button.admin').classList.remove('active');
+      document.querySelector('.demo-controls button.agent').classList.add('active');
+    }
+    
+    // Check URL params
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('view') === 'agent') {
+      showAgent();
+    }
+  </script>
+</body>
+</html>
