@@ -41,6 +41,7 @@ const STATUS_COLORS: Record<SubscriptionStatus, string> = {
   trialing: "bg-blue-500/10 text-blue-500",
   paused: "bg-amber-500/10 text-amber-500",
   cancelled: "bg-red-500/10 text-red-500",
+  past_due: "bg-orange-500/10 text-orange-500",
 };
 
 export function RetargetingClient({

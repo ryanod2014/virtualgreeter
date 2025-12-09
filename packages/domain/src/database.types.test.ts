@@ -188,8 +188,8 @@ describe("database.types", () => {
 
       const pastDueOrgs = organizations.filter(org => org.subscription_status === "past_due");
       expect(pastDueOrgs).toHaveLength(2);
-      expect(pastDueOrgs[0].id).toBe("org2");
-      expect(pastDueOrgs[1].id).toBe("org4");
+      expect(pastDueOrgs[0]?.id).toBe("org2");
+      expect(pastDueOrgs[1]?.id).toBe("org4");
     });
 
     it("groups organizations by subscription status", () => {

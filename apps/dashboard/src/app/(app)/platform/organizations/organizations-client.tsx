@@ -90,6 +90,7 @@ const STATUS_COLORS: Record<SubscriptionStatus, string> = {
   trialing: "bg-blue-500/10 text-blue-500 border-blue-500/20",
   paused: "bg-amber-500/10 text-amber-500 border-amber-500/20",
   cancelled: "bg-red-500/10 text-red-500 border-red-500/20",
+  past_due: "bg-orange-500/10 text-orange-500 border-orange-500/20",
 };
 
 const PLAN_COLORS: Record<SubscriptionPlan, string> = {
