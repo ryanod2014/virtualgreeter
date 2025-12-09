@@ -1,0 +1,28 @@
+{
+  "ticket_id": "TKT-005B",
+  "ticket_title": "Create Payment Failure Blocking Modal",
+  "branch": "agent/tkt-005b",
+  "blocked_at": "2025-12-08T22:10:00Z",
+  "blocker_type": "qa_environment_blocker",
+  "summary": "Cannot test runtime behavior - no mechanism to set org to past_due status without TKT-005c webhook implementation",
+  "failures": [
+    {
+      "category": "environment",
+      "criterion": "All acceptance criteria require runtime testing",
+      "expected": "Ability to set organization subscription_status to 'past_due' to trigger and test the PaymentBlocker modal",
+      "actual": "No database access, no TKT-005c webhook handlers implemented, no way to test modal appearance or behavior",
+      "evidence": "Ticket depends on TKT-005c (webhook handlers) to set past_due status. Without webhooks or direct database access, cannot trigger the modal to verify any acceptance criteria."
+    },
+    {
+      "category": "dependency_violation",
+      "criterion": "Ticket should be testable in isolation",
+      "expected": "Ticket marked complete should be fully testable without depending on incomplete tickets",
+      "actual": "TKT-005b depends on TKT-005c (status: ready, not done) to set past_due status via webhooks",
+      "evidence": "tickets.json shows TKT-005c status='ready' (not done). Dev completion report says 'Manually set org to past_due in database' but no database access provided to QA agent."
+    }
+  ],
+  "code_review_passed": true,
+  "code_review_notes": "Code inspection shows correct implementation: PaymentBlocker component properly checks subscription_status, conditionally renders admin/agent UI, modal is non-dismissible with z-50 overlay, layout integration is correct. All changes within scope. No security issues found.",
+  "recommendation": "This ticket needs either: (1) Complete TKT-005c first to enable webhook-based status setting, OR (2) Provide QA with database credentials to manually set past_due status, OR (3) Add a dev/test mode toggle to simulate past_due status",
+  "dispatch_action": "create_continuation_ticket"
+}

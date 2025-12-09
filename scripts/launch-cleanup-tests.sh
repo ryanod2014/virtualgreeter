@@ -1,0 +1,86 @@
+#!/bin/bash
+# =============================================================================
+# Launch Test Agent for Cleanup (Already-Merged Tickets)
+# =============================================================================
+# Runs Test Agent on main branch to add test coverage for tickets that
+# were merged before the new pipeline existed.
+#
+# Usage: ./scripts/launch-cleanup-tests.sh TKT-001 [files_json]
+# =============================================================================
+
+set -e
+
+TICKET_ID="$1"
+FILES_JSON="$2"
+
+if [ -z "$TICKET_ID" ]; then
+    echo "Usage: $0 TICKET_ID [files_json]"
+    exit 1
+fi
+
+# Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+MAIN_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SESSION_NAME="cleanup-test-$TICKET_ID"
+
+# Check if session already exists
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    echo -e "${BLUE}Session '$SESSION_NAME' already exists${NC}"
+    exit 0
+fi
+
+# Parse files to test (from JSON array or use default)
+if [ -n "$FILES_JSON" ]; then
+    FILES_LIST=$(echo "$FILES_JSON" | python3 -c "import sys,json; print('\n'.join(json.load(sys.stdin)))" 2>/dev/null || echo "")
+else
+    FILES_LIST=""
+fi
+
+# Build the prompt
+CLAUDE_PROMPT="You are a Test Agent running CLEANUP for ticket: $TICKET_ID
+
+This ticket was already merged to main. Your job is to add test coverage for the changes it introduced.
+
+## Your Task
+
+1. Read docs/workflow/TEST_LOCK_AGENT_SOP.md for testing patterns
+2. Find the commit(s) for $TICKET_ID: git log --oneline --grep='$TICKET_ID' -i
+3. See what files were changed: git show --name-only <commit-hash>
+4. For each changed source file, create/update tests following the SOP
+
+## Files Modified by This Ticket
+${FILES_LIST:-"(Run git log to find the files)"}
+
+## Important
+- You are on the MAIN branch - do NOT create a new branch
+- Commit your test additions directly to main
+- Push when done: git push origin main
+
+## When Complete
+Create: docs/agent-output/cleanup/TESTS-COMPLETE-$TICKET_ID-\$(date +%Y%m%dT%H%M%S).json
+
+{
+  \"ticket_id\": \"$TICKET_ID\",
+  \"type\": \"tests\",
+  \"status\": \"complete\",
+  \"tests_added\": [\"list of test files created/modified\"],
+  \"completed_at\": \"\$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+}
+
+Then exit."
+
+echo -e "${GREEN}Launching Test Agent for $TICKET_ID cleanup...${NC}"
+
+cd "$MAIN_REPO_DIR"
+git checkout main
+git pull origin main
+
+tmux new-session -d -s "$SESSION_NAME" \
+    "cd '$MAIN_REPO_DIR' && export ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY' && claude --dangerously-skip-permissions -p '$CLAUDE_PROMPT'"
+
+echo -e "${GREEN}✓ Launched: $SESSION_NAME${NC}"
+echo -e "  Attach: ${BLUE}tmux attach -t $SESSION_NAME${NC}"
+

@@ -1,0 +1,61 @@
+{
+  "ticket_id": "TKT-007",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "apps/server/src/run-qa-agent-script.test.ts",
+    "apps/server/src/qa-review-sop.test.ts"
+  ],
+  "behaviors_tested": {
+    "run-qa-agent-script.test.ts": [
+      "Script includes blocker JSON template in prompt",
+      "Script instructs to create BOTH blocker JSON and report MD on failure",
+      "Script has correct blocker JSON structure with required fields (ticket_id, ticket_title, branch, blocked_at, blocker_type, summary, failures, recommendation, dispatch_action)",
+      "Script includes failure category options (build|acceptance|regression|browser)",
+      "Script includes error and check fields in failures array",
+      "Script specifies correct file paths for blocker JSON and report MD",
+      "Script includes BOTH files requirement before step 6",
+      "Script instructs to write report only on pass (not blocker JSON)",
+      "Script includes merge command instructions for passed tests",
+      "Script has proper shebang for bash execution",
+      "Script includes worktree setup instructions",
+      "Script includes build verification commands",
+      "Script uses bash variables for ticket information and paths"
+    ],
+    "qa-review-sop.test.ts": [
+      "SOP includes CRITICAL warning about creating BOTH files on failure",
+      "SOP explicitly states blocker JSON is required",
+      "SOP explains purpose of blocker JSON for Dispatch Agent automation",
+      "SOP numbers the two required files (1. and 2.)",
+      "SOP documents blocker JSON file path pattern",
+      "SOP includes blocker JSON template with all required fields",
+      "SOP documents failure category options",
+      "SOP documents human-readable report as second file",
+      "SOP specifies report file path pattern",
+      "SOP documents pass scenario output",
+      "SOP does not require blocker JSON for pass scenario",
+      "SOP has proper markdown structure",
+      "SOP includes sections for output files and blocked scenarios",
+      "SOP places blocker JSON before human-readable report in fail scenario",
+      "SOP uses emphasis markers for critical section",
+      "SOP includes build verification checklist",
+      "SOP includes acceptance criteria section",
+      "SOP includes browser testing requirements",
+      "SOP includes screenshot requirements"
+    ]
+  },
+  "test_results": {
+    "total_tests": 43,
+    "passed": 43,
+    "failed": 0,
+    "test_files": 2
+  },
+  "notes": [
+    "TKT-007 updated documentation (QA_REVIEW_AGENT_SOP.md) and a bash script template (run-qa-agent.sh)",
+    "Tests validate the string templates and documentation structure rather than executable code",
+    "Tests ensure QA agents receive clear instructions to create blocker JSON for Dispatch Agent automation",
+    "Tests lock in the behavior that enables auto-creation of continuation tickets for failed QA runs",
+    "All tests passing - behavior successfully captured"
+  ],
+  "completed_at": "2025-12-08T20:32:05Z"
+}

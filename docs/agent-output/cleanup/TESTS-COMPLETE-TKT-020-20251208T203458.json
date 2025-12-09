@@ -1,0 +1,40 @@
+{
+  "ticket_id": "TKT-020",
+  "type": "tests",
+  "status": "blocked",
+  "issue": "Linter auto-reverted test additions",
+  "tests_attempted": [
+    "apps/dashboard/src/lib/stripe.test.ts - Added tests for isPriceIdConfigured() and getAvailableBillingFrequencies(), updated getPriceIdForFrequency() tests to reflect no-fallback behavior",
+    "apps/dashboard/src/app/api/billing/create-subscription/route.test.ts - Added tests for enhanced error messages with env var names",
+    "apps/dashboard/src/app/paywall/billing/page.test.tsx - Added tests for billing configuration checks and conditional rendering"
+  ],
+  "test_results": "All tests passed when executed (27 passed in stripe.test.ts, 19 passed in route.test.ts)",
+  "blocker_details": "Project linter automatically reverts file modifications, preventing commits. Tests were successfully written and passed, but were removed by linter before commit.",
+  "recommendation": "Human developer should disable linter temporarily or adjust linter config, then re-add test coverage for TKT-020 changes",
+  "completed_at": "2025-12-08T20:34:58Z",
+  "changes_summary": {
+    "stripe.ts": {
+      "new_functions_tested": [
+        "isPriceIdConfigured(frequency) - Check if billing frequency has configured price ID",
+        "getAvailableBillingFrequencies() - Get array of all configured billing frequencies"
+      ],
+      "updated_behavior_tested": [
+        "getPriceIdForFrequency() now returns empty string instead of falling back to monthly when price ID not configured"
+      ]
+    },
+    "route.ts": {
+      "new_behavior_tested": [
+        "Enhanced error messages now include specific env var name (STRIPE_MONTHLY_PRICE_ID, STRIPE_ANNUAL_PRICE_ID, STRIPE_SIX_MONTH_PRICE_ID) when price ID not configured"
+      ]
+    },
+    "page.tsx": {
+      "new_behavior_tested": [
+        "Configuration error banner shown when no billing options configured",
+        "Continue button disabled when no billing options configured",
+        "Conditional rendering of monthly/annual options based on isPriceIdConfigured",
+        "Default plan selection based on available options",
+        "Six-month exit popup only shown if six_month is configured"
+      ]
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "ticket_id": "TKT-045",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "apps/dashboard/src/features/surveys/ellis-survey-modal.test.tsx",
+    "apps/dashboard/src/app/(app)/platform/feedback/page.test.tsx"
+  ],
+  "behaviors_tested": [
+    "EllisSurveyModal: Sets disappointment_level to null when survey dismissed (TKT-045)",
+    "EllisSurveyModal: Sets dismissed to true on Skip button click",
+    "EllisSurveyModal: Sets disappointment_level to null on X button click (TKT-045)",
+    "Feedback Page: Queries pmf_surveys excluding null disappointment_level (TKT-045)",
+    "Feedback Page: Queries pmf_surveys excluding dismissed=true surveys",
+    "Feedback Page: Handles empty results gracefully",
+    "Feedback Page: Handles Supabase query errors"
+  ],
+  "commit": "2b3fdb5",
+  "completed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}

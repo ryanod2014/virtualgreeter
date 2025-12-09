@@ -1,0 +1,15 @@
+{
+  "id": "INBOX-TKT-005b-1733714000000",
+  "ticket_id": "TKT-005b",
+  "type": "ui_review",
+  "message": "PaymentBlocker Modal - Ready for PM review",
+  "branch": "agent/tkt-005b",
+  "files": [
+    "apps/dashboard/src/components/PaymentBlocker.tsx"
+  ],
+  "magic_url": "https://virtualgreeter-git-agent-tkt-005b-ryanod2014.vercel.app/api/review-login?token=f5df1933ccc8d75b32ccca6b826031b09240943a860e93c2e003b7b9d8d409cf",
+  "redirect_path": "/dashboard",
+  "state_setup": "Test user: qa-tkt-005b-v5@greetnow.test / QATest005bV5Pass!",
+  "created_at": "2025-12-09T01:26:40.000Z",
+  "status": "pending"
+}

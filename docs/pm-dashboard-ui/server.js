@@ -209,11 +209,51 @@ function scanAgentOutputs() {
 // Build devStatus from actual agent output files (source of truth)
 // This prevents race conditions where agents update dev-status.json on their branch
 function buildDevStatusFromOutputs(agentOutputs) {
-  const completed = [];
-  const inProgress = [];
+  const merged = [];
+  const mergedIds = new Set();
   
-  // Build completed list from completion files
+  // FIRST: Build merged list from QA PASSED files (tickets that passed QA)
+  const qaResultsDir = path.join(DOCS_DIR, 'agent-output', 'qa-results');
+  try {
+    const qaFiles = fs.readdirSync(qaResultsDir).filter(f => f.includes('PASSED') && f.endsWith('.md'));
+    
+    for (const qaFile of qaFiles) {
+      const match = qaFile.match(/QA-([A-Z]+-\d+[a-z]?)-PASSED/i);
+      if (match) {
+        const ticketId = match[1].toUpperCase();
+        if (mergedIds.has(ticketId)) continue;
+        mergedIds.add(ticketId);
+        
+        const filePath = path.join(qaResultsDir, qaFile);
+        const stats = fs.statSync(filePath);
+        let content = '';
+        try { content = fs.readFileSync(filePath, 'utf8'); } catch (e) {}
+        
+        const branchMatch = content.match(/\*\*Branch:\*\*\s*`?([^`\n]+)`?/);
+        const branch = branchMatch ? branchMatch[1].trim() : `agent/${ticketId.toLowerCase()}`;
+        
+        merged.push({
+          ticket_id: ticketId,
+          branch: branch,
+          merged_at: stats.mtime.toISOString(),
+          qa_file: qaFile
+        });
+      }
+    }
+    merged.sort((a, b) => a.ticket_id.localeCompare(b.ticket_id));
+  } catch (e) {
+    console.error('Error scanning QA results:', e.message);
+  }
+  
+  // SECOND: Build completed from MAIN branch completions, excluding merged
+  const completed = [];
+  const completedIds = new Set();
   for (const completion of agentOutputs.completions) {
+    const ticketId = completion.ticketId?.toUpperCase();
+    if (mergedIds.has(ticketId) || completedIds.has(ticketId)) continue;
+    if (completion.sourceBranch !== 'origin/main') continue;
+    completedIds.add(ticketId);
+    
     completed.push({
       ticket_id: completion.ticketId,
       branch: completion.branch || `agent/${completion.ticketId.toLowerCase()}`,
@@ -222,34 +262,36 @@ function buildDevStatusFromOutputs(agentOutputs) {
     });
   }
   
-  // Build in_progress from started files (that don't have a matching completion)
-  const completedIds = new Set(completed.map(c => c.ticket_id));
+  // THIRD: Build in_progress from MAIN branch started files
+  const inProgress = [];
+  const inProgressIds = new Set();
   for (const started of agentOutputs.started) {
-    if (!completedIds.has(started.ticketId)) {
-      // Try to parse JSON content for more details
-      let startedData = {};
-      try {
-        startedData = JSON.parse(started.content);
-      } catch (e) {
-        // Not JSON, use filename info
-      }
-      
-      inProgress.push({
-        ticket_id: started.ticketId,
-        branch: startedData.branch || `agent/${started.ticketId.toLowerCase()}`,
-        started_at: startedData.started_at || started.modifiedAt
-      });
-    }
+    const ticketId = started.ticketId?.toUpperCase();
+    if (completedIds.has(ticketId) || mergedIds.has(ticketId) || inProgressIds.has(ticketId)) continue;
+    if (started.sourceBranch !== 'origin/main') continue;
+    inProgressIds.add(ticketId);
+    
+    let startedData = {};
+    try { startedData = JSON.parse(started.content); } catch (e) {}
+    
+    inProgress.push({
+      ticket_id: started.ticketId,
+      branch: startedData.branch || `agent/${started.ticketId.toLowerCase()}`,
+      started_at: startedData.started_at || started.modifiedAt
+    });
   }
+  
+  console.log(`📊 Pipeline: ${inProgress.length} in_progress, ${completed.length} for_review, ${merged.length} merged`);
   
   return {
     meta: {
       last_updated: new Date().toISOString(),
-      version: "2.1",
+      version: "2.2",
       note: "Built from agent-output files (source of truth)"
     },
     in_progress: inProgress,
     completed: completed,
+    merged: merged,
     retry_history: []
   };
 }
@@ -468,6 +510,10 @@ function handleAPI(req, res, body) {
       devStatus = readJSON('dev-status.json') || { in_progress: [], completed: [] };
     }
     
+    // Read staging data for Triage Agent UI
+    const stagingData = readJSON('findings-staging.json');
+    const stagingCount = stagingData?.findings?.length || 0;
+    
     const data = {
       findings: readJSON('findings.json'),
       decisions: readJSON('decisions.json'),
@@ -476,7 +522,12 @@ function handleAPI(req, res, body) {
       devStatus: devStatus,
       featuresList,
       // Aggregated agent outputs (prevents race conditions with multiple agents)
-      agentOutputs
+      agentOutputs,
+      // Staging queue info for Triage/Cleanup Agent
+      staging: {
+        count: stagingCount,
+        bySeverity: stagingData?.summary || { critical: 0, high: 0, medium: 0, low: 0 }
+      }
     };
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));
