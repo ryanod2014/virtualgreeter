@@ -522,57 +522,131 @@ PHASE 3: EXECUTE YOUR TEST PROTOCOL
 12. Make PASS/FAIL decision based on YOUR protocol criteria
 
 If PASS:
-  FIRST: Check if this is a UI ticket by looking at files_to_modify:
-    cat $MAIN_REPO_DIR/docs/data/tickets.json | jq '.tickets[] | select(.id | ascii_upcase == \"$TICKET_ID\" | ascii_upcase) | .files_to_modify[]' | grep -E '\\.tsx|\\.css|/components/|/features/|/app/'
-  
   ═══════════════════════════════════════════════════════════════
-  IF UI TICKET (has .tsx files): DO NOT AUTO-MERGE! Follow this flow:
+  ⚠️  THIS IS A UI TICKET - READ docs/workflow/UI_TICKET_QA_WORKFLOW.md ⚠️
   ═══════════════════════════════════════════════════════════════
   
-  1. Create test user for PM review:
-     curl -X POST http://localhost:3456/api/v2/qa/create-test-user \\
-       -H 'Content-Type: application/json' \\
-       -d '{\"email\": \"qa-$TICKET_ID@greetnow.test\", \"password\": \"QATest-$TICKET_ID!\", \"full_name\": \"QA Test User $TICKET_ID\"}'
+  You are REPLACING a human QA team. You must:
+  1. Actually TEST the feature (not just read code)
+  2. SEE it working in the browser
+  3. Hand off that EXACT environment to PM via magic link
   
-  2. Set up required database state (depends on feature being tested):
-     # Example for payment blocker: set org to past_due
-     curl -X POST http://localhost:3456/api/v2/qa/set-org-status \\
-       -H 'Content-Type: application/json' \\
-       -d '{\"user_email\": \"qa-$TICKET_ID@greetnow.test\", \"subscription_status\": \"past_due\"}'
+  CRITICAL: Follow these steps IN ORDER. Do NOT skip any step!
   
-  3. Generate magic link for PM:
-     MAGIC_RESPONSE=\$(curl -s -X POST http://localhost:3456/api/v2/review-tokens \\
-       -H 'Content-Type: application/json' \\
-       -d '{\"ticket_id\": \"$TICKET_ID\", \"user_email\": \"qa-$TICKET_ID@greetnow.test\", \"user_password\": \"QATest-$TICKET_ID!\", \"redirect_path\": \"/dashboard\"}')
-     MAGIC_URL=\$(echo \$MAGIC_RESPONSE | jq -r '.magic_url')
+  ─────────────────────────────────────────────────────────────
+  STEP 1: Create test user
+  ─────────────────────────────────────────────────────────────
+  curl -X POST http://localhost:3456/api/v2/qa/create-test-user \\
+    -H 'Content-Type: application/json' \\
+    -d '{\"email\": \"qa-$TICKET_ID@greetnow.test\", \"password\": \"QATest-$TICKET_ID!\", \"full_name\": \"QA Test User $TICKET_ID\"}'
   
-  4. Capture screenshots of the UI (use Playwright MCP):
-     - Take screenshot of the feature state
-     - Save to: $MAIN_REPO_DIR/docs/agent-output/inbox/screenshots/$TICKET_ID-feature.png
+  ─────────────────────────────────────────────────────────────
+  STEP 2: LOG IN AS THE USER VIA PLAYWRIGHT (CRITICAL!)
+  ─────────────────────────────────────────────────────────────
+  ⚠️ THIS STEP IS MANDATORY - IT CREATES THE USER'S ORGANIZATION!
   
-  5. Create inbox item for PM review (include screenshots array!):
-     curl -X POST http://localhost:3456/api/v2/inbox \\
-       -H 'Content-Type: application/json' \\
-       -d '{
-         \"ticket_id\": \"$TICKET_ID\",
-         \"type\": \"ui_review\",
-         \"message\": \"UI changes ready for review\",
-         \"branch\": \"$BRANCH\",
-         \"screenshots\": [{\"name\": \"Feature Screenshot\", \"path\": \"/docs/agent-output/inbox/screenshots/$TICKET_ID-feature.png\"}],
-         \"magic_url\": \"'\$MAGIC_URL'\",
-         \"acceptance_criteria\": [\"List acceptance criteria here\"]
-       }'
+  Use Playwright MCP to:
+  1. Navigate to http://localhost:3000/login
+  2. Fill email: qa-$TICKET_ID@greetnow.test
+  3. Fill password: QATest-$TICKET_ID!
+  4. Click sign in button
+  5. WAIT for dashboard to load (this creates the org!)
+  6. Take screenshot proving you're logged in
   
-  6. Write PASS report:
-     $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md
+  If you skip this step, set-org-status will FAIL silently!
   
-  7. Update ticket status to qa_approved (NOT merged!):
-     curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -H 'Content-Type: application/json' -d '{\"status\": \"qa_approved\"}'
+  ─────────────────────────────────────────────────────────────
+  STEP 3: VERIFY org was created (DO NOT SKIP!)
+  ─────────────────────────────────────────────────────────────
+  curl -s \"http://localhost:3456/api/v2/qa/org-by-email/qa-$TICKET_ID@greetnow.test\"
   
-  8. DO NOT MERGE - Wait for PM to approve via inbox UI
+  You MUST see: {\"organization\": {\"id\": \"...\", ...}}
+  If you see \"error\" → Go back to Step 2!
+  
+  ─────────────────────────────────────────────────────────────
+  STEP 4: Set database state (NOW it will work)
+  ─────────────────────────────────────────────────────────────
+  curl -X POST http://localhost:3456/api/v2/qa/set-org-status \\
+    -H 'Content-Type: application/json' \\
+    -d '{\"user_email\": \"qa-$TICKET_ID@greetnow.test\", \"subscription_status\": \"past_due\"}'
+  
+  Verify response shows \"success\": true
+  
+  ─────────────────────────────────────────────────────────────
+  STEP 5: TEST THE FEATURE - See it working!
+  ─────────────────────────────────────────────────────────────
+  Via Playwright MCP:
+  1. Refresh the page or navigate to /dashboard
+  2. WAIT for the feature to appear (e.g., the PaymentBlocker modal)
+  3. Take screenshot PROVING the feature works
+  4. Test the acceptance criteria in the browser
+  
+  You MUST see the feature working yourself before handing off to PM!
+  
+  ─────────────────────────────────────────────────────────────
+  STEP 6: Generate magic link
+  ─────────────────────────────────────────────────────────────
+  curl -s -X POST http://localhost:3456/api/v2/review-tokens \\
+    -H 'Content-Type: application/json' \\
+    -d '{\"ticket_id\": \"$TICKET_ID\", \"user_email\": \"qa-$TICKET_ID@greetnow.test\", \"user_password\": \"QATest-$TICKET_ID!\", \"redirect_path\": \"/dashboard\"}'
+  
+  Save the magic_url from the response!
+  
+  ─────────────────────────────────────────────────────────────
+  STEP 7: Write QA PASS report
+  ─────────────────────────────────────────────────────────────
+  Write to: $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md
+  Include screenshots and evidence of testing
+  
+  ─────────────────────────────────────────────────────────────
+  STEP 8: Create inbox item with magic_url
+  ─────────────────────────────────────────────────────────────
+  Write this JSON file:
+  $MAIN_REPO_DIR/docs/agent-output/inbox/$TICKET_ID.json
+  
+  {
+    \"ticket_id\": \"$TICKET_ID\",
+    \"title\": \"[ticket title]\",
+    \"type\": \"ui_review\",
+    \"status\": \"pending\",
+    \"created_at\": \"[ISO timestamp]\",
+    \"message\": \"QA verified - feature working. PM please confirm UI.\",
+    \"branch\": \"$BRANCH\",
+    \"qa_report\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-[timestamp].md\",
+    \"screenshots\": [{\"name\": \"Feature Working\", \"path\": \"/docs/agent-output/inbox/screenshots/$TICKET_ID-feature.png\"}],
+    \"magic_url\": \"[URL from step 6]\",
+    \"test_setup\": \"Org set to past_due. Feature appears on login.\",
+    \"acceptance_criteria\": [\"list from ticket\"]
+  }
+  
+  ─────────────────────────────────────────────────────────────
+  STEP 9: Update ticket status
+  ─────────────────────────────────────────────────────────────
+  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID \\
+    -H 'Content-Type: application/json' \\
+    -d '{\"status\": \"qa_approved\"}'
+  
+  ─────────────────────────────────────────────────────────────
+  STEP 10: Mark session complete
+  ─────────────────────────────────────────────────────────────
+  curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete \\
+    -H 'Content-Type: application/json' \\
+    -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
   
   ═══════════════════════════════════════════════════════════════
-  IF NON-UI TICKET (no .tsx files): Auto-merge flow:
+  ✅ VERIFICATION CHECKLIST - All must be TRUE before you exit:
+  ═══════════════════════════════════════════════════════════════
+  - [ ] I logged in as the test user via Playwright (Step 2)
+  - [ ] I verified org exists via API (Step 3)
+  - [ ] I SAW the feature working in browser (Step 5)
+  - [ ] I have screenshots proving the feature works
+  - [ ] Inbox JSON exists with valid magic_url (Step 8)
+  - [ ] QA report exists in qa-results/
+  
+  DO NOT exit until all checkboxes are verified!
+  
+  ═══════════════════════════════════════════════════════════════
+  FOR NON-UI TICKETS ONLY (no .tsx files): Auto-merge flow
   ═══════════════════════════════════════════════════════════════
   
   - Write PASS report to: $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md
