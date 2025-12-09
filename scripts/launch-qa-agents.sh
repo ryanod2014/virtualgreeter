@@ -523,100 +523,96 @@ PHASE 3: EXECUTE YOUR TEST PROTOCOL
 
 If PASS:
   ═══════════════════════════════════════════════════════════════
-  ⚠️  THIS IS A UI TICKET - READ docs/workflow/UI_TICKET_QA_WORKFLOW.md ⚠️
+  ⚠️  THIS IS A UI TICKET - ANALYZE THEN TEST THOROUGHLY ⚠️
   ═══════════════════════════════════════════════════════════════
   
-  You are REPLACING a human QA team. You must:
-  1. Actually TEST the feature (not just read code)
-  2. SEE it working in the browser
-  3. Hand off that EXACT environment to PM via magic link
-  
-  CRITICAL: Follow these steps IN ORDER. Do NOT skip any step!
-  
-  ─────────────────────────────────────────────────────────────
-  STEP 1: Create test user
-  ─────────────────────────────────────────────────────────────
-  curl -X POST http://localhost:3456/api/v2/qa/create-test-user \\
-    -H 'Content-Type: application/json' \\
-    -d '{\"email\": \"qa-$TICKET_ID@greetnow.test\", \"password\": \"QATest-$TICKET_ID!\", \"full_name\": \"QA Test User $TICKET_ID\"}'
+  You are REPLACING a human QA team. A thorough QA means:
+  1. ANALYZE the acceptance criteria to understand WHAT needs testing
+  2. Test the feature in the BROWSER (not just code inspection)
+  3. Test ALL relevant scenarios mentioned in the AC
+  4. Provide magic links so PM can verify what you tested
   
   ─────────────────────────────────────────────────────────────
-  STEP 2: LOG IN AS THE USER VIA PLAYWRIGHT (CRITICAL!)
+  FIRST: Analyze the acceptance criteria
   ─────────────────────────────────────────────────────────────
-  ⚠️ THIS STEP IS MANDATORY - IT CREATES THE USER'S ORGANIZATION!
   
-  Use Playwright MCP to:
-  1. Navigate to http://localhost:3000/login
-  2. Fill email: qa-$TICKET_ID@greetnow.test
-  3. Fill password: QATest-$TICKET_ID!
-  4. Click sign in button
-  5. WAIT for dashboard to load (this creates the org!)
-  6. Take screenshot proving you're logged in
+  Read the ticket's acceptance_criteria and determine:
   
-  If you skip this step, set-org-status will FAIL silently!
+  1. ROLE-BASED UI? (admin vs agent see different things)
+     Look for: \"admin sees X\", \"agent sees Y\", \"role-specific\"
+     → If YES: Test BOTH roles, provide magic link for EACH
+     → If NO: Single user test is sufficient
   
-  ─────────────────────────────────────────────────────────────
-  STEP 3: VERIFY org was created (DO NOT SKIP!)
-  ─────────────────────────────────────────────────────────────
-  curl -s \"http://localhost:3456/api/v2/qa/org-by-email/qa-$TICKET_ID@greetnow.test\"
+  2. STATE-BASED UI? (different states show different UI)
+     Look for: \"when status is X\", \"if paused/cancelled/past_due\"
+     → Set up the SPECIFIC state mentioned in AC
   
-  You MUST see: {\"organization\": {\"id\": \"...\", ...}}
-  If you see \"error\" → Go back to Step 2!
+  3. WHAT PAGES/ROUTES? 
+     → Identify which pages you need to test on
   
   ─────────────────────────────────────────────────────────────
-  STEP 4: Set database state (NOW it will work)
+  THEN: Execute the appropriate test flow
   ─────────────────────────────────────────────────────────────
-  curl -X POST http://localhost:3456/api/v2/qa/set-org-status \\
-    -H 'Content-Type: application/json' \\
-    -d '{\"user_email\": \"qa-$TICKET_ID@greetnow.test\", \"subscription_status\": \"past_due\"}'
   
-  Verify response shows \"success\": true
+  FOR EACH unique view/role combination you need to test:
+  
+  1. Create test user:
+     curl -X POST http://localhost:3456/api/v2/qa/create-test-user \\
+       -H 'Content-Type: application/json' \\
+       -d '{\"email\": \"qa-$TICKET_ID-[role]@greetnow.test\", \"password\": \"QATest-$TICKET_ID!\", \"full_name\": \"QA [Role] $TICKET_ID\"}'
+  
+  2. LOG IN via Playwright (CRITICAL - creates org!):
+     - Navigate to login page
+     - Fill credentials and submit
+     - WAIT for dashboard to load
+  
+  3. Verify org was created:
+     curl -s \"http://localhost:3456/api/v2/qa/org-by-email/qa-$TICKET_ID-[role]@greetnow.test\"
+     MUST return organization data. If error → redo login step.
+  
+  4. Set up required state (based on what AC needs):
+     curl -X POST http://localhost:3456/api/v2/qa/set-org-status \\
+       -H 'Content-Type: application/json' \\
+       -d '{\"user_email\": \"...\", \"subscription_status\": \"[required_status]\"}'
+  
+  5. TEST the feature in browser:
+     - Navigate to the page
+     - Verify the AC-specified behavior
+     - Take SCREENSHOT as proof
+  
+  6. Generate magic link for this user:
+     curl -s -X POST http://localhost:3456/api/v2/review-tokens \\
+       -H 'Content-Type: application/json' \\
+       -d '{\"ticket_id\": \"$TICKET_ID\", \"user_email\": \"...\", \"user_password\": \"...\", \"redirect_path\": \"/[page]\"}'
+  
+  REPEAT steps 1-6 for each role/view if multiple are needed.
   
   ─────────────────────────────────────────────────────────────
-  STEP 5: TEST THE FEATURE - See it working!
+  FINALLY: Create QA report and inbox item
   ─────────────────────────────────────────────────────────────
-  Via Playwright MCP:
-  1. Refresh the page or navigate to /dashboard
-  2. WAIT for the feature to appear (e.g., the PaymentBlocker modal)
-  3. Take screenshot PROVING the feature works
-  4. Test the acceptance criteria in the browser
   
-  You MUST see the feature working yourself before handing off to PM!
+  Write QA report to: $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md
   
-  ─────────────────────────────────────────────────────────────
-  STEP 6: Generate magic link
-  ─────────────────────────────────────────────────────────────
-  curl -s -X POST http://localhost:3456/api/v2/review-tokens \\
-    -H 'Content-Type: application/json' \\
-    -d '{\"ticket_id\": \"$TICKET_ID\", \"user_email\": \"qa-$TICKET_ID@greetnow.test\", \"user_password\": \"QATest-$TICKET_ID!\", \"redirect_path\": \"/dashboard\"}'
+  Write inbox JSON to: $MAIN_REPO_DIR/docs/agent-output/inbox/$TICKET_ID.json
   
-  Save the magic_url from the response!
+  Include in inbox item:
+  - ALL screenshots you took
+  - ALL magic links (one per role/view tested)
+  - Description of what each magic link shows
+  - Test setup notes (what state was configured)
   
-  ─────────────────────────────────────────────────────────────
-  STEP 7: Write QA PASS report
-  ─────────────────────────────────────────────────────────────
-  Write to: $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md
-  Include screenshots and evidence of testing
-  
-  ─────────────────────────────────────────────────────────────
-  STEP 8: Create inbox item with magic_url
-  ─────────────────────────────────────────────────────────────
-  Write this JSON file:
-  $MAIN_REPO_DIR/docs/agent-output/inbox/$TICKET_ID.json
-  
+  Example inbox structure for multi-role ticket:
   {
-    \"ticket_id\": \"$TICKET_ID\",
-    \"title\": \"[ticket title]\",
-    \"type\": \"ui_review\",
-    \"status\": \"pending\",
-    \"created_at\": \"[ISO timestamp]\",
-    \"message\": \"QA verified - feature working. PM please confirm UI.\",
-    \"branch\": \"$BRANCH\",
-    \"qa_report\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-[timestamp].md\",
-    \"screenshots\": [{\"name\": \"Feature Working\", \"path\": \"/docs/agent-output/inbox/screenshots/$TICKET_ID-feature.png\"}],
-    \"magic_url\": \"[URL from step 6]\",
-    \"test_setup\": \"Org set to past_due. Feature appears on login.\",
-    \"acceptance_criteria\": [\"list from ticket\"]
+    \"magic_links\": {
+      \"admin\": {\"url\": \"...\", \"description\": \"Admin view - sees action button\"},
+      \"agent\": {\"url\": \"...\", \"description\": \"Agent view - sees read-only\"}
+    }
+  }
+  
+  Example inbox structure for single-role ticket:
+  {
+    \"magic_url\": \"...\",
+    \"test_credentials\": {\"email\": \"...\", \"role\": \"user\"}
   }
   
   ─────────────────────────────────────────────────────────────

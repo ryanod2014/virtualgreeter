@@ -1,47 +1,70 @@
-# UI Ticket QA Workflow - FOOLPROOF GUIDE
+# UI Ticket QA Workflow - INTELLIGENT TESTING GUIDE
 
-> **Purpose:** QA agents testing UI tickets must follow this EXACT workflow to ensure magic links work correctly.
+> **Purpose:** QA agents testing UI tickets must follow this workflow to ensure thorough testing and working magic links.
 >
 > **Key Insight:** The QA agent is doing the work of a HUMAN QA team. You must:
-> 1. **Actually test the feature yourself** (not just inspect code)
-> 2. **See what the PM will see** (log in, trigger the feature)
-> 3. **Prove it works** with screenshots
-> 4. **Hand off that exact environment** to the PM via magic link
+> 1. **ANALYZE** the acceptance criteria to understand what needs testing
+> 2. **TEST** the feature yourself in the browser (not just code inspection)
+> 3. **PROVE** it works with screenshots
+> 4. **PROVIDE** magic links so PM can verify what you tested
 
 ---
 
-## ⚠️ THE PROBLEM THIS SOLVES
+## 🎯 STEP 1: ANALYZE THE ACCEPTANCE CRITERIA
+
+Before testing, read the ticket's acceptance criteria and determine:
+
+### Does UI differ by role?
+Look for phrases like:
+- "Admin sees X" / "Agent sees Y"
+- "Only admins can..."
+- "Non-admin users see..."
+- "Role-specific behavior"
+
+**If YES** → Test EACH role separately, provide magic link for EACH
+**If NO** → Single user test is sufficient
+
+### Does UI depend on state?
+Look for phrases like:
+- "When status is past_due/paused/cancelled"
+- "If subscription is X"
+- "When user has/hasn't done Y"
+
+**If YES** → Set up that specific state for testing
+
+### What pages/routes need testing?
+- Dashboard? Settings? Billing?
+- Determine where the feature appears
+
+---
+
+## ⚠️ STEP 2: THE CRITICAL RULE
 
 **Why magic links fail:**
 ```
 Agent creates user → Tries to set org status → FAILS (no org exists yet!)
 → Agent generates magic link anyway
 → PM clicks link, doesn't see the feature
-→ Everyone is confused
 ```
 
-**The fix:** Agent must LOG IN as the user FIRST, which creates their org.
+**The fix:** You MUST LOG IN as the user FIRST, which creates their org.
 
 ---
 
-## 🔄 THE FOOLPROOF WORKFLOW
+## 🔄 STEP 3: EXECUTE TEST FLOW
 
-### Phase 1: Create Test User
+For EACH unique role/view you need to test:
+
+### 3.1: Create Test User
 
 ```bash
-# Step 1.1: Create the user
 curl -X POST http://localhost:3456/api/v2/qa/create-test-user \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "qa-[TICKET-ID]@greetnow.test",
+    "email": "qa-[TICKET-ID]-[role]@greetnow.test",
     "password": "QATest-[TICKET-ID]!",
-    "full_name": "QA Test User [TICKET-ID]"
+    "full_name": "QA [Role] [TICKET-ID]"
   }'
-
-# Expected response:
-# {"success": true, "user_id": "...", "message": "User created"}
-# OR
-# {"success": true, "message": "User already exists"}
 ```
 
 ---
