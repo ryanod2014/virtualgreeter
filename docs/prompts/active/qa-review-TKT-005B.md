@@ -22,90 +22,134 @@ Test the Payment Failure Blocking Modal feature. This modal should:
 3. ✅ Agents see read-only message directing them to contact admin
 4. ✅ Modal cannot be dismissed without resolving payment
 
-## STEP-BY-STEP: Create Test Account & Magic Link
+---
 
-### Step 1: Create Test User in Supabase
+## ⚠️ PREREQUISITES
+
+Ensure the PM Dashboard is running:
+```bash
+# Check if running
+curl -s http://localhost:3456/api/data | jq '.meta' 2>/dev/null || echo "NOT RUNNING"
+
+# If not running, start it:
+node docs/pm-dashboard-ui/server.js &
+```
+
+---
+
+## STEP-BY-STEP: Test Setup & Magic Link Generation
+
+### Step 1: Create Test User
 
 ```bash
-SUPABASE_URL="https://sldbpqyvksdxsuuxqtgg.supabase.co"
-SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNsZGJwcXl2a3NkeHN1dXhxdGdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNzAyNDAsImV4cCI6MjA3OTk0NjI0MH0.g-RSB0IzTtNibzeE3UL-CCEYX95BzipiHSzlQeZtHw4"
-
-# Create test user
-curl -s -X POST "${SUPABASE_URL}/auth/v1/signup" \
-  -H "apikey: ${SUPABASE_ANON_KEY}" \
+curl -X POST http://localhost:3456/api/v2/qa/create-test-user \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "qa-tkt-005b-v2@greetnow.test",
-    "password": "QATest005bV2Pass!",
-    "data": {"full_name": "QA Test TKT-005b"}
-  }' | jq .
-
-# SAVE the user.id from response!
-```
-
-### Step 2: Set Organization to past_due
-
-After user is created and you have their org ID, set subscription_status:
-
-```bash
-# Get user's org (login once to auto-create org, or query profiles table)
-# Then update the org:
-curl -X PATCH "${SUPABASE_URL}/rest/v1/organizations?id=eq.<ORG_ID>" \
-  -H "apikey: ${SUPABASE_ANON_KEY}" \
-  -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
-  -H "Content-Type: application/json" \
-  -H "Prefer: return=minimal" \
-  -d '{"subscription_status": "past_due"}'
-```
-
-### Step 3: Browser Test on Vercel Preview
-
-Test on the VERCEL PREVIEW URL (not localhost!):
-
-```
-1. Navigate to: https://virtualgreeter-git-agent-tkt-005b-ryanod2014.vercel.app
-2. Login with test user: qa-tkt-005b-v2@greetnow.test / QATest005bV2Pass!
-3. Verify PaymentBlocker modal appears
-4. Take screenshots
-5. Test edge cases (ESC key, click backdrop - should NOT dismiss)
-```
-
-### Step 4: Generate Magic Link (Use Vercel Preview URL!)
-
-```bash
-curl -X POST http://localhost:3456/api/v2/review-tokens \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ticket_id": "TKT-005b",
-    "user_email": "qa-tkt-005b-v2@greetnow.test",
-    "user_password": "QATest005bV2Pass!",
-    "redirect_path": "/dashboard",
-    "preview_base_url": "https://virtualgreeter-git-agent-tkt-005b-ryanod2014.vercel.app"
+    "email": "qa-tkt-005b@greetnow.test",
+    "password": "QATest005bPass!",
+    "full_name": "QA Test TKT-005b"
   }'
 ```
 
-### Step 5: Submit to PM Inbox
+**Save the response** - you'll need the user_id.
+
+### Step 2: Log in Once to Create Organization
+
+**IMPORTANT:** The user must log in at least once for the organization to be auto-created.
+
+Option A - Use Playwright MCP:
+```javascript
+// Navigate to preview login
+browser_navigate({ url: "https://virtualgreeter-git-agent-tkt-005b-ryanod2014.vercel.app/login" })
+
+// Fill login form
+browser_type({ element: "email input", ref: "[name=email]", text: "qa-tkt-005b@greetnow.test" })
+browser_type({ element: "password input", ref: "[name=password]", text: "QATest005bPass!" })
+browser_click({ element: "sign in button", ref: "button[type=submit]" })
+
+// Wait for dashboard to load (this creates the org)
+browser_wait_for({ text: "Dashboard" })
+```
+
+Option B - Try to set status (will fail if org doesn't exist, then login manually):
+```bash
+curl -X POST http://localhost:3456/api/v2/qa/set-org-status \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_email": "qa-tkt-005b@greetnow.test",
+    "subscription_status": "past_due"
+  }'
+# If this returns error about no org, user needs to log in first
+```
+
+### Step 3: Set Organization to past_due
+
+```bash
+curl -X POST http://localhost:3456/api/v2/qa/set-org-status \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_email": "qa-tkt-005b@greetnow.test",
+    "subscription_status": "past_due"
+  }'
+```
+
+### Step 4: Browser Test the Feature
+
+Test on the **VERCEL PREVIEW URL** (the feature branch, not localhost):
+
+```
+1. Navigate to: https://virtualgreeter-git-agent-tkt-005b-ryanod2014.vercel.app/login
+2. Login with: qa-tkt-005b@greetnow.test / QATest005bPass!
+3. Verify PaymentBlocker modal appears immediately
+4. Test these cases:
+   - Press ESC → Modal should NOT dismiss
+   - Click backdrop → Modal should NOT dismiss
+   - Press back button → Modal should still be there
+5. Take screenshots:
+   - docs/agent-output/qa-screenshots/TKT-005B-modal-admin.png
+   - docs/agent-output/qa-screenshots/TKT-005B-modal-mobile.png
+```
+
+### Step 5: Generate Magic Link
+
+```bash
+MAGIC_RESPONSE=$(curl -s -X POST http://localhost:3456/api/v2/review-tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticket_id": "TKT-005B",
+    "user_email": "qa-tkt-005b@greetnow.test",
+    "user_password": "QATest005bPass!",
+    "redirect_path": "/dashboard",
+    "preview_base_url": "https://virtualgreeter-git-agent-tkt-005b-ryanod2014.vercel.app"
+  }')
+
+echo "Magic URL: $(echo $MAGIC_RESPONSE | jq -r '.magic_url')"
+```
+
+### Step 6: Submit to PM Inbox
 
 ```bash
 curl -X POST http://localhost:3456/api/v2/inbox \
   -H "Content-Type: application/json" \
   -d '{
-    "ticket_id": "TKT-005b",
+    "ticket_id": "TKT-005B",
     "type": "ui_review",
-    "message": "PaymentBlocker Modal - Ready for PM review",
+    "message": "PaymentBlocker Modal - Ready for PM review. Click magic link to see modal blocking dashboard access.",
     "branch": "agent/tkt-005b",
     "files": ["apps/dashboard/src/components/PaymentBlocker.tsx"],
-    "magic_url": "<MAGIC_URL_FROM_STEP_4>",
+    "magic_url": "'$(echo $MAGIC_RESPONSE | jq -r '.magic_url')'",
     "redirect_path": "/dashboard",
-    "state_setup": "org subscription_status=past_due"
+    "state_setup": "Organization subscription_status set to past_due"
   }'
 ```
 
-### Step 6: Update Ticket Status
+### Step 7: Update Ticket Status
 
 ```bash
 ./scripts/agent-cli.sh update-ticket TKT-005b --status needs_pm_review
 ```
+
+---
 
 ## Files to Check
 
@@ -114,10 +158,36 @@ curl -X POST http://localhost:3456/api/v2/inbox \
 
 ## Edge Cases to Test
 
-- Empty org (no subscription data) → Should NOT show blocker
-- Active org → Should NOT show blocker  
-- past_due org → MUST show blocker
-- Modal dismissal attempts (ESC, backdrop click, back button) → Should NOT work
+| Test Case | Expected Result |
+|-----------|-----------------|
+| Org with no subscription data | Should NOT show blocker |
+| Org with status 'active' | Should NOT show blocker |
+| Org with status 'past_due' | MUST show blocker |
+| Press ESC key | Modal should NOT dismiss |
+| Click backdrop | Modal should NOT dismiss |
+| Browser back button | Modal should still be there |
+| Admin user | Shows "Update Payment Method" button |
+| Non-admin user | Shows "Contact your admin" message |
+
+---
+
+## Troubleshooting
+
+**"User has no organization" error:**
+- User must log in at least once to trigger org auto-creation
+- Use Playwright MCP to log in, or visit login page manually
+
+**"Supabase not configured" error:**
+- PM Dashboard needs Supabase credentials
+- Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in environment
+- Or create `apps/server/.env` with these values
+
+**Modal not appearing:**
+- Check org subscription_status is actually 'past_due'
+- Check browser console for errors
+- Verify you're on the correct Vercel preview (branch URL, not main)
+
+---
 
 ## Read the SOP First!
 

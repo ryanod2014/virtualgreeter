@@ -152,23 +152,41 @@ For UI tickets, after all tests pass, you MUST generate a magic login link.
 
 ### Step 1: Create Test Account
 
-Create a Supabase user with the exact state needed to see the feature:
+Create a Supabase user via the PM Dashboard API:
 
 ```bash
-# Example: Create test user for payment failure testing
-# Use Supabase dashboard or API to create user
-# Email: test-{ticket-id}@review.local
-# Password: review-{ticket-id}-{random}
+# Create test user for this ticket
+curl -X POST http://localhost:3456/api/v2/qa/create-test-user \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "qa-tkt-xxx@greetnow.test",
+    "password": "QATest-TKT-XXX!",
+    "full_name": "QA Test User TKT-XXX"
+  }'
 ```
+
+**Important:** The user must log in once to trigger organization creation. Use the Vercel preview's login page or the `/api/review-login` endpoint.
 
 ### Step 2: Set Up Required State
 
 Configure the database so the test account shows the feature:
 
 ```bash
-# Example: Set org to past_due for PaymentBlocker testing
-sqlite3 apps/server/data/app.db "UPDATE organizations SET subscription_status='past_due' WHERE id='test-org';"
+# Set org subscription status (use user_email to find org)
+curl -X POST http://localhost:3456/api/v2/qa/set-org-status \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_email": "qa-tkt-xxx@greetnow.test",
+    "subscription_status": "past_due"
+  }'
 ```
+
+**Valid subscription_status values:**
+- `active` - Normal state
+- `paused` - Subscription paused
+- `past_due` - Payment failed (triggers PaymentBlocker)
+- `cancelled` - Subscription cancelled
+- `trialing` - Trial period
 
 ### Step 3: Generate Magic Link
 
@@ -234,6 +252,61 @@ Only AFTER PM approval will the ticket proceed to merge.
 
 ---
 
+### Complete Example: TKT-005B PaymentBlocker
+
+Here's the full flow for testing the PaymentBlocker modal (requires `past_due` status):
+
+```bash
+# 1. Create test user
+curl -X POST http://localhost:3456/api/v2/qa/create-test-user \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "qa-tkt-005b@greetnow.test",
+    "password": "QATest005bPass!",
+    "full_name": "QA Test User TKT-005B"
+  }'
+
+# 2. Log in once to create org (use Playwright MCP or curl)
+# Option A: Use Playwright to navigate to preview login page
+# Option B: The /api/review-login endpoint will handle this
+
+# 3. Set org status to past_due
+curl -X POST http://localhost:3456/api/v2/qa/set-org-status \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_email": "qa-tkt-005b@greetnow.test",
+    "subscription_status": "past_due"
+  }'
+
+# 4. Generate magic link
+MAGIC_RESPONSE=$(curl -s -X POST http://localhost:3456/api/v2/review-tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticket_id": "TKT-005B",
+    "user_email": "qa-tkt-005b@greetnow.test",
+    "user_password": "QATest005bPass!",
+    "redirect_path": "/dashboard",
+    "preview_base_url": "https://virtualgreeter-git-agent-tkt-005b-ryanod2014.vercel.app"
+  }')
+echo "Magic URL: $(echo $MAGIC_RESPONSE | jq -r '.magic_url')"
+
+# 5. Submit to PM inbox
+curl -X POST http://localhost:3456/api/v2/inbox \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticket_id": "TKT-005B",
+    "type": "ui_review",
+    "message": "PaymentBlocker modal ready for review. Click magic link to see modal (org is set to past_due).",
+    "branch": "agent/tkt-005b",
+    "files": ["apps/dashboard/src/components/PaymentBlocker.tsx"],
+    "magic_url": "'$(echo $MAGIC_RESPONSE | jq -r '.magic_url')'",
+    "redirect_path": "/dashboard",
+    "state_setup": "Organization set to past_due status"
+  }'
+```
+
+---
+
 ## ⚠️ What Gets Your QA Rejected
 
 Your QA report will be considered INVALID if you:
@@ -286,28 +359,39 @@ If the ticket modifies UI files (`.tsx`, `.css`, `/components/`, `/app/`), you M
 
 Some UI changes require specific database states to test (e.g., `past_due` subscription status).
 
-**You have full database access for testing purposes.**
+**Use the PM Dashboard API for test setup (NOT sqlite3 - this app uses Supabase):**
 
 Common test setup commands:
 ```bash
-# Set organization to past_due status
-sqlite3 apps/server/data/app.db "UPDATE organizations SET subscription_status='past_due' WHERE id='test-org';"
+# 1. Create test user
+curl -X POST http://localhost:3456/api/v2/qa/create-test-user \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "qa-test@greetnow.test",
+    "password": "QATestPass123!",
+    "full_name": "QA Test User"
+  }'
 
-# Reset to active
-sqlite3 apps/server/data/app.db "UPDATE organizations SET subscription_status='active' WHERE id='test-org';"
+# 2. User must log in once to create org (visit the preview login page)
 
-# Set user as admin
-sqlite3 apps/server/data/app.db "UPDATE users SET role='admin' WHERE email='test@example.com';"
+# 3. Set organization status (using user_email to find org)
+curl -X POST http://localhost:3456/api/v2/qa/set-org-status \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_email": "qa-test@greetnow.test",
+    "subscription_status": "past_due"
+  }'
 
-# Set user as agent
-sqlite3 apps/server/data/app.db "UPDATE users SET role='agent' WHERE email='test@example.com';"
+# Reset org to active after testing
+curl -X POST http://localhost:3456/api/v2/qa/set-org-status \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_email": "qa-test@greetnow.test",
+    "subscription_status": "active"
+  }'
 ```
 
-**Always reset test data after testing:**
-```bash
-# Example cleanup
-sqlite3 apps/server/data/app.db "UPDATE organizations SET subscription_status='active' WHERE id LIKE 'test-%';"
-```
+**Note:** Test users created with `@greetnow.test` domain are for QA only.
 
 ---
 
@@ -350,51 +434,85 @@ Examples:
 
 ### Test Account Requirements
 
-For features requiring authentication, create a test account:
+For features requiring authentication, create a test account using the PM Dashboard API:
 
 1. **Create test user** with predictable credentials:
    ```bash
-   # Example: Create test user for payment failure testing
-   sqlite3 apps/server/data/app.db "INSERT INTO users (email, role) VALUES ('test-past-due-admin@example.com', 'admin');"
+   curl -X POST http://localhost:3456/api/v2/qa/create-test-user \
+     -H "Content-Type: application/json" \
+     -d '{
+       "email": "qa-tkt-005b@greetnow.test",
+       "password": "QATest005b!",
+       "full_name": "QA Test User TKT-005B"
+     }'
    ```
 
-2. **Set up required DB state**:
+2. **User must log in to create org** - Visit the preview URL's login page with the test credentials. This triggers automatic org creation.
+
+3. **Set up required DB state**:
    ```bash
-   # Example: Set org to past_due for PaymentBlocker testing
-   sqlite3 apps/server/data/app.db "UPDATE organizations SET subscription_status='past_due' WHERE id='test-org';"
+   curl -X POST http://localhost:3456/api/v2/qa/set-org-status \
+     -H "Content-Type: application/json" \
+     -d '{
+       "user_email": "qa-tkt-005b@greetnow.test",
+       "subscription_status": "past_due"
+     }'
    ```
 
-3. **Document in QA report** (included in inbox item):
-   ```json
-   {
-     "preview_url": "https://agent-tkt-005b.your-project.vercel.app/dashboard",
-     "test_account": {
-       "email": "test-past-due-admin@example.com",
-       "password": "test123",
-       "setup_notes": "Org is set to past_due status. Login to see PaymentBlocker modal."
-     }
-   }
+4. **Generate magic link for PM review**:
+   ```bash
+   curl -X POST http://localhost:3456/api/v2/review-tokens \
+     -H "Content-Type: application/json" \
+     -d '{
+       "ticket_id": "TKT-005B",
+       "user_email": "qa-tkt-005b@greetnow.test",
+       "user_password": "QATest005b!",
+       "redirect_path": "/dashboard",
+       "preview_base_url": "https://virtualgreeter-git-agent-tkt-005b-ryanod2014.vercel.app"
+     }'
+   # Returns: { "magic_url": "https://...vercel.app/api/review-login?token=abc123..." }
+   ```
+
+5. **Submit to PM inbox with magic_url**:
+   ```bash
+   curl -X POST http://localhost:3456/api/v2/inbox \
+     -H "Content-Type: application/json" \
+     -d '{
+       "ticket_id": "TKT-005B",
+       "type": "ui_review",
+       "message": "PaymentBlocker modal ready for review",
+       "branch": "agent/tkt-005b",
+       "files": ["apps/dashboard/src/components/PaymentBlocker.tsx"],
+       "magic_url": "https://...vercel.app/api/review-login?token=abc123...",
+       "redirect_path": "/dashboard"
+     }'
    ```
 
 ### Including Preview in Inbox Item
 
-When QA passes, the inbox item is created with:
+When QA passes, the inbox item is created with a **magic_url** (one-click PM review):
 
-```javascript
-createInboxItem(ticketId, {
-  type: 'ui_review',
-  message: 'UI changes ready for review',
-  branch: 'agent/tkt-005b-payment-blocker',
-  files: ['src/components/PaymentBlocker.tsx'],
-  screenshots: [...],
-  preview_url: 'https://agent-tkt-005b.vercel.app/dashboard',
-  test_account: {
-    email: 'test-admin@example.com',
-    password: 'test123',
-    setup_notes: 'Org is in past_due status'
-  }
-});
+```bash
+# Submit to inbox with magic_url (preferred - one-click review)
+curl -X POST http://localhost:3456/api/v2/inbox \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticket_id": "TKT-005B",
+    "type": "ui_review",
+    "message": "PaymentBlocker modal ready for review",
+    "branch": "agent/tkt-005b",
+    "files": ["apps/dashboard/src/components/PaymentBlocker.tsx"],
+    "screenshots": ["docs/agent-output/qa-screenshots/TKT-005B-modal-admin.png"],
+    "magic_url": "https://virtualgreeter-git-agent-tkt-005b-ryanod2014.vercel.app/api/review-login?token=abc123...",
+    "redirect_path": "/dashboard",
+    "state_setup": "Org set to past_due status to trigger PaymentBlocker"
+  }'
 ```
+
+**Key fields:**
+- `magic_url` - One-click login URL (PM clicks → auto-logs in → sees feature)
+- `redirect_path` - Where PM lands after login
+- `state_setup` - Notes about what DB state was configured
 
 ---
 

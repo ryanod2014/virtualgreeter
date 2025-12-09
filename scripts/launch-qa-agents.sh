@@ -409,6 +409,13 @@ for t in data.get('tickets', []):
         print(' '.join(files))
         break
 " 2>/dev/null || echo "")
+
+    # Detect if this is a UI ticket (has .tsx, .css, or component files)
+    IS_UI_TICKET="false"
+    if echo "$FILES_TO_MODIFY" | grep -qE '\.(tsx|css)$|/components/|/features/|/app/'; then
+        IS_UI_TICKET="true"
+        print_warning "UI TICKET DETECTED - Will require PM approval via magic link"
+    fi
     
     # Register session in database (v2 API)
     local DB_SESSION_ID=""
@@ -515,6 +522,59 @@ PHASE 3: EXECUTE YOUR TEST PROTOCOL
 12. Make PASS/FAIL decision based on YOUR protocol criteria
 
 If PASS:
+  FIRST: Check if this is a UI ticket by looking at files_to_modify:
+    cat $MAIN_REPO_DIR/docs/data/tickets.json | jq '.tickets[] | select(.id | ascii_upcase == \"$TICKET_ID\" | ascii_upcase) | .files_to_modify[]' | grep -E '\\.tsx|\\.css|/components/|/features/|/app/'
+  
+  ═══════════════════════════════════════════════════════════════
+  IF UI TICKET (has .tsx files): DO NOT AUTO-MERGE! Follow this flow:
+  ═══════════════════════════════════════════════════════════════
+  
+  1. Create test user for PM review:
+     curl -X POST http://localhost:3456/api/v2/qa/create-test-user \\
+       -H 'Content-Type: application/json' \\
+       -d '{\"email\": \"qa-$TICKET_ID@greetnow.test\", \"password\": \"QATest-$TICKET_ID!\", \"full_name\": \"QA Test User $TICKET_ID\"}'
+  
+  2. Set up required database state (depends on feature being tested):
+     # Example for payment blocker: set org to past_due
+     curl -X POST http://localhost:3456/api/v2/qa/set-org-status \\
+       -H 'Content-Type: application/json' \\
+       -d '{\"user_email\": \"qa-$TICKET_ID@greetnow.test\", \"subscription_status\": \"past_due\"}'
+  
+  3. Generate magic link for PM:
+     MAGIC_RESPONSE=\$(curl -s -X POST http://localhost:3456/api/v2/review-tokens \\
+       -H 'Content-Type: application/json' \\
+       -d '{\"ticket_id\": \"$TICKET_ID\", \"user_email\": \"qa-$TICKET_ID@greetnow.test\", \"user_password\": \"QATest-$TICKET_ID!\", \"redirect_path\": \"/dashboard\"}')
+     MAGIC_URL=\$(echo \$MAGIC_RESPONSE | jq -r '.magic_url')
+  
+  4. Capture screenshots of the UI (use Playwright MCP):
+     - Take screenshot of the feature state
+     - Save to: $MAIN_REPO_DIR/docs/agent-output/inbox/screenshots/$TICKET_ID-feature.png
+  
+  5. Create inbox item for PM review (include screenshots array!):
+     curl -X POST http://localhost:3456/api/v2/inbox \\
+       -H 'Content-Type: application/json' \\
+       -d '{
+         \"ticket_id\": \"$TICKET_ID\",
+         \"type\": \"ui_review\",
+         \"message\": \"UI changes ready for review\",
+         \"branch\": \"$BRANCH\",
+         \"screenshots\": [{\"name\": \"Feature Screenshot\", \"path\": \"/docs/agent-output/inbox/screenshots/$TICKET_ID-feature.png\"}],
+         \"magic_url\": \"'\$MAGIC_URL'\",
+         \"acceptance_criteria\": [\"List acceptance criteria here\"]
+       }'
+  
+  6. Write PASS report:
+     $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md
+  
+  7. Update ticket status to qa_approved (NOT merged!):
+     curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -H 'Content-Type: application/json' -d '{\"status\": \"qa_approved\"}'
+  
+  8. DO NOT MERGE - Wait for PM to approve via inbox UI
+  
+  ═══════════════════════════════════════════════════════════════
+  IF NON-UI TICKET (no .tsx files): Auto-merge flow:
+  ═══════════════════════════════════════════════════════════════
+  
   - Write PASS report to: $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md
   - Mark session complete:
     curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete -H 'Content-Type: application/json' -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
