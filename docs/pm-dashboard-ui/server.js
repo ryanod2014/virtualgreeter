@@ -15,6 +15,71 @@ const fs = require('fs');
 const path = require('path');
 
 // =============================================================================
+// SUPABASE CLIENT (for QA test user management)
+// =============================================================================
+// Using the dashboard Supabase instance for user/org management
+const SUPABASE_URL = 'https://sldbpqyvksdxsuuxqtgg.supabase.co';
+
+// Try to get service key from env or dashboard .env.local
+function getServiceKey() {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return process.env.SUPABASE_SERVICE_ROLE_KEY;
+  }
+  
+  const envPath = path.join(__dirname, '../../apps/dashboard/.env.local');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    // Match either quoted or unquoted value
+    const match = envContent.match(/SUPABASE_SERVICE_ROLE_KEY\s*=\s*"?([^"\n]+)"?/);
+    if (match) {
+      return match[1].trim();
+    }
+  }
+  return null;
+}
+
+// Lazy-load @supabase/supabase-js only when needed
+let supabaseClient = null;
+let supabaseInitAttempted = false;
+
+async function getSupabaseClient() {
+  if (supabaseClient) return supabaseClient;
+  if (supabaseInitAttempted) return null;
+  
+  supabaseInitAttempted = true;
+  
+  try {
+    const serviceKey = getServiceKey();
+    if (!serviceKey) {
+      console.log('⚠️ SUPABASE_SERVICE_ROLE_KEY not found - QA endpoints will be limited');
+      return null;
+    }
+    
+    // Try to load from dashboard's node_modules using require (CommonJS)
+    const dashboardPath = path.join(__dirname, '../../apps/dashboard/node_modules/@supabase/supabase-js');
+    if (fs.existsSync(dashboardPath)) {
+      // Use CommonJS require for the main entry point
+      const { createClient } = require(`${dashboardPath}/dist/main/index.js`);
+      
+      supabaseClient = createClient(SUPABASE_URL, serviceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      });
+      console.log('✅ Supabase client initialized for QA endpoints');
+      return supabaseClient;
+    } else {
+      console.log('⚠️ Supabase SDK not found at:', dashboardPath);
+    }
+  } catch (e) {
+    console.log(`⚠️ Could not initialize Supabase client: ${e.message}`);
+    console.log(e.stack);
+  }
+  return null;
+}
+
+// =============================================================================
 // DATABASE MODULE (v2 API)
 // =============================================================================
 let db = null;
@@ -3168,6 +3233,201 @@ function handleAPI(req, res, body) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
     }
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // QA HELPER ENDPOINTS (Test User & Org Management)
+  // ---------------------------------------------------------------------------
+  
+  // POST /api/v2/qa/create-test-user - Create a Supabase auth user for testing
+  if (req.method === 'POST' && url === '/api/v2/qa/create-test-user') {
+    (async () => {
+      try {
+        const data = JSON.parse(body);
+        const { email, password, full_name } = data;
+        
+        if (!email || !password) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing required fields: email, password' }));
+          return;
+        }
+        
+        const supabase = await getSupabaseClient();
+        if (!supabase) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Supabase client not available. Check SUPABASE_SERVICE_ROLE_KEY.' }));
+          return;
+        }
+        
+        // Create user in Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true, // Auto-confirm for testing
+          user_metadata: { full_name: full_name || 'QA Test User' }
+        });
+        
+        if (authError) {
+          // Check if user already exists
+          if (authError.message?.includes('already been registered')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              success: true, 
+              message: 'User already exists',
+              email,
+              note: 'User must log in once to create organization'
+            }));
+            return;
+          }
+          throw authError;
+        }
+        
+        console.log(`✅ Created test user: ${email} (id: ${authData.user.id})`);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          user_id: authData.user.id,
+          email,
+          note: 'User must log in once to trigger organization creation'
+        }));
+      } catch (e) {
+        console.error('Error creating test user:', e);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return true;
+  }
+  
+  // POST /api/v2/qa/set-org-status - Set organization subscription status
+  if (req.method === 'POST' && url === '/api/v2/qa/set-org-status') {
+    (async () => {
+      try {
+        const data = JSON.parse(body);
+        const { user_email, subscription_status, organization_id } = data;
+        
+        if (!subscription_status) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing required field: subscription_status' }));
+          return;
+        }
+        
+        const validStatuses = ['active', 'paused', 'cancelled', 'trialing', 'past_due'];
+        if (!validStatuses.includes(subscription_status)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: `Invalid subscription_status. Must be one of: ${validStatuses.join(', ')}` 
+          }));
+          return;
+        }
+        
+        const supabase = await getSupabaseClient();
+        if (!supabase) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Supabase client not available. Check SUPABASE_SERVICE_ROLE_KEY.' }));
+          return;
+        }
+        
+        let orgId = organization_id;
+        
+        // If user_email provided, look up their organization
+        if (user_email && !orgId) {
+          // First find the user by email
+          const { data: users, error: userError } = await supabase
+            .from('users')
+            .select('organization_id')
+            .eq('email', user_email)
+            .limit(1);
+          
+          if (userError) throw userError;
+          
+          if (!users || users.length === 0) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              error: `User not found: ${user_email}. Make sure user has logged in at least once.`
+            }));
+            return;
+          }
+          
+          orgId = users[0].organization_id;
+        }
+        
+        if (!orgId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Must provide either user_email or organization_id' }));
+          return;
+        }
+        
+        // Update the organization's subscription status
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .update({ subscription_status })
+          .eq('id', orgId)
+          .select()
+          .single();
+        
+        if (orgError) throw orgError;
+        
+        console.log(`✅ Set org ${orgId} subscription_status to: ${subscription_status}`);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          organization_id: orgId,
+          organization_name: org.name,
+          subscription_status: org.subscription_status,
+          message: `Organization subscription status set to: ${subscription_status}`
+        }));
+      } catch (e) {
+        console.error('Error setting org status:', e);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return true;
+  }
+  
+  // GET /api/v2/qa/org-by-email/:email - Look up organization by user email
+  if (req.method === 'GET' && url.match(/\/api\/v2\/qa\/org-by-email\/.+/)) {
+    (async () => {
+      try {
+        const email = decodeURIComponent(url.split('/').pop());
+        
+        const supabase = await getSupabaseClient();
+        if (!supabase) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Supabase client not available' }));
+          return;
+        }
+        
+        // Find user and their org
+        const { data: users, error: userError } = await supabase
+          .from('users')
+          .select('id, email, organization_id, organizations(id, name, subscription_status, plan)')
+          .eq('email', email)
+          .limit(1);
+        
+        if (userError) throw userError;
+        
+        if (!users || users.length === 0) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `User not found: ${email}` }));
+          return;
+        }
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          user_id: users[0].id,
+          email: users[0].email,
+          organization: users[0].organizations
+        }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
     return true;
   }
 
