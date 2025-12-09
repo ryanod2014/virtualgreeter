@@ -24,6 +24,7 @@ export default async function AdminLayout({
       user={auth.profile}
       organization={auth.organization}
       agentProfile={auth.agentProfile}
+      isAdmin={auth.isAdmin}
     >
       {children}
     </AdminLayoutClient>
