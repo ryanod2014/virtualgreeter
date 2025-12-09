@@ -1,0 +1,94 @@
+You are a QA Review Agent testing ticket TKT-045.
+
+## Ticket: Exclude Dismissed Surveys from PMF Calculation
+## Branch: agent/tkt-045
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-045
+
+## Acceptance Criteria:
+- Dismissed surveys have null disappointment_level
+- PMF calculation excludes null responses
+- Submitted responses work as before
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-045
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-045
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **If PASS - Write report to MAIN REPO:**
+   - File: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-045-PASSED-20251206T221030.md
+   - Include the selective merge command (see below)
+
+5. **If FAIL - Create BOTH files in MAIN REPO:**
+   - Blocker JSON: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-045-FAILED-20251206T221030.json
+   - Report MD: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-045-FAILED-20251206T221030.md
+
+6. **DO NOT modify any files in the main repo except your QA outputs**
+
+7. **If tests PASS, include this merge command in your report:**
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   # Cherry-pick ONLY the ticket's files:
+   git checkout origin/agent/tkt-045 -- apps/dashboard/src/features/feedback/SurveyModal.tsx apps/dashboard/src/features/feedback/actions.ts
+   git add apps/dashboard/src/features/feedback/SurveyModal.tsx apps/dashboard/src/features/feedback/actions.ts
+   git commit -m 'feat: TKT-045 - Exclude Dismissed Surveys from PMF Calculation'
+   git push origin main
+   ```
+
+## If FAILED - Blocker JSON Template:
+
+```json
+{
+  "ticket_id": "TKT-045",
+  "ticket_title": "Exclude Dismissed Surveys from PMF Calculation",
+  "branch": "agent/tkt-045",
+  "blocked_at": "[ISO timestamp]",
+  "blocker_type": "qa_failure",
+  "summary": "[One-line summary of failure]",
+  "failures": [
+    {
+      "category": "build|acceptance|regression|browser",
+      "check": "[Which check failed]",
+      "error": "[Error message]"
+    }
+  ],
+  "recommendation": "[What needs to be fixed]",
+  "dispatch_action": "create_continuation_ticket"
+}
+```
+
+## Report Template:
+
+# QA Review: TKT-045
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** TKT-045 - Exclude Dismissed Surveys from PMF Calculation
+**Branch:** agent/tkt-045
+**Tested:** 2025-12-06
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

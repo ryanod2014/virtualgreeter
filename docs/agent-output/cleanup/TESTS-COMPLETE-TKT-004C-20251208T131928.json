@@ -1,0 +1,35 @@
+{
+  "ticket_id": "TKT-004C",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "docs/pm-dashboard-ui/validate-tkt-004c-fixes.js"
+  ],
+  "test_summary": {
+    "total_tests": 13,
+    "passed": 13,
+    "failed": 0
+  },
+  "behaviors_tested": [
+    "Ticket ID regex pattern extraction with letter suffixes (TKT-004C, SEC-001A, etc.)",
+    "Ticket ID regex for QA results files",
+    "Blocked entries deduplication by ticket ID",
+    "Most recent entry selection when multiple blocked files exist",
+    "ISO timestamp string comparison",
+    "Count reduction validation (33 files to 27 unique tickets)"
+  ],
+  "changes_covered": {
+    "file": "docs/pm-dashboard-ui/server.js",
+    "functions_tested": [
+      "scanAgentOutputs (ticket ID extraction and deduplication)",
+      "buildDevStatusFromOutputs (QA results ticket extraction)"
+    ],
+    "commit": "216f837 - fix: Dashboard now counts unique tickets correctly"
+  },
+  "notes": [
+    "Created standalone validation script (not integrated with main test suite)",
+    "Test file is executable and can be run directly with: node docs/pm-dashboard-ui/validate-tkt-004c-fixes.js",
+    "All tests pass successfully, validating the TKT-004C fixes"
+  ],
+  "completed_at": "2025-12-08T20:18:42Z"
+}

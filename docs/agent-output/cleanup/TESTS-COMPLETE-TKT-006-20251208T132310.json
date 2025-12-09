@@ -1,0 +1,17 @@
+{
+  "ticket_id": "TKT-006",
+  "type": "tests",
+  "status": "already_complete",
+  "message": "Test coverage for TKT-006 was already present in commit da8c053. No new tests needed.",
+  "tests_verified": [
+    "apps/dashboard/src/lib/supabase/middleware.test.ts - redirects to /login with ?next= parameter for /dashboard",
+    "apps/dashboard/src/lib/supabase/middleware.test.ts - redirects to /login with ?next= parameter for /admin",
+    "apps/dashboard/src/lib/supabase/middleware.test.ts - redirects to /login with ?next= parameter for /settings",
+    "apps/dashboard/src/lib/supabase/middleware.test.ts - redirects to /login with ?next= parameter for /platform",
+    "apps/dashboard/src/lib/supabase/middleware.test.ts - redirects to /login with ?next= parameter for nested paths",
+    "apps/dashboard/src/lib/supabase/middleware.test.ts - handles session errors with ?next= parameter"
+  ],
+  "tests_passing": true,
+  "commit_with_tests": "da8c053",
+  "completed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}

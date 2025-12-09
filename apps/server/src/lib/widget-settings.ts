@@ -17,6 +17,7 @@ const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   auto_hide_delay: null,
   show_minimize_button: false,
   theme: "dark",
+  cobrowse_enabled: true, // default to enabled for backward compatibility
 };
 
 // Cache for org default settings (expires after 10 seconds in dev, 5 minutes in prod)

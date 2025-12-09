@@ -28,6 +28,13 @@ function isInvoice(obj: unknown): obj is Stripe.Invoice {
 /**
  * Map Stripe subscription status to our database status
  * Our DB allows: 'active', 'paused', 'cancelled', 'trialing', 'past_due'
+ *
+ * SECURITY: Unknown statuses default to 'cancelled' (fail-safe).
+ * This prevents granting access when Stripe introduces new statuses that we haven't mapped yet.
+ * Logs a warning when an unknown status is encountered so it can be added to the mapping.
+ *
+ * @param stripeStatus - The status string from Stripe subscription
+ * @returns Database-compatible status string ('active' | 'trialing' | 'past_due' | 'cancelled' | 'paused')
  */
 function mapStripeStatusToDbStatus(stripeStatus: string): string {
   switch (stripeStatus) {
@@ -48,8 +55,13 @@ function mapStripeStatusToDbStatus(stripeStatus: string): string {
       // Treat payment-related issues as past_due
       return "past_due";
     default:
-      console.warn(`[StripeWebhook] Unknown Stripe status: ${stripeStatus}, defaulting to active`);
-      return "active";
+      // SECURITY: Unknown status defaults to 'cancelled' (fail-safe)
+      // This prevents granting access when Stripe introduces new statuses
+      console.warn(
+        `[StripeWebhook] ⚠️ UNKNOWN STRIPE STATUS: "${stripeStatus}" - Defaulting to 'cancelled' (fail-safe). ` +
+        `This may indicate a new Stripe status that needs to be added to the mapping.`
+      );
+      return "cancelled";
   }
 }
 
@@ -187,13 +199,32 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<bool
 /**
  * Handle customer.subscription.updated event
  * Syncs subscription status changes from Stripe
+ *
+ * ALERT: If an unknown Stripe status is encountered (mapped to 'cancelled' as fail-safe),
+ * this function logs a critical ops alert with the full subscription details so the
+ * unknown status can be investigated and added to the mapping.
+ *
+ * @param subscription - The Stripe subscription object from the webhook event
+ * @returns Promise<boolean> - True if update succeeded, false otherwise
  */
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<boolean> {
   const org = await getOrgByStripeSubscriptionId(subscription.id);
   if (!org) return false;
 
   const newStatus = mapStripeStatusToDbStatus(subscription.status);
-  
+
+  // Alert ops if unknown status was encountered (mapped to 'cancelled')
+  if (newStatus === "cancelled" && !["canceled", "cancelled"].includes(subscription.status)) {
+    console.error(
+      `[StripeWebhook] 🚨 ALERT OPS: Unknown Stripe status encountered!\n` +
+      `Subscription ID: ${subscription.id}\n` +
+      `Org ID: ${org.id}\n` +
+      `Org Name: ${org.name}\n` +
+      `Unknown Status: "${subscription.status}"\n` +
+      `Full Subscription Object: ${JSON.stringify(subscription, null, 2)}`
+    );
+  }
+
   return updateOrgSubscriptionStatus(org.id, newStatus, org.subscription_status, "customer.subscription.updated");
 }
 

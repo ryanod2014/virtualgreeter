@@ -58,7 +58,7 @@ describe("supabase/middleware - updateSession", () => {
       const response = await updateSession(request);
 
       expect(response.status).toBe(307); // Temporary redirect
-      expect(response.headers.get("location")).toBe("http://localhost:3000/login");
+      expect(response.headers.get("location")).toBe("http://localhost:3000/login?next=%2Fdashboard");
     });
 
     it("redirects to /login when accessing /admin without user", async () => {
@@ -71,7 +71,7 @@ describe("supabase/middleware - updateSession", () => {
       const response = await updateSession(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get("location")).toBe("http://localhost:3000/login");
+      expect(response.headers.get("location")).toBe("http://localhost:3000/login?next=%2Fadmin");
     });
 
     it("redirects to /login when accessing /settings without user", async () => {
@@ -84,7 +84,7 @@ describe("supabase/middleware - updateSession", () => {
       const response = await updateSession(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get("location")).toBe("http://localhost:3000/login");
+      expect(response.headers.get("location")).toBe("http://localhost:3000/login?next=%2Fsettings");
     });
 
     it("redirects to /login when accessing /platform without user", async () => {
@@ -97,7 +97,7 @@ describe("supabase/middleware - updateSession", () => {
       const response = await updateSession(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get("location")).toBe("http://localhost:3000/login");
+      expect(response.headers.get("location")).toBe("http://localhost:3000/login?next=%2Fplatform");
     });
 
     it("redirects to /login when accessing nested protected path /dashboard/calls without user", async () => {
@@ -110,7 +110,7 @@ describe("supabase/middleware - updateSession", () => {
       const response = await updateSession(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get("location")).toBe("http://localhost:3000/login");
+      expect(response.headers.get("location")).toBe("http://localhost:3000/login?next=%2Fdashboard%2Fcalls");
     });
 
     it("redirects to /login when accessing /admin/agents without user", async () => {
@@ -123,7 +123,7 @@ describe("supabase/middleware - updateSession", () => {
       const response = await updateSession(request);
 
       expect(response.status).toBe(307);
-      expect(response.headers.get("location")).toBe("http://localhost:3000/login");
+      expect(response.headers.get("location")).toBe("http://localhost:3000/login?next=%2Fadmin%2Fagents");
     });
   });
 
@@ -347,7 +347,7 @@ describe("supabase/middleware - updateSession", () => {
 
       // Should redirect to login since user is null (even with error)
       expect(response.status).toBe(307);
-      expect(response.headers.get("location")).toBe("http://localhost:3000/login");
+      expect(response.headers.get("location")).toBe("http://localhost:3000/login?next=%2Fdashboard");
     });
   });
 
@@ -375,4 +375,5 @@ describe("supabase/middleware - updateSession", () => {
     });
   });
 });
+
 

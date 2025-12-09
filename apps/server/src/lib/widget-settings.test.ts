@@ -725,3 +725,4 @@ describe("widget-settings with Supabase configured", () => {
     });
   });
 });
+

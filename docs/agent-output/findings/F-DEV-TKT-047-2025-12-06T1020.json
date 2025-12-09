@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-047-1",
+  "source": "dev-agent-TKT-047",
+  "title": "Pre-existing TypeScript errors in dashboard package",
+  "category": "bug",
+  "severity": "high",
+  "file": "apps/dashboard/src/features/workbench/workbench-client.tsx",
+  "line": 38,
+  "issue": "Dashboard package has multiple pre-existing TypeScript errors that prevent `pnpm build` and `pnpm typecheck` from passing. The most critical is in workbench-client.tsx where RecordingSettings is missing required properties (rna_timeout_seconds, max_call_duration_minutes). There are also 100+ test file errors in pools-client.test.tsx related to missing 'theme' property in WidgetSettings.",
+  "suggestion": "Fix the RecordingSettings type in workbench-client.tsx by adding the missing properties. Consider fixing test type errors in pools-client.test.tsx as well. These errors block CI/CD and make it impossible to verify that new code changes don't introduce type errors.",
+  "status": "pending",
+  "found_at": "2025-12-06T10:20:00Z"
+}

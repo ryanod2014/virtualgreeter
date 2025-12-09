@@ -125,6 +125,10 @@ USER SUBMITS LOGIN FORM
     ├─► Client: Query users table for role
     │   └─► supabase.from("users").select("role").eq("id", user.id).single()
     │
+    ├─► Check if profile exists (orphaned user detection - TKT-047)
+    │   ├─► If no profile: Log error, show support message, STOP
+    │   └─► If profile exists: Continue to redirect
+    │
     ├─► Determine redirect destination
     │   ├─► profile.role === "admin" → "/admin"
     │   └─► profile.role === "agent" → "/dashboard"
@@ -140,11 +144,12 @@ MIDDLEWARE ON PROTECTED ROUTES
     │   └─► supabase.auth.getUser() ← Validates/refreshes session
     │
     ├─► If protected path (/dashboard, /admin, /settings, /platform):
-    │   └─► No user? Return (incomplete redirect logic - see issues)
+    │   └─► No user? Redirect to /login?next=[original-pathname] (TKT-006)
     │
     └─► If auth path (/login, /signup) + user exists:
         ├─► Query user role
-        └─► Redirect to /admin or /dashboard
+        ├─► If no profile exists: Redirect to /login?error=missing_profile (TKT-047)
+        └─► Else redirect to /admin or /dashboard based on role
 ```
 
 ---
@@ -163,7 +168,7 @@ MIDDLEWARE ON PROTECTED ROUTES
 | 7 | Already logged in | Visit `/login` | Middleware redirects to dashboard | ✅ | |
 | 8 | Admin visits login | Visit `/login` while admin | Redirects to `/admin` | ✅ | |
 | 9 | Agent visits login | Visit `/login` while agent | Redirects to `/dashboard` | ✅ | |
-| 10 | Session expired | Access protected route | Shows login page | ⚠️ | Middleware redirect incomplete |
+| 10 | Session expired | Access protected route | Redirects to `/login?next=[path]` | ✅ | TKT-006: Preserves intended destination |
 | 11 | Login with unverified email | Unconfirmed signup | Supabase handles - depends on config | ⚠️ | May allow or block based on Supabase settings |
 | 12 | Login with deactivated agent | `is_active: false` | Login succeeds, but features limited | ⚠️ | No explicit check at login |
 | 13 | Network error during login | Connection lost | Supabase error displayed | ✅ | |
@@ -173,7 +178,7 @@ MIDDLEWARE ON PROTECTED ROUTES
 | 17 | SQL injection attempt | `' OR '1'='1` | Supabase parameterizes queries | ✅ | |
 | 18 | XSS in email field | `<script>` | Sanitized/escaped | ✅ | |
 | 19 | Rapid login attempts | Spam click | No client-side rate limit | ⚠️ | Server has rate limits (socket), not login |
-| 20 | User with no profile row | Auth exists, no users row | Returns null, redirects fail | ⚠️ | May cause issues |
+| 20 | User with no profile row (orphaned user) | Auth exists, no users row | Shows error message with support contact instruction | ✅ | Fixed in TKT-047 |
 | 21 | Platform admin login | `is_platform_admin: true` | Redirects to /admin (not /platform) | ⚠️ | Platform check happens in layout |
 | 22 | Login from new device | Different browser | Works (no device tracking) | ✅ | |
 | 23 | Concurrent sessions | Multiple tabs/devices | All sessions valid | ✅ | Supabase allows multiple |
@@ -185,6 +190,7 @@ MIDDLEWARE ON PROTECTED ROUTES
 | Network error | No internet | Supabase error message | Check connection, retry |
 | Email not confirmed | Signup without confirmation | "Email not confirmed" (if enabled) | Check email for verification link |
 | Auth callback error | OAuth code exchange fails | Redirect to `/login?error=auth_callback_error` | Try login again |
+| Missing profile | Orphaned auth.users record | Red banner: "Your account is missing required profile information. Please contact support for assistance." | Contact support team |
 
 ---
 
@@ -261,7 +267,7 @@ MIDDLEWARE ON PROTECTED ROUTES
 |-------|--------|----------|--------------|
 | No client-side rate limiting | Spam attacks possible | 🟡 Medium | Add debounce or attempt counter |
 | Deactivated agents can login | Confusing UX | 🟢 Low | Check `is_active` after login |
-| Middleware redirect incomplete | Security gap | 🔴 High | Complete the `if (!user)` block |
+| ~~Middleware redirect incomplete~~ | ~~Security gap~~ | ✅ Fixed (TKT-006) | Now redirects to `/login?next=[path]` |
 | Hard redirect causes flash | UX polish | 🟢 Low | Use Next.js router after session set |
 | No "Remember me" option | User convenience | 🟢 Low | Supabase handles session duration |
 | No login attempt logging | Security audit gap | 🟡 Medium | Log failed attempts |
@@ -299,7 +305,7 @@ MIDDLEWARE ON PROTECTED ROUTES
 
 ## 10. OPEN QUESTIONS
 
-1. **Why is the middleware redirect incomplete?** Line 56-57 of `middleware.ts` has `if (isProtectedPath && !user) { return }` but no redirect. Is this intentional or a bug?
+1. ~~**Why is the middleware redirect incomplete?**~~ ✅ **RESOLVED (TKT-006):** Now properly redirects unauthenticated users to `/login?next=[pathname]`, preserving the intended destination URL for automatic redirect after successful login.
 
 2. **Should deactivated agents be blocked at login?** Currently `is_active: false` agents can log in but have limited features. Should login fail entirely?
 

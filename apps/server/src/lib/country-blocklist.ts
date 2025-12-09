@@ -10,10 +10,12 @@
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 
 type CountryListMode = "blocklist" | "allowlist";
+type GeoFailureHandling = "allow" | "block";
 
 interface CountryListSettings {
   countries: string[];
   mode: CountryListMode;
+  geoFailureHandling: GeoFailureHandling;
 }
 
 // Cache for country list settings (expires after 60 seconds in dev, 5 minutes in prod)
@@ -35,24 +37,25 @@ export async function getCountryListSettings(orgId: string): Promise<CountryList
 
   if (!isSupabaseConfigured || !supabase) {
     console.log("[CountryList] Supabase not configured, allowing all countries");
-    return { countries: [], mode: "blocklist" };
+    return { countries: [], mode: "blocklist", geoFailureHandling: "allow" };
   }
 
   try {
     const { data, error } = await supabase
       .from("organizations")
-      .select("blocked_countries, country_list_mode")
+      .select("blocked_countries, country_list_mode, geo_failure_handling")
       .eq("id", orgId)
       .single();
 
     if (error) {
       console.warn(`[CountryList] Failed to fetch country list for ${orgId}:`, error.message);
-      return { countries: [], mode: "blocklist" };
+      return { countries: [], mode: "blocklist", geoFailureHandling: "allow" };
     }
 
     const settings: CountryListSettings = {
       countries: (data?.blocked_countries as string[]) || [],
       mode: (data?.country_list_mode as CountryListMode) || "blocklist",
+      geoFailureHandling: (data?.geo_failure_handling as GeoFailureHandling) || "allow",
     };
     
     // Cache the result
@@ -66,7 +69,7 @@ export async function getCountryListSettings(orgId: string): Promise<CountryList
     return settings;
   } catch (error) {
     console.error("[CountryList] Error fetching country list settings:", error);
-    return { countries: [], mode: "blocklist" };
+    return { countries: [], mode: "blocklist", geoFailureHandling: "allow" };
   }
 }
 
@@ -100,13 +103,14 @@ export async function isCountryBlocked(orgId: string, countryCode: string | null
 
   // If we don't know the country (geolocation failed)
   if (!countryCode) {
-    // Blocklist mode: allow unknown countries through
-    // Allowlist mode: block unknown countries (they're not in the allow list)
-    if (settings.mode === "allowlist") {
-      console.log(`[CountryList] Blocking unknown country for org ${orgId} (allowlist mode)`);
-      return true;
+    // Use the admin's geo_failure_handling setting
+    const shouldBlock = settings.geoFailureHandling === "block";
+    if (shouldBlock) {
+      console.log(`[CountryList] Blocking unknown country for org ${orgId} (geo_failure_handling=block)`);
+    } else {
+      console.log(`[CountryList] Allowing unknown country for org ${orgId} (geo_failure_handling=allow)`);
     }
-    return false;
+    return shouldBlock;
   }
 
   // Case-insensitive comparison

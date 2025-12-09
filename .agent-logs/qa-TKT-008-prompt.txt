@@ -1,0 +1,94 @@
+You are a QA Review Agent testing ticket TKT-008.
+
+## Ticket: Fix Uptime Monitoring Doc - Use Free Tier Settings
+## Branch: agent/tkt-008
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-008
+
+## Acceptance Criteria:
+- All monitor configs show 3-minute check frequency
+- Doc clearly states this is the free tier limit
+- No contradictions between tier description and config
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-008
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-008
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **If PASS - Write report to MAIN REPO:**
+   - File: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-008-PASSED-20251206T215321.md
+   - Include the selective merge command (see below)
+
+5. **If FAIL - Create BOTH files in MAIN REPO:**
+   - Blocker JSON: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-008-FAILED-20251206T215321.json
+   - Report MD: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-008-FAILED-20251206T215321.md
+
+6. **DO NOT modify any files in the main repo except your QA outputs**
+
+7. **If tests PASS, include this merge command in your report:**
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   # Cherry-pick ONLY the ticket's files:
+   git checkout origin/agent/tkt-008 -- docs/features/monitoring/UPTIME_MONITORING.md
+   git add docs/features/monitoring/UPTIME_MONITORING.md
+   git commit -m 'feat: TKT-008 - Fix Uptime Monitoring Doc - Use Free Tier Settings'
+   git push origin main
+   ```
+
+## If FAILED - Blocker JSON Template:
+
+```json
+{
+  "ticket_id": "TKT-008",
+  "ticket_title": "Fix Uptime Monitoring Doc - Use Free Tier Settings",
+  "branch": "agent/tkt-008",
+  "blocked_at": "[ISO timestamp]",
+  "blocker_type": "qa_failure",
+  "summary": "[One-line summary of failure]",
+  "failures": [
+    {
+      "category": "build|acceptance|regression|browser",
+      "check": "[Which check failed]",
+      "error": "[Error message]"
+    }
+  ],
+  "recommendation": "[What needs to be fixed]",
+  "dispatch_action": "create_continuation_ticket"
+}
+```
+
+## Report Template:
+
+# QA Review: TKT-008
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** TKT-008 - Fix Uptime Monitoring Doc - Use Free Tier Settings
+**Branch:** agent/tkt-008
+**Tested:** 2025-12-06
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

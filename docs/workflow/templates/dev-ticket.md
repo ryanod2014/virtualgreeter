@@ -28,6 +28,11 @@ Before marking a ticket as "ready", verify:
 - [ ] `dev_checks` has typecheck + build + quick manual test
 - [ ] `qa_notes` has any special context QA needs
 
+### ⚠️ External Services Check (CRITICAL)
+- [ ] `external_services` lists ALL third-party services needed (or "none")
+- [ ] If external services required: credentials exist in `.agent-credentials.json`?
+- [ ] If NEW account needed: ticket should be marked `status: blocked` until human sets up
+
 ### Size Check
 - [ ] Ticket has ≤5 files to modify (if more, split it)
 - [ ] Ticket has ≤6 acceptance criteria (if more, split it)
@@ -91,7 +96,13 @@ Before marking a ticket as "ready", verify:
     "Quick manual verification: ..."
   ],
   
-  "qa_notes": "Any special context for QA agent"
+  "qa_notes": "Any special context for QA agent",
+  
+  "external_services": {
+    "required": ["none"],
+    "credentials_available": true,
+    "setup_notes": "No external services needed"
+  }
 }
 ```
 
@@ -179,6 +190,77 @@ TKT-004d: "Widget + Agent Status for Paused Orgs"
 
 ---
 
+## ⚠️ External Services (CRITICAL)
+
+**If a ticket requires ANY third-party service, you MUST document it.**
+
+### When to Add `external_services`
+
+| Ticket Mentions | Service Type | Action Required |
+|-----------------|--------------|-----------------|
+| "use MaxMind", "IP geolocation" | Database download | Account + file download |
+| "Stripe integration" | Payment API | API keys + test mode setup |
+| "send emails", "SendGrid" | Email API | API key + sender verification |
+| "S3", "AWS", "cloud storage" | Cloud provider | Account + credentials |
+| "OAuth", "social login" | Auth provider | App registration + secrets |
+| "Twilio", "SMS" | Communication API | Account + phone numbers |
+
+### Template for External Services
+
+```json
+"external_services": {
+  "required": ["MaxMind GeoLite2", "Stripe Test Mode"],
+  "credentials_available": false,
+  "setup_notes": "Human must: (1) Create MaxMind account, (2) Download GeoLite2-City.mmdb",
+  "setup_urls": [
+    "https://dev.maxmind.com/geoip/geolite2-free-geolocation-data"
+  ],
+  "blocking_until_setup": true
+}
+```
+
+### If Credentials NOT Available
+
+If external services are required but credentials/resources don't exist yet:
+
+1. **Set `status: "blocked"`** (not "ready")
+2. **Add to `setup_notes`** what human needs to do
+3. **Add `blocking_until_setup: true`**
+4. **PM must not launch agent** until human completes setup
+
+### Example: MaxMind Ticket (WRONG vs RIGHT)
+
+**❌ WRONG (TKT-062 original):**
+```json
+{
+  "id": "TKT-062",
+  "status": "ready",
+  "fix_required": ["lets use maxmind"]
+  // No external_services field!
+}
+```
+
+**✅ RIGHT:**
+```json
+{
+  "id": "TKT-062",
+  "status": "blocked",
+  "fix_required": [
+    "Replace ip-api.com with MaxMind GeoLite2",
+    "Ensure IP checking only runs when widget is present"
+  ],
+  "external_services": {
+    "required": ["MaxMind GeoLite2"],
+    "credentials_available": false,
+    "setup_notes": "Human must: (1) Create MaxMind account at dev.maxmind.com, (2) Accept EULA, (3) Download GeoLite2-City.mmdb to apps/server/data/",
+    "setup_urls": ["https://dev.maxmind.com/geoip/geolite2-free-geolocation-data"],
+    "blocking_until_setup": true
+  }
+}
+```
+
+---
+
 ## Common Mistakes
 
 ### ❌ Vague Acceptance Criteria
@@ -211,4 +293,20 @@ TKT-004d: "Widget + Agent Status for Paused Orgs"
 
 ### ✅ Agent-Verifiable
 > "Modal displays exact text: 'Your data will be retained for 30 days'"
+
+---
+
+### ❌ Missing External Services
+> Ticket says "use MaxMind" but no `external_services` field
+> Agent writes code, QA passes with mocks, but feature doesn't work in production
+
+### ✅ External Services Documented
+> ```json
+> "external_services": {
+>   "required": ["MaxMind GeoLite2"],
+>   "credentials_available": false,
+>   "blocking_until_setup": true
+> }
+> ```
+> Ticket stays blocked until human sets up the service
 

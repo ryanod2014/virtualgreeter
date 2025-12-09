@@ -18,6 +18,7 @@ const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   auto_hide_delay: null,
   show_minimize_button: false,
   theme: "dark",
+  cobrowse_enabled: true, // default to enabled for existing orgs
 };
 
 /**
@@ -448,9 +449,10 @@ export function Widget({ config }: WidgetProps) {
   }, [connectionError, showError]);
 
   // Co-browsing - streams DOM/mouse/scroll to agent during calls
+  // Only initialize if cobrowse is enabled in org settings
   useCobrowse({
     socket,
-    isInCall: state === "in_call",
+    isInCall: state === "in_call" && widgetSettings.cobrowse_enabled,
   });
 
   // Connect to signaling server immediately on mount

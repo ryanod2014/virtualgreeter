@@ -244,7 +244,7 @@ STRIPE WEBHOOK
 | 17 | Webhook for unknown org | Stripe event | Logs error, returns false (500 → retry) | ✅ | |
 | 18 | $0 invoice (trial) | invoice.paid webhook | Skipped, no status change | ✅ | |
 | 19 | Duplicate webhook event | Stripe retry | Idempotent - skips if status same | ✅ | |
-| 20 | Unknown Stripe status | subscription.updated | Defaults to "active", logs warning | ⚠️ | Conservative fallback |
+| 20 | Unknown Stripe status | subscription.updated | Defaults to "cancelled" (fail-safe), logs warning, alerts ops | ✅ | Security: denies access for unknown status |
 | 21 | Stripe outage during subscription | POST create-subscription | 500 "Failed to create subscription" | ✅ | Generic error |
 | 22 | Missing price ID for frequency | POST create/update | 500 "Price not configured" | ✅ | |
 

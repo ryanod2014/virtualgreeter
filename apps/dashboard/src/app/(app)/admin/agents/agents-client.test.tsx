@@ -456,6 +456,7 @@ describe("AgentsClient - Agent Management (D4)", () => {
             role: "agent",
             expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             created_at: new Date().toISOString(),
+            email_status: "sent" as const,
           },
         ],
       };
@@ -477,6 +478,7 @@ describe("AgentsClient - Agent Management (D4)", () => {
             role: "agent",
             expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             created_at: new Date().toISOString(),
+            email_status: "sent" as const,
           },
         ],
       };
@@ -508,6 +510,7 @@ describe("AgentsClient - Agent Management (D4)", () => {
             role: "agent",
             expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             created_at: new Date().toISOString(),
+            email_status: "sent" as const,
           },
         ],
       };
@@ -548,6 +551,7 @@ describe("AgentsClient - Agent Management (D4)", () => {
             role: "agent",
             expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             created_at: new Date().toISOString(),
+            email_status: "sent" as const,
           },
         ],
       };
@@ -669,3 +673,4 @@ describe("AgentsClient - Agent Management (D4)", () => {
     });
   });
 });
+

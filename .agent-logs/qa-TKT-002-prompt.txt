@@ -1,0 +1,96 @@
+You are a QA Review Agent testing ticket TKT-002.
+
+## Ticket: Complete Stripe Subscription Cancellation
+## Branch: agent/tkt-002
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-002
+
+## Acceptance Criteria:
+- Clicking 'Cancel' calls Stripe API with cancel_at_period_end: true
+- User retains access until their paid period ends (stored in DB)
+- After period ends, plan automatically becomes 'free' via webhook
+- Stripe dashboard shows subscription as 'canceling'
+- Webhook properly handles the final cancellation event
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-002
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-002
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **If PASS - Write report to MAIN REPO:**
+   - File: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-002-PASSED-20251206T215045.md
+   - Include the selective merge command (see below)
+
+5. **If FAIL - Create BOTH files in MAIN REPO:**
+   - Blocker JSON: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-002-FAILED-20251206T215045.json
+   - Report MD: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-002-FAILED-20251206T215045.md
+
+6. **DO NOT modify any files in the main repo except your QA outputs**
+
+7. **If tests PASS, include this merge command in your report:**
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   # Cherry-pick ONLY the ticket's files:
+   git checkout origin/agent/tkt-002 -- apps/dashboard/src/app/(dashboard)/settings/actions.ts apps/dashboard/src/lib/stripe.ts apps/server/src/features/webhooks/stripe.ts
+   git add apps/dashboard/src/app/(dashboard)/settings/actions.ts apps/dashboard/src/lib/stripe.ts apps/server/src/features/webhooks/stripe.ts
+   git commit -m 'feat: TKT-002 - Complete Stripe Subscription Cancellation'
+   git push origin main
+   ```
+
+## If FAILED - Blocker JSON Template:
+
+```json
+{
+  "ticket_id": "TKT-002",
+  "ticket_title": "Complete Stripe Subscription Cancellation",
+  "branch": "agent/tkt-002",
+  "blocked_at": "[ISO timestamp]",
+  "blocker_type": "qa_failure",
+  "summary": "[One-line summary of failure]",
+  "failures": [
+    {
+      "category": "build|acceptance|regression|browser",
+      "check": "[Which check failed]",
+      "error": "[Error message]"
+    }
+  ],
+  "recommendation": "[What needs to be fixed]",
+  "dispatch_action": "create_continuation_ticket"
+}
+```
+
+## Report Template:
+
+# QA Review: TKT-002
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** TKT-002 - Complete Stripe Subscription Cancellation
+**Branch:** agent/tkt-002
+**Tested:** 2025-12-06
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

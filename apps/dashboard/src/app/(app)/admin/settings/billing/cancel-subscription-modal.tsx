@@ -23,24 +23,58 @@ import {
 } from "lucide-react";
 import type { CancellationReason } from "@ghost-greeter/domain/database.types";
 
+/**
+ * Props for the CancelSubscriptionModal component.
+ *
+ * This modal guides users through a 3-step cancellation process:
+ * 1. Select primary reason for cancellation
+ * 2. Provide detailed feedback and additional context
+ * 3. Review and confirm with data retention notice
+ */
 interface CancelSubscriptionModalProps {
+  /** Whether the modal is currently visible */
   isOpen: boolean;
+  /** Callback to close the modal and reset state */
   onClose: () => void;
+  /** Callback to submit cancellation feedback data */
   onSubmit: (data: CancellationData) => Promise<void>;
+  /** Organization name to display in header */
   organizationName: string;
+  /** Number of agents in the organization */
   agentCount: number;
+  /** Monthly subscription cost in dollars */
   monthlyTotal: number;
 }
 
+/**
+ * Data structure for cancellation feedback collected from the user.
+ *
+ * This data is used for analytics and product improvement decisions.
+ * All feedback is stored in the cancellation_feedback table and displayed
+ * in the Platform Admin cancellations dashboard.
+ */
 export interface CancellationData {
+  /** Primary reason selected in step 1 (required) */
   primaryReason: CancellationReason;
+  /** Additional contributing factors selected in step 2 (optional) */
   additionalReasons: CancellationReason[];
+  /** Detailed written feedback about the experience (required) */
   detailedFeedback: string;
+  /** Name of competitor if switching (conditional on reason) */
   competitorName: string;
+  /** Whether user would consider returning in future */
   wouldReturn: boolean | null;
+  /** Conditions that would bring user back (conditional on wouldReturn) */
   returnConditions: string;
 }
 
+/**
+ * All available cancellation reasons with their display labels and icons.
+ *
+ * These 11 predefined reasons are used in both the cancel modal UI and
+ * the Platform Admin analytics dashboard. Each reason tracks user churn
+ * patterns weighted by MRR (Monthly Recurring Revenue) impact.
+ */
 const CANCELLATION_REASONS: {
   value: CancellationReason;
   label: string;
@@ -115,8 +149,28 @@ const CANCELLATION_REASONS: {
   },
 ];
 
+/** The three steps in the cancellation flow */
 type Step = "reason" | "details" | "confirm";
 
+/**
+ * Multi-step subscription cancellation modal with feedback collection.
+ *
+ * **Flow:**
+ * 1. Step 1 (reason): User selects primary cancellation reason from 11 options
+ * 2. Step 2 (details): User provides detailed feedback, selects additional reasons,
+ *    indicates if switching to competitor, and whether they'd return
+ * 3. Step 3 (confirm): User reviews feedback summary and data retention notice
+ *
+ * **Data Retention Notice (Updated TKT-003):**
+ * The confirmation step displays an amber warning (not red) explaining that:
+ * - Data will be retained for 30 days after cancellation
+ * - Data may be permanently deleted after 30 days
+ * - User can resubscribe within 30 days to retain data
+ *
+ * This replaced the previous misleading "immediate permanent deletion" language.
+ *
+ * @see docs/features/billing/cancel-subscription.md
+ */
 export function CancelSubscriptionModal({
   isOpen,
   onClose,
@@ -137,6 +191,10 @@ export function CancelSubscriptionModal({
   const [wouldReturn, setWouldReturn] = useState<boolean | null>(null);
   const [returnConditions, setReturnConditions] = useState("");
 
+  /**
+   * Toggles an additional reason on/off (used in step 2).
+   * Primary reason cannot be toggled as an additional reason.
+   */
   const handleToggleAdditionalReason = (reason: CancellationReason) => {
     if (reason === primaryReason) return;
     setAdditionalReasons((prev) =>
@@ -146,6 +204,17 @@ export function CancelSubscriptionModal({
     );
   };
 
+  /**
+   * Submits the cancellation feedback and downgrades the organization to free plan.
+   *
+   * On success, displays completion screen. On failure, keeps modal open so user
+   * can retry. The actual submission calls the submitCancellationFeedback server
+   * action which:
+   * 1. Inserts feedback to cancellation_feedback table
+   * 2. Updates organization plan to 'free'
+   *
+   * Note: This does NOT call Stripe API to cancel subscription (tracked as issue).
+   */
   const handleSubmit = async () => {
     if (!primaryReason) return;
 
@@ -167,6 +236,12 @@ export function CancelSubscriptionModal({
     }
   };
 
+  /**
+   * Closes the modal and resets all form state.
+   *
+   * Note: This does not preserve partial input if user reopens the modal.
+   * Could be improved to save draft state (tracked as potential enhancement).
+   */
   const handleClose = () => {
     // Reset state on close
     setStep("reason");
@@ -465,43 +540,46 @@ export function CancelSubscriptionModal({
           {/* Step 3: Confirm */}
           {step === "confirm" && !isComplete && (
             <div className="space-y-6">
-              <div className="p-6 rounded-xl bg-red-500/10 border-2 border-red-500/30">
+              <div className="p-6 rounded-xl bg-amber-500/10 border-2 border-amber-500/30">
                 <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-full bg-red-500/20">
-                    <AlertTriangle className="w-7 h-7 text-red-600" />
+                  <div className="p-3 rounded-full bg-amber-500/20">
+                    <AlertTriangle className="w-7 h-7 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-red-600 mb-2">
-                      This will permanently delete your data
+                    <h3 className="text-xl font-bold text-amber-600 mb-2">
+                      Data Retention Notice
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Once cancelled, the following will be <span className="text-red-600 font-semibold">permanently deleted</span> and cannot be recovered:
+                      Your data will be retained for 30 days after cancellation, then may be permanently deleted.
+                    </p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      The following data will be affected:
                     </p>
                     <ul className="text-sm space-y-2.5">
                       <li className="flex items-start gap-2">
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <XCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                         <span><strong>All call recordings</strong> — every video call you&apos;ve saved</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <XCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                         <span><strong>Call logs & history</strong> — your complete call activity</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <XCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                         <span><strong>Analytics & stats</strong> — all performance data</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <XCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                         <span><strong>Agent configurations</strong> — videos, settings, pool assignments</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <XCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                         <span><strong>Routing rules</strong> — all your custom setup</span>
                       </li>
                     </ul>
-                    <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                      <p className="text-xs text-red-600 font-medium">
-                        ⚠️ Data deletion begins immediately and is irreversible.
+                    <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <p className="text-xs text-amber-600 font-medium">
+                        You can resubscribe within 30 days to retain your data.
                       </p>
                     </div>
                   </div>

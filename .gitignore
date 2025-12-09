@@ -39,3 +39,6 @@ coverage
 .supabase
 
 .cursor/
+*.mmdb
+.vercel
+.env*.local

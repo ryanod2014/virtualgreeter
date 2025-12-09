@@ -1,0 +1,11 @@
+{
+  "ticket_id": "SEC-001",
+  "branch": "agent/SEC-001-api-auth",
+  "started_at": "2025-12-05T12:00:00Z",
+  "files_locking": [
+    "apps/server/src/index.ts",
+    "apps/server/src/lib/auth.ts",
+    "apps/server/src/features/signaling/socket-handlers.ts"
+  ]
+}
+

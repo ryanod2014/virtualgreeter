@@ -1,0 +1,94 @@
+{
+  "ticket_id": "TKT-010",
+  "branch": "agent/tkt-010",
+  "status": "FAILED",
+  "qa_agent": "QA Agent TKT-010",
+  "test_date": "2025-12-07T01:25:16",
+  "commit": "14c73eb",
+  "severity": "CRITICAL",
+  "block_merge": true,
+  "summary": "Two critical security vulnerabilities found: (1) No authentication on /api/agent/end-call endpoint, (2) No organization isolation check",
+  "issues": [
+    {
+      "id": "TKT-010-SEC-001",
+      "severity": "CRITICAL",
+      "type": "Security",
+      "title": "Unauthenticated API Endpoint",
+      "description": "The new /api/agent/end-call endpoint has no authentication mechanism. Any unauthenticated user can forcibly end calls for any agent.",
+      "file": "apps/server/src/index.ts",
+      "lines": "389-468",
+      "impact": "Any attacker can perform denial-of-service on video call functionality by terminating active calls",
+      "attack_vector": "curl -X POST http://server-url/api/agent/end-call -H 'Content-Type: application/json' -d '{\"agentId\": \"any-uuid\"}'",
+      "required_fix": "Add authentication middleware or JWT validation before processing requests",
+      "blocker": true
+    },
+    {
+      "id": "TKT-010-SEC-002",
+      "severity": "CRITICAL",
+      "type": "Security",
+      "title": "Missing Organization Isolation",
+      "description": "The endpoint does not verify that the agentId belongs to any particular organization. Cross-tenant call termination is possible.",
+      "file": "apps/server/src/index.ts",
+      "lines": "389-468",
+      "impact": "Admin from Organization A can terminate calls in Organization B. Violates multi-tenant security model and regulatory compliance (GDPR, SOC2).",
+      "attack_vector": "Authenticated user from one org can discover agent UUIDs from other orgs and terminate their calls",
+      "required_fix": "Query agent_profiles.organization_id and verify caller has admin role in that organization",
+      "blocker": true
+    },
+    {
+      "id": "TKT-010-CON-001",
+      "severity": "MEDIUM",
+      "type": "Reliability",
+      "title": "Database Error Handling Missing",
+      "description": "No try/catch around markCallEnded() call. Database failures will prevent visitor/agent notifications.",
+      "file": "apps/server/src/index.ts",
+      "lines": "423",
+      "impact": "If database write fails, call state becomes inconsistent and users won't receive CALL_ENDED notifications",
+      "required_fix": "Wrap DB operation in try/catch and decide whether to continue with notifications even if DB logging fails",
+      "blocker": false
+    },
+    {
+      "id": "TKT-010-CON-002",
+      "severity": "LOW",
+      "type": "Security",
+      "title": "Information Disclosure in Error Messages",
+      "description": "Response message 'No active call found' reveals whether an agent is currently in a call",
+      "file": "apps/server/src/index.ts",
+      "lines": "412-414",
+      "impact": "Attacker can enumerate which agents are currently on calls",
+      "required_fix": "Return generic success message for both cases (call ended or no call found)",
+      "blocker": false
+    }
+  ],
+  "acceptance_criteria_results": {
+    "ac1_removing_incall_agent_triggers_call_end": "PASS",
+    "ac2_visitor_sees_friendly_message": "PASS",
+    "ac3_call_logged_in_database": "PASS",
+    "ac4_non_incall_removal_proceeds_normally": "PASS"
+  },
+  "build_verification": {
+    "typecheck": "PASS (pre-existing test errors)",
+    "lint": "SKIPPED (interactive prompt)",
+    "build": "PASS (pre-existing test errors in test files only)",
+    "production_code": "PASS"
+  },
+  "test_scenarios": {
+    "passed": 11,
+    "failed": 2,
+    "concerns": 2,
+    "total": 15
+  },
+  "next_steps": [
+    "Dev agent must implement authentication on /api/agent/end-call endpoint",
+    "Dev agent must implement organization isolation check",
+    "Dev agent should add try/catch around database operations",
+    "QA must re-test after fixes are implemented",
+    "Security review recommended before merge"
+  ],
+  "recommended_fixes": {
+    "quick_fix": "Add shared secret API key in environment variable, require X-Internal-API-Key header",
+    "better_fix": "Generate short-lived JWT in dashboard, validate in server endpoint",
+    "best_fix": "Use service mesh or internal-only network routing with proper authentication"
+  },
+  "qa_report_location": "docs/agent-output/qa-results/QA-TKT-010-RETEST-BATCH.md"
+}

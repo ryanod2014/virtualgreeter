@@ -33,6 +33,7 @@ import {
   ChevronUp,
   Loader2,
   MessageSquareText,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -54,6 +55,7 @@ import {
 } from "@/lib/components/call-log-filter-conditions";
 import { formatLocationWithFlag } from "@/lib/utils/country-flag";
 import { getCountryByCode } from "@/lib/utils/countries";
+import { exportCallLogsToCSV } from "@/features/call-logs/exportCSV";
 
 interface Agent {
   id: string;
@@ -145,6 +147,10 @@ export function CallsClient({
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
   const [videoModalCallId, setVideoModalCallId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // CSV export state
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
 
   // Filter state - multi-select fields use arrays
   const [filters, setFilters] = useState({
@@ -382,6 +388,28 @@ export function CallsClient({
     }
   };
 
+  // Handle manual transcription retry
+  const handleTranscriptionRetry = async (callId: string) => {
+    try {
+      const response = await fetch("/api/transcription/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callLogId: callId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("Transcription retry failed:", error);
+        return;
+      }
+
+      // Refresh the page to show updated status
+      router.refresh();
+    } catch (error) {
+      console.error("Transcription retry error:", error);
+    }
+  };
+
   // Auto-open recording modal from URL params
   useEffect(() => {
     const callId = searchParams.get("callId");
@@ -396,64 +424,29 @@ export function CallsClient({
     }
   }, [searchParams, calls]);
 
-  // Download filtered calls as CSV
+  // Download filtered calls as CSV using Web Worker
   const downloadCSV = () => {
-    const headers = [
-      "Date",
-      "Time",
-      "Agent",
-      "Status",
-      "Duration (seconds)",
-      "City",
-      "Region",
-      "Country",
-      "Page URL",
-      "Disposition",
-      "Recording",
-    ];
+    setIsExporting(true);
+    setExportProgress(0);
 
-    const escapeCSV = (value: string | null | undefined): string => {
-      if (value == null) return "";
-      const str = String(value);
-      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-        return `"${str.replace(/"/g, '""')}"`;
-      }
-      return str;
-    };
-
-    const rows = filteredCalls.map((call) => {
-      const date = new Date(call.created_at);
-      const recordingLink = call.recording_url
-        ? `${window.location.origin}/admin/calls?callId=${call.id}&autoplay=true`
-        : "";
-
-      return [
-        date.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" }),
-        date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }),
-        call.agent?.display_name ?? "",
-        call.status,
-        call.duration_seconds?.toString() ?? "",
-        call.visitor_city ?? "",
-        call.visitor_region ?? "",
-        call.visitor_country ?? "",
-        call.page_url ?? "",
-        call.disposition?.name ?? "",
-        recordingLink,
-      ].map(escapeCSV).join(",");
+    exportCallLogsToCSV({
+      calls: filteredCalls,
+      fromDate: dateRange.from,
+      toDate: dateRange.to,
+      onProgress: (progress) => {
+        setExportProgress(progress);
+      },
+      onComplete: () => {
+        setIsExporting(false);
+        setExportProgress(0);
+      },
+      onError: (error) => {
+        console.error('CSV export failed:', error);
+        alert(`Export failed: ${error}`);
+        setIsExporting(false);
+        setExportProgress(0);
+      },
     });
-
-    const csvContent = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    const fromDate = dateRange.from.split("T")[0];
-    const toDate = dateRange.to.split("T")[0];
-    link.download = `call-logs_${fromDate}_to_${toDate}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -532,11 +525,21 @@ export function CallsClient({
             {filteredCalls.length > 0 && (
               <button
                 onClick={downloadCSV}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-                title="Download filtered calls as CSV"
+                disabled={isExporting}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={isExporting ? `Exporting... ${exportProgress}%` : "Download filtered calls as CSV"}
               >
-                <FileDown className="w-4 h-4" />
-                Export CSV
+                {isExporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Exporting {exportProgress}%
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="w-4 h-4" />
+                    Export CSV
+                  </>
+                )}
               </button>
             )}
 
@@ -940,6 +943,7 @@ export function CallsClient({
                     }
                   }}
                   onDownload={handleDownload}
+                  onTranscriptionRetry={handleTranscriptionRetry}
                 />
               ))}
             </tbody>
@@ -995,17 +999,33 @@ function CallLogRow({
   isPlaying,
   onPlayToggle,
   onDownload,
+  onTranscriptionRetry,
 }: {
   call: CallLogWithRelations;
   isPlaying: boolean;
   onPlayToggle: () => void;
   onDownload: (url: string, filename?: string) => void;
+  onTranscriptionRetry?: (callId: string) => Promise<void>;
 }) {
   const [showTranscription, setShowTranscription] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
   
   const hasTranscription = call.transcription_status === "completed" && call.transcription;
   const hasSummary = call.ai_summary_status === "completed" && call.ai_summary;
+  
+  // Show retry button for failed transcriptions with a recording
+  const canRetry = call.transcription_status === "failed" && call.recording_url && onTranscriptionRetry;
+
+  const handleRetry = async () => {
+    if (!onTranscriptionRetry || isRetrying) return;
+    setIsRetrying(true);
+    try {
+      await onTranscriptionRetry(call.id);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -1246,10 +1266,27 @@ function CallLogRow({
           </button>
         )}
         {call.transcription_status === "failed" && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-500">
-            <AlertTriangle className="w-3 h-3" />
-            Failed
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-500">
+              <AlertTriangle className="w-3 h-3" />
+              Failed
+            </span>
+            {canRetry && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleRetry(); }}
+                disabled={isRetrying}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                title="Retry transcription"
+              >
+                {isRetrying ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3 h-3" />
+                )}
+                Retry
+              </button>
+            )}
+          </div>
         )}
         {!call.transcription_status && <span className="text-sm text-muted-foreground">—</span>}
       </td>

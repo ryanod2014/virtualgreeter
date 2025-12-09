@@ -1,0 +1,96 @@
+You are a QA Review Agent testing ticket TKT-024.
+
+## Ticket: Visitor Call Reconnection Window
+## Branch: agent/tkt-024
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-024
+
+## Acceptance Criteria:
+- Visitor who crashes browser can rejoin within 60 seconds
+- Session token persists in localStorage
+- Agent sees 'Visitor disconnected - waiting' status
+- After 60 seconds, call truly ends
+- Rejoin continues from same call state (not new call)
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-024
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-024
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **If PASS - Write report to MAIN REPO:**
+   - File: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-024-PASSED-20251206T220134.md
+   - Include the selective merge command (see below)
+
+5. **If FAIL - Create BOTH files in MAIN REPO:**
+   - Blocker JSON: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-024-FAILED-20251206T220134.json
+   - Report MD: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-024-FAILED-20251206T220134.md
+
+6. **DO NOT modify any files in the main repo except your QA outputs**
+
+7. **If tests PASS, include this merge command in your report:**
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   # Cherry-pick ONLY the ticket's files:
+   git checkout origin/agent/tkt-024 -- apps/server/src/features/calls/callLifecycle.ts apps/widget/src/features/call/useCallSession.ts apps/widget/src/features/call/RejoinPrompt.tsx apps/server/src/features/signaling/handleRejoin.ts
+   git add apps/server/src/features/calls/callLifecycle.ts apps/widget/src/features/call/useCallSession.ts apps/widget/src/features/call/RejoinPrompt.tsx apps/server/src/features/signaling/handleRejoin.ts
+   git commit -m 'feat: TKT-024 - Visitor Call Reconnection Window'
+   git push origin main
+   ```
+
+## If FAILED - Blocker JSON Template:
+
+```json
+{
+  "ticket_id": "TKT-024",
+  "ticket_title": "Visitor Call Reconnection Window",
+  "branch": "agent/tkt-024",
+  "blocked_at": "[ISO timestamp]",
+  "blocker_type": "qa_failure",
+  "summary": "[One-line summary of failure]",
+  "failures": [
+    {
+      "category": "build|acceptance|regression|browser",
+      "check": "[Which check failed]",
+      "error": "[Error message]"
+    }
+  ],
+  "recommendation": "[What needs to be fixed]",
+  "dispatch_action": "create_continuation_ticket"
+}
+```
+
+## Report Template:
+
+# QA Review: TKT-024
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** TKT-024 - Visitor Call Reconnection Window
+**Branch:** agent/tkt-024
+**Tested:** 2025-12-06
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

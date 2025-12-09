@@ -143,3 +143,4 @@ describe("sentry.client.config", () => {
     });
   });
 });
+

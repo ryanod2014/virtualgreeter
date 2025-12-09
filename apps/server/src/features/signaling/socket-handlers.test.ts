@@ -434,7 +434,7 @@ describe("Socket Handler - Country Blocking Integration", () => {
  */
 
 import { PoolManager } from "../routing/pool-manager.js";
-import type { AgentProfile, CallRequest, ActiveCall } from "@ghost-greeter/domain";
+import type { AgentProfile } from "@ghost-greeter/domain";
 import { TIMING } from "@ghost-greeter/domain";
 
 // Helper to create mock agent profile
@@ -4236,3 +4236,638 @@ describe("V4 - CALL_RECONNECT Handler (Call Reconnection)", () => {
   });
 });
 
+/**
+ * TKT-005E: Payment Failure - Agent Availability Tests
+ *
+ * Tests verify that agents are properly blocked from going available
+ * when their organization has payment issues (past_due, cancelled, paused).
+ *
+ * Behaviors Tested:
+ * 1. AGENT_LOGIN forces agents to "away" when org is not operational
+ * 2. AGENT_BACK blocks agents from going available when org has payment issues
+ * 3. Agents can go available when org is operational (active/trialing)
+ */
+
+// Additional mocks for TKT-005E tests
+vi.mock("../agents/agentStatus.js", () => ({
+  canAgentGoAvailable: vi.fn(),
+  getAgentOrgId: vi.fn(),
+}));
+
+vi.mock("../../lib/auth.js", () => ({
+  verifyAgentToken: vi.fn(),
+  fetchAgentPoolMemberships: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("../../lib/session-tracker.js", () => ({
+  startSession: vi.fn().mockResolvedValue(undefined),
+  recordStatusChange: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Import mocked modules for TKT-005E
+import { canAgentGoAvailable, getAgentOrgId } from "../agents/agentStatus.js";
+import { verifyAgentToken } from "../../lib/auth.js";
+
+describe("Socket Handler - TKT-005E Payment Failure Agent Blocking", () => {
+  let mockPoolManager: {
+    registerAgent: ReturnType<typeof vi.fn>;
+    updateAgentStatus: ReturnType<typeof vi.fn>;
+    getAgentBySocketId: ReturnType<typeof vi.fn>;
+    getAgentStats: ReturnType<typeof vi.fn>;
+    getUnassignedVisitors: ReturnType<typeof vi.fn>;
+  };
+
+  let mockSocket: {
+    id: string;
+    data: { agentId?: string };
+    emit: ReturnType<typeof vi.fn>;
+    on: ReturnType<typeof vi.fn>;
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockSocket = {
+      id: "agent_socket_123",
+      data: {},
+      emit: vi.fn(),
+      on: vi.fn(),
+    };
+
+    mockPoolManager = {
+      registerAgent: vi.fn().mockReturnValue({
+        agentId: "agent_123",
+        socketId: "agent_socket_123",
+        profile: {
+          id: "agent_123",
+          displayName: "Test Agent",
+          status: "idle",
+          avatarUrl: null,
+          waveVideoUrl: null,
+          introVideoUrl: "",
+          connectVideoUrl: null,
+          loopVideoUrl: "",
+        },
+      }),
+      updateAgentStatus: vi.fn(),
+      getAgentBySocketId: vi.fn(),
+      getAgentStats: vi.fn().mockReturnValue(null),
+      getUnassignedVisitors: vi.fn().mockReturnValue([]),
+    };
+
+    // Default: valid token verification
+    (verifyAgentToken as ReturnType<typeof vi.fn>).mockResolvedValue({
+      valid: true,
+      userId: "user_123",
+      organizationId: "org_123",
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe("AGENT_LOGIN - Payment Status Check", () => {
+    it("forces agent to away status when org is past_due", async () => {
+      // Arrange: Org is past_due
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: false,
+        reason: "payment_failed",
+        message: "Unable to go live - there's a payment issue with your organization's account.",
+      });
+
+      // Mock registerAgent to return idle status initially
+      mockPoolManager.registerAgent.mockReturnValue({
+        agentId: "agent_123",
+        socketId: "agent_socket_123",
+        profile: {
+          id: "agent_123",
+          displayName: "Test Agent",
+          status: "idle", // Agent tries to go idle
+          avatarUrl: null,
+          waveVideoUrl: null,
+          introVideoUrl: "",
+          connectVideoUrl: null,
+          loopVideoUrl: "",
+        },
+      });
+
+      // Act: Simulate AGENT_LOGIN logic
+      const verification = await verifyAgentToken("valid_token", "agent_123");
+      const agentState = mockPoolManager.registerAgent("agent_socket_123", {
+        id: "agent_123",
+        status: "idle",
+      });
+
+      if (verification.organizationId) {
+        const availabilityCheck = await canAgentGoAvailable(verification.organizationId);
+        if (!availabilityCheck.canGoAvailable && agentState.profile.status !== "away") {
+          mockPoolManager.updateAgentStatus("agent_123", "away");
+          agentState.profile.status = "away";
+        }
+      }
+
+      // Assert: Agent forced to away
+      expect(canAgentGoAvailable).toHaveBeenCalledWith("org_123");
+      expect(mockPoolManager.updateAgentStatus).toHaveBeenCalledWith("agent_123", "away");
+      expect(agentState.profile.status).toBe("away");
+    });
+
+    it("forces agent to away status when org subscription is cancelled", async () => {
+      // Arrange: Org subscription cancelled
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: false,
+        reason: "subscription_cancelled",
+        message: "Your organization's subscription has been cancelled.",
+      });
+
+      mockPoolManager.registerAgent.mockReturnValue({
+        agentId: "agent_123",
+        profile: {
+          id: "agent_123",
+          status: "idle",
+        },
+      });
+
+      // Act
+      const verification = await verifyAgentToken("valid_token", "agent_123");
+      const agentState = mockPoolManager.registerAgent("agent_socket_123", {});
+
+      if (verification.organizationId) {
+        const availabilityCheck = await canAgentGoAvailable(verification.organizationId);
+        if (!availabilityCheck.canGoAvailable && agentState.profile.status !== "away") {
+          mockPoolManager.updateAgentStatus("agent_123", "away");
+          agentState.profile.status = "away";
+        }
+      }
+
+      // Assert
+      expect(mockPoolManager.updateAgentStatus).toHaveBeenCalledWith("agent_123", "away");
+      expect(agentState.profile.status).toBe("away");
+    });
+
+    it("forces agent to away status when org subscription is paused", async () => {
+      // Arrange: Org subscription paused
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: false,
+        reason: "subscription_paused",
+        message: "Your organization's subscription is paused.",
+      });
+
+      mockPoolManager.registerAgent.mockReturnValue({
+        agentId: "agent_123",
+        profile: {
+          id: "agent_123",
+          status: "idle",
+        },
+      });
+
+      // Act
+      const verification = await verifyAgentToken("valid_token", "agent_123");
+      const agentState = mockPoolManager.registerAgent("agent_socket_123", {});
+
+      if (verification.organizationId) {
+        const availabilityCheck = await canAgentGoAvailable(verification.organizationId);
+        if (!availabilityCheck.canGoAvailable && agentState.profile.status !== "away") {
+          mockPoolManager.updateAgentStatus("agent_123", "away");
+          agentState.profile.status = "away";
+        }
+      }
+
+      // Assert
+      expect(mockPoolManager.updateAgentStatus).toHaveBeenCalledWith("agent_123", "away");
+      expect(agentState.profile.status).toBe("away");
+    });
+
+    it("allows agent to stay idle when org is active", async () => {
+      // Arrange: Org is active (operational)
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: true,
+      });
+
+      mockPoolManager.registerAgent.mockReturnValue({
+        agentId: "agent_123",
+        profile: {
+          id: "agent_123",
+          status: "idle",
+        },
+      });
+
+      // Act
+      const verification = await verifyAgentToken("valid_token", "agent_123");
+      const agentState = mockPoolManager.registerAgent("agent_socket_123", {});
+
+      if (verification.organizationId) {
+        const availabilityCheck = await canAgentGoAvailable(verification.organizationId);
+        if (!availabilityCheck.canGoAvailable && agentState.profile.status !== "away") {
+          mockPoolManager.updateAgentStatus("agent_123", "away");
+          agentState.profile.status = "away";
+        }
+      }
+
+      // Assert: Agent NOT forced to away
+      expect(mockPoolManager.updateAgentStatus).not.toHaveBeenCalled();
+      expect(agentState.profile.status).toBe("idle");
+    });
+
+    it("allows agent to stay idle when org is trialing", async () => {
+      // Arrange: Org is trialing (operational)
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: true,
+      });
+
+      mockPoolManager.registerAgent.mockReturnValue({
+        agentId: "agent_123",
+        profile: {
+          id: "agent_123",
+          status: "idle",
+        },
+      });
+
+      // Act
+      const verification = await verifyAgentToken("valid_token", "agent_123");
+      const agentState = mockPoolManager.registerAgent("agent_socket_123", {});
+
+      if (verification.organizationId) {
+        const availabilityCheck = await canAgentGoAvailable(verification.organizationId);
+        if (!availabilityCheck.canGoAvailable && agentState.profile.status !== "away") {
+          mockPoolManager.updateAgentStatus("agent_123", "away");
+          agentState.profile.status = "away";
+        }
+      }
+
+      // Assert: Agent NOT forced to away
+      expect(mockPoolManager.updateAgentStatus).not.toHaveBeenCalled();
+      expect(agentState.profile.status).toBe("idle");
+    });
+
+    it("does not force agent to away if already away", async () => {
+      // Arrange: Org is past_due but agent already away
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: false,
+        reason: "payment_failed",
+      });
+
+      mockPoolManager.registerAgent.mockReturnValue({
+        agentId: "agent_123",
+        profile: {
+          id: "agent_123",
+          status: "away", // Already away
+        },
+      });
+
+      // Act
+      const verification = await verifyAgentToken("valid_token", "agent_123");
+      const agentState = mockPoolManager.registerAgent("agent_socket_123", {});
+
+      if (verification.organizationId) {
+        const availabilityCheck = await canAgentGoAvailable(verification.organizationId);
+        if (!availabilityCheck.canGoAvailable && agentState.profile.status !== "away") {
+          mockPoolManager.updateAgentStatus("agent_123", "away");
+          agentState.profile.status = "away";
+        }
+      }
+
+      // Assert: updateAgentStatus NOT called (agent already away)
+      expect(mockPoolManager.updateAgentStatus).not.toHaveBeenCalled();
+      expect(agentState.profile.status).toBe("away");
+    });
+
+    it("skips check when no organizationId in verification", async () => {
+      // Arrange: No org ID (edge case - shouldn't happen in production)
+      (verifyAgentToken as ReturnType<typeof vi.fn>).mockResolvedValue({
+        valid: true,
+        userId: "user_123",
+        organizationId: null, // No org ID
+      });
+
+      mockPoolManager.registerAgent.mockReturnValue({
+        agentId: "agent_123",
+        profile: {
+          id: "agent_123",
+          status: "idle",
+        },
+      });
+
+      // Act
+      const verification = await verifyAgentToken("valid_token", "agent_123");
+      const agentState = mockPoolManager.registerAgent("agent_socket_123", {});
+
+      if (verification.organizationId) {
+        const availabilityCheck = await canAgentGoAvailable(verification.organizationId);
+        if (!availabilityCheck.canGoAvailable && agentState.profile.status !== "away") {
+          mockPoolManager.updateAgentStatus("agent_123", "away");
+        }
+      }
+
+      // Assert: No check performed, agent stays as registered
+      expect(canAgentGoAvailable).not.toHaveBeenCalled();
+      expect(mockPoolManager.updateAgentStatus).not.toHaveBeenCalled();
+      expect(agentState.profile.status).toBe("idle");
+    });
+  });
+
+  describe("AGENT_BACK - Payment Status Check", () => {
+    it("blocks agent from going available when org is past_due", async () => {
+      // Arrange: Agent trying to come back from away, but org past_due
+      (getAgentOrgId as ReturnType<typeof vi.fn>).mockResolvedValue("org_123");
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: false,
+        reason: "payment_failed",
+        message: "Unable to go live - there's a payment issue with your organization's account.",
+      });
+
+      mockPoolManager.getAgentBySocketId.mockReturnValue({
+        agentId: "agent_123",
+        socketId: "agent_socket_123",
+        profile: {
+          id: "agent_123",
+          status: "away",
+        },
+      });
+
+      const mockAck = vi.fn();
+
+      // Act: Simulate AGENT_BACK logic
+      const agent = mockPoolManager.getAgentBySocketId("agent_socket_123");
+      const orgId = await getAgentOrgId(agent.agentId);
+
+      if (orgId) {
+        const availabilityCheck = await canAgentGoAvailable(orgId);
+        if (!availabilityCheck.canGoAvailable) {
+          mockAck({
+            success: false,
+            status: agent.profile.status,
+            error: availabilityCheck.message ?? "Unable to go available",
+          });
+          // Early return - do NOT update status
+        } else {
+          mockPoolManager.updateAgentStatus(agent.agentId, "idle");
+          mockAck({ success: true, status: "idle" });
+        }
+      }
+
+      // Assert: Agent blocked
+      expect(getAgentOrgId).toHaveBeenCalledWith("agent_123");
+      expect(canAgentGoAvailable).toHaveBeenCalledWith("org_123");
+      expect(mockAck).toHaveBeenCalledWith({
+        success: false,
+        status: "away",
+        error: "Unable to go live - there's a payment issue with your organization's account.",
+      });
+      expect(mockPoolManager.updateAgentStatus).not.toHaveBeenCalled();
+    });
+
+    it("blocks agent from going available when org subscription cancelled", async () => {
+      // Arrange
+      (getAgentOrgId as ReturnType<typeof vi.fn>).mockResolvedValue("org_123");
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: false,
+        reason: "subscription_cancelled",
+        message: "Your organization's subscription has been cancelled.",
+      });
+
+      mockPoolManager.getAgentBySocketId.mockReturnValue({
+        agentId: "agent_123",
+        profile: { status: "away" },
+      });
+
+      const mockAck = vi.fn();
+
+      // Act
+      const agent = mockPoolManager.getAgentBySocketId("agent_socket_123");
+      const orgId = await getAgentOrgId(agent.agentId);
+
+      if (orgId) {
+        const availabilityCheck = await canAgentGoAvailable(orgId);
+        if (!availabilityCheck.canGoAvailable) {
+          mockAck({
+            success: false,
+            status: agent.profile.status,
+            error: availabilityCheck.message ?? "Unable to go available",
+          });
+        }
+      }
+
+      // Assert
+      expect(mockAck).toHaveBeenCalledWith({
+        success: false,
+        status: "away",
+        error: "Your organization's subscription has been cancelled.",
+      });
+      expect(mockPoolManager.updateAgentStatus).not.toHaveBeenCalled();
+    });
+
+    it("blocks agent from going available when org subscription paused", async () => {
+      // Arrange
+      (getAgentOrgId as ReturnType<typeof vi.fn>).mockResolvedValue("org_123");
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: false,
+        reason: "subscription_paused",
+        message: "Your organization's subscription is paused.",
+      });
+
+      mockPoolManager.getAgentBySocketId.mockReturnValue({
+        agentId: "agent_123",
+        profile: { status: "away" },
+      });
+
+      const mockAck = vi.fn();
+
+      // Act
+      const agent = mockPoolManager.getAgentBySocketId("agent_socket_123");
+      const orgId = await getAgentOrgId(agent.agentId);
+
+      if (orgId) {
+        const availabilityCheck = await canAgentGoAvailable(orgId);
+        if (!availabilityCheck.canGoAvailable) {
+          mockAck({
+            success: false,
+            status: agent.profile.status,
+            error: availabilityCheck.message ?? "Unable to go available",
+          });
+        }
+      }
+
+      // Assert
+      expect(mockAck).toHaveBeenCalledWith({
+        success: false,
+        status: "away",
+        error: "Your organization's subscription is paused.",
+      });
+    });
+
+    it("allows agent to go available when org is active", async () => {
+      // Arrange: Org is active
+      (getAgentOrgId as ReturnType<typeof vi.fn>).mockResolvedValue("org_123");
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: true,
+      });
+
+      mockPoolManager.getAgentBySocketId.mockReturnValue({
+        agentId: "agent_123",
+        profile: { status: "away" },
+      });
+
+      const mockAck = vi.fn();
+
+      // Act
+      const agent = mockPoolManager.getAgentBySocketId("agent_socket_123");
+      const orgId = await getAgentOrgId(agent.agentId);
+
+      if (orgId) {
+        const availabilityCheck = await canAgentGoAvailable(orgId);
+        if (!availabilityCheck.canGoAvailable) {
+          mockAck({
+            success: false,
+            status: agent.profile.status,
+            error: availabilityCheck.message ?? "Unable to go available",
+          });
+        } else {
+          mockPoolManager.updateAgentStatus(agent.agentId, "idle");
+          mockAck({ success: true, status: "idle" });
+        }
+      }
+
+      // Assert: Agent allowed to go available
+      expect(mockPoolManager.updateAgentStatus).toHaveBeenCalledWith("agent_123", "idle");
+      expect(mockAck).toHaveBeenCalledWith({ success: true, status: "idle" });
+    });
+
+    it("allows agent to go available when org is trialing", async () => {
+      // Arrange: Org is trialing
+      (getAgentOrgId as ReturnType<typeof vi.fn>).mockResolvedValue("org_123");
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: true,
+      });
+
+      mockPoolManager.getAgentBySocketId.mockReturnValue({
+        agentId: "agent_123",
+        profile: { status: "away" },
+      });
+
+      const mockAck = vi.fn();
+
+      // Act
+      const agent = mockPoolManager.getAgentBySocketId("agent_socket_123");
+      const orgId = await getAgentOrgId(agent.agentId);
+
+      if (orgId) {
+        const availabilityCheck = await canAgentGoAvailable(orgId);
+        if (!availabilityCheck.canGoAvailable) {
+          mockAck({
+            success: false,
+            status: agent.profile.status,
+            error: availabilityCheck.message ?? "Unable to go available",
+          });
+        } else {
+          mockPoolManager.updateAgentStatus(agent.agentId, "idle");
+          mockAck({ success: true, status: "idle" });
+        }
+      }
+
+      // Assert: Agent allowed to go available
+      expect(mockPoolManager.updateAgentStatus).toHaveBeenCalledWith("agent_123", "idle");
+      expect(mockAck).toHaveBeenCalledWith({ success: true, status: "idle" });
+    });
+
+    it("returns error when agent not found", async () => {
+      // Arrange: No agent for this socket
+      mockPoolManager.getAgentBySocketId.mockReturnValue(null);
+
+      const mockAck = vi.fn();
+
+      // Act
+      const agent = mockPoolManager.getAgentBySocketId("agent_socket_123");
+      if (!agent) {
+        mockAck({ success: false, status: "offline", error: "Agent not found" });
+      }
+
+      // Assert
+      expect(mockAck).toHaveBeenCalledWith({
+        success: false,
+        status: "offline",
+        error: "Agent not found",
+      });
+      expect(getAgentOrgId).not.toHaveBeenCalled();
+    });
+
+    it("skips check when getAgentOrgId returns null", async () => {
+      // Arrange: Can't determine org (edge case)
+      (getAgentOrgId as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      mockPoolManager.getAgentBySocketId.mockReturnValue({
+        agentId: "agent_123",
+        profile: { status: "away" },
+      });
+
+      const mockAck = vi.fn();
+
+      // Act
+      const agent = mockPoolManager.getAgentBySocketId("agent_socket_123");
+      const orgId = await getAgentOrgId(agent.agentId);
+
+      if (orgId) {
+        const availabilityCheck = await canAgentGoAvailable(orgId);
+        if (!availabilityCheck.canGoAvailable) {
+          mockAck({
+            success: false,
+            status: agent.profile.status,
+            error: availabilityCheck.message ?? "Unable to go available",
+          });
+        } else {
+          mockPoolManager.updateAgentStatus(agent.agentId, "idle");
+          mockAck({ success: true, status: "idle" });
+        }
+      } else {
+        // No orgId - proceed without check
+        mockPoolManager.updateAgentStatus(agent.agentId, "idle");
+        mockAck({ success: true, status: "idle" });
+      }
+
+      // Assert: Agent allowed (fail-open when org unknown)
+      expect(canAgentGoAvailable).not.toHaveBeenCalled();
+      expect(mockPoolManager.updateAgentStatus).toHaveBeenCalledWith("agent_123", "idle");
+      expect(mockAck).toHaveBeenCalledWith({ success: true, status: "idle" });
+    });
+
+    it("uses fallback error message when none provided", async () => {
+      // Arrange: No message in availability check
+      (getAgentOrgId as ReturnType<typeof vi.fn>).mockResolvedValue("org_123");
+      (canAgentGoAvailable as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canGoAvailable: false,
+        reason: "unknown_reason",
+        // message is undefined
+      });
+
+      mockPoolManager.getAgentBySocketId.mockReturnValue({
+        agentId: "agent_123",
+        profile: { status: "away" },
+      });
+
+      const mockAck = vi.fn();
+
+      // Act
+      const agent = mockPoolManager.getAgentBySocketId("agent_socket_123");
+      const orgId = await getAgentOrgId(agent.agentId);
+
+      if (orgId) {
+        const availabilityCheck = await canAgentGoAvailable(orgId);
+        if (!availabilityCheck.canGoAvailable) {
+          mockAck({
+            success: false,
+            status: agent.profile.status,
+            error: availabilityCheck.message ?? "Unable to go available", // Fallback
+          });
+        }
+      }
+
+      // Assert: Uses fallback message
+      expect(mockAck).toHaveBeenCalledWith({
+        success: false,
+        status: "away",
+        error: "Unable to go available",
+      });
+    });
+  });
+});

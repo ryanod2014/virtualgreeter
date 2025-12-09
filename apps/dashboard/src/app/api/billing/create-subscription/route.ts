@@ -119,10 +119,16 @@ export async function POST(request: NextRequest) {
 
     // Get the correct price ID for the selected billing frequency
     const priceId = getPriceIdForFrequency(billingFrequency as "monthly" | "annual" | "six_month");
-    
+
     if (!priceId) {
-      return NextResponse.json({ 
-        error: `Stripe price not configured for ${billingFrequency} billing` 
+      const envVar = billingFrequency === "monthly"
+        ? "STRIPE_MONTHLY_PRICE_ID"
+        : billingFrequency === "annual"
+        ? "STRIPE_ANNUAL_PRICE_ID"
+        : "STRIPE_SIX_MONTH_PRICE_ID";
+
+      return NextResponse.json({
+        error: `Billing configuration error: ${billingFrequency} billing is not available. Please contact your administrator to configure the ${envVar} environment variable.`
       }, { status: 500 });
     }
 

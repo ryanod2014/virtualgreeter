@@ -783,10 +783,36 @@
     }
 
     function ReviewModal({ item, ticket, onClose, onApprove, onRequestFixes }) {
+      const [reportContent, setReportContent] = useState(null);
+      const [reportLoading, setReportLoading] = useState(false);
+      const [reportError, setReportError] = useState(null);
+      const [showReport, setShowReport] = useState(true);
+      
+      // Fetch report content when modal opens
+      useEffect(() => {
+        if (item?.completion_file) {
+          setReportLoading(true);
+          setReportError(null);
+          fetch(`/api/file?path=${encodeURIComponent(item.completion_file)}`)
+            .then(res => {
+              if (!res.ok) throw new Error('Failed to load report');
+              return res.text();
+            })
+            .then(content => {
+              setReportContent(content);
+              setReportLoading(false);
+            })
+            .catch(err => {
+              setReportError(err.message);
+              setReportLoading(false);
+            });
+        }
+      }, [item?.completion_file]);
+      
       if (!item || !ticket) return null;
       return (
         <div className="modal-overlay" onClick={onClose}>
-          <div className="modal fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+          <div className="modal fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <div className="modal-header" style={{ borderBottom: '3px solid var(--success)' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
@@ -800,7 +826,7 @@
               </div>
               <button className="btn btn-sm btn-secondary" onClick={onClose}>×</button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body" style={{ overflow: 'auto', flex: 1 }}>
               {/* Completion Info */}
               <div style={{ padding: '16px', background: 'rgba(16,185,129,0.1)', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.2)', marginBottom: '16px' }}>
                 <div style={{ fontSize: '12px', color: 'var(--success)', fontWeight: 600, marginBottom: '8px' }}>✅ Completion Details</div>
@@ -810,12 +836,61 @@
                 <div style={{ fontSize: '13px', marginBottom: '4px' }}>
                   <strong>Completed:</strong> {new Date(item.completed_at).toLocaleString()}
                 </div>
-                {item.completion_file && (
-                  <div style={{ fontSize: '13px' }}>
-                    <strong>Report:</strong> <code style={{ fontSize: '11px' }}>{item.completion_file}</code>
-                  </div>
-                )}
               </div>
+              
+              {/* Agent Report */}
+              {item.completion_file && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div 
+                    style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      padding: '12px 16px',
+                      background: 'var(--bg-elevated)',
+                      borderRadius: showReport ? '8px 8px 0 0' : '8px',
+                      cursor: 'pointer',
+                      border: '1px solid var(--border)'
+                    }}
+                    onClick={() => setShowReport(!showReport)}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '14px' }}>📄</span>
+                      <span style={{ fontSize: '13px', fontWeight: 600 }}>Agent Completion Report</span>
+                      <code style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{item.completion_file.split('/').pop()}</code>
+                    </div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{showReport ? '▼' : '▶'}</span>
+                  </div>
+                  {showReport && (
+                    <div style={{ 
+                      padding: '16px', 
+                      background: 'var(--bg-base)', 
+                      border: '1px solid var(--border)',
+                      borderTop: 'none',
+                      borderRadius: '0 0 8px 8px',
+                      maxHeight: '400px',
+                      overflow: 'auto'
+                    }}>
+                      {reportLoading && (
+                        <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Loading report...</div>
+                      )}
+                      {reportError && (
+                        <div style={{ color: 'var(--critical)', fontSize: '13px' }}>Error: {reportError}</div>
+                      )}
+                      {reportContent && (
+                        <pre style={{ 
+                          margin: 0, 
+                          whiteSpace: 'pre-wrap', 
+                          wordBreak: 'break-word',
+                          fontSize: '12px',
+                          lineHeight: '1.6',
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+                        }}>{reportContent}</pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div className="section">
                 <div className="section-title">Issue</div>
@@ -1016,13 +1091,46 @@ pnpm build`}
           </div>
 
           {/* Issue */}
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.6' }}>{finding.issue}</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.6' }}>
+            {/* Handle both string and object issue formats */}
+            {typeof finding.issue === 'object' 
+              ? finding.issue?.description || finding.summary || JSON.stringify(finding.issue, null, 2)
+              : finding.issue || finding.summary}
+          </p>
           
           {/* Suggested Fix */}
           <div style={{ fontSize: '12px', padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: '8px', marginBottom: '12px', borderLeft: '3px solid var(--accent)' }}>
             <span style={{ color: 'var(--accent-bright)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Icons.lightbulb /> Suggested Fix:</span>
-            <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{finding.suggested_fix}</span>
+            <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>
+              {typeof finding.suggested_fix === 'object'
+                ? finding.suggested_fix?.description || JSON.stringify(finding.suggested_fix, null, 2)
+                : finding.suggested_fix}
+            </span>
           </div>
+
+          {/* Human Actions Required - for external setup blockers */}
+          {finding.human_actions_required && finding.human_actions_required.length > 0 && (
+            <div style={{ fontSize: '12px', padding: '14px 16px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(239,68,68,0.3)' }}>
+              <div style={{ color: '#ef4444', fontWeight: 700, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+                🚨 Human Actions Required:
+              </div>
+              <ol style={{ margin: '0', paddingLeft: '20px', color: 'var(--text-primary)' }}>
+                {finding.human_actions_required.map((action, idx) => (
+                  <li key={idx} style={{ marginBottom: '8px', lineHeight: '1.5' }}>{action}</li>
+                ))}
+              </ol>
+              {finding.blocker_context?.external_service && (
+                <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginBottom: '4px' }}>Service:</div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{finding.blocker_context.external_service}</div>
+                </div>
+              )}
+              <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(34,197,94,0.1)', borderRadius: '6px', border: '1px solid rgba(34,197,94,0.2)' }}>
+                <div style={{ color: '#22c55e', fontWeight: 600, marginBottom: '6px' }}>After completing setup:</div>
+                <div style={{ color: 'var(--text-secondary)' }}>Reply in the text box below with your credentials so the agent can continue.</div>
+              </div>
+            </div>
+          )}
 
           {/* Combinable Findings Alert */}
           {combinable && combinable.length > 0 && (
@@ -1348,11 +1456,383 @@ pnpm build`}
     // ================= INBOX VIEW =================
     // Unified inbox - blockers are now part of findings with type: "blocker"
     // Dev agent blockers from agent-output/blocked/ are shown FIRST
+    // UI Reviews from /api/v2/inbox are shown in a separate section
 
-    function InboxView({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs }) {
+    function InboxView({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs, staging }) {
+      const [uiReviews, setUiReviews] = useState([]);
+      const [loadingReviews, setLoadingReviews] = useState(true);
+      
+      // Fetch UI reviews from inbox API
+      useEffect(() => {
+        fetch('/api/v2/inbox')
+          .then(res => res.json())
+          .then(data => {
+            setUiReviews(data.items || []);
+            setLoadingReviews(false);
+          })
+          .catch(err => {
+            console.error('Failed to load UI reviews:', err);
+            setLoadingReviews(false);
+          });
+      }, []);
+      
+      // Handle approve/reject
+      const handleApprove = async (ticketId) => {
+        try {
+          const res = await fetch(`/api/v2/inbox/${ticketId}/approve`, { method: 'POST' });
+          if (res.ok) {
+            setUiReviews(prev => prev.filter(r => r.ticket_id !== ticketId));
+          }
+        } catch (err) {
+          console.error('Failed to approve:', err);
+        }
+      };
+      
+      const handleReject = async (ticketId, reason) => {
+        try {
+          const res = await fetch(`/api/v2/inbox/${ticketId}/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason || 'Rejected by PM' })
+          });
+          if (res.ok) {
+            setUiReviews(prev => prev.filter(r => r.ticket_id !== ticketId));
+          }
+        } catch (err) {
+          console.error('Failed to reject:', err);
+        }
+      };
+      
       return (
         <div className="fade-in">
-          <TriageContent serverMode={serverMode} onSave={onSave} findingsData={findingsData} serverDecisions={serverDecisions} onDecisionsChange={onDecisionsChange} agentOutputs={agentOutputs} />
+          {/* UI Reviews Section */}
+          {uiReviews.length > 0 && (
+            <div style={{ marginBottom: '32px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>🖼️</span> UI Changes Awaiting Review
+                <span style={{ 
+                  background: 'var(--accent)', 
+                  color: 'white', 
+                  padding: '2px 8px', 
+                  borderRadius: '12px', 
+                  fontSize: '12px' 
+                }}>{uiReviews.length}</span>
+              </h2>
+              
+              {uiReviews.map(review => (
+                <div key={review.id} className="card" style={{ marginBottom: '16px', padding: '20px' }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    <div>
+                      <span style={{ 
+                        fontWeight: 700, 
+                        fontSize: '16px',
+                        color: 'var(--accent)'
+                      }}>{review.ticket_id}</span>
+                      <span style={{ 
+                        marginLeft: '8px',
+                        background: 'rgba(139, 92, 246, 0.1)',
+                        color: 'rgb(139, 92, 246)',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '12px'
+                      }}>UI Review</span>
+                      {review.branch && (
+                        <a 
+                          href={`https://github.com/AidanZealworkers/Digital_greeter/tree/${review.branch}`}
+                          target="_blank"
+                          style={{ marginLeft: '12px', color: 'var(--text-muted)', fontSize: '13px' }}
+                        >
+                          {review.branch}
+                        </a>
+                      )}
+                    </div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                      {new Date(review.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  
+                  {/* Message */}
+                  <div style={{ marginBottom: '16px', color: 'var(--text-secondary)' }}>
+                    {review.message}
+                  </div>
+                  
+                  {/* Screenshots */}
+                  {review.screenshots && review.screenshots.length > 0 ? (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Screenshots:</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                        {review.screenshots.map((screenshot, idx) => (
+                          <a 
+                            key={idx} 
+                            href={screenshot.path} 
+                            target="_blank"
+                            style={{ 
+                              display: 'block',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px',
+                              overflow: 'hidden',
+                              width: '200px'
+                            }}
+                          >
+                            <img 
+                              src={screenshot.path} 
+                              alt={screenshot.name}
+                              style={{ width: '100%', height: '120px', objectFit: 'cover' }}
+                            />
+                            <div style={{ 
+                              padding: '8px', 
+                              fontSize: '12px', 
+                              color: 'var(--text-muted)',
+                              background: 'var(--bg-elevated)',
+                              textAlign: 'center'
+                            }}>
+                              {screenshot.name || screenshot.filename}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      padding: '20px', 
+                      background: 'rgba(239, 68, 68, 0.1)', 
+                      borderRadius: '8px', 
+                      marginBottom: '16px',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      textAlign: 'center'
+                    }}>
+                      <span style={{ fontSize: '24px' }}>⚠️</span>
+                      <div style={{ fontWeight: 600, color: 'var(--critical)', marginTop: '8px' }}>
+                        Screenshots Missing
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        This should have been auto-rejected. If you see this, contact engineering.
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Files Changed */}
+                  {review.files && review.files.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Files Changed:</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {review.files.map((file, idx) => (
+                          <span key={idx} style={{ 
+                            background: 'var(--bg-elevated)', 
+                            padding: '4px 8px', 
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontFamily: 'monospace'
+                          }}>
+                            {file.split('/').pop()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Magic URL (One-Click Login) - Preferred */}
+                  {review.magic_url && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Try It Live:</div>
+                      <a 
+                        href={review.magic_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '14px 24px',
+                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          color: 'white',
+                          borderRadius: '10px',
+                          textDecoration: 'none',
+                          fontWeight: 700,
+                          fontSize: '16px',
+                          boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 6px 20px rgba(16, 185, 129, 0.5)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 4px 14px rgba(16, 185, 129, 0.4)';
+                        }}
+                      >
+                        <span style={{ fontSize: '20px' }}>🚀</span>
+                        Try It Live (Auto-Login)
+                        <span style={{ fontSize: '14px', opacity: 0.8 }}>↗</span>
+                      </a>
+                      <div style={{ 
+                        marginTop: '10px', 
+                        fontSize: '13px', 
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <span style={{ color: '#10b981' }}>✓</span>
+                        One click to see the feature - no login required
+                      </div>
+                      {review.redirect_path && (
+                        <div style={{ 
+                          marginTop: '6px', 
+                          fontSize: '12px', 
+                          color: 'var(--text-muted)',
+                          fontFamily: 'monospace'
+                        }}>
+                          Landing page: {review.redirect_path}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Legacy Preview URL (Manual Login) */}
+                  {!review.magic_url && review.preview_url && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Live Preview:</div>
+                      <a 
+                        href={review.preview_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 16px',
+                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                          color: 'white',
+                          borderRadius: '8px',
+                          textDecoration: 'none',
+                          fontWeight: 600,
+                          fontSize: '14px',
+                          boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)'
+                        }}
+                      >
+                        <span style={{ fontSize: '16px' }}>🔗</span>
+                        Open Preview
+                        <span style={{ fontSize: '12px', opacity: 0.8 }}>↗</span>
+                      </a>
+                      <div style={{ 
+                        marginTop: '8px', 
+                        fontSize: '12px', 
+                        color: 'var(--text-muted)',
+                        fontFamily: 'monospace',
+                        wordBreak: 'break-all'
+                      }}>
+                        {review.preview_url}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Test Account Credentials (only shown for legacy preview_url without magic_url) */}
+                  {!review.magic_url && review.test_account && (
+                    <div style={{ 
+                      marginBottom: '16px',
+                      padding: '16px',
+                      background: 'rgba(251, 191, 36, 0.1)',
+                      border: '1px solid rgba(251, 191, 36, 0.3)',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{ 
+                        fontWeight: 600, 
+                        marginBottom: '12px', 
+                        fontSize: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: '#f59e0b'
+                      }}>
+                        <span>🔐</span>
+                        Test Account Credentials
+                      </div>
+                      <div style={{ display: 'grid', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', width: '70px' }}>Email:</span>
+                          <code style={{ 
+                            background: 'var(--bg-elevated)', 
+                            padding: '4px 8px', 
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            fontFamily: 'monospace'
+                          }}>
+                            {review.test_account.email}
+                          </code>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', width: '70px' }}>Password:</span>
+                          <code style={{ 
+                            background: 'var(--bg-elevated)', 
+                            padding: '4px 8px', 
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            fontFamily: 'monospace'
+                          }}>
+                            {review.test_account.password}
+                          </code>
+                        </div>
+                        {review.test_account.setup_notes && (
+                          <div style={{ 
+                            marginTop: '8px',
+                            padding: '8px 12px',
+                            background: 'var(--bg-elevated)',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            color: 'var(--text-secondary)'
+                          }}>
+                            <strong>Setup:</strong> {review.test_account.setup_notes}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                    <button
+                      onClick={() => handleApprove(review.ticket_id)}
+                      disabled={!review.screenshots || review.screenshots.length === 0}
+                      style={{
+                        padding: '10px 20px',
+                        background: review.screenshots?.length > 0 ? '#22c55e' : 'var(--bg-elevated)',
+                        color: review.screenshots?.length > 0 ? 'white' : 'var(--text-muted)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontWeight: 600,
+                        cursor: review.screenshots?.length > 0 ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      ✓ Approve & Merge
+                    </button>
+                    <button
+                      onClick={() => {
+                        const reason = prompt('Rejection reason (will be sent to dev):');
+                        if (reason) handleReject(review.ticket_id, reason);
+                      }}
+                      style={{
+                        padding: '10px 20px',
+                        background: 'transparent',
+                        color: 'var(--critical)',
+                        border: '1px solid var(--critical)',
+                        borderRadius: '6px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✗ Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Findings Triage Section */}
+          <TriageContent serverMode={serverMode} onSave={onSave} findingsData={findingsData} serverDecisions={serverDecisions} onDecisionsChange={onDecisionsChange} agentOutputs={agentOutputs} staging={staging} />
         </div>
       );
     }
@@ -1360,8 +1840,21 @@ pnpm build`}
     // ================= TRIAGE CONTENT =================
     // Renamed from TriageView to be embedded in InboxView
 
-    function TriageContent({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs }) {
+    function TriageContent({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs, staging }) {
       const [severityFilter, setSeverityFilter] = useState('all');
+      const [copyStatus, setCopyStatus] = useState(null);
+      
+      // Copy Triage Agent prompt to clipboard
+      const copyTriagePrompt = () => {
+        const prompt = `You are a Triage Agent. Read docs/workflow/TRIAGE_AGENT_SOP.md then process next 10 HIGHEST priority from staging.`;
+        navigator.clipboard.writeText(prompt).then(() => {
+          setCopyStatus('copied');
+          setTimeout(() => setCopyStatus(null), 2000);
+        }).catch(() => {
+          setCopyStatus('error');
+          setTimeout(() => setCopyStatus(null), 2000);
+        });
+      };
       const [saveStatus, setSaveStatus] = useState(null);
       const [page, setPage] = useState(0);
       const PAGE_SIZE = 10;
@@ -1373,10 +1866,25 @@ pnpm build`}
         return agentOutputs.blocked.map(b => {
           try {
             const parsed = typeof b.content === 'string' ? JSON.parse(b.content) : b.content;
+            const fileName = b.fileName || '';
+            
+            // Determine if this blocker is auto-handleable (no human decision needed)
+            // Check BOTH filename pattern AND blocker_type inside the JSON
+            const isQAFailure = fileName.startsWith('QA-') && fileName.includes('FAILED');
+            const isCIFailure = fileName.startsWith('CI-');
+            
+            // These blocker_types ALWAYS require human intervention, even if filename says QA/CI
+            const humanRequiredTypes = ['external_setup_incomplete', 'external_setup', 'clarification', 'environment'];
+            const blockerType = parsed.blocker_type || '';
+            const needsHuman = humanRequiredTypes.includes(blockerType) || parsed.dispatch_action === 'route_to_inbox';
+            
+            // Auto-handleable only if filename pattern matches AND blocker_type doesn't require human
+            const isAutoHandleable = (isQAFailure || isCIFailure) && !needsHuman;
+            
             // Convert blocker to finding-like format so it shows in the list
             return {
               id: parsed.id || b.ticketId,
-              title: parsed.title || 'Dev Agent Blocked',
+              title: parsed.title || (isQAFailure ? 'QA Failed - Rework Needed' : 'Dev Agent Blocked'),
               issue: parsed.issue,
               severity: 'critical', // Dev blockers are always critical priority
               type: 'dev-blocker', // Special type to identify dev blockers
@@ -1384,10 +1892,14 @@ pnpm build`}
               category: parsed.category || 'dev-blocker',
               status: parsed.status || 'pending',
               options: parsed.options || [],
-              suggested_fix: parsed.recommendation,
+              suggested_fix: parsed.recommendation || parsed.recommendedFix?.description,
               blocker_context: parsed.blocker_context,
               _raw: b,
-              _isDevBlocker: true
+              _isDevBlocker: true,
+              _isAutoHandleable: isAutoHandleable,
+              _needsHuman: needsHuman,
+              _blockerType: blockerType || (isQAFailure ? 'qa_failure' : isCIFailure ? 'ci_failure' : 'clarification'),
+              human_actions_required: parsed.human_actions_required || []
             };
           } catch (e) {
             return null;
@@ -1395,11 +1907,21 @@ pnpm build`}
         }).filter(Boolean);
       }, [agentOutputs]);
       
-      // Combine findings with dev blockers - dev blockers go first
+      // Separate auto-handleable blockers (dispatch will process) from manual ones (need human)
+      const autoHandleableBlockers = useMemo(() => 
+        devBlockersAsFindings.filter(b => b._isAutoHandleable), 
+        [devBlockersAsFindings]
+      );
+      const manualBlockers = useMemo(() => 
+        devBlockersAsFindings.filter(b => !b._isAutoHandleable), 
+        [devBlockersAsFindings]
+      );
+      
+      // Combine findings with ONLY manual blockers - auto-handleable ones shown separately
       const allFindings = useMemo(() => {
         const regularFindings = findingsData || [];
-        return [...devBlockersAsFindings, ...regularFindings];
-      }, [findingsData, devBlockersAsFindings]);
+        return [...manualBlockers, ...regularFindings];
+      }, [findingsData, manualBlockers]);
       
       const findings = allFindings;
 
@@ -1648,9 +2170,14 @@ pnpm build`}
           // Count blockers separately (they show in Blockers tab)
           // Include both regular blockers (type: 'blocker') and dev blockers (type: 'dev-blocker' or _isDevBlocker)
           const isBlocker = f.type === 'blocker' || f.type === 'dev-blocker' || f._isDevBlocker;
-          if (isBlocker && f.status !== 'ticketed' && f.status !== 'skipped' && !isResolved && !hasResolutionMsg) {
+          // DEV BLOCKERS: Always show if file exists - ignore thread status
+          // The blocker file existing means the agent is still blocked, regardless of previous decisions
+          if (f._isDevBlocker && f.status !== 'ticketed' && f.status !== 'skipped') {
             blockers++;
-            // Dev blockers also show in All tab, so don't return early for them
+            // Dev blockers also show in All and Critical tabs
+          } else if (isBlocker && f.status !== 'ticketed' && f.status !== 'skipped' && !isResolved && !hasResolutionMsg) {
+            blockers++;
+            // Regular blockers respect thread status
             if (!f._isDevBlocker) return;
           }
           
@@ -1719,6 +2246,8 @@ pnpm build`}
           const pending = findings.filter(f => {
             if (f.type === 'blocker' && !f._isDevBlocker) return false; // Regular blockers shown separately, but dev blockers show here
             if (f.status === 'ticketed' || f.status === 'skipped') return false;
+            // Dev blockers always show if file exists (ignore thread status)
+            if (f._isDevBlocker) return true;
             return !isEffectivelyResolved(f);
           });
           
@@ -1757,10 +2286,13 @@ pnpm build`}
         }
         
         // Blockers filter - show type: "blocker" or "dev-blocker" items that need decision
+        // DEV BLOCKERS: Always show if file exists - the blocker file means agent is still blocked
         if (severityFilter === 'blockers') {
           return findings.filter(f => {
             if (f.type !== 'blocker' && f.type !== 'dev-blocker' && !f._isDevBlocker) return false;
             if (f.status === 'ticketed' || f.status === 'skipped') return false;
+            // Dev blockers always show if file exists (ignore thread status)
+            if (f._isDevBlocker) return true;
             return !isEffectivelyResolved(f);
           }).sort((a, b) => {
             // Dev blockers first
@@ -1836,6 +2368,60 @@ pnpm build`}
 
       return (
         <div className="fade-in">
+          {/* Auto-Handleable Blockers Banner - These don't need human input */}
+          {autoHandleableBlockers.length > 0 && (
+            <div style={{ 
+              background: 'linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(34,197,94,0.05) 100%)',
+              border: '1px solid rgba(34,197,94,0.3)',
+              borderRadius: '12px',
+              padding: '16px 20px',
+              marginBottom: '20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '18px' }}>⚡</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {autoHandleableBlockers.length} Auto-Handleable Blocker{autoHandleableBlockers.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  QA failures & CI failures → Dispatch Agent auto-creates continuation tickets (no human decision needed)
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                  {autoHandleableBlockers.slice(0, 5).map(b => b.id).join(', ')}
+                  {autoHandleableBlockers.length > 5 && ` +${autoHandleableBlockers.length - 5} more`}
+                </div>
+              </div>
+              <button 
+                className="btn btn-primary"
+                style={{ 
+                  background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                  border: 'none',
+                  padding: '10px 20px',
+                  fontWeight: 600
+                }}
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/launch-dispatch', { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                      alert(`✅ Launched ${data.estimatedBatches} dispatch agents!\n\n${data.blockerCount} blockers in batches of 5.\n\nMonitor: tmux list-sessions | grep dispatch`);
+                    } else {
+                      alert('❌ Error: ' + data.error);
+                    }
+                  } catch (e) {
+                    alert('❌ Failed to launch: ' + e.message);
+                  }
+                }}
+              >
+                🚀 Run Dispatch Agents
+              </button>
+            </div>
+          )}
+          
           {/* Single Bar: Blockers + Severity + Done */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div className="tabs">
@@ -1894,22 +2480,150 @@ pnpm build`}
               >
                 <Icons.clock /> History <span className="count">{stats.done}</span>
               </button>
+              {/* Staging Tab - shows raw findings waiting for triage */}
+              {staging?.count > 0 && (
+                <button 
+                  className={`tab ${severityFilter === 'staging' ? 'active' : ''}`} 
+                  onClick={() => { setSeverityFilter('staging'); setPage(0); }}
+                  style={{ 
+                    marginLeft: '12px',
+                    background: severityFilter === 'staging' ? 'rgba(168,85,247,0.15)' : undefined,
+                    borderColor: severityFilter === 'staging' ? '#a855f7' : undefined
+                  }}
+                >
+                  📦 Staging <span className="count" style={{ background: '#a855f7', color: 'white' }}>{staging.count}</span>
+                </button>
+              )}
             </div>
-            {!serverMode && (
-              <button className="btn btn-primary btn-sm" onClick={() => {
-                const json = JSON.stringify(decisions, null, 2);
-                navigator.clipboard.writeText(json);
-                alert('Decisions JSON copied!\n\nTip: Run "node docs/pm-dashboard-ui/server.js" for auto-save!');
-              }}><Icons.export /> Export</button>
-            )}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {/* Triage Agent Button */}
+              {staging?.count > 0 && (
+                <button 
+                  className="btn btn-sm"
+                  onClick={copyTriagePrompt}
+                  style={{
+                    background: copyStatus === 'copied' ? 'var(--success)' : 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                    color: 'white',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Copy Triage Agent prompt to clipboard"
+                >
+                  {copyStatus === 'copied' ? '✓ Copied!' : '🏥 Launch Triage Agent'}
+                </button>
+              )}
+              {!serverMode && (
+                <button className="btn btn-primary btn-sm" onClick={() => {
+                  const json = JSON.stringify(decisions, null, 2);
+                  navigator.clipboard.writeText(json);
+                  alert('Decisions JSON copied!\n\nTip: Run "node docs/pm-dashboard-ui/server.js" for auto-save!');
+                }}><Icons.export /> Export</button>
+              )}
+            </div>
           </div>
 
-          {/* Findings List */}
-          {filtered.length === 0 ? (
+          {/* Staging View */}
+          {severityFilter === 'staging' && staging?.count > 0 ? (
+            <div className="card" style={{ padding: '40px', background: 'linear-gradient(135deg, rgba(168,85,247,0.1) 0%, rgba(124,58,237,0.05) 100%)' }}>
+              <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📦</div>
+                <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>Staging Queue</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                  Raw findings from agents waiting for triage before entering inbox
+                </p>
+              </div>
+              
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(4, 1fr)', 
+                gap: '16px', 
+                marginBottom: '32px',
+                maxWidth: '600px',
+                margin: '0 auto 32px'
+              }}>
+                <div style={{ 
+                  background: 'var(--critical-bg)', 
+                  border: '1px solid var(--critical)', 
+                  borderRadius: '12px', 
+                  padding: '16px', 
+                  textAlign: 'center' 
+                }}>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--critical)' }}>{staging.bySeverity?.critical || 0}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Critical</div>
+                </div>
+                <div style={{ 
+                  background: 'var(--high-bg)', 
+                  border: '1px solid var(--high)', 
+                  borderRadius: '12px', 
+                  padding: '16px', 
+                  textAlign: 'center' 
+                }}>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--high)' }}>{staging.bySeverity?.high || 0}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>High</div>
+                </div>
+                <div style={{ 
+                  background: 'var(--medium-bg)', 
+                  border: '1px solid var(--medium)', 
+                  borderRadius: '12px', 
+                  padding: '16px', 
+                  textAlign: 'center' 
+                }}>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--medium)' }}>{staging.bySeverity?.medium || 0}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Medium</div>
+                </div>
+                <div style={{ 
+                  background: 'var(--low-bg)', 
+                  border: '1px solid var(--low)', 
+                  borderRadius: '12px', 
+                  padding: '16px', 
+                  textAlign: 'center' 
+                }}>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--low)' }}>{staging.bySeverity?.low || 0}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Low</div>
+                </div>
+              </div>
+              
+              <div style={{ 
+                textAlign: 'center',
+                padding: '24px',
+                background: 'var(--bg-elevated)',
+                borderRadius: '12px',
+                border: '1px solid var(--border)'
+              }}>
+                <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                  <strong>{staging.count}</strong> findings need triage before human review
+                </div>
+                <button 
+                  className="btn"
+                  onClick={copyTriagePrompt}
+                  style={{
+                    background: copyStatus === 'copied' ? 'var(--success)' : 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {copyStatus === 'copied' ? '✓ Copied to Clipboard!' : '🏥 Copy Triage Agent Prompt'}
+                </button>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>
+                  Paste into a new Cursor chat to launch the Triage Agent
+                </div>
+              </div>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
               <div style={{ marginBottom: '12px', color: 'var(--success)' }}><Icons.checkCircle /></div>
               <div style={{ color: 'var(--text-muted)' }}>
-                {severityFilter === 'done' ? 'No history yet' : severityFilter === 'answered' ? 'No answered findings yet' : `All ${severityFilter} priority findings are done!`}
+                {severityFilter === 'done' ? 'No history yet' : severityFilter === 'answered' ? 'No answered findings yet' : severityFilter === 'staging' ? 'Staging queue is empty!' : `All ${severityFilter} priority findings are done!`}
               </div>
             </div>
           ) : (
@@ -2053,7 +2767,7 @@ pnpm build`}
           <div className="section">
             <div className="section-title">PM Commands</div>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Copy these commands and paste into a <strong>new Cursor chat</strong>. The PM agent will generate batch commands for doc/review agents, or process your triage decisions.
+              Copy these commands and paste into a <strong>new Cursor chat</strong>. The Dispatch Agent will route blockers, create tickets, and answer questions.
             </p>
             
             <CommandBox label={PM_COMMANDS.processDecisions.label} command={PM_COMMANDS.processDecisions.command} description={PM_COMMANDS.processDecisions.description} />
@@ -2223,13 +2937,25 @@ pnpm build`}
         (t.files_to_modify || []).forEach(f => filesInProgress.add(f));
       });
       
-      // Get tickets that are ready and not in progress
-      const availableTickets = readyTickets.filter(t => !inProgressTicketIds.has(t.id));
+      // ALSO get files locked by completed tickets (in review, not merged yet)
+      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id));
+      const filesInReview = new Set();
+      tickets.filter(t => completedTicketIds.has(t.id)).forEach(t => {
+        (t.files_to_modify || []).forEach(f => filesInReview.add(f));
+      });
+      
+      // Combine all locked files
+      const allLockedFiles = new Set([...filesInProgress, ...filesInReview]);
+      
+      // Get tickets that are ready and not in progress or completed
+      const availableTickets = readyTickets.filter(t => 
+        !inProgressTicketIds.has(t.id) && !completedTicketIds.has(t.id)
+      );
       
       // Calculate next batch - greedy algorithm to find non-conflicting tickets
       const calculateNextBatch = () => {
         const batch = [];
-        const batchFiles = new Set(filesInProgress); // Start with files already in progress
+        const batchFiles = new Set(allLockedFiles); // Start with ALL locked files (in progress + in review)
         
         // Sort by priority (critical first, then high, etc.)
         const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -2265,6 +2991,18 @@ pnpm build`}
             const sharedFiles = ticketFiles.filter(f => ipFiles.includes(f));
             if (sharedFiles.length > 0) {
               conflicts.push({ ticket_id: ip.ticket_id, files: sharedFiles, type: 'in_progress' });
+            }
+          }
+        });
+        
+        // Check against completed (in review) - these are unmerged!
+        completedItems.forEach(ci => {
+          const ciTicket = tickets.find(t => t.id === ci.ticket_id);
+          if (ciTicket) {
+            const ciFiles = ciTicket.files_to_modify || [];
+            const sharedFiles = ticketFiles.filter(f => ciFiles.includes(f));
+            if (sharedFiles.length > 0) {
+              conflicts.push({ ticket_id: ci.ticket_id, files: sharedFiles, type: 'in_review' });
             }
           }
         });
@@ -2598,7 +3336,11 @@ pnpm build`}
                               </div>
                               {conflicts.length > 0 && (
                                 <div style={{ fontSize: '11px', color: 'var(--critical)', marginTop: '4px' }}>
-                                  ⚠️ Conflicts with: {conflicts.map(c => c.ticket_id).join(', ')}
+                                  ⚠️ Conflicts with: {conflicts.map(c => 
+                                    c.type === 'in_review' ? `${c.ticket_id} (in review)` :
+                                    c.type === 'in_progress' ? `${c.ticket_id} (in progress)` :
+                                    c.ticket_id
+                                  ).join(', ')}
                                 </div>
                               )}
                             </div>
@@ -3001,16 +3743,24 @@ pnpm build`}
         }
       });
       
-      // Ready = status is 'ready' AND not in dev-status completed/in_progress
+      // Separate CI blockers (regression failures) from other blockers
+      const ciBlockers = blockedItems.filter(b => b.type === 'ci_failure' || b.fileName?.startsWith('CI-'));
+      const ciBlockerTicketIds = new Set(ciBlockers.map(b => (b.ticket_id || b.ticketId || '').toUpperCase()));
+      
+      // Filter completed items - remove those with CI blockers (they need fixes first)
+      const completedItemsForReview = completedItems.filter(c => 
+        !ciBlockerTicketIds.has((c.ticket_id || '').toUpperCase())
+      );
+      
+      // Ready = status is 'ready' in tickets.json (source of truth)
+      // Only filter by in_progress (actively being worked on now)
       const readyTickets = tickets.filter(t => 
         t.status === 'ready' && 
-        !completedTicketIds.has(t.id?.toUpperCase()) && 
         !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
-      // Pending tickets = NOT in progress or completed (for All Tickets tab)
+      // Pending tickets = NOT in progress (for All Tickets tab)
       const pendingTickets = tickets.filter(t => 
-        !completedTicketIds.has(t.id?.toUpperCase()) && 
         !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
@@ -3068,18 +3818,18 @@ pnpm build`}
         <div className="fade-in">
           {/* Summary Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
-            <div 
-              className="card" 
+            <div
+              className="card"
               onClick={() => setPipelineTab('inventory')}
-              style={{ 
-                padding: '16px', 
-                cursor: 'pointer', 
+              style={{
+                padding: '16px',
+                cursor: 'pointer',
                 borderLeft: '4px solid var(--accent)',
                 background: pipelineTab === 'inventory' ? 'var(--bg-elevated)' : undefined
               }}
             >
               <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--accent-bright)' }}>
-                {FINDINGS_SUMMARY.meta.total_features}
+                {featuresList.length || FINDINGS_SUMMARY.meta.total_features}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Features</div>
             </div>
@@ -3139,25 +3889,46 @@ pnpm build`}
               style={{ 
                 padding: '16px', 
                 cursor: 'pointer',
-                borderLeft: completedItems.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
+                borderLeft: completedItemsForReview.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
                 background: pipelineTab === 'review' ? 'var(--bg-elevated)' : undefined
               }}
             >
-              <div style={{ fontSize: '24px', fontWeight: 700, color: completedItems.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
-                {completedItems.length}
+              <div style={{ fontSize: '24px', fontWeight: 700, color: completedItemsForReview.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
+                {completedItemsForReview.length}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>For Review</div>
+              {ciBlockers.length > 0 && (
+                <div style={{ fontSize: '10px', color: 'var(--critical)', marginTop: '4px' }}>
+                  ⚠️ {ciBlockers.length} need fixes
+                </div>
+              )}
+            </div>
+            <div 
+              className="card" 
+              onClick={() => setPipelineTab('merged')}
+              style={{ 
+                padding: '16px', 
+                cursor: 'pointer',
+                borderLeft: (devStatus?.merged || []).length > 0 ? '4px solid #22c55e' : '4px solid var(--border)',
+                background: pipelineTab === 'merged' ? 'var(--bg-elevated)' : undefined
+              }}
+            >
+              <div style={{ fontSize: '24px', fontWeight: 700, color: (devStatus?.merged || []).length > 0 ? '#22c55e' : 'var(--text-muted)' }}>
+                {(devStatus?.merged || []).length}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Merged</div>
             </div>
           </div>
           
           {/* Tab Navigation */}
           <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0' }}>
             {[
-              { id: 'inventory', label: 'Feature Inventory', count: FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
+              { id: 'inventory', label: 'Feature Inventory', count: featuresList.length || FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
               { id: 'all', label: 'Pending', count: pendingTickets.length, color: 'var(--text-primary)' },
               { id: 'progress', label: 'In Progress', count: activeInProgressItems.length, color: 'var(--success)' },
               { id: 'blocked', label: 'Blocked', count: blockedItems.length, color: 'var(--critical)' },
-              { id: 'review', label: 'For Review', count: completedItems.length, color: 'var(--success)' },
+              { id: 'review', label: 'For Review', count: completedItemsForReview.length, color: 'var(--success)', ciBlocked: ciBlockers.length },
+              { id: 'merged', label: 'Merged', count: (devStatus?.merged || []).length, color: '#22c55e' },
               { id: 'qa', label: 'QA Ready', count: Object.values(regressionStatus).filter(r => r.passed).length, color: '#a78bfa' }
             ].map(tab => (
               <button
@@ -3329,27 +4100,27 @@ pnpm build`}
                                 }}>
                                   Documented
                                 </span>
-                                {/* Reviewed badge - green if review agent ran (findings exist) */}
+                                {/* Reviewed badge - use DB status if available, fallback to findings-based */}
                                 <span style={{ 
                                   padding: '4px 10px', 
                                   borderRadius: '6px', 
                                   fontSize: '11px', 
                                   fontWeight: 600,
-                                  background: reviewStatus.reviewed ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)', 
-                                  color: reviewStatus.reviewed ? 'var(--success)' : 'var(--accent)'
+                                  background: (feature.reviewed || reviewStatus.reviewed) ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)', 
+                                  color: (feature.reviewed || reviewStatus.reviewed) ? 'var(--success)' : 'var(--accent)'
                                 }}>
-                                  {reviewStatus.reviewed ? 'Reviewed' : 'Pending'}
+                                  {(feature.reviewed || reviewStatus.reviewed) ? 'Reviewed' : 'Pending'}
                                 </span>
-                                {/* Tested badge - green if TEST LOCK agent has run */}
+                                {/* Tested badge - use DB status if available, fallback to test-lock mapping */}
                                 <span style={{ 
                                   padding: '4px 10px', 
                                   borderRadius: '6px', 
                                   fontSize: '11px', 
                                   fontWeight: 600,
-                                  background: isTested ? 'rgba(139,92,246,0.15)' : 'rgba(100,116,139,0.15)', 
-                                  color: isTested ? '#a78bfa' : 'var(--text-muted)'
+                                  background: (feature.tested || isTested) ? 'rgba(139,92,246,0.15)' : 'rgba(100,116,139,0.15)', 
+                                  color: (feature.tested || isTested) ? '#a78bfa' : 'var(--text-muted)'
                                 }}>
-                                  {isTested ? '🧪 Tested' : 'No Tests'}
+                                  {(feature.tested || isTested) ? '🧪 Tested' : 'No Tests'}
                                 </span>
                                 {/* Findings count if any */}
                                 {reviewStatus.total > 0 && (
@@ -3653,7 +4424,10 @@ pnpm build`}
                               {selectedBlocker.category === 'clarification' ? 'Question:' : 'Issue:'}
                             </div>
                             <div style={{ fontSize: '15px', lineHeight: '1.6' }}>
-                              {selectedBlocker.issue || selectedBlocker.question}
+                              {/* Handle both string and object issue formats */}
+                              {typeof selectedBlocker.issue === 'object' 
+                                ? selectedBlocker.issue?.description || selectedBlocker.summary || JSON.stringify(selectedBlocker.issue, null, 2)
+                                : selectedBlocker.issue || selectedBlocker.question || selectedBlocker.summary}
                             </div>
                           </div>
                           
@@ -3712,7 +4486,7 @@ pnpm build`}
                           )}
                           
                           {/* Agent's Recommendation */}
-                          {selectedBlocker.recommendation && (
+                          {(selectedBlocker.recommendation || selectedBlocker.recommendedFix) && (
                             <div style={{ 
                               padding: '12px 16px', 
                               background: 'rgba(99,102,241,0.08)', 
@@ -3723,7 +4497,14 @@ pnpm build`}
                               <div style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 600, marginBottom: '4px' }}>
                                 Agent's Recommendation:
                               </div>
-                              <div style={{ fontSize: '14px' }}>{selectedBlocker.recommendation}</div>
+                              <div style={{ fontSize: '14px' }}>
+                                {/* Handle both string and object recommendation formats */}
+                                {typeof selectedBlocker.recommendation === 'object'
+                                  ? selectedBlocker.recommendation?.description || JSON.stringify(selectedBlocker.recommendation, null, 2)
+                                  : typeof selectedBlocker.recommendedFix === 'object'
+                                    ? selectedBlocker.recommendedFix?.description || JSON.stringify(selectedBlocker.recommendedFix, null, 2)
+                                    : selectedBlocker.recommendation || selectedBlocker.recommendedFix}
+                              </div>
                             </div>
                           )}
                           
@@ -3795,13 +4576,55 @@ pnpm build`}
           {/* FOR REVIEW TAB */}
           {pipelineTab === 'review' && (
             <div className="fade-in">
-              {completedItems.length === 0 ? (
+              {/* CI BLOCKERS - Tickets that need fix tickets before review */}
+              {ciBlockers.length > 0 && (
+                <div style={{ 
+                  padding: '16px 20px', 
+                  background: 'rgba(239,68,68,0.1)', 
+                  borderRadius: '12px', 
+                  marginBottom: '20px',
+                  border: '1px solid rgba(239,68,68,0.3)'
+                }}>
+                  <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--critical)' }}>
+                    ⚠️ {ciBlockers.length} ticket{ciBlockers.length > 1 ? 's' : ''} have regressions - need fix tickets
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    These tickets caused test failures outside their scope. Create continuation tickets to fix.
+                  </div>
+                  <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {ciBlockers.map(blocker => {
+                      const ticketId = blocker.ticket_id || blocker.ticketId;
+                      const ticket = tickets.find(t => t.id?.toUpperCase() === ticketId?.toUpperCase());
+                      return (
+                        <div 
+                          key={blocker.fileName}
+                          onClick={() => setSelectedBlocker(blocker)}
+                          style={{ 
+                            padding: '8px 12px', 
+                            background: 'var(--bg-elevated)', 
+                            borderRadius: '6px',
+                            border: '1px solid var(--critical)',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          <code style={{ color: 'var(--critical)' }}>{ticketId}</code>
+                          {' '}<span style={{ color: 'var(--text-muted)' }}>— {blocker.failed_count || 0} regressions</span>
+                          {ticket && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>{ticket.title}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              {completedItemsForReview.length === 0 && ciBlockers.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
                   <div style={{ marginBottom: '16px', color: 'var(--text-muted)' }}><Icons.file /></div>
                   <div style={{ fontSize: '18px', fontWeight: 500 }}>No completed work awaiting review</div>
                   <div style={{ fontSize: '14px', marginTop: '8px' }}>Completed dev agent work will appear here for QA review</div>
                 </div>
-              ) : (
+              ) : completedItemsForReview.length > 0 ? (
                 <div>
                   <div style={{ 
                     padding: '16px 20px', 
@@ -3811,7 +4634,7 @@ pnpm build`}
                     border: '1px solid rgba(16,185,129,0.2)'
                   }}>
                     <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      ✅ {completedItems.length} ticket{completedItems.length > 1 ? 's' : ''} ready for review
+                      ✅ {completedItemsForReview.length} ticket{completedItemsForReview.length > 1 ? 's' : ''} ready for review
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
                       Review the changes, run QA tests, then mark as done or request fixes
@@ -3819,7 +4642,7 @@ pnpm build`}
                   </div>
                   
                   <div className="ticket-grid">
-                    {completedItems.map(item => {
+                    {completedItemsForReview.map(item => {
                       const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
                       const regStatus = regressionStatus[item.ticket_id];
                       return (
@@ -3905,30 +4728,28 @@ pnpm build`}
                                     
                                     updateRegressionStatus(item.ticket_id, status);
                                     
-                                    // If there are unexpected failures, create a regression finding
+                                    // If there are unexpected failures, create a CI blocker for PM
                                     if (unexpectedFiles.length > 0) {
-                                      const findingId = `REG-${item.ticket_id}-${Date.now()}`;
-                                      const regressionFinding = {
-                                        id: findingId,
-                                        feature: ticket?.feature || 'Unknown',
-                                        category: 'regression',
-                                        title: `Regression: ${item.ticket_id} broke tests in ${unexpectedFiles.length} file(s)`,
-                                        severity: 'critical',
-                                        type: 'blocker',
-                                        location: unexpectedFiles.join(', '),
-                                        issue: `Ticket ${item.ticket_id} caused ${unexpectedFiles.length} test file(s) to fail that were NOT in the ticket's files_to_modify. This indicates a regression.\n\nFailed files:\n${unexpectedFiles.map(f => '- ' + f).join('\n')}\n\nOriginal ticket modified: ${ticketFiles.join(', ')}`,
-                                        suggested_fix: `Review the changes in ${item.ticket_id} and fix the regressions in: ${unexpectedFiles.join(', ')}`,
-                                        status: 'pending',
-                                        source_ticket: item.ticket_id,
-                                        created_at: new Date().toISOString()
-                                      };
-                                      
-                                      // Save to findings via API (we'll add this endpoint)
-                                      fetch('/api/add-finding', {
+                                      // Create CI blocker file so PM workflow picks it up
+                                      fetch('/api/create-ci-blocker', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(regressionFinding)
-                                      }).catch(err => console.error('Failed to create regression finding:', err));
+                                        body: JSON.stringify({
+                                          ticketId: item.ticket_id,
+                                          branch: item.branch,
+                                          failedTests: unexpectedFiles,
+                                          failedCount: unexpectedFiles.length,
+                                          output: result.output?.substring(0, 3000) || '',
+                                          attempt: 1
+                                        })
+                                      })
+                                      .then(res => res.json())
+                                      .then(data => {
+                                        if (data.success) {
+                                          console.log(`✅ Created CI blocker for ${item.ticket_id}: ${data.file}`);
+                                        }
+                                      })
+                                      .catch(err => console.error('Failed to create CI blocker:', err));
                                     }
                                   } catch (err) {
                                     updateRegressionStatus(item.ticket_id, { running: false, error: err.message });
@@ -3966,7 +4787,129 @@ pnpm build`}
                     />
                   )}
                 </div>
-              )}
+              ) : null}
+            </div>
+          )}
+          
+          {/* MERGED TAB */}
+          {pipelineTab === 'merged' && (
+            <div className="fade-in">
+              {(() => {
+                const mergedItems = devStatus?.merged || [];
+                
+                if (mergedItems.length === 0) {
+                  return (
+                    <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                      <div style={{ marginBottom: '16px', fontSize: '48px' }}>🎉</div>
+                      <div style={{ fontSize: '18px', fontWeight: 500 }}>No tickets have been merged yet</div>
+                      <div style={{ fontSize: '14px', marginTop: '8px' }}>
+                        Tickets that pass QA and get merged to main will appear here
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div>
+                    <div style={{ 
+                      padding: '16px 20px', 
+                      background: 'rgba(34,197,94,0.1)', 
+                      borderRadius: '12px', 
+                      marginBottom: '20px',
+                      border: '1px solid rgba(34,197,94,0.2)'
+                    }}>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        🎉 {mergedItems.length} ticket{mergedItems.length > 1 ? 's' : ''} QA'd and merged to main
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        These tickets have passed QA testing and are now in production.
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {mergedItems.map(item => {
+                        const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
+                        return (
+                          <div 
+                            key={item.ticket_id} 
+                            className="card"
+                            style={{ 
+                              borderLeft: '4px solid #22c55e',
+                              padding: '16px'
+                            }}
+                          >
+                            {/* Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                  <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.ticket_id}</code>
+                                  <span className="badge" style={{ color: '#22c55e', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>✅ Merged</span>
+                                  {ticket && <span className={`badge badge-${ticket.priority}`}>{ticket.priority}</span>}
+                                </div>
+                                <div style={{ fontSize: '16px', fontWeight: 600 }}>{ticket?.title || 'Unknown Ticket'}</div>
+                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{ticket?.feature || ''}</div>
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'right' }}>
+                                <div>Merged: {item.merged_at ? new Date(item.merged_at).toLocaleDateString() : 'Unknown'}</div>
+                                <div style={{ color: '#22c55e' }}>Branch: {item.branch}</div>
+                              </div>
+                            </div>
+                            
+                            {/* QA Summary */}
+                            {item.report_summary && (
+                              <div style={{ 
+                                padding: '12px', 
+                                background: 'rgba(34,197,94,0.05)', 
+                                borderRadius: '8px',
+                                marginBottom: '12px',
+                                fontSize: '13px',
+                                color: 'var(--text-secondary)'
+                              }}>
+                                <div style={{ fontWeight: 600, marginBottom: '4px', color: '#22c55e' }}>📋 QA Summary</div>
+                                {item.report_summary}
+                              </div>
+                            )}
+                            
+                            {/* Test Results & Acceptance Criteria */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                              {/* Tests */}
+                              {item.test_results && item.test_results.length > 0 && (
+                                <div style={{ fontSize: '12px' }}>
+                                  <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--text-muted)' }}>Tests</div>
+                                  {item.test_results.map((t, i) => (
+                                    <div key={i} style={{ color: t.includes('✅') ? '#22c55e' : t.includes('❌') ? 'var(--critical)' : 'var(--text-secondary)', marginBottom: '2px' }}>
+                                      {t}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Acceptance Criteria */}
+                              {item.acceptance_criteria && item.acceptance_criteria.length > 0 && (
+                                <div style={{ fontSize: '12px' }}>
+                                  <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--text-muted)' }}>Acceptance Criteria</div>
+                                  {item.acceptance_criteria.map((c, i) => (
+                                    <div key={i} style={{ color: c.includes('✅') ? '#22c55e' : c.includes('❌') ? 'var(--critical)' : 'var(--text-secondary)', marginBottom: '2px' }}>
+                                      {c}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Report Link */}
+                            {item.qa_report && (
+                              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)', fontSize: '11px', color: 'var(--text-muted)' }}>
+                                📄 Full report: <code>{item.qa_report}</code>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
           
@@ -4057,7 +5000,7 @@ pnpm build`}
     // ================= LAUNCH VIEW =================
     // All agent commands in one place
 
-    function LaunchView({ tickets, devStatus, onSaveDevStatus, findings, serverDecisions, featuresList, agentOutputs }) {
+    function LaunchView({ tickets, devStatus, docStatus, onSaveDevStatus, findings, serverDecisions, featuresList, agentOutputs, activeLocks = [], dbMode = false }) {
       const [copied, setCopied] = useState(null);
       // Auto-expand testlock if there are completions to show
       const hasTestLockCompletions = (agentOutputs?.testLock || []).length > 0;
@@ -4115,61 +5058,50 @@ pnpm build`}
       }, [featuresList]);
       
       const unreviewedFeatures = useMemo(() => {
-        // Features that are documented but have no findings (review agent hasn't run)
-        // Helper: normalize strings for comparison (strip hyphens, spaces, lowercase)
-        const normalize = (str) => (str || '').toLowerCase().replace(/[-\s]/g, '');
+        // Features that are documented but not marked as reviewed in doc-status.json
+        const docStatusFeatures = docStatus?.features || {};
         
         return (featuresList || []).filter(f => {
           if (!f.docPath) return false; // Must be documented first
-          const normalizedName = normalize(f.name);
-          const fileName = f.fileName?.replace('.md', '') || '';
-          const normalizedFileName = normalize(fileName);
           
-          // Check if any findings exist for this feature using multiple matching strategies:
-          // 1. Normalized feature name contains normalized file name (or vice versa)
-          // 2. Category field matches the file path pattern
-          // 3. Original substring match as fallback
-          const hasFindings = findings.some(finding => {
-            const normalizedFeature = normalize(finding.feature);
-            const normalizedCategory = normalize(finding.category);
-            
-            // Match by normalized feature name
-            if (normalizedFeature.includes(normalizedName) || normalizedName.includes(normalizedFeature)) return true;
-            if (normalizedFeature.includes(normalizedFileName) || normalizedFileName.includes(normalizedFeature)) return true;
-            
-            // Match by category (e.g., "A-cobrowse-viewer" matches "cobrowse-viewer.md")
-            if (normalizedCategory.includes(normalizedFileName) || normalizedFileName.includes(normalizedCategory)) return true;
-            
-            // Match by doc field
-            if (finding.doc && normalize(finding.doc).includes(normalizedName)) return true;
-            
-            return false;
-          });
-          return !hasFindings;
+          // Get the feature key from the file name (e.g., "widget-lifecycle.md" -> "widget-lifecycle")
+          const featureKey = f.fileName?.replace('.md', '') || '';
+          
+          // Check if this feature is marked as reviewed in doc-status.json
+          const featureStatus = docStatusFeatures[featureKey];
+          return !featureStatus?.reviewed;
         });
-      }, [featuresList, findings]);
+      }, [featuresList, docStatus]);
       
       // Ticket calculations
       const inProgressItems = devStatus?.in_progress || [];
       const completedItems = devStatus?.completed || [];
       // Normalize to uppercase for case-insensitive matching
       const inProgressTicketIds = new Set(inProgressItems.map(i => i.ticket_id?.toUpperCase()));
-      const completedTicketIds = new Set(completedItems.map(c => c.ticket_id?.toUpperCase()));
       
-      // Ready = status is 'ready' AND not in dev-status completed/in_progress
+      // Ready = status is 'ready' in tickets.json (source of truth)
+      // NOTE: We no longer filter by completed - if a ticket's status is "ready", 
+      // it means it needs dev work (e.g., v2 rework after QA failure)
+      // Only filter by in_progress (currently actively being worked on)
       const readyTickets = tickets.filter(t => 
         t.status === 'ready' && 
-        !completedTicketIds.has(t.id?.toUpperCase()) && 
         !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
       const lockedFiles = new Set();
-      // Add files from in-progress tickets
-      tickets.filter(t => inProgressTicketIds.has(t.id?.toUpperCase())).forEach(t => {
-        (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
-      });
-      // Add files from completed (for review) tickets - they're not merged yet!
-      tickets.filter(t => completedTicketIds.has(t.id?.toUpperCase())).forEach(t => {
+      
+      // When using DB, use activeLocks from file_locks table (authoritative)
+      if (dbMode && activeLocks.length > 0) {
+        activeLocks.forEach(lock => lockedFiles.add(lock.file_path));
+      } else {
+        // Fallback: compute from in-progress tickets
+        tickets.filter(t => inProgressTicketIds.has(t.id?.toUpperCase())).forEach(t => {
+          (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
+        });
+      }
+      
+      // Add files from tickets in "for_review" status - they're not merged yet!
+      tickets.filter(t => t.status === 'for_review').forEach(t => {
         (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
       });
       
@@ -4199,6 +5131,17 @@ pnpm build`}
       
       const nextBatch = calculateNextBatch();
       const nextBatchIds = new Set(nextBatch.map(t => t.id));
+      
+      // DEBUG: Log conflict calculation
+      console.log('[LaunchView DEBUG v3]', {
+        totalReady: readyTickets.length,
+        inProgressCount: inProgressItems.length,
+        inProgressIds: [...inProgressTicketIds],
+        lockedFilesCount: lockedFiles.size,
+        lockedFiles: [...lockedFiles].slice(0, 5),
+        nextBatchCount: nextBatch.length,
+        nextBatchIds: nextBatch.map(t => t.id)
+      });
       
       const copyCommand = (id, additionalNotes = '') => {
         let cmd = `# IMPORTANT: First set up your isolated worktree!
@@ -4296,68 +5239,23 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
       
       const totalToProcess = pipelineStats.pendingResponses.length + pipelineStats.awaitingDecision.length + pipelineStats.pendingTickets.length;
       
-      // PM Command - unified
-      const pmCommand = {
-        label: 'Process Pipeline',
-        description: 'Respond to questions & create tickets',
-        command: `You are a PM agent. 
-
-**FIRST: Read and understand all existing tickets**
-- Read tickets.json completely before processing any findings
-- Understand what each ticket covers, its scope, and what findings it addresses
-- Keep this context in mind when evaluating new findings
-
-Read decisions.json and findings.json.
-
-THREE TASKS:
-
-1) RESPOND TO QUESTIONS (threads with decision.option_id = "custom" AND last message is human):
-   - Read the PM's question from the last human message
-   - Read the finding context (issue, options, suggested_fix)  
-   - Add your response as a new message: { role: "system", text: "[your answer]", timestamp: now }
-   - Keep answers concise and actionable with clear options
-
-2) CREATE TICKETS & RESOLVE THREADS (threads with decision != null AND status != "resolved"):
-   
-   **BEFORE CREATING ANY TICKET:**
-   - Compare the finding against ALL existing tickets you've read
-   - Ask: Is this already covered? Should this be merged into an existing ticket?
-   - If duplicate or overlap found:
-     - Add system message: "This appears covered by TKT-XXX: [title]. Link to existing, merge, or create new?"
-     - **DO NOT resolve the thread** - keep status as "in_discussion"
-     - **STOP processing this finding** - wait for PM response in next cycle
-   - To link (after PM confirms): Set finding.status = "ticketed", finding.ticket_id = "TKT-XXX" (no new ticket)
-   
-   **SKIP THESE (don't create tickets):**
-   - Skip phrases in custom_note: "skip", "dont need", "already have ticket", "already covered"
-   - Questions ending in "?" - these need answers first, not tickets
-   - "skip" or "won't fix" decisions
-   
-   **CREATE TICKETS FOR:**
-   - Clear "implement" decisions with NO existing coverage after manual review
-   - Set finding.status = "ticketed", finding.ticket_id = "TKT-XXX"
-   
-   **ALWAYS:**
-   - Set thread.status = "resolved" in decisions.json for ALL processed items
-   - Ensure finding.status is NEVER left as "pending" for resolved threads
-
-3) SYNC CHECK (run after all updates):
-   - Run: node docs/scripts/process-decisions.js
-   - This catches any inconsistencies between files
-
-Report: X questions answered, Y tickets created, Z items linked to existing, W items skipped.`
+      // Dispatch Agent Command - unified
+      const dispatchCommand = {
+        label: 'Launch Dispatch Agent',
+        description: 'Route blockers, create tickets, answer questions',
+        command: `You are a Dispatch Agent. Read docs/workflow/DISPATCH_AGENT_SOP.md then execute.`
       };
       
       const DOC_REVIEW_COMMANDS = {
         docSprint: {
           label: 'Launch Doc Sprint',
           description: 'Generate documentation for all features',
-          command: 'You are a PM agent. Read docs/workflow/PM_DOCS_SOP.md and execute doc-sprint mode. Generate doc-agent prompts for all undocumented features.'
+          command: 'You are the PM. Read docs/workflow/PM_DOCS_SOP.md and execute doc-sprint mode. Generate doc-agent prompts for all undocumented features.'
         },
         reviewSprint: {
           label: 'Launch Review Sprint', 
           description: 'Review all documented features for issues',
-          command: 'You are a PM agent. Read docs/workflow/PM_DOCS_SOP.md and execute review-sprint mode. Generate review-agent prompts for all documented features.'
+          command: 'You are the PM. Read docs/workflow/PM_DOCS_SOP.md and execute review-sprint mode. Generate review-agent prompts for all documented features.'
         }
       };
 
@@ -4372,7 +5270,9 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
           'M1', 'M2',
           'P2', 'P3', 'P4', 'P5', 'P6',
           'STATS1', 'STATS2', 'STATS3',
-          'V1', 'V2', 'V3', 'V4', 'V5'
+          'UI1', 'UI2', 'UI3', 'UI4', 'UI5', 'UI6', 'UI7', 'UI8', 'UI9', 'UI10',
+          'V1', 'V2', 'V3', 'V4', 'V5',
+          'VALIDATE'
         ];
         const completedIds = new Set((agentOutputs?.testLock || []).map(t => {
           const match = (t.ticketId || t.id || '').match(/^([A-Z]+\d*)/i);
@@ -4668,7 +5568,9 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                     'M1', 'M2',
                     'P2', 'P3', 'P4', 'P5', 'P6',
                     'STATS1', 'STATS2', 'STATS3',
-                    'V1', 'V2', 'V3', 'V4', 'V5'
+                    'UI1', 'UI2', 'UI3', 'UI4', 'UI5', 'UI6', 'UI7', 'UI8', 'UI9', 'UI10',
+                    'V1', 'V2', 'V3', 'V4', 'V5',
+                    'VALIDATE'
                   ];
                   
                   const pendingPrompts = allTestLockPrompts.filter(id => !completedIds.has(id));
@@ -4851,7 +5753,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
             )}
           </div>
 
-          {/* PM Agent Section */}
+          {/* Dispatch Agent Section */}
           <div className="section" style={{ marginBottom: '32px' }}>
             <div 
               className="section-title" 
@@ -4866,7 +5768,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ color: 'var(--accent-bright)' }}><Icons.file /></span>
-                <span style={{ fontWeight: 600 }}>PM Agent</span>
+                <span style={{ fontWeight: 600 }}>Dispatch Agent</span>
                 <span style={{ 
                   padding: '3px 10px', 
                   background: totalToProcess > 0 ? 'var(--accent)' : 'var(--bg-elevated)', 
@@ -4919,22 +5821,22 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                 <div className="card" style={{ padding: '16px 20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '15px', fontWeight: 600 }}>{pmCommand.label}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{pmCommand.description}</div>
+                      <div style={{ fontSize: '15px', fontWeight: 600 }}>{dispatchCommand.label}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{dispatchCommand.description}</div>
                     </div>
                     <button 
-                      className={`btn ${copied === 'pm-command' ? 'btn-success' : 'btn-primary'}`}
+                      className={`btn ${copied === 'dispatch-command' ? 'btn-success' : 'btn-primary'}`}
                       onClick={() => {
-                        navigator.clipboard.writeText(pmCommand.command);
-                        setCopied('pm-command');
+                        navigator.clipboard.writeText(dispatchCommand.command);
+                        setCopied('dispatch-command');
                         setTimeout(() => setCopied(null), 2000);
                       }}
                     >
-                      {copied === 'pm-command' ? 'Copied!' : 'Copy Command'}
+                      {copied === 'dispatch-command' ? 'Copied!' : 'Copy Command'}
                     </button>
                   </div>
                   <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
-                    <code style={{ fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-word' }}>{pmCommand.command}</code>
+                    <code style={{ fontSize: '12px', color: 'var(--text-secondary)', wordBreak: 'break-word' }}>{dispatchCommand.command}</code>
                   </div>
                 </div>
               </div>
@@ -4957,9 +5859,9 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ color: 'var(--accent-bright)' }}><Icons.server /></span>
                 <span style={{ fontWeight: 600 }}>Dev Agents</span>
-                {nextBatch.length > 0 && (
+                {readyTickets.length > 0 && (
                   <span style={{ padding: '3px 10px', background: 'var(--accent)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                    {nextBatch.length} ready
+                    {nextBatch.length} parallel / {readyTickets.length} total
                   </span>
                 )}
               </div>
@@ -5470,6 +6372,125 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
               </div>
             )}
           </div>
+
+          {/* QA Agents Section */}
+          <div className="section" style={{ marginBottom: '32px' }}>
+            <div 
+              className="section-title" 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                marginBottom: expandedSection === 'qa' ? '16px' : '0'
+              }}
+              onClick={() => setExpandedSection(expandedSection === 'qa' ? null : 'qa')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: 'var(--success)' }}><Icons.checkCircle /></span>
+                <span style={{ fontWeight: 600 }}>QA Agents</span>
+                {completedItems.length > 0 && (
+                  <span style={{ padding: '3px 10px', background: 'var(--success)', color: 'white', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                    {completedItems.length} ready for QA
+                  </span>
+                )}
+              </div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{expandedSection === 'qa' ? '▼' : '▶'}</span>
+            </div>
+            
+            {expandedSection === 'qa' && (
+              <div className="fade-in">
+                {completedItems.length === 0 ? (
+                  <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '36px', marginBottom: '12px' }}>✅</div>
+                    <div style={{ fontSize: '16px', fontWeight: 500 }}>No tickets awaiting QA</div>
+                    <div style={{ fontSize: '13px', marginTop: '8px' }}>Dev agents need to complete work first</div>
+                  </div>
+                ) : (
+                  <>
+                    {/* QA Batch Header */}
+                    <div style={{ 
+                      padding: '16px 20px', 
+                      background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(59,130,246,0.1))',
+                      borderRadius: '12px', 
+                      marginBottom: '20px',
+                      border: '1px solid rgba(16,185,129,0.2)'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {completedItems.length} tickets ready for QA review
+                          </div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Each QA agent reviews one ticket's changes
+                          </div>
+                        </div>
+                        <button 
+                          className={`btn ${copied === 'all-qa' ? 'btn-success' : 'btn-primary'}`}
+                          onClick={() => {
+                            const commands = completedItems.map((item, idx) => {
+                              const ticketId = item.ticket_id;
+                              return `# QA Agent ${idx + 1}: ${ticketId}\nYou are a QA Agent. Read docs/workflow/QA_REVIEW_AGENT_SOP.md then execute: docs/prompts/active/qa-review-${ticketId}.md`;
+                            }).join('\n\n---\n\n');
+                            navigator.clipboard.writeText(commands);
+                            setCopied('all-qa');
+                            setTimeout(() => setCopied(null), 2000);
+                          }}
+                        >
+                          {copied === 'all-qa' ? 'Copied All!' : `Copy All ${completedItems.length}`}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* QA Ticket Cards */}
+                    <div style={{ display: 'grid', gap: '12px' }}>
+                      {completedItems.map((item, idx) => {
+                        const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
+                        return (
+                          <div key={item.ticket_id} className="card" style={{ padding: '16px', borderLeft: '4px solid var(--success)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                                  <code style={{ fontSize: '13px', fontWeight: 600, color: 'var(--success)' }}>{item.ticket_id}</code>
+                                  {ticket?.priority && (
+                                    <span style={{ 
+                                      fontSize: '10px', 
+                                      padding: '2px 6px', 
+                                      borderRadius: '4px',
+                                      background: ticket.priority === 'critical' ? 'var(--critical)' : 
+                                                  ticket.priority === 'high' ? 'var(--high)' : 
+                                                  ticket.priority === 'medium' ? 'var(--medium)' : 'var(--low)',
+                                      color: 'white'
+                                    }}>{ticket.priority}</span>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>{ticket?.title || item.title || 'Unknown'}</div>
+                                {ticket?.feature && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{ticket.feature}</div>}
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                                  Branch: <code>{item.branch}</code>
+                                </div>
+                              </div>
+                              <button 
+                                className={`btn btn-sm ${copied === `qa-${item.ticket_id}` ? 'btn-success' : 'btn-secondary'}`}
+                                onClick={() => {
+                                  const cmd = `You are a QA Agent. Read docs/workflow/QA_REVIEW_AGENT_SOP.md then execute: docs/prompts/active/qa-review-${item.ticket_id}.md`;
+                                  navigator.clipboard.writeText(cmd);
+                                  setCopied(`qa-${item.ticket_id}`);
+                                  setTimeout(() => setCopied(null), 2000);
+                                }}
+                              >
+                                {copied === `qa-${item.ticket_id}` ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       );
     }
@@ -5479,12 +6500,17 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
     function App() {
       const [view, setView] = useState('inbox');
       const [serverMode, setServerMode] = useState(false);
+      const [dbMode, setDbMode] = useState(false); // True when using DB as source of truth
       const [findings, setFindings] = useState([]);
       const [tickets, setTickets] = useState([]);
       const [featuresList, setFeaturesList] = useState([]);
-      const [devStatus, setDevStatus] = useState({ in_progress: [], completed: [] });
-      const [agentOutputs, setAgentOutputs] = useState({ blocked: [], completions: [], started: [], findings: [], testLock: [] });
+      const [devStatus, setDevStatus] = useState({ in_progress: [], completed: [], stalled: [] });
+      const [docStatus, setDocStatus] = useState({ features: {} });
+      const [agentOutputs, setAgentOutputs] = useState({ blocked: [], completions: [], started: [], findings: [], testLock: [], qaResults: [] });
       const [serverDecisions, setServerDecisions] = useState(null);
+      const [staging, setStaging] = useState({ count: 0, bySeverity: { critical: 0, high: 0, medium: 0, low: 0 } });
+      const [runningSessions, setRunningSessions] = useState([]); // From DB agent_sessions
+      const [activeLocks, setActiveLocks] = useState([]); // From DB file_locks
       const [loading, setLoading] = useState(true);
       const [lastRefresh, setLastRefresh] = useState(null);
 
@@ -5500,6 +6526,9 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
             throw new Error('Server not available');
           })
           .then(data => {
+            // Track if we're using DB as source of truth
+            setDbMode(data.source === 'database');
+            
             if (data.findings?.findings) {
               setFindings(data.findings.findings);
               FINDINGS_DATA = data.findings.findings;
@@ -5519,11 +6548,25 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
             if (data.featuresList) {
               setFeaturesList(data.featuresList);
             }
+            if (data.docStatus) {
+              setDocStatus(data.docStatus);
+            }
+            if (data.staging) {
+              setStaging(data.staging);
+            }
+            // DB-specific data
+            if (data.runningSessions) {
+              setRunningSessions(data.runningSessions);
+            }
+            if (data.activeLocks) {
+              setActiveLocks(data.activeLocks);
+            }
             setLoading(false);
             setLastRefresh(new Date());
           })
           .catch(() => {
             setServerMode(false);
+            setDbMode(false);
             setLoading(false);
             console.log('Server not available, using fallback data');
           });
@@ -5629,11 +6672,20 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
               <button className={`nav-item ${view === 'pipeline' ? 'active' : ''}`} onClick={() => setView('pipeline')}><Icons.pipeline /> Pipeline</button>
               <button className={`nav-item ${view === 'launch' ? 'active' : ''}`} onClick={() => setView('launch')}>
                 <Icons.launch /> Launch
-                {tickets.filter(t => t.status === 'ready').length > 0 && (
-                  <span style={{ marginLeft: '6px', padding: '2px 6px', background: 'var(--accent)', color: 'white', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>
-                    {tickets.filter(t => t.status === 'ready').length}
-                  </span>
-                )}
+                {(() => {
+                  // Calculate launchable tickets (ready in tickets.json, not actively in progress)
+                  // tickets.json status is source of truth - if status is "ready", it needs dev work
+                  const inProgressIds = new Set((devStatus?.in_progress || []).map(i => i.ticket_id?.toUpperCase()));
+                  const launchableCount = tickets.filter(t =>
+                    t.status === 'ready' &&
+                    !inProgressIds.has(t.id?.toUpperCase())
+                  ).length;
+                  return launchableCount > 0 && (
+                    <span style={{ marginLeft: '6px', padding: '2px 6px', background: 'var(--accent)', color: 'white', borderRadius: '10px', fontSize: '10px', fontWeight: 600 }}>
+                      {launchableCount}
+                    </span>
+                  );
+                })()}
               </button>
             </div>
           </header>
@@ -5654,6 +6706,7 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                   serverDecisions={serverDecisions}
                   onDecisionsChange={setServerDecisions}
                   agentOutputs={agentOutputs}
+                  staging={staging}
                 />}
                 {view === 'pipeline' && <NewPipelineView 
                   tickets={tickets} 
@@ -5666,11 +6719,14 @@ Report: X questions answered, Y tickets created, Z items linked to existing, W i
                 {view === 'launch' && <LaunchView 
                   tickets={tickets}
                   devStatus={devStatus}
+                  docStatus={docStatus}
                   onSaveDevStatus={saveDevStatus}
                   findings={findings}
                   serverDecisions={serverDecisions}
                   featuresList={featuresList}
                   agentOutputs={agentOutputs}
+                  activeLocks={activeLocks}
+                  dbMode={dbMode}
                 />}
               </>
             )}

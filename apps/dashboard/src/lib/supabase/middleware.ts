@@ -1,6 +1,24 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+/**
+ * Middleware function to validate user sessions and handle authentication redirects.
+ *
+ * Responsibilities:
+ * - Refreshes the user's Supabase auth session on each request
+ * - Protects routes requiring authentication (/dashboard, /admin, /settings, /platform)
+ * - Redirects unauthenticated users to /login with ?next= parameter (TKT-006)
+ * - Redirects authenticated users away from auth pages (/login, /signup) to their dashboard
+ *
+ * @param request - The incoming Next.js request object
+ * @returns NextResponse with appropriate redirects or the original response
+ *
+ * @example
+ * // In middleware.ts:
+ * export async function middleware(request: NextRequest) {
+ *   return await updateSession(request);
+ * }
+ */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -53,7 +71,9 @@ export async function updateSession(request: NextRequest) {
   );
 
   if (isProtectedPath && !user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   // Auth routes - redirect based on user role if already authenticated
@@ -69,8 +89,17 @@ export async function updateSession(request: NextRequest) {
       .select("role")
       .eq("id", user.id)
       .single();
-    
-    const isAdmin = profile?.role === "admin";
+
+    // Handle missing user profile (orphaned auth.users record)
+    if (!profile) {
+      console.error("[Middleware] Orphaned user detected - auth.users exists but no users table row:", {
+        userId: user.id,
+        email: user.email,
+      });
+      return NextResponse.redirect(new URL("/login?error=missing_profile", request.url));
+    }
+
+    const isAdmin = profile.role === "admin";
     const redirectUrl = isAdmin ? "/admin" : "/dashboard";
     return NextResponse.redirect(new URL(redirectUrl, request.url));
   }

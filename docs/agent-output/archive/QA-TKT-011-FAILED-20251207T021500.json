@@ -1,0 +1,26 @@
+{
+  "ticket_id": "TKT-011",
+  "ticket_title": "Email Invite Retry Mechanism",
+  "branch": "agent/tkt-011",
+  "blocked_at": "2025-12-07T02:15:00Z",
+  "blocker_type": "qa_failure",
+  "summary": "Build verification failed - TypeScript errors in widget and server packages",
+  "failures": [
+    {
+      "category": "build",
+      "criterion": "pnpm typecheck passes",
+      "expected": "Zero TypeScript errors",
+      "actual": "Multiple TypeScript errors in @ghost-greeter/widget package (52+ errors in test files)",
+      "evidence": "widget typecheck errors: Property 'style' does not exist on type 'Element', Object is possibly 'undefined', unused variable declarations, type conversion errors"
+    },
+    {
+      "category": "build",
+      "criterion": "pnpm build passes",
+      "expected": "Successful build for all packages",
+      "actual": "Build failed in @ghost-greeter/server package with TypeScript errors",
+      "evidence": "server build errors: unused variables, type mismatches in test files, missing properties in mock types"
+    }
+  ],
+  "recommendation": "Dev agent needs to fix all TypeScript errors before QA can proceed. These are pre-existing test file issues that should have been caught during dev.",
+  "dispatch_action": "create_continuation_ticket"
+}

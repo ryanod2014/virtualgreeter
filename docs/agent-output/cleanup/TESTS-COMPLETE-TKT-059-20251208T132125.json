@@ -1,0 +1,19 @@
+{
+  "ticket_id": "TKT-059",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "apps/server/src/lib/call-logger.test.ts (4 new tests)"
+  ],
+  "completed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "summary": "Added test coverage for TKT-059 cancelled call audit trail preservation",
+  "changes": [
+    "Updated markCallCancelled documentation to reflect status update instead of deletion",
+    "Added 'cancelled' status to valid CallLogEntry status list",
+    "Updated call lifecycle flow test to document new cancelled behavior",
+    "Added TKT-059-specific test section documenting audit trail preservation",
+    "Added test for requestId mapping cleanup on cancellation"
+  ],
+  "test_results": "67 tests passing (4 new tests added)",
+  "commit": "4d1d114"
+}

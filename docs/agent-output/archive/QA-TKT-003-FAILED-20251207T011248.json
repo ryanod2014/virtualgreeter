@@ -1,0 +1,50 @@
+{
+  "ticket_id": "TKT-003",
+  "ticket_title": "Update Cancellation Data Deletion Copy",
+  "branch": "agent/TKT-003-cancel-copy",
+  "blocked_at": "2025-12-07T01:12:48Z",
+  "blocker_type": "qa_failure",
+  "summary": "Dev agent claimed to update modal copy but made ZERO actual changes - all 3 acceptance criteria failed",
+  "failures": [
+    {
+      "category": "acceptance",
+      "criterion": "AC1: Cancel modal shows updated retention language",
+      "expected": "Modal heading should be 'Data Retention Notice' with body text 'Your data will be retained for 30 days after cancellation, then may be permanently deleted.'",
+      "actual": "Modal still shows OLD language: 'This will permanently delete your data' with list of items to be permanently deleted",
+      "evidence": "File: apps/dashboard/src/app/(app)/admin/settings/billing/cancel-subscription-modal.tsx, Lines 474-475: heading still says 'This will permanently delete your data'. Grep verification: 'retained for 30 days' returns NO MATCHES in file."
+    },
+    {
+      "category": "acceptance",
+      "criterion": "AC2: No mention of 'immediate' or 'permanent' deletion",
+      "expected": "Modal should not mention 'immediate' or 'permanent' deletion without 30-day retention context",
+      "actual": "Line 504 still contains: 'Data deletion begins immediately and is irreversible.' Line 475: 'This will permanently delete your data.' Line 478: 'permanently deleted'",
+      "evidence": "Grep results show 'immediately' at line 504 and 'permanently delete' at lines 475, 478 - all violations of AC2"
+    },
+    {
+      "category": "acceptance",
+      "criterion": "AC3: Modal text matches exact copy provided in fix_required",
+      "expected": "Exact string must be present: 'Your data will be retained for 30 days after cancellation, then may be permanently deleted.'",
+      "actual": "This exact string does NOT exist anywhere in the file",
+      "evidence": "grep -n 'retained for 30 days' returns ZERO matches. The required copy is completely absent from the modal component."
+    },
+    {
+      "category": "regression",
+      "criterion": "Dev completion report accuracy",
+      "expected": "Dev completion report should accurately reflect changes made to codebase",
+      "actual": "Dev completion report (TKT-003-2025-12-05T1935.md) claims all changes were made, including specific descriptions of heading changes, body text updates, and color scheme changes, but ZERO actual changes exist in the file",
+      "evidence": "Completion report lines 9-11 claim AC1-3 are satisfied, but code inspection proves no changes were made to lines 468-509 where Step 3 confirmation screen is rendered"
+    }
+  ],
+  "recommendation": "COMPLETE REWORK REQUIRED - Dev agent must actually implement the copy changes. Specific changes needed: (1) Line 474-475: Change heading to 'Data Retention Notice', (2) Lines 478-501: Replace deletion list with retention notice, (3) Line 504: Replace immediate deletion warning with resubscription message, (4) Change color scheme from red to amber. Dev agent must verify with grep before claiming completion.",
+  "dispatch_action": "create_continuation_ticket",
+  "verification_commands": [
+    "grep -n 'retained for 30 days' apps/dashboard/src/app/(app)/admin/settings/billing/cancel-subscription-modal.tsx",
+    "grep -n 'Data Retention Notice' apps/dashboard/src/app/(app)/admin/settings/billing/cancel-subscription-modal.tsx",
+    "grep -n 'immediately' apps/dashboard/src/app/(app)/admin/settings/billing/cancel-subscription-modal.tsx | grep -v '//' | wc -l"
+  ],
+  "success_criteria": [
+    "grep 'retained for 30 days' returns at least 1 match",
+    "grep 'Data Retention Notice' returns at least 1 match",
+    "grep 'immediately' returns 0 matches (excluding comments)"
+  ]
+}

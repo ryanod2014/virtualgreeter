@@ -41,7 +41,9 @@ The **React Dashboard** lets you answer questions and resolve findings through a
 
 | File | Purpose |
 |------|---------|
-| `docs/data/findings.json` | Findings with questions from review agents |
+| `docs/data/findings-staging.json` | 🆕 Raw findings pending cleanup (Cleanup Agent processes these) |
+| `docs/data/findings.json` | INBOX - cleaned findings ready for human review |
+| `docs/data/findings-processed.json` | 🆕 Audit trail of rejected/merged findings |
 | `docs/data/decisions.json` | Conversation threads + human decisions |
 | `docs/data/tickets.json` | All tickets with full details |
 | `docs/pm-dashboard-ui/index.html` | Interactive React dashboard |
@@ -303,6 +305,64 @@ ls -la docs/agent-output/reviews/
 The dashboard auto-aggregates all per-agent outputs. No manual sync needed.
 
 > ℹ️ **Per-Agent Files:** Each review agent writes to its own file (e.g., `D-routing-rules-2025-12-04T1430.md`). This prevents race conditions when multiple agents run simultaneously.
+
+---
+
+## Phase 2.55: Cleanup Agent (REQUIRED)
+
+> 🧹 **NEW:** Before presenting findings to human, run the Cleanup Agent to deduplicate, validate, and batch findings.
+
+**Why This Step Exists:**
+- Agents often report the same issue from different perspectives
+- Raw findings may have quality issues (vague, no location, already covered)
+- Human shouldn't have to wade through 700+ unprocessed findings
+- Controlled batching prevents overwhelm
+
+**2.55.1 Check Staging Queue**
+
+```bash
+# Check how many findings are pending cleanup
+cat docs/data/findings-staging.json | jq '.findings | length'
+
+# Check by severity
+cat docs/data/findings-staging.json | jq '.summary'
+```
+
+**2.55.2 Launch Cleanup Agent**
+
+```
+You are a Cleanup Agent. Read docs/workflow/CLEANUP_AGENT_SOP.md then execute.
+```
+
+Or with specific batch instructions:
+```
+You are a Cleanup Agent. Read docs/workflow/CLEANUP_AGENT_SOP.md then process all Critical + next 10 High findings.
+```
+
+**2.55.3 Review Cleanup Report**
+
+Cleanup Agent will output:
+- Which findings were promoted to inbox
+- Which were merged (duplicates)
+- Which were rejected (and why)
+- Which are deferred for later
+
+**2.55.4 Verify Inbox Size**
+
+```bash
+# Check inbox now has cleaned findings
+cat docs/data/findings.json | jq '.findings | length'
+```
+
+**Recommended batch sizes:**
+| Priority | Batch Size |
+|----------|------------|
+| Critical | ALL |
+| High | 10-15 |
+| Medium | 15-20 |
+| Low | 20-30 (or defer) |
+
+> 💡 **Tip:** If inbox already has 50+ pending items, only process Critical until human clears backlog.
 
 ---
 

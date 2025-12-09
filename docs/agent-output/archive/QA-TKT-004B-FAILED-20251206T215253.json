@@ -1,0 +1,27 @@
+{
+  "ticket_id": "TKT-004B",
+  "ticket_title": "Add Auto-Resume Scheduler for Paused Subscriptions",
+  "branch": "agent/tkt-004b",
+  "blocked_at": "2025-12-06T21:52:53Z",
+  "blocker_type": "qa_failure",
+  "summary": "Stripe billing integration missing - subscriptions not resumed in Stripe",
+  "failures": [
+    {
+      "category": "acceptance",
+      "check": "Stripe billing restarts on auto-resume",
+      "error": "Code at apps/server/src/features/scheduler/resumePausedOrgs.ts:75-78 contains only a TODO comment for Stripe integration. No actual Stripe API call to resume subscriptions is implemented."
+    },
+    {
+      "category": "build",
+      "check": "pnpm typecheck",
+      "error": "Pre-existing TypeScript errors in test files across @ghost-greeter/widget and @ghost-greeter/server packages (unrelated to TKT-004B)"
+    },
+    {
+      "category": "build",
+      "check": "pnpm build",
+      "error": "Build fails due to TypeScript errors in test files being included in compilation (unrelated to TKT-004B)"
+    }
+  ],
+  "recommendation": "Add Stripe API integration to resume subscriptions when organizations are auto-resumed. Use stripe.subscriptions.resume() or stripe.subscriptions.update() to restart billing. Also consider fixing the pre-existing build issues by excluding test files from the build process.",
+  "dispatch_action": "create_continuation_ticket"
+}

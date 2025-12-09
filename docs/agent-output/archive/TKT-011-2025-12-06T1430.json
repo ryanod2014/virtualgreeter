@@ -1,0 +1,13 @@
+{
+  "ticket_id": "TKT-011",
+  "branch": "agent/tkt-011",
+  "started_at": "2025-12-06T14:30:00Z",
+  "files_locking": [
+    "apps/dashboard/src/lib/email.ts",
+    "apps/dashboard/src/app/api/invites/send/route.ts",
+    "apps/dashboard/src/app/(dashboard)/agents/actions.ts",
+    "apps/dashboard/src/app/(app)/admin/agents/page.tsx",
+    "apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx",
+    "supabase/migrations/20251206000000_add_invite_email_status.sql"
+  ]
+}

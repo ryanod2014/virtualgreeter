@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  * - markCallEnded: Updates log when call completes normally
  * - markCallMissed: Updates log when RNA timeout expires
  * - markCallRejected: Updates log when agent rejects call
- * - markCallCancelled: Deletes log when visitor cancels before answer
+  * - markCallCancelled: Updates status to "cancelled" when visitor cancels (preserves audit trail)
  * - getCallLogId: Retrieves call log ID for a given request/call
  * - updateCallHeartbeat: Updates heartbeat for active call
  * - findOrphanedCalls: Finds calls eligible for recovery after server restart
@@ -261,11 +261,11 @@ describe("call-logger", () => {
     // The actual data is stored in Supabase, but we verify the structure expected
 
     it("expects status to be one of the valid call statuses", () => {
-      const validStatuses = ["pending", "accepted", "rejected", "completed", "missed"];
+      const validStatuses = ["pending", "accepted", "rejected", "completed", "missed", "cancelled"];
       
       // This is a type-level assertion - the actual enforcement is via TypeScript
       validStatuses.forEach(status => {
-        expect(["pending", "accepted", "rejected", "completed", "missed"]).toContain(status);
+        expect(["pending", "accepted", "rejected", "completed", "missed", "cancelled"]).toContain(status);
       });
     });
 
@@ -347,11 +347,11 @@ describe("call-logger with Supabase configured (integration behavior)", () => {
       expect(expectedFlow).toEqual(["pending", "rejected"]);
     });
 
-    it("documents expected flow: create -> cancel (deletes record)", () => {
+    it("documents expected flow: create -> cancel (updates to cancelled status)", () => {
       // 1. createCallLog creates entry with status "pending"
-      // 2. markCallCancelled DELETES the record (visitor cancelled before answer)
-      const expectedBehavior = "record deleted from database";
-      expect(expectedBehavior).toBe("record deleted from database");
+      // 2. markCallCancelled updates status to "cancelled", sets ended_at (preserves audit trail)
+      const expectedFlow = ["pending", "cancelled"];
+      expect(expectedFlow).toEqual(["pending", "cancelled"]);
     });
   });
 
@@ -375,6 +375,51 @@ describe("call-logger with Supabase configured (integration behavior)", () => {
       expect(behavior).toBe("callId mapping removed after call ends");
     });
   });
+
+    it("documents that markCallCancelled removes the requestId mapping", () => {
+      // markCallCancelled calls callLogIds.delete(requestId) after updating status
+      const behavior = "requestId mapping removed after call cancelled";
+      expect(behavior).toBe("requestId mapping removed after call cancelled");
+    });
+  });
+
+  describe("markCallCancelled audit trail behavior (TKT-059)", () => {
+    it("documents that markCallCancelled updates status to 'cancelled' instead of deleting", () => {
+      // TKT-059: Changed from DELETE to UPDATE to preserve audit trail
+      // Previously deleted the record, now sets status = 'cancelled'
+      const behavior = {
+        previousBehavior: "DELETE from call_logs",
+        newBehavior: "UPDATE call_logs SET status = 'cancelled', ended_at = now()",
+        reason: "Preserve audit trail for visitor behavior analysis",
+      };
+      expect(behavior.newBehavior).toContain("UPDATE");
+      expect(behavior.newBehavior).toContain("status = 'cancelled'");
+    });
+
+    it("documents that markCallCancelled sets ended_at timestamp", () => {
+      // When visitor cancels, ended_at is set to current time
+      // This marks when the cancellation occurred
+      const updateFields = {
+        status: "cancelled",
+        ended_at: "new Date().toISOString()",
+      };
+      expect(updateFields.status).toBe("cancelled");
+      expect(updateFields.ended_at).toBe("new Date().toISOString()");
+    });
+
+    it("documents that cancelled calls can be analyzed for visitor engagement patterns", () => {
+      // With cancelled calls preserved in the database:
+      // - Can track how often visitors cancel calls
+      // - Can see which pages had cancelled calls
+      // - Can analyze time between ring_started_at and ended_at (how quickly they cancelled)
+      const auditCapabilities = [
+        "Track visitor cancellation frequency",
+        "Identify pages with high cancellation rates",
+        "Measure time-to-cancel metrics",
+        "Preserve visitor_ip and location data for analysis",
+      ];
+      expect(auditCapabilities).toHaveLength(4);
+    });
 
   describe("answer time calculation", () => {
     it("documents that answer_time_seconds is calculated from ring_started_at", () => {

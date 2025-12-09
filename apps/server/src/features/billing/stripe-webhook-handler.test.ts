@@ -338,7 +338,7 @@ describe("Stripe Webhook Handler", () => {
       expect(resJson).toHaveBeenCalledWith({ received: true });
     });
 
-    it("defaults unknown status to 'active' with console warning", async () => {
+    it("TKT-050: defaults unknown status to 'cancelled' with console warning (fail-safe)", async () => {
       // Setup console spy
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -354,7 +354,7 @@ describe("Stripe Webhook Handler", () => {
 
       (stripe!.webhooks.constructEvent as ReturnType<typeof vi.fn>).mockReturnValue(mockEvent);
 
-      setupSupabaseMock({
+      const { mockUpdate } = setupSupabaseMock({
         orgData: {
           id: mockOrgId,
           name: "Test Org",
@@ -365,8 +365,101 @@ describe("Stripe Webhook Handler", () => {
 
       await handleStripeWebhook(mockReq as Request, mockRes as Response);
 
+      // TKT-050: Check the updated warning format
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Unknown Stripe status: some_unknown_status")
+        expect.stringContaining("UNKNOWN STRIPE STATUS: \"some_unknown_status\"")
+      );
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Defaulting to 'cancelled' (fail-safe)")
+      );
+
+      // TKT-050: Unknown status now defaults to 'cancelled' (fail-safe) instead of 'active'
+      expect(mockUpdate).toHaveBeenCalledWith({ subscription_status: "cancelled" });
+      expect(resJson).toHaveBeenCalledWith({ received: true });
+    });
+
+    it("TKT-050: triggers ops alert when unknown status encountered", async () => {
+      // Setup console spies
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const mockSubscription: Partial<Stripe.Subscription> = {
+        id: mockSubscriptionId,
+        object: "subscription",
+        status: "future_stripe_status" as Stripe.Subscription.Status,
+        customer: mockCustomerId,
+      };
+
+      const mockEvent = createMockStripeEvent("customer.subscription.updated", {
+        object: mockSubscription as Stripe.Subscription,
+      });
+
+      (stripe!.webhooks.constructEvent as ReturnType<typeof vi.fn>).mockReturnValue(mockEvent);
+
+      const { mockUpdate } = setupSupabaseMock({
+        orgData: {
+          id: mockOrgId,
+          name: "Test Org",
+          subscription_status: "active",
+          stripe_customer_id: mockCustomerId,
+        },
+      });
+
+      await handleStripeWebhook(mockReq as Request, mockRes as Response);
+
+      // TKT-050: Should log warning in mapStripeStatusToDbStatus
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("UNKNOWN STRIPE STATUS: \"future_stripe_status\"")
+      );
+
+      // TKT-050: Should trigger ops alert in handleSubscriptionUpdated
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("🚨 ALERT OPS: Unknown Stripe status encountered!")
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`Subscription ID: ${mockSubscriptionId}`)
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`Org ID: ${mockOrgId}`)
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`Unknown Status: "future_stripe_status"`)
+      );
+
+      // TKT-050: Should still update to 'cancelled' (fail-safe)
+      expect(mockUpdate).toHaveBeenCalledWith({ subscription_status: "cancelled" });
+      expect(resJson).toHaveBeenCalledWith({ received: true });
+    });
+
+    it("TKT-050: does NOT trigger ops alert for known 'canceled' status", async () => {
+      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const mockSubscription: Partial<Stripe.Subscription> = {
+        id: mockSubscriptionId,
+        object: "subscription",
+        status: "canceled", // Known status that maps to 'cancelled'
+      };
+
+      const mockEvent = createMockStripeEvent("customer.subscription.updated", {
+        object: mockSubscription as Stripe.Subscription,
+      });
+
+      (stripe!.webhooks.constructEvent as ReturnType<typeof vi.fn>).mockReturnValue(mockEvent);
+
+      setupSupabaseMock({
+        orgData: {
+          id: mockOrgId,
+          name: "Test Org",
+          subscription_status: "active",
+          stripe_customer_id: mockCustomerId,
+        },
+      });
+
+      await handleStripeWebhook(mockReq as Request, mockRes as Response);
+
+      // TKT-050: Should NOT trigger ops alert for known 'canceled' status
+      expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("🚨 ALERT OPS")
       );
       expect(resJson).toHaveBeenCalledWith({ received: true });
     });

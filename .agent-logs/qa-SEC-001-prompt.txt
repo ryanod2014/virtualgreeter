@@ -1,0 +1,73 @@
+You are a QA Review Agent testing ticket SEC-001.
+
+## Ticket: API Authentication Enforcement
+## Branch: agent/SEC-001-api-auth
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-SEC-001
+
+## Acceptance Criteria:
+- /metrics requires API key in production (401 without, 403 with wrong key)
+- Warning logged if METRICS_API_KEY not set in production
+- All agent socket operations verify socket.data.agentId is set
+- Security model documented in socket-handlers.ts
+- No breaking changes to existing functionality
+- Typecheck passes
+- Lint passes
+- Build passes
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-SEC-001
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-SEC-001
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **Write your QA report to the MAIN REPO:**
+   - If PASS: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-SEC-001-PASSED-20251206T211532.md
+   - If FAIL: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-SEC-001-FAILED-20251206T211532.md
+
+5. **DO NOT modify any files in the main repo except your QA report**
+
+6. **If tests PASS, include this merge command in your report:**
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   # Cherry-pick ONLY the ticket's files:
+   git checkout origin/agent/SEC-001-api-auth -- apps/server/src/index.ts apps/server/src/lib/auth.ts apps/server/src/features/signaling/socket-handlers.ts
+   git add apps/server/src/index.ts apps/server/src/lib/auth.ts apps/server/src/features/signaling/socket-handlers.ts
+   git commit -m 'feat: SEC-001 - API Authentication Enforcement'
+   git push origin main
+   ```
+
+## Report Template:
+
+# QA Review: SEC-001
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** SEC-001 - API Authentication Enforcement
+**Branch:** agent/SEC-001-api-auth
+**Tested:** 2025-12-06
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

@@ -76,7 +76,7 @@ export default async function AgentsPage({ searchParams }: Props) {
   // Fetch pending invites
   const { data: pendingInvites } = await supabase
     .from("invites")
-    .select("id, email, full_name, role, expires_at, created_at")
+    .select("id, email, full_name, role, expires_at, created_at, email_status")
     .eq("organization_id", auth!.organization.id)
     .is("accepted_at", null)
     .gt("expires_at", new Date().toISOString())

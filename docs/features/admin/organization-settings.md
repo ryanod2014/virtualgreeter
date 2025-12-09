@@ -1,7 +1,7 @@
 # Feature: Organization Settings (D8)
 
 ## Quick Summary
-Organization Settings is the central hub for admins to manage company-level configuration including organization name, logo, account owner details, call recording/transcription preferences, country restrictions, call dispositions, and billing/subscription management.
+Organization Settings is the central hub for admins to manage company-level configuration including organization name, logo, account owner details, privacy settings (co-browse toggle), call recording/transcription preferences, country restrictions, call dispositions, and billing/subscription management.
 
 ## Affected Users
 - [ ] Website Visitor
@@ -17,6 +17,7 @@ Organization Settings is the central hub for admins to manage company-level conf
 Provides admins with a unified interface to configure all organization-level settings that affect:
 - Organization branding and identity
 - Account owner contact information
+- Privacy settings including co-browse screen sharing control
 - Call recording, transcription, and AI summary features
 - Geographic restrictions for widget visibility
 - Call outcome tracking (dispositions) with optional Facebook pixel integration
@@ -27,6 +28,7 @@ Provides admins with a unified interface to configure all organization-level set
 |-----------|---------------|----------------------|
 | Admin | Update company branding | Change org name, upload/remove logo |
 | Admin | Manage account contact info | Update email and phone number |
+| Admin | Control privacy settings | Enable/disable co-browse screen sharing |
 | Admin | Control call recording | Enable/disable recording, set retention periods |
 | Admin | Enable AI features | Turn on transcription and AI call summaries |
 | Admin | Restrict by geography | Block or allowlist countries |
@@ -94,6 +96,7 @@ Settings Hub (/admin/settings)
 | Org name change | `organization-settings-client.tsx` | Updates `organizations` table | None |
 | Email change | `organization-settings-client.tsx` | Updates auth + users table | Sends confirmation email |
 | Phone change | `organization-settings-client.tsx` | Updates `users` table | None |
+| Co-browse toggle | `organization-settings-client.tsx` | Updates `default_widget_settings.cobrowse_enabled` | Affects widget co-browse initialization |
 | Recording toggle | `recording-settings-client.tsx` | Updates `recording_settings` JSON | Affects call recording behavior |
 | Transcription toggle | `recording-settings-client.tsx` | Updates `recording_settings.transcription_enabled` | Enables/disables transcription |
 | AI summary toggle | `recording-settings-client.tsx` | Updates `recording_settings.ai_summary_enabled` | Requires transcription enabled |
@@ -212,6 +215,8 @@ BILLING SETTINGS FLOW
 | 2 | Upload valid logo | Select PNG under 2MB | Uploads to storage, updates org | ✅ | |
 | 3 | Upload invalid file type | Select non-image file | Error: "Please upload an image file" | ✅ | |
 | 4 | Upload oversized logo | Select image > 2MB | Error: "Logo must be less than 2MB" | ✅ | |
+| 4a | Enable co-browse | Toggle on, save | Updates default_widget_settings.cobrowse_enabled | ✅ | Takes effect on next call |
+| 4b | Disable co-browse | Toggle off, save | Widget stops sending screen share on new calls | ✅ | Current calls unaffected |
 | 5 | Change email | Enter new email, save | Sends confirmation to new address | ✅ | Requires clicking link |
 | 6 | Change to invalid email format | Enter "notanemail" | Browser validation prevents submit | ✅ | Uses input type="email" |
 | 7 | Enable recording | Toggle on, save | Updates recording_settings.enabled | ✅ | |
@@ -269,8 +274,9 @@ BILLING SETTINGS FLOW
 | 2 | Click Upload Logo | File picker opens | ✅ | |
 | 3 | Select valid image | Upload progress, then preview | ✅ | |
 | 4 | Edit org name | Input field, hasChanges enables Save | ✅ | |
-| 5 | Edit email | Shows warning about confirmation | ✅ | Good UX |
-| 6 | Click Save | Loading state, then success toast | ✅ | |
+| 5 | Toggle co-browse | Privacy Settings toggle, clear description shown | ✅ | Good privacy UX |
+| 6 | Edit email | Shows warning about confirmation | ✅ | Good UX |
+| 7 | Click Save | Loading state, then success toast | ✅ | |
 
 **Billing Settings:**
 | Step | User Action | System Response | Clear? | Issues |
@@ -353,7 +359,10 @@ BILLING SETTINGS FLOW
 |---------|------|-------|-------|
 | Settings hub | `apps/dashboard/src/app/(app)/admin/settings/page.tsx` | 1-127 | Four category cards |
 | Organization settings page | `apps/dashboard/src/app/(app)/admin/settings/organization/page.tsx` | 1-17 | Server component, auth check |
-| Organization settings UI | `apps/dashboard/src/app/(app)/admin/settings/organization/organization-settings-client.tsx` | 1-392 | Logo, name, email, phone |
+| Organization settings UI | `apps/dashboard/src/app/(app)/admin/settings/organization/organization-settings-client.tsx` | 1-442 | Logo, name, email, phone, co-browse toggle |
+| Co-browse toggle state | `organization-settings-client.tsx` | 20 | cobrowseEnabled state, defaults to true |
+| Co-browse toggle UI | `organization-settings-client.tsx` | 380-409 | Privacy Settings section with Eye icon |
+| Co-browse save logic | `organization-settings-client.tsx` | 53-58 | Updates default_widget_settings.cobrowse_enabled |
 | Recording settings page | `apps/dashboard/src/app/(app)/admin/settings/recordings/page.tsx` | 1-36 | Server component |
 | Recording settings UI | `apps/dashboard/src/app/(app)/admin/settings/recordings/recording-settings-client.tsx` | 1-427 | Recording, transcription, AI |
 | Blocklist settings page | `apps/dashboard/src/app/(app)/admin/settings/blocklist/page.tsx` | 1-43 | Server component |
@@ -373,6 +382,7 @@ BILLING SETTINGS FLOW
 ---
 
 ## 9. RELATED FEATURES
+- [Co-Browse Viewer](../agent/cobrowse-viewer.md) - Co-browse toggle controls screen sharing during calls
 - [Routing Rules](./routing-rules.md) - Pool routing uses organization's default widget settings
 - [Tiered Routing](./tiered-routing.md) - Agent pools affected by org settings
 - [Agent Assignment](../platform/agent-assignment.md) - Agent seat management affects billing

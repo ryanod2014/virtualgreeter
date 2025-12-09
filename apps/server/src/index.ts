@@ -236,11 +236,37 @@ app.get("/live", (_req, res) => {
 /**
  * GET /metrics - Server metrics for monitoring dashboards
  * Returns connection counts, call stats, memory usage, and uptime
- * Protected by optional API key for security
+ * 
+ * SECURITY:
+ * - In production: REQUIRES API key via query param or header
+ * - Internal requests (x-internal-request header) bypass API key check
+ * - In development: API key is optional
  */
 app.get("/metrics", async (req, res) => {
-  // Security: Check API key if configured
-  if (METRICS_API_KEY) {
+  // Security: In production, require API key
+  if (IS_PRODUCTION) {
+    // Log warning if API key not configured (security misconfiguration)
+    if (!METRICS_API_KEY) {
+      console.warn("[Security] ⚠️ METRICS_API_KEY not configured in production! Metrics endpoint will only allow internal requests.");
+    }
+    
+    const providedKey = req.query["key"] || req.headers["x-metrics-api-key"];
+    const internalHeader = req.headers["x-internal-request"];
+    
+    // Allow internal requests (from Railway/monitoring systems) without API key
+    if (internalHeader === "true") {
+      // Internal request - proceed without API key check
+    } else if (!providedKey) {
+      // No API key provided - unauthorized
+      res.status(401).json({ error: "API key required" });
+      return;
+    } else if (providedKey !== METRICS_API_KEY) {
+      // Wrong API key - forbidden
+      res.status(403).json({ error: "Invalid API key" });
+      return;
+    }
+  } else if (METRICS_API_KEY) {
+    // Development with API key configured - still enforce it
     const providedKey = req.query["key"] || req.headers["x-metrics-api-key"];
     const internalHeader = req.headers["x-internal-request"];
 

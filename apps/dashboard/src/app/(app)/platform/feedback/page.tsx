@@ -4,7 +4,13 @@ import { FeedbackClient } from "./feedback-client";
 export default async function PlatformFeedbackPage() {
   const supabase = await createClient();
 
-  // Fetch all feedback items and PMF surveys in parallel
+  /**
+   * Fetch all feedback items and PMF surveys in parallel.
+   *
+   * TKT-045: PMF surveys query excludes dismissed surveys and null disappointment_level
+   * to ensure accurate PMF calculations. Dismissed surveys have null disappointment_level
+   * set in ellis-survey-modal.tsx and are filtered here to prevent data skew.
+   */
   const [feedbackResult, pmfSurveysResult] = await Promise.all([
     supabase
       .from("feedback_items")
@@ -28,7 +34,8 @@ export default async function PlatformFeedbackPage() {
     supabase
       .from("pmf_surveys")
       .select("*")
-      .eq("dismissed", false)
+      .eq("dismissed", false) // Exclude explicitly dismissed surveys
+      .not("disappointment_level", "is", null) // Exclude null responses (TKT-045)
       .order("created_at", { ascending: false }),
   ]);
 

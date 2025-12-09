@@ -116,6 +116,16 @@ export function EllisSurveyModal({
     }
   };
 
+  /**
+   * Handles survey dismissal (Skip button, X button, or backdrop click).
+   *
+   * TKT-045: Sets disappointment_level to null instead of "not_disappointed"
+   * to prevent dismissed surveys from skewing PMF data negatively.
+   *
+   * @remarks
+   * - Dismissed surveys are excluded from PMF calculations via query filters
+   * - Cooldown is still updated to prevent re-showing the survey
+   */
   const handleDismiss = async () => {
     // Track dismissal
     try {
@@ -123,7 +133,7 @@ export function EllisSurveyModal({
         organization_id: organizationId,
         user_id: userId,
         user_role: userRole,
-        disappointment_level: "not_disappointed", // Default for dismissed
+        disappointment_level: null, // Null for dismissed to exclude from PMF calculation (TKT-045)
         follow_up_text: null,
         triggered_by: triggeredBy,
         page_url: pageUrl,

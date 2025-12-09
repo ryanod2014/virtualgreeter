@@ -1,0 +1,49 @@
+{
+  "id": "CI-TKT-006-1",
+  "type": "blocker",
+  "category": "ci_failure",
+  "source": "github_actions",
+  "severity": "critical",
+  "title": "CI Regression: 7 tests failed",
+  "feature": "Login Flow / Authentication",
+  "status": "pending",
+  "found_at": "2025-12-07T01:00:00Z",
+  "issue": "CI failed with 7 test regressions after TKT-006 changes. The middleware redirect fix appears to have broken existing tests.",
+  "options": [
+    {
+      "id": 1,
+      "label": "Fix the regression — Create continuation ticket for agent to fix the broken tests",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Tests are wrong — The old tests were incorrect, update them",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Expand scope — Add failing test files to files_to_modify",
+      "recommended": false
+    },
+    {
+      "id": 4,
+      "label": "Escalate to human — Too complex for agent to fix",
+      "recommended": false
+    }
+  ],
+  "recommendation": "Option 1 — Agent should fix the code to not break existing tests",
+  "blocker_context": {
+    "ticket_id": "TKT-006",
+    "branch": "agent/TKT-006-middleware-redirect",
+    "attempt": 1,
+    "test_results": {
+      "passed": 169,
+      "failed": 7,
+      "total": 176
+    },
+    "in_scope_files": [
+      "apps/dashboard/middleware.ts"
+    ],
+    "notes": "1 test file failed with 7 test failures. Check dashboard tests for middleware-related failures."
+  }
+}

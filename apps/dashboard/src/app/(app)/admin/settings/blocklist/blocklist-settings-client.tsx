@@ -27,11 +27,13 @@ interface Props {
   orgId: string;
   initialBlockedCountries: string[];
   initialMode: CountryListMode;
+  initialGeoFailureHandling: "allow" | "block";
 }
 
-export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initialMode }: Props) {
+export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initialMode, initialGeoFailureHandling }: Props) {
   const [countryList, setCountryList] = useState<string[]>(initialBlockedCountries);
   const [mode, setMode] = useState<CountryListMode>(initialMode);
+  const [geoFailureHandling, setGeoFailureHandling] = useState<"allow" | "block">(initialGeoFailureHandling);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -45,9 +47,10 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initia
 
   const supabase = createClient();
 
-  const hasChanges = 
+  const hasChanges =
     JSON.stringify([...countryList].sort()) !== JSON.stringify([...initialBlockedCountries].sort()) ||
-    mode !== initialMode;
+    mode !== initialMode ||
+    geoFailureHandling !== initialGeoFailureHandling;
 
   // Filter countries based on search query
   const filteredCountries = useMemo(() => {
@@ -205,9 +208,10 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initia
     try {
       const { error: updateError } = await supabase
         .from("organizations")
-        .update({ 
+        .update({
           blocked_countries: countryList,
           country_list_mode: mode,
+          geo_failure_handling: geoFailureHandling,
         })
         .eq("id", orgId);
 
@@ -376,6 +380,68 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initia
                   Only allow specific countries. Everyone else is blocked.
                 </p>
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Geo-Failure Handling Section */}
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="p-3 border-b border-border" style={{ flexShrink: 0 }}>
+            <span className="text-sm font-medium text-muted-foreground">Geolocation Failure Handling</span>
+          </div>
+
+          <div className="p-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              When we cannot determine a visitor&apos;s location (e.g., VPN, privacy tools, or API failure), choose what to do:
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Allow Option */}
+              <button
+                onClick={() => setGeoFailureHandling("allow")}
+                className={`p-4 rounded-xl border-2 transition-all text-left ${
+                  geoFailureHandling === "allow"
+                    ? "border-green-500 bg-green-500/5"
+                    : "border-border hover:border-muted-foreground/50"
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`p-2 rounded-lg ${geoFailureHandling === "allow" ? "bg-green-500/10 text-green-500" : "bg-muted text-muted-foreground"}`}>
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <span className="font-semibold">Allow</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Let visitors through when location cannot be determined (lenient).
+                </p>
+              </button>
+
+              {/* Block Option */}
+              <button
+                onClick={() => setGeoFailureHandling("block")}
+                className={`p-4 rounded-xl border-2 transition-all text-left ${
+                  geoFailureHandling === "block"
+                    ? "border-destructive bg-destructive/5"
+                    : "border-border hover:border-muted-foreground/50"
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`p-2 rounded-lg ${geoFailureHandling === "block" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>
+                    <Ban className="w-5 h-5" />
+                  </div>
+                  <span className="font-semibold">Block</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Block visitors when location cannot be determined (strict).
+                </p>
+              </button>
+            </div>
+
+            {/* Failure Rate Info */}
+            <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium">Note:</span> Geolocation typically fails for 2-5% of visitors using VPNs, privacy tools, or from certain networks. Choose &apos;Allow&apos; to be lenient (recommended for most sites) or &apos;Block&apos; to be strict (better for restricted services).
+              </p>
             </div>
           </div>
         </div>

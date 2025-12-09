@@ -1,0 +1,157 @@
+{
+  "ticket_id": "TKT-045",
+  "ticket_title": "Exclude Dismissed Surveys from PMF Calculation",
+  "branch": "agent/TKT-045-exclude-dismissed-pmf",
+  "blocked_by": "QA Agent",
+  "blocked_at": "2025-12-07T08:50:00Z",
+  "blocker_type": "Technical",
+  "severity": "Critical",
+  "blocks_deployment": true,
+  "status": "FAILED_QA",
+
+  "issue_summary": "TypeScript compilation errors prevent dashboard from building",
+
+  "issues": [
+    {
+      "id": 1,
+      "severity": "Critical",
+      "type": "TypeScript Error",
+      "title": "Type 'null' cannot be used as an index type",
+      "description": "The DisappointmentLevel type was updated to include | null, but the UI code in feedback-client.tsx attempts to use disappointment_level (which can now be null) as an index into the levelConfigs object. TypeScript correctly rejects this.",
+      "files_affected": [
+        "apps/dashboard/src/app/(app)/platform/feedback/feedback-client.tsx"
+      ],
+      "lines_affected": [317, 636],
+      "error_message": "error TS2538: Type 'null' cannot be used as an index type",
+      "reproduction_steps": [
+        "cd apps/dashboard",
+        "pnpm typecheck",
+        "Observe errors on lines 317 and 636 of feedback-client.tsx"
+      ],
+      "impact": "Dashboard package fails typecheck and cannot build, blocking all deployments",
+      "root_cause": "Type change propagated to PmfSurvey interface but UI code was not updated to handle nullable values"
+    }
+  ],
+
+  "suggested_fixes": [
+    {
+      "fix_id": 1,
+      "priority": "Required",
+      "title": "Add nullish coalescing to feedback-client.tsx",
+      "description": "Use the nullish coalescing operator (??) to provide a default value when disappointment_level is null",
+      "implementation": [
+        {
+          "file": "apps/dashboard/src/app/(app)/platform/feedback/feedback-client.tsx",
+          "line": 317,
+          "current": "const levelConfig = levelConfigs[survey.disappointment_level] ?? levelConfigs.not_disappointed;",
+          "suggested": "const levelConfig = levelConfigs[survey.disappointment_level ?? \"not_disappointed\"] ?? levelConfigs.not_disappointed;"
+        },
+        {
+          "file": "apps/dashboard/src/app/(app)/platform/feedback/feedback-client.tsx",
+          "line": 636,
+          "current": "const lc = levelConfigs[selectedSurvey.disappointment_level] ?? levelConfigs.not_disappointed;",
+          "suggested": "const lc = levelConfigs[selectedSurvey.disappointment_level ?? \"not_disappointed\"] ?? levelConfigs.not_disappointed;"
+        }
+      ],
+      "estimated_time": "5 minutes",
+      "verification_steps": [
+        "Apply the changes to both lines",
+        "Run pnpm typecheck from project root",
+        "Verify no TypeScript errors in feedback-client.tsx",
+        "Run pnpm build to ensure full build succeeds"
+      ]
+    },
+    {
+      "fix_id": 2,
+      "priority": "Optional",
+      "title": "Alternative: Narrow the PmfSurvey type",
+      "description": "Since the platform page query filters out null values before passing to FeedbackClient, the PmfSurvey interface in feedback-client.tsx could exclude null from its type definition. This makes the type match runtime reality.",
+      "implementation": [
+        {
+          "file": "apps/dashboard/src/app/(app)/platform/feedback/feedback-client.tsx",
+          "line": 64,
+          "current": "disappointment_level: \"very_disappointed\" | \"somewhat_disappointed\" | \"not_disappointed\" | null;",
+          "suggested": "disappointment_level: \"very_disappointed\" | \"somewhat_disappointed\" | \"not_disappointed\";"
+        }
+      ],
+      "tradeoffs": "Less defensive coding (assumes query always filters nulls). Recommended to use Fix #1 instead for defense in depth."
+    }
+  ],
+
+  "what_works": [
+    "Database migration correctly allows NULL values",
+    "Dismiss handler stores NULL correctly (ellis-survey-modal.tsx:126)",
+    "PMF calculation query correctly excludes NULL values (platform/page.tsx:47)",
+    "Submit handler unchanged - no regression risk",
+    "Defense in depth: Both dismissed=false AND disappointment_level IS NOT NULL filters",
+    "Backward compatible with old dismissed records",
+    "Domain package builds successfully",
+    "Core logic is functionally correct"
+  ],
+
+  "what_is_broken": [
+    "TypeScript compilation fails in dashboard package",
+    "feedback-client.tsx lines 317 and 636 use null as index type",
+    "Build fails, blocking deployment",
+    "Cannot merge to main until fixed"
+  ],
+
+  "testing_performed": [
+    "Build verification (typecheck, lint, build on domain package)",
+    "Code inspection of all 5 changed files",
+    "Database migration review",
+    "Type definition verification",
+    "Dismiss handler logic verification",
+    "PMF query logic verification",
+    "Submit handler regression check",
+    "Edge case analysis (10 scenarios)",
+    "Security review (RLS policies, sanitization)",
+    "Performance review (migration, query impact)",
+    "Comparison with main branch TypeScript errors"
+  ],
+
+  "acceptance_criteria_status": {
+    "AC1_dismissed_surveys_null": {
+      "status": "PASS",
+      "evidence": "ellis-survey-modal.tsx:126 sets disappointment_level: null"
+    },
+    "AC2_pmf_excludes_null": {
+      "status": "PASS",
+      "evidence": "platform/page.tsx:47 filters .not('disappointment_level', 'is', null)"
+    },
+    "AC3_submitted_responses_unchanged": {
+      "status": "PASS",
+      "evidence": "handleSubmit() not modified, still works correctly"
+    },
+    "type_safety": {
+      "status": "FAIL",
+      "evidence": "TypeScript errors on feedback-client.tsx:317,636"
+    }
+  },
+
+  "next_steps": [
+    "Apply Fix #1 (nullish coalescing) to feedback-client.tsx",
+    "Run pnpm typecheck to verify errors resolved",
+    "Run pnpm build to verify full build succeeds",
+    "Optionally update feature documentation (ellis-survey.md)",
+    "Re-run QA to confirm resolution",
+    "Mark ticket as ready for merge"
+  ],
+
+  "qa_report_location": "docs/agent-output/qa-results/QA-TKT-045-RETEST-BATCH.md",
+
+  "dev_agent_completion_report": "docs/agent-output/completions/TKT-045-2025-12-06T0915.md",
+
+  "notes": [
+    "The implementation is functionally correct and would work at runtime",
+    "TypeScript errors are the only blocker",
+    "Fix is simple (one-line change per error)",
+    "No regression risks identified in core functionality",
+    "Domain package (containing type change) builds successfully",
+    "Pre-existing widget/dashboard test errors are unrelated",
+    "Developer likely only ran domain package build, not full monorepo typecheck"
+  ],
+
+  "confidence_level": "HIGH",
+  "confidence_justification": "TypeScript errors are clear, reproducible, and isolated to feedback-client.tsx. Root cause is well-understood. Fix is straightforward and low-risk."
+}

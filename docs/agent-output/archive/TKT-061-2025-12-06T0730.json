@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TKT-061",
+  "branch": "agent/tkt-061",
+  "started_at": "2025-12-06T07:30:00Z",
+  "files_locking": [
+    "docs/features/monitoring/UPTIME_MONITORING.md"
+  ]
+}

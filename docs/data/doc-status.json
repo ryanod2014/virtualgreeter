@@ -2,7 +2,8 @@
   "meta": {
     "last_updated": "2025-12-04",
     "format_version": "1.0",
-    "purpose": "Track documentation freshness. When dev tickets complete, PM marks affected docs as needs_redoc=true with context for the re-doc agent."
+    "purpose": "Track documentation freshness. When dev tickets complete, PM marks affected docs as needs_redoc=true with context for the re-doc agent.",
+    "note": "Added reviewed field - all features reviewed as of 2025-12-04"
   },
   "features": {
     "widget-lifecycle": {
@@ -11,7 +12,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "video-sequencer": {
       "doc_file": "docs/features/visitor/video-sequencer.md",
@@ -19,7 +22,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "visitor-call": {
       "doc_file": "docs/features/visitor/visitor-call.md",
@@ -27,7 +32,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "call-reconnection": {
       "doc_file": "docs/features/visitor/call-reconnection.md",
@@ -35,7 +42,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "cobrowse-sender": {
       "doc_file": "docs/features/visitor/cobrowse-sender.md",
@@ -43,7 +52,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "public-feedback": {
       "doc_file": "docs/features/visitor/public-feedback.md",
@@ -51,7 +62,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "mobile-gate": {
       "doc_file": "docs/features/visitor/mobile-gate.md",
@@ -59,7 +72,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "bullpen-states": {
       "doc_file": "docs/features/agent/bullpen-states.md",
@@ -67,7 +82,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "incoming-call": {
       "doc_file": "docs/features/agent/incoming-call.md",
@@ -75,7 +92,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "rna-timeout": {
       "doc_file": "docs/features/agent/rna-timeout.md",
@@ -83,7 +102,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "agent-active-call": {
       "doc_file": "docs/features/agent/agent-active-call.md",
@@ -91,7 +112,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "cobrowse-viewer": {
       "doc_file": "docs/features/agent/cobrowse-viewer.md",
@@ -99,7 +122,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "agent-stats-detail": {
       "doc_file": "docs/features/agent/agent-stats-detail.md",
@@ -107,7 +132,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "video-recordings": {
       "doc_file": "docs/features/agent/video-recordings.md",
@@ -115,7 +142,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "agent-call-logs": {
       "doc_file": "docs/features/agent/agent-call-logs.md",
@@ -123,7 +152,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "agent-assignment": {
       "doc_file": "docs/features/platform/agent-assignment.md",
@@ -131,7 +162,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "call-lifecycle": {
       "doc_file": "docs/features/platform/call-lifecycle.md",
@@ -139,7 +172,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "visitor-reassignment": {
       "doc_file": "docs/features/platform/visitor-reassignment.md",
@@ -147,7 +182,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "webrtc-signaling": {
       "doc_file": "docs/features/platform/webrtc-signaling.md",
@@ -155,7 +192,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "heartbeat-staleness": {
       "doc_file": "docs/features/platform/heartbeat-staleness.md",
@@ -163,7 +202,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "transcription-service": {
       "doc_file": "docs/features/platform/transcription-service.md",
@@ -171,7 +212,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "pool-management": {
       "doc_file": "docs/features/admin/pool-management.md",
@@ -179,7 +222,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "routing-rules": {
       "doc_file": "docs/features/admin/routing-rules.md",
@@ -187,7 +232,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "tiered-routing": {
       "doc_file": "docs/features/admin/tiered-routing.md",
@@ -195,7 +242,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "agent-management": {
       "doc_file": "docs/features/admin/agent-management.md",
@@ -203,7 +252,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "widget-settings": {
       "doc_file": "docs/features/admin/widget-settings.md",
@@ -211,7 +262,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "embed-code": {
       "doc_file": "docs/features/admin/embed-code.md",
@@ -219,7 +272,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "call-logs": {
       "doc_file": "docs/features/admin/call-logs.md",
@@ -227,7 +282,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "organization-settings": {
       "doc_file": "docs/features/admin/organization-settings.md",
@@ -235,7 +292,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "blocklist-settings": {
       "doc_file": "docs/features/admin/blocklist-settings.md",
@@ -243,7 +302,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "dispositions": {
       "doc_file": "docs/features/admin/dispositions.md",
@@ -251,7 +312,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "recording-settings": {
       "doc_file": "docs/features/admin/recording-settings.md",
@@ -259,7 +322,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "subscription-creation": {
       "doc_file": "docs/features/billing/subscription-creation.md",
@@ -267,7 +332,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "seat-management": {
       "doc_file": "docs/features/billing/seat-management.md",
@@ -275,7 +342,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "billing-frequency": {
       "doc_file": "docs/features/billing/billing-frequency.md",
@@ -283,7 +352,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "pause-subscription": {
       "doc_file": "docs/features/billing/pause-subscription.md",
@@ -291,7 +362,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "cancel-subscription": {
       "doc_file": "docs/features/billing/cancel-subscription.md",
@@ -299,7 +372,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "payment-failure": {
       "doc_file": "docs/features/billing/payment-failure.md",
@@ -307,7 +382,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "signup-flow": {
       "doc_file": "docs/features/auth/signup-flow.md",
@@ -315,7 +392,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "login-flow": {
       "doc_file": "docs/features/auth/login-flow.md",
@@ -323,7 +402,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "invite-accept": {
       "doc_file": "docs/features/auth/invite-accept.md",
@@ -331,7 +412,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "password-reset": {
       "doc_file": "docs/features/auth/password-reset.md",
@@ -339,7 +422,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "agent-api": {
       "doc_file": "docs/features/api/agent-api.md",
@@ -347,7 +432,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "billing-api": {
       "doc_file": "docs/features/api/billing-api.md",
@@ -355,7 +442,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "invites-api": {
       "doc_file": "docs/features/api/invites-api.md",
@@ -363,7 +452,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "agent-stats": {
       "doc_file": "docs/features/stats/agent-stats.md",
@@ -371,7 +462,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "coverage-stats": {
       "doc_file": "docs/features/stats/coverage-stats.md",
@@ -379,7 +472,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "call-analytics": {
       "doc_file": "docs/features/stats/call-analytics.md",
@@ -387,7 +482,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "uptime-monitoring": {
       "doc_file": "docs/features/monitoring/UPTIME_MONITORING.md",
@@ -395,7 +492,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "error-tracking": {
       "doc_file": "docs/features/monitoring/error-tracking.md",
@@ -403,7 +502,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "ellis-survey": {
       "doc_file": "docs/features/feedback/ellis-survey.md",
@@ -411,7 +512,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "platform-dashboard": {
       "doc_file": "docs/features/superadmin/platform-dashboard.md",
@@ -419,7 +522,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "cancellations-dashboard": {
       "doc_file": "docs/features/superadmin/cancellations-dashboard.md",
@@ -427,7 +532,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "feedback-dashboard": {
       "doc_file": "docs/features/superadmin/feedback-dashboard.md",
@@ -435,7 +542,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "organizations-manager": {
       "doc_file": "docs/features/superadmin/organizations-manager.md",
@@ -443,7 +552,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "funnel-analytics": {
       "doc_file": "docs/features/superadmin/funnel-analytics.md",
@@ -451,7 +562,9 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
-      "redoc_context": null
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
     },
     "impersonation": {
       "doc_file": "docs/features/superadmin/impersonation.md",
@@ -459,8 +572,69 @@
       "documented": true,
       "needs_redoc": false,
       "pending_tickets": [],
+      "redoc_context": null,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04"
+    },
+    "sites-setup": {
+      "doc_file": "docs/features/admin/sites-setup.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04",
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "agent-stats-dashboard": {
+      "doc_file": "docs/features/agent/agent-stats-dashboard.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04",
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "idle-timer": {
+      "doc_file": "docs/features/agent/idle-timer.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04",
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "UPTIME_MONITORING": {
+      "doc_file": "docs/features/monitoring/UPTIME_MONITORING.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04",
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "geolocation-service": {
+      "doc_file": "docs/features/platform/geolocation-service.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04",
+      "needs_redoc": false,
+      "pending_tickets": [],
+      "redoc_context": null
+    },
+    "retargeting-analytics": {
+      "doc_file": "docs/features/superadmin/retargeting-analytics.md",
+      "last_documented": "2025-12-03",
+      "documented": true,
+      "reviewed": true,
+      "last_reviewed": "2025-12-04",
+      "needs_redoc": false,
+      "pending_tickets": [],
       "redoc_context": null
     }
   }
 }
-

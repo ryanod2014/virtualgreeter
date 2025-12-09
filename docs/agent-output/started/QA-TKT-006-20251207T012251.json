@@ -1,0 +1,7 @@
+{
+  "agent_type": "qa-review",
+  "ticket_id": "TKT-006",
+  "started_at": "2025-12-07T01:22:51Z",
+  "branch": "agent/TKT-006-middleware-redirect",
+  "status": "in_progress"
+}

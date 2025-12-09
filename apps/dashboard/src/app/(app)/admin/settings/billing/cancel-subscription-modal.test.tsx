@@ -315,12 +315,12 @@ describe("CancelSubscriptionModal", () => {
       fireEvent.change(textarea, { target: { value: "Some feedback" } });
       fireEvent.click(screen.getByRole("button", { name: /continue/i }));
 
-      // Should show confirmation step
-      expect(screen.getByText(/This will permanently delete your data/)).toBeInTheDocument();
+      // Should show confirmation step with TKT-003 30-day retention notice
+      expect(screen.getByText(/Data Retention Notice/)).toBeInTheDocument();
     });
   });
 
-  describe("Step Navigation - Step 3: Confirmation", () => {
+  describe("Step Navigation - Step 3: Confirmation (TKT-003)", () => {
     const goToStep3 = () => {
       render(<CancelSubscriptionModal {...defaultProps} />);
       fireEvent.click(screen.getByText("Too Expensive"));
@@ -330,13 +330,25 @@ describe("CancelSubscriptionModal", () => {
       fireEvent.click(screen.getByRole("button", { name: /continue/i }));
     };
 
-    it("shows permanent data deletion warning", () => {
+    it("shows Data Retention Notice heading", () => {
       goToStep3();
 
-      expect(screen.getByText(/This will permanently delete your data/)).toBeInTheDocument();
+      expect(screen.getByText("Data Retention Notice")).toBeInTheDocument();
     });
 
-    it("lists all data that will be deleted", () => {
+    it("shows 30-day data retention message", () => {
+      goToStep3();
+
+      expect(screen.getByText(/Your data will be retained for 30 days after cancellation, then may be permanently deleted/)).toBeInTheDocument();
+    });
+
+    it("shows affected data heading", () => {
+      goToStep3();
+
+      expect(screen.getByText("The following data will be affected:")).toBeInTheDocument();
+    });
+
+    it("lists all data types that will be affected", () => {
       goToStep3();
 
       expect(screen.getByText(/All call recordings/)).toBeInTheDocument();
@@ -346,10 +358,10 @@ describe("CancelSubscriptionModal", () => {
       expect(screen.getByText(/Routing rules/)).toBeInTheDocument();
     });
 
-    it("shows data deletion is irreversible warning", () => {
+    it("shows resubscribe within 30 days message", () => {
       goToStep3();
 
-      expect(screen.getByText(/Data deletion begins immediately and is irreversible/)).toBeInTheDocument();
+      expect(screen.getByText("You can resubscribe within 30 days to retain your data.")).toBeInTheDocument();
     });
 
     it("shows feedback summary", () => {

@@ -26,15 +26,17 @@ import {
   Play,
   Pencil,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { 
-  type HourlyStats, 
-  type DayHourStats, 
+import {
+  type HourlyStats,
+  type DayHourStats,
   type DayOfWeekStats,
-  findProblemHours 
+  findProblemHours
 } from "@/lib/stats/coverage-stats";
 import { DateRangePicker } from "@/lib/components/date-range-picker";
+import { resendInviteEmail } from "../../../(dashboard)/agents/actions";
 
 interface Pool {
   id: string;
@@ -80,6 +82,7 @@ interface PendingInvite {
   role: string;
   expires_at: string;
   created_at: string;
+  email_status: "sent" | "pending" | "failed";
 }
 
 interface BillingInfo {
@@ -173,6 +176,9 @@ export function AgentsClient({
   
   // Coverage chart view state
   const [coverageView, setCoverageView] = useState<"hourly" | "daily" | "heatmap">("hourly");
+
+  // Resend invite state
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
 
   const supabase = createClient();
   
@@ -402,6 +408,7 @@ export function AgentsClient({
           role: newAgentRole,
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           created_at: new Date().toISOString(),
+          email_status: data.emailStatus || "sent",
         },
       ]);
 
@@ -418,8 +425,13 @@ export function AgentsClient({
         monthlyCost: newPurchasedSeats * billingInfo.pricePerSeat,
       });
 
-      setInviteSuccess(true);
-      
+      // Show warning if email failed
+      if (data.warning) {
+        setInviteError(data.warning);
+      } else {
+        setInviteSuccess(true);
+      }
+
       setTimeout(() => {
         setIsAddingAgent(false);
         setAddMode("choose");
@@ -428,7 +440,8 @@ export function AgentsClient({
         setAddSelfSuccess(false);
         setNewAgentRole("agent");
         setInviteSuccess(false);
-      }, 1500);
+        setInviteError(null);
+      }, data.warning ? 3000 : 1500);
     } catch (error) {
       console.error("Invite error:", error);
       setInviteError("An unexpected error occurred");
@@ -460,6 +473,30 @@ export function AgentsClient({
       }
     } catch (error) {
       console.error("Revoke error:", error);
+    }
+  };
+
+  // Resend failed invite email
+  const handleResendInvite = async (inviteId: string) => {
+    setResendingInviteId(inviteId);
+    try {
+      const result = await resendInviteEmail(inviteId);
+      if (result.success) {
+        // Update local state to reflect sent status
+        setPendingInvites(
+          pendingInvites.map((inv) =>
+            inv.id === inviteId ? { ...inv, email_status: "sent" } : inv
+          )
+        );
+      } else {
+        console.error("Resend failed:", result.error);
+        alert(result.error || "Failed to resend invite");
+      }
+    } catch (error) {
+      console.error("Resend error:", error);
+      alert("An unexpected error occurred");
+    } finally {
+      setResendingInviteId(null);
     }
   };
 
@@ -1533,16 +1570,30 @@ export function AgentsClient({
                         </div>
                       </div>
 
-                      {/* Status */}
+                      {/* Email Status */}
                       <div className="col-span-2">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">
-                          <Circle className="w-1.5 h-1.5 fill-current" />
-                          Pending
-                        </span>
+                        {invite.email_status === "sent" && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 text-green-600 text-xs font-medium">
+                            <CheckCircle className="w-3 h-3" />
+                            Email Sent
+                          </span>
+                        )}
+                        {invite.email_status === "pending" && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-500/10 text-blue-600 text-xs font-medium">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Sending...
+                          </span>
+                        )}
+                        {invite.email_status === "failed" && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-medium">
+                            <AlertTriangle className="w-3 h-3" />
+                            Failed
+                          </span>
+                        )}
                       </div>
 
                       {/* Role */}
-                      <div className="col-span-3">
+                      <div className="col-span-2">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                           invite.role === 'admin'
                             ? "bg-purple-500/10 text-purple-500"
@@ -1558,7 +1609,22 @@ export function AgentsClient({
                       </div>
 
                       {/* Actions */}
-                      <div className="col-span-1 flex justify-end">
+                      <div className="col-span-2 flex justify-end gap-2">
+                        {invite.email_status === "failed" && (
+                          <button
+                            onClick={() => handleResendInvite(invite.id)}
+                            disabled={resendingInviteId === invite.id}
+                            className="px-3 py-2 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Resend invite email"
+                          >
+                            {resendingInviteId === invite.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-4 h-4" />
+                            )}
+                            Resend
+                          </button>
+                        )}
                         <button
                           onClick={() => handleRevokeInvite(invite.id)}
                           className="p-2 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors text-muted-foreground"

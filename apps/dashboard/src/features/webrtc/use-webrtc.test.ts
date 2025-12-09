@@ -1351,3 +1351,106 @@ describe("useWebRTC", () => {
   });
 });
 
+  // ---------------------------------------------------------------------------
+  // ICE RESTART BEHAVIORS (TKT-016)
+  // ---------------------------------------------------------------------------
+
+  describe("ICE restart functionality (TKT-016)", () => {
+    it("adds isReconnecting state to return value", () => {
+      const { result } = renderHook(() =>
+        useWebRTC({
+          socket: mockSocket as unknown as Parameters<typeof useWebRTC>[0]["socket"],
+          visitorId: "visitor_123",
+          isCallActive: false,
+        })
+      );
+
+      expect(result.current).toHaveProperty("isReconnecting");
+      expect(result.current.isReconnecting).toBe(false);
+    });
+
+    it("sets isReconnecting to true when connection state becomes disconnected", async () => {
+      const { result } = renderHook(() =>
+        useWebRTC({
+          socket: mockSocket as unknown as Parameters<typeof useWebRTC>[0]["socket"],
+          visitorId: "visitor_123",
+          isCallActive: false,
+        })
+      );
+
+      await act(async () => {
+        await result.current.initializeCall();
+      });
+
+      // Trigger ICE restart via connection state change
+      act(() => {
+        if (lastCreatedPeerConnection) {
+          lastCreatedPeerConnection.connectionState = "disconnected";
+          lastCreatedPeerConnection.onconnectionstatechange?.();
+        }
+      });
+
+      expect(result.current.isReconnecting).toBe(true);
+    });
+
+    it("triggers ICE restart with iceRestart flag when connection disconnects", async () => {
+      const { result } = renderHook(() =>
+        useWebRTC({
+          socket: mockSocket as unknown as Parameters<typeof useWebRTC>[0]["socket"],
+          visitorId: "visitor_123",
+          isCallActive: false,
+        })
+      );
+
+      await act(async () => {
+        await result.current.initializeCall();
+      });
+
+      // Clear previous createOffer calls
+      lastCreatedPeerConnection?.createOffer.mockClear();
+
+      // Trigger disconnection
+      act(() => {
+        if (lastCreatedPeerConnection) {
+          lastCreatedPeerConnection.connectionState = "disconnected";
+          lastCreatedPeerConnection.onconnectionstatechange?.();
+        }
+      });
+
+      expect(lastCreatedPeerConnection?.createOffer).toHaveBeenCalledWith({ iceRestart: true });
+    });
+
+    it("stops attempting ICE restart after 3 attempts and sets error", async () => {
+      const { result } = renderHook(() =>
+        useWebRTC({
+          socket: mockSocket as unknown as Parameters<typeof useWebRTC>[0]["socket"],
+          visitorId: "visitor_123",
+          isCallActive: false,
+        })
+      );
+
+      await act(async () => {
+        await result.current.initializeCall();
+      });
+
+      lastCreatedPeerConnection?.createOffer.mockClear();
+
+      // Trigger 4 failures in a row
+      for (let i = 0; i < 4; i++) {
+        act(() => {
+          if (lastCreatedPeerConnection) {
+            lastCreatedPeerConnection.connectionState = "disconnected";
+            lastCreatedPeerConnection.onconnectionstatechange?.();
+          }
+        });
+      }
+
+      // Should have attempted exactly 3 times
+      expect(lastCreatedPeerConnection?.createOffer).toHaveBeenCalledTimes(3);
+
+      // Should set error after max attempts
+      expect(result.current.error).toBe("Connection failed after multiple attempts");
+      expect(result.current.isReconnecting).toBe(false);
+    });
+  });
+});

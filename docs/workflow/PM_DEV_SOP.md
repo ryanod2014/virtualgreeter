@@ -74,6 +74,9 @@ cat docs/agent-output/blocked/BLOCKED-TKT-*.json
 
 # Environmental blockers (need fix)
 cat docs/agent-output/blocked/ENV-TKT-*.json
+
+# CI failure blockers (regression detected)
+cat docs/agent-output/blocked/CI-TKT-*.json
 ```
 
 ##### For CLARIFICATION Blockers (BLOCKED-TKT-*)
@@ -116,7 +119,131 @@ Agent hit a technical issue they can't solve (type error, pnpm fails, pre-existi
 4. Continue from: [Where they left off]
 ```
 
+##### For EXTERNAL SETUP Blockers (EXT-TKT-*)
+
+Agent needs a third-party service set up that requires human action (account creation, database download, API keys, etc.)
+
+**This is NOT something agents can do themselves.** These require:
+- Creating accounts on external services
+- Accepting license agreements
+- Downloading files from authenticated dashboards
+- Setting up billing/payment (even for free tiers)
+
+**Present to human with these steps:**
+
+1. **Review the blocker's `human_actions_required` list**
+
+2. **Ask human to complete setup AND provide credentials in chat:**
+   
+   Tell human:
+   > "Please complete the setup steps and then paste the credentials here so I can add them to the credentials file for the dev agent."
+
+3. **Human completes setup and provides credentials in chat:**
+   ```
+   Created MaxMind account:
+   - Email: dev@company.com  
+   - Password: SecurePass123!
+   - License Key: abc123xyz
+   - Database downloaded to: apps/server/data/GeoLite2-City.mmdb
+   ```
+
+4. **PM/Dispatch adds credentials to `.agent-credentials.json`:**
+   ```bash
+   # Read current file first
+   cat docs/data/.agent-credentials.json
+   ```
+   
+   Then add the new service (merge, don't overwrite):
+   ```json
+   {
+     "services": {
+       "maxmind": {
+         "login_url": "https://www.maxmind.com/en/account/login",
+         "email": "dev@company.com",
+         "password": "SecurePass123!",
+         "license_key": "abc123xyz"
+       }
+     },
+     "api_keys": {
+       "maxmind_license": "abc123xyz"
+     },
+     "_LAST_UPDATED": "2025-12-07T12:00:00Z"
+   }
+   ```
+
+5. **Verify setup is complete:**
+   ```bash
+   # Example: Verify MaxMind database
+   ls -la apps/server/data/GeoLite2-City.mmdb
+   
+   # Example: Verify credentials added
+   cat docs/data/.agent-credentials.json | jq '.services.maxmind'
+   ```
+
+6. **Create continuation ticket with setup info:**
+
+```markdown
+## 🔌 External Service Setup Complete
+
+**Service:** [e.g., MaxMind GeoLite2]
+
+**Setup Completed:**
+- ✅ Account created at [URL]
+- ✅ Database file at: `apps/server/data/GeoLite2-City.mmdb`
+- ✅ Credentials added to `.agent-credentials.json`
+
+**What agent should do now:**
+1. Verify file exists: `ls -la apps/server/data/GeoLite2-City.mmdb`
+2. Implement the integration code
+3. Test with REAL data (not just mocks)
+4. Verify acceptance criteria with actual service
+```
+
+**⚠️ IMPORTANT: Tickets requiring external setup should NEVER have status "ready" until human completes setup.**
+
 Archive the blocker file to `docs/agent-output/archive/`
+
+##### For CI FAILURE Blockers (CI-TKT-*)
+
+CI detected a test regression — tests failed OUTSIDE the ticket's `files_to_modify` scope.
+
+**Auto-handling (if attempt < 3):**
+
+| Option | When to Use | PM Action |
+|--------|-------------|-----------|
+| **A) Fix regression** | Agent's changes broke something | Create continuation ticket to fix the regression |
+| **B) Expand scope** | Change was intentional but scope too narrow | Add file to `files_to_modify`, relaunch |
+| **C) Fix test** | Old test was wrong/outdated | Create ticket to update the test |
+| **D) Escalate** | Attempt >= 3 or too complex | Mark ticket "needs_human", notify human |
+
+**Continuation ticket for CI regressions:**
+
+```markdown
+## 🔧 CI Regression Fix
+
+**Branch:** `[branch]` (ALREADY EXISTS - do NOT create new branch)
+**PR:** #[pr_number] (already open)
+
+**What happened:**
+CI failed because your changes broke tests outside your ticket scope.
+
+**Failing test(s):**
+- [test file from blocker]
+
+**Your files_to_modify:**
+- [original scope files]
+
+**Your task:**
+1. Pull latest: `git pull origin [branch]`
+2. Review the failing test to understand what broke
+3. Fix your code to not break the failing test
+4. Do NOT break your original feature
+5. Push and CI will re-run automatically
+
+**Attempt:** [N] of 3
+```
+
+**Max attempts:** If attempt >= 3, escalate to human instead of creating another continuation.
 
 #### 1.2 Check for Stalled Agents
 
@@ -234,6 +361,12 @@ Before a ticket is ready for dev, verify ALL fields:
 - [ ] **Verification:**
   - [ ] `dev_checks` has typecheck + build + quick test
   - [ ] `qa_notes` has context for QA agent
+
+- [ ] **⚠️ External Services Check (CRITICAL):**
+  - [ ] Does ticket mention third-party services? (MaxMind, Stripe, AWS, etc.)
+  - [ ] If YES: Is `external_services` field populated?
+  - [ ] If credentials NOT in `.agent-credentials.json`: Mark ticket as `blocked` until human sets up
+  - [ ] If account creation needed: **DO NOT set status to "ready"**
 
 - [ ] **Size Check:**
   - [ ] ≤5 files to modify

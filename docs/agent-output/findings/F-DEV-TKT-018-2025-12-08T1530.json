@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-018-1",
+  "source": "dev-agent-TKT-018",
+  "title": "Pre-existing TypeScript errors in server test files block build",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/server/src/features/routing/pool-manager.test.ts",
+  "line": 1,
+  "issue": "Server build fails due to unused variable errors in test files: 'afterEach' is declared but never used (pool-manager.test.ts:1), and 'CallRequest', 'ActiveCall', 'TIMING' are declared but never used (socket-handlers.test.ts:437-438). These are pre-existing errors from main branch, not introduced by TKT-018.",
+  "suggestion": "Either remove the unused imports/variables, or configure tsconfig to exclude test files from build, or disable noUnusedLocals for test files.",
+  "status": "pending",
+  "found_at": "2025-12-08T15:30:00Z"
+}

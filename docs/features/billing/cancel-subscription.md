@@ -237,7 +237,7 @@ ADMIN INITIATES CANCELLATION
 | 4 | Enter feedback | Text area fills | ✅ | Required field marked |
 | 5 | Select would return | Button highlights | ✅ | Binary choice clear |
 | 6 | Click continue | Progress to step 3 | ✅ | |
-| 7 | Review warning | Red deletion warning shown | ✅ | Strong warning about data loss |
+| 7 | Review warning | Amber retention notice shown with 30-day policy | ✅ | Clear, accurate warning (updated TKT-003) |
 | 8 | Click cancel button | Loading state, then confirmation | ✅ | |
 
 ### Accessibility
@@ -288,16 +288,16 @@ The code contains TODO comments indicating Stripe cancellation is not fully impl
 **Current behavior:** Only downgrades plan to "free", does NOT call Stripe API.
 **Impact:** Stripe subscription may continue billing.
 
-#### ⚠️ Issue 2: Data Deletion Mismatch
-The UI states data will be "permanently deleted":
-- "All call recordings — every video call you've saved"
-- "Call logs & history"
-- "Analytics & stats"
-- "Agent configurations"
-- "Routing rules"
+#### ✅ Issue 2: Data Retention Language (Fixed in TKT-003)
+The UI now accurately communicates data retention policy:
+- Header changed from "This will permanently delete your data" → "Data Retention Notice"
+- Copy updated to: "Your data will be retained for 30 days after cancellation, then may be permanently deleted."
+- Visual styling changed from red (urgent danger) → amber (warning/notice)
+- Added notice: "You can resubscribe within 30 days to retain your data."
 
-**Actual behavior:** Plan is just set to "free" — no data deletion occurs.
-**Impact:** Misleading user expectation about data handling.
+**Previous behavior:** Misleading "immediate permanent deletion" language.
+**Current behavior:** Accurate 30-day retention policy communicated clearly.
+**Fixed:** TKT-003 (2025-12-04)
 
 #### ⚠️ Issue 3: No Notification System
 No emails or in-app notifications are sent:
@@ -328,7 +328,7 @@ The code mentions "access continues until end of billing period" in UI but:
 | Issue | Impact | Severity | Suggested Fix |
 |-------|--------|----------|--------------|
 | Stripe not actually cancelled | Continued billing | 🔴 High | Implement Stripe API call |
-| Data not deleted despite UI claim | Trust issue, possible compliance | 🔴 High | Either delete data or update copy |
+| ~~Data not deleted despite UI claim~~ | ~~Trust issue, compliance~~ | ✅ **FIXED** | **TKT-003: Copy updated to accurate 30-day retention** |
 | No confirmation email | Poor UX | 🟡 Medium | Add email notification |
 | No grace period enforcement | Immediate access loss | 🟡 Medium | Track and enforce period end |
 | Pause modal first may confuse | UX friction | 🟢 Low | Consider flow order |
@@ -363,10 +363,11 @@ The code mentions "access continues until end of billing period" in UI but:
 
 1. **When will Stripe integration be completed?** Current code only downgrades plan, doesn't cancel Stripe subscription.
 
-2. **Should data actually be deleted?** UI claims permanent deletion but no deletion logic exists. Need to clarify:
-   - Is this intentional (soft delete via plan change)?
-   - Should we implement actual data deletion?
-   - What's the data retention policy?
+2. ~~**Should data actually be deleted?**~~ **RESOLVED (TKT-003):** UI now correctly states 30-day retention policy. Data retention policy clarified:
+   - Data retained for 30 days after cancellation
+   - May be permanently deleted after 30 days
+   - User can resubscribe within 30 days to retain data
+   - This aligns with actual behavior (no immediate deletion)
 
 3. **What about prorated refunds?** Code doesn't handle:
    - Mid-period cancellations

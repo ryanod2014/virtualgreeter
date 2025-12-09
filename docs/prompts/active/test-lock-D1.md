@@ -67,3 +67,4 @@ Pool Management allows admins to create, edit, and delete agent pools. Pools are
 - `apps/dashboard/src/features/pools/PoolCard.test.tsx`
 - Completion report: `docs/agent-output/test-lock/D1-[TIMESTAMP].md`
 
+

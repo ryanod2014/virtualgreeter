@@ -48,6 +48,7 @@ import {
 import { recordEmbedVerification } from "../../lib/embed-tracker.js";
 import { recordPageview } from "../../lib/pageview-logger.js";
 import { getWidgetSettings } from "../../lib/widget-settings.js";
+import { canAgentGoAvailable, getAgentOrgId } from "../agents/agentStatus.js";
 import { getClientIP, getLocationFromIP } from "../../lib/geolocation.js";
 import { isCountryBlocked } from "../../lib/country-blocklist.js";
 import { trackWidgetView, trackCallStarted } from "../../lib/greetnow-retargeting.js";
@@ -452,6 +453,17 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       };
 
       const agentState = poolManager.registerAgent(socket.id, profile);
+
+      // Check if org is operational - if not, force agent to away status
+      if (verification.organizationId) {
+        const availabilityCheck = await canAgentGoAvailable(verification.organizationId);
+        if (!availabilityCheck.canGoAvailable && agentState.profile.status !== "away") {
+          console.log(`[Socket] Forcing agent ${data.agentId} to away - org not operational: ${availabilityCheck.reason}`);
+          poolManager.updateAgentStatus(data.agentId, "away");
+          agentState.profile.status = "away";
+        }
+      }
+
       console.log("[Socket] 🟢 AGENT_LOGIN successful:", {
         agentId: data.agentId,
         socketId: socket.id,
@@ -464,7 +476,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       if (verification.organizationId) {
         await startSession(data.agentId, verification.organizationId);
       }
-      
+
       socket.emit(SOCKET_EVENTS.LOGIN_SUCCESS, { agentState });
       
       // Send initial stats
@@ -615,12 +627,27 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       }
 
       try {
+        // Check if agent's organization allows them to go available
+        const orgId = await getAgentOrgId(agent.agentId);
+        if (orgId) {
+          const availabilityCheck = await canAgentGoAvailable(orgId);
+          if (!availabilityCheck.canGoAvailable) {
+            console.log(`[Socket] Agent ${agent.agentId} blocked from going available: ${availabilityCheck.reason}`);
+            ack?.({
+              success: false,
+              status: agent.profile.status,
+              error: availabilityCheck.message ?? "Unable to go available"
+            });
+            return;
+          }
+        }
+
         console.log(`[Socket] Agent ${agent.agentId} is back from away`);
         poolManager.updateAgentStatus(agent.agentId, "idle");
-        
+
         // Track status change for activity reporting
         await recordStatusChange(agent.agentId, "idle", "back_from_away");
-        
+
         // Send acknowledgment first so client knows the status change succeeded
         ack?.({ success: true, status: "idle" });
         

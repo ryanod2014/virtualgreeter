@@ -1,0 +1,11 @@
+{
+  "ticket_id": "TKT-054",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "apps/dashboard/src/features/call-logs/csvWorker.test.ts",
+    "apps/dashboard/src/features/call-logs/exportCSV.test.ts"
+  ],
+  "completed_at": "2025-12-08T20:20:00Z",
+  "notes": "Added test coverage for CSV export Web Worker functionality. csvWorker.test.ts documents type definitions and expected behavior. exportCSV.test.ts tests worker integration, error handling, and callback management."
+}

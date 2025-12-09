@@ -1,0 +1,95 @@
+You are a QA Review Agent testing ticket TKT-010.
+
+## Ticket: Graceful Call End on Agent Removal
+## Branch: agent/tkt-010
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-010
+
+## Acceptance Criteria:
+- Removing in-call agent triggers graceful call end
+- Visitor sees 'Agent has ended the call' message
+- Call is properly logged/ended in database
+- If agent not in call, removal proceeds normally
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-010
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-010
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **If PASS - Write report to MAIN REPO:**
+   - File: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-010-PASSED-20251206T225111.md
+   - Include the selective merge command (see below)
+
+5. **If FAIL - Create BOTH files in MAIN REPO:**
+   - Blocker JSON: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-010-FAILED-20251206T225111.json
+   - Report MD: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-010-FAILED-20251206T225111.md
+
+6. **DO NOT modify any files in the main repo except your QA outputs**
+
+7. **If tests PASS, include this merge command in your report:**
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   # Cherry-pick ONLY the ticket's files:
+   git checkout origin/agent/tkt-010 -- apps/dashboard/src/app/(dashboard)/agents/actions.ts apps/server/src/features/agents/removeAgent.ts
+   git add apps/dashboard/src/app/(dashboard)/agents/actions.ts apps/server/src/features/agents/removeAgent.ts
+   git commit -m 'feat: TKT-010 - Graceful Call End on Agent Removal'
+   git push origin main
+   ```
+
+## If FAILED - Blocker JSON Template:
+
+```json
+{
+  "ticket_id": "TKT-010",
+  "ticket_title": "Graceful Call End on Agent Removal",
+  "branch": "agent/tkt-010",
+  "blocked_at": "[ISO timestamp]",
+  "blocker_type": "qa_failure",
+  "summary": "[One-line summary of failure]",
+  "failures": [
+    {
+      "category": "build|acceptance|regression|browser",
+      "check": "[Which check failed]",
+      "error": "[Error message]"
+    }
+  ],
+  "recommendation": "[What needs to be fixed]",
+  "dispatch_action": "create_continuation_ticket"
+}
+```
+
+## Report Template:
+
+# QA Review: TKT-010
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** TKT-010 - Graceful Call End on Agent Removal
+**Branch:** agent/tkt-010
+**Tested:** 2025-12-06
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

@@ -5,6 +5,75 @@
 
 ---
 
+## 🚨 Session Management (REQUIRED)
+
+**You MUST register your session with the workflow database.** This is how the system tracks running agents, prevents file conflicts, and enables recovery.
+
+### On Start (FIRST THING YOU DO)
+
+```bash
+# Register your session and get your SESSION_ID
+export AGENT_SESSION_ID=$(./scripts/agent-cli.sh start --ticket $TICKET_ID --type dev)
+echo "Session started: $AGENT_SESSION_ID"
+```
+
+### During Work (Every 10 Minutes)
+
+```bash
+# Send heartbeat to show you're still working
+./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
+```
+
+### On Completion
+
+```bash
+# Mark session complete with your report
+./scripts/agent-cli.sh complete --session $AGENT_SESSION_ID --report docs/agent-output/completions/$TICKET_ID.md
+```
+
+### On Blocked
+
+```bash
+# Report blocker and stop
+./scripts/agent-cli.sh block --session $AGENT_SESSION_ID --reason "Description of blocker" --type clarification
+```
+
+**Blocker types:** `clarification`, `environment`, `ci_failure`, `dependency`, `external_setup`
+
+---
+
+## 🔧 Agent CLI Reference
+
+The `agent-cli.sh` script is the interface to the workflow database. **Always use it instead of manually creating JSON files.**
+
+**Location:** `scripts/agent-cli.sh`
+
+**All Commands:**
+```bash
+# Start session (REQUIRED - do this first!)
+./scripts/agent-cli.sh start --ticket TKT-XXX --type dev
+
+# Send heartbeat (every 10 minutes)
+./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
+
+# Mark session complete
+./scripts/agent-cli.sh complete --session $AGENT_SESSION_ID --report docs/agent-output/completions/TKT-XXX.md
+
+# Report a blocker
+./scripts/agent-cli.sh block --session $AGENT_SESSION_ID --reason "Need clarification on X" --type clarification
+
+# Add a finding (issues outside your scope)
+./scripts/agent-cli.sh add-finding --title "Bug in X" --severity high --description "Details..." --file path/to/file.ts
+
+# Check active file locks
+./scripts/agent-cli.sh check-locks
+
+# Check running agents
+./scripts/agent-cli.sh status
+```
+
+---
+
 ## 🎯 Your Mission
 
 Complete your assigned ticket **exactly as specified**. No more, no less.
@@ -40,6 +109,80 @@ If the ticket is missing ANY of the following → **BLOCKED immediately**:
 
 **If ANY is missing or unclear → Report BLOCKED with question asking for clarification.**
 
+### 1.2.1 ⚠️ External Service Check (CRITICAL)
+
+**Before writing ANY code, check if this ticket requires external services.**
+
+If the ticket mentions ANY of these, you likely need human setup:
+
+| Keyword | Requires | Example |
+|---------|----------|---------|
+| MaxMind, GeoIP, geolocation | Account + database download | "use maxmind for IP lookup" |
+| Stripe, payment | API keys + test account | "integrate Stripe billing" |
+| AWS, S3, Lambda | AWS account + credentials | "store files in S3" |
+| SendGrid, email service | API key | "send emails via SendGrid" |
+| Twilio, SMS | Account + phone numbers | "send SMS notifications" |
+| OAuth, social login | App registration + secrets | "add Google login" |
+| Any "free tier" API | Account creation | "use ip-api.com" or similar |
+
+**⚠️ BLOCK IMMEDIATELY if:**
+1. Ticket mentions a third-party service not in `docs/data/.agent-credentials.json`
+2. You would need to CREATE an account (not just log into existing one)
+3. You would need to DOWNLOAD external files (databases, SDKs, etc.)
+4. You would need LICENSE AGREEMENTS or terms acceptance
+5. Service requires BILLING/PAYMENT setup even for free tier
+
+**Example: "Use MaxMind for geolocation"**
+
+❌ **WRONG:** Implement the code assuming database will be there later
+✅ **RIGHT:** Block immediately with:
+```json
+{
+  "category": "external_setup",
+  "title": "MaxMind requires account creation and database download",
+  "issue": "To implement MaxMind geolocation, human must: (1) Create MaxMind account at dev.maxmind.com, (2) Accept license agreement, (3) Download GeoLite2-City.mmdb database (~70MB), (4) Deploy database to apps/server/data/",
+  "options": [
+    {"id": 1, "label": "Human creates account and provides database file path"},
+    {"id": 2, "label": "Use alternative service that doesn't require account (if any)"},
+    {"id": 3, "label": "Proceed knowing feature won't work until human completes setup"}
+  ],
+  "recommendation": "Option 1 - Cannot verify implementation without actual database"
+}
+```
+
+**Why this matters:** Code that "works" but requires unverified external resources is NOT complete. Unit tests with mocks don't prove the integration works. The ticket is NOT done until the external dependency is actually configured and tested.
+
+### 1.2.2 Protected Files Check (CRITICAL)
+
+**NEVER modify these files, even if your ticket seems to require it:**
+
+| Protected Path Pattern | Reason |
+|------------------------|--------|
+| `docs/pm-dashboard-ui/*` | Orchestration server - breaks all agents |
+| `scripts/db/db.js` | Database layer - breaks all data |
+| `scripts/launch-*.sh` | Agent launchers - breaks agent startup |
+| `scripts/orchestrate-*.sh` | Multi-agent coordination |
+| `scripts/setup-*.sh` | Environment setup |
+| `scripts/run-regression-tests.sh` | Test infrastructure |
+| `scripts/agent-cli.sh` | Agent command interface |
+
+**If your ticket's `files_to_modify` includes ANY protected file → BLOCK immediately:**
+
+```json
+{
+  "category": "external_setup",
+  "title": "Ticket requires protected file modification",
+  "issue": "This ticket requires changes to [FILE], which is protected infrastructure. Only human engineers can modify protected files.",
+  "options": [
+    {"id": 1, "label": "Human engineer makes the infrastructure changes"},
+    {"id": 2, "label": "Redefine ticket scope to avoid protected files"}
+  ],
+  "recommendation": "Option 1 - Infrastructure changes need human oversight"
+}
+```
+
+**Full list:** See `docs/workflow/PROTECTED_FILES.md`
+
 ### 1.3 Pre-Flight Checklist
 
 Complete this checklist before writing any code:
@@ -53,6 +196,13 @@ Complete this checklist before writing any code:
 - [ ] I identified all files I'll need to modify
 - [ ] I understand every acceptance criterion
 - [ ] I understand every risk listed
+- [ ] **⚠️ EXTERNAL SERVICES CHECK:**
+  - [ ] Does this ticket require any third-party services?
+  - [ ] If YES: Are credentials/resources in `.agent-credentials.json`?
+  - [ ] If NO credentials exist: **STOP → Block with `external_setup`**
+- [ ] **⚠️ PROTECTED FILES CHECK:**
+  - [ ] Do any `files_to_modify` match protected patterns? (See 1.2.2)
+  - [ ] If YES: **STOP → Block with "protected file modification"**
 
 **If ANYTHING is unclear → STOP and report BLOCKED**
 
@@ -198,8 +348,14 @@ git branch --show-current
 
 ### 3.3 Check File Locks (REQUIRED)
 
-**Before signaling start**, check if any of your files are already locked by another agent:
+**Before signaling start**, check if any of your files are already locked by another agent.
 
+**Option A: Using CLI (Preferred)**
+```bash
+./scripts/agent-cli.sh check-locks
+```
+
+**Option B: Manual Check (Fallback)**
 ```bash
 # List all currently locked files
 cat docs/agent-output/started/*.json 2>/dev/null | grep -o '"files_locking":\s*\[[^]]*\]' || echo "No locks"
@@ -212,6 +368,20 @@ cat docs/agent-output/started/*.json 2>/dev/null | grep -o '"files_locking":\s*\
 ### 3.4 Signal Start (REQUIRED)
 
 **After confirming no file conflicts**, signal that you're starting work.
+
+**Note:** If launched via orchestrator, your session is already registered automatically. Check if `$AGENT_SESSION_ID` is set.
+
+**Option A: Using CLI (Preferred)**
+```bash
+# If session ID is already set, just send a heartbeat
+./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
+
+# If no session ID, register manually (rare)
+SESSION_ID=$(./scripts/agent-cli.sh start --ticket TKT-XXX --type dev)
+export AGENT_SESSION_ID=$SESSION_ID
+```
+
+**Option B: Manual Start File (Fallback)**
 
 **File path:** `docs/agent-output/started/TKT-XXX-[TIMESTAMP].json`
 
@@ -234,7 +404,7 @@ Example: `docs/agent-output/started/TKT-001-2025-12-04T1430.json`
 - PM can check file locks before launching new agents
 - Prevents file conflicts between parallel agents
 
-**⚠️ Race Condition Warning:** If you and another agent start at the exact same moment, you might both pass the lock check. PM mitigates this by launching agents with a few seconds gap.
+**⚠️ Race Condition Warning:** The database handles race conditions atomically. If using manual JSON files, there's a small window where both agents might pass the lock check.
 
 ---
 
@@ -275,8 +445,9 @@ If you've been stuck on a type error, lint error, or build error for **40 minute
 
 1. **STOP trying** — Don't spin endlessly
 2. **Commit your WIP** (even if broken): `git commit -m "WIP TKT-XXX: stuck on [error] - BLOCKED"`
-3. **Push your work**: `git push origin [branch-name]`
-4. **Report as environmental blocker** (see "Environmental Blockers" section below)
+3. **Report as environmental blocker** (see "Environmental Blockers" section below)
+
+> **Note:** Git push is handled automatically by the failsafe script when you finish.
 
 **Signs you should block:**
 - Same error for 40+ minutes
@@ -329,30 +500,10 @@ pnpm build      # Must pass
 
 ## Phase 6: SUBMIT FOR REVIEW
 
-### 6.1 Push Changes
+> **Note:** Git push is handled automatically by the failsafe script when you finish.
+> You don't need to push manually — just commit your changes and write your completion report.
 
-```bash
-git push origin [branch-name]
-```
-
-### 6.2 Verify Push Succeeded
-
-**Before writing completion report**, verify your push succeeded:
-
-```bash
-# Check that remote branch has your latest commit
-git log origin/[branch-name] --oneline -1
-
-# Should show your most recent commit
-# If it doesn't match your local HEAD, push failed - fix and retry
-```
-
-**If push failed:**
-- Check for auth issues, network problems, or branch protection
-- Resolve the issue and push again
-- Don't write completion report until push succeeds
-
-### 6.3 Archive Start File
+### 6.1 Archive Start File
 
 Move your start file to indicate you're done (prevents stale detection):
 
@@ -362,7 +513,7 @@ mv docs/agent-output/started/TKT-XXX-*.json docs/agent-output/archive/
 
 Or if you can't move files, note in your completion report that the start file should be archived.
 
-### 6.4 Update Dev Status (REQUIRED)
+### 6.2 Update Dev Status (REQUIRED)
 
 **Update `docs/data/dev-status.json`** to register your completion (required for dashboard):
 
@@ -387,7 +538,7 @@ Or if you can't move files, note in your completion report that the start file s
 
 **⚠️ Important:** Read the file first to preserve other entries. Don't overwrite the entire file.
 
-### 6.5 Write Completion Report
+### 6.3 Write Completion Report
 
 **IMPORTANT:** Write your completion report to a per-agent file to prevent conflicts with other dev agents.
 
@@ -484,10 +635,9 @@ git add .
 
 # Commit with WIP prefix
 git commit -m "WIP TKT-XXX: [what you were working on] - BLOCKED"
-
-# Push to preserve work
-git push origin [branch-name]
 ```
+
+> **Note:** Git push is handled automatically by the failsafe script when you finish.
 
 This ensures the next agent (or you in a continuation) can see exactly where you stopped.
 
@@ -698,6 +848,134 @@ Use this format when you're blocked by **technical issues**, not missing informa
 
 ---
 
+## External Setup Blockers (Third-Party Services)
+
+Use this format when you're blocked because **the ticket requires setting up a new external service, account, or resource.**
+
+**Use `external_setup` blocker when:**
+- Ticket requires creating a NEW account on a third-party service
+- Ticket requires downloading external files (databases, SDKs, data files)
+- Ticket requires API keys/credentials that aren't in `.agent-credentials.json`
+- Ticket requires accepting license agreements or terms of service
+- Ticket requires billing/payment setup (even for free tiers)
+- You CANNOT fully verify your implementation without the external resource
+
+**File path:** `docs/agent-output/blocked/EXT-TKT-XXX-[TIMESTAMP].json`
+
+```json
+{
+  "id": "EXT-TKT-XXX-[number]",
+  "type": "blocker",
+  "category": "external_setup",
+  "source": "dev-agent-TKT-XXX",
+  "severity": "critical",
+  "title": "[Service] requires account creation / resource download",
+  "feature": "[Feature from your ticket]",
+  "status": "pending",
+  "found_at": "[ISO date]",
+  
+  "issue": "[What external setup is needed and why you can't proceed]",
+  
+  "external_service": {
+    "name": "[Service name - e.g., MaxMind, Stripe, AWS]",
+    "type": "account_creation | database_download | api_key | license | billing",
+    "signup_url": "[URL where human creates account]",
+    "documentation_url": "[URL for setup docs]"
+  },
+  
+  "human_actions_required": [
+    "[Step 1 - e.g., Create account at https://...]",
+    "[Step 2 - e.g., Accept license agreement]",
+    "[Step 3 - e.g., Download database file to apps/server/data/]",
+    "[Step 4 - e.g., Add API key to .env.local]"
+  ],
+  
+  "what_i_can_do_now": [
+    "[e.g., Write code that uses the service - but cannot verify]",
+    "[e.g., Write unit tests with mocks - but integration untested]"
+  ],
+  
+  "what_i_cannot_verify": [
+    "[e.g., Actual API calls work correctly]",
+    "[e.g., Database file format is correct]",
+    "[e.g., Integration with live service works]"
+  ],
+  
+  "blocker_context": {
+    "ticket_id": "TKT-XXX",
+    "branch": "agent/TKT-XXX-[description]",
+    "progress": {
+      "done": ["[What you completed before hitting this]"],
+      "blocked_on": "[Specific step that needs external setup]"
+    }
+  }
+}
+```
+
+### Example: MaxMind Geolocation Service
+
+```json
+{
+  "id": "EXT-TKT-062-1",
+  "type": "blocker",
+  "category": "external_setup",
+  "source": "dev-agent-TKT-062",
+  "severity": "critical",
+  "title": "MaxMind requires account creation and database download",
+  "feature": "Blocklist Settings",
+  "status": "pending",
+  "found_at": "2025-12-06T05:00:00Z",
+  
+  "issue": "The ticket asks to use MaxMind for IP geolocation, but this requires: (1) creating a MaxMind account, (2) accepting their license, (3) downloading a 70MB database file. I cannot verify the implementation works without these.",
+  
+  "external_service": {
+    "name": "MaxMind GeoLite2",
+    "type": "account_creation",
+    "signup_url": "https://dev.maxmind.com/geoip/geolite2-free-geolocation-data",
+    "documentation_url": "https://dev.maxmind.com/geoip/geolocate-an-ip/databases"
+  },
+  
+  "human_actions_required": [
+    "1. Create free MaxMind account at https://dev.maxmind.com",
+    "2. Accept the GeoLite2 EULA",
+    "3. Download GeoLite2-City.mmdb from the account dashboard",
+    "4. Place file at apps/server/data/GeoLite2-City.mmdb",
+    "5. (Optional) Set MAXMIND_DB_PATH env var if using different location"
+  ],
+  
+  "what_i_can_do_now": [
+    "Write code that uses @maxmind/geoip2-node library",
+    "Write unit tests with mocked database responses"
+  ],
+  
+  "what_i_cannot_verify": [
+    "Actual IP lookups work correctly",
+    "Database file is valid and contains expected data",
+    "Country blocklist actually blocks visitors from specified countries"
+  ],
+  
+  "blocker_context": {
+    "ticket_id": "TKT-062",
+    "branch": "agent/tkt-062-maxmind-geolocation",
+    "progress": {
+      "done": ["Researched MaxMind integration approach"],
+      "blocked_on": "Cannot proceed without MaxMind account and database file"
+    }
+  }
+}
+```
+
+**⚠️ CRITICAL: Do NOT proceed to write code** if you can't verify it works. Mocked unit tests are not sufficient proof that a third-party integration works.
+
+**What happens next:**
+1. PM routes blocker to human inbox
+2. Human creates accounts, downloads files, adds credentials
+3. Human updates ticket with file paths and credentials location
+4. PM creates continuation ticket with setup complete
+5. You (or another agent) continues with verified external resources
+
+---
+
 ## Scope Rules
 
 ### ✅ DO:
@@ -715,10 +993,10 @@ Use this format when you're blocked by **technical issues**, not missing informa
 
 ### If You Notice Something Wrong (But It's Not In Your Scope):
 
-**⚠️ MANDATORY: You MUST write a findings file. Do NOT just mention it in your completion report notes.**
+**⚠️ MANDATORY: You MUST report findings. Do NOT just mention them in your completion report notes.**
 
 1. **Do NOT fix it yourself**
-2. **IMMEDIATELY write to per-agent findings file** (before you forget)
+2. **IMMEDIATELY report the finding** (before you forget)
 3. Continue with your ticket
 
 **Common things that require findings:**
@@ -730,11 +1008,23 @@ Use this format when you're blocked by **technical issues**, not missing informa
 
 **How to report findings (NOT blockers):**
 
+**Option A: Using CLI (Preferred)**
+```bash
+./scripts/agent-cli.sh add-finding \
+  --title "Pre-existing type error in utils.ts" \
+  --severity high \
+  --description "Type error on line 42: 'string' is not assignable to 'number'" \
+  --file apps/dashboard/src/utils.ts \
+  --feature "Auth"
+```
+
+**Option B: Manual JSON File (Fallback)**
+
 **File path:** `docs/agent-output/findings/F-DEV-TKT-XXX-[TIMESTAMP].json`
 
 Example: `docs/agent-output/findings/F-DEV-SEC-001-2025-12-05T1230.json`
 
-**⚠️ You MUST create this file. Mentioning issues in completion report "Notes" is NOT sufficient.**
+**⚠️ You MUST report findings. Mentioning issues in completion report "Notes" is NOT sufficient.**
 
 Write a JSON file with this structure:
 
@@ -754,7 +1044,7 @@ Write a JSON file with this structure:
 }
 ```
 
-The PM Dashboard automatically aggregates all findings from per-agent files.
+The PM Dashboard automatically aggregates all findings from per-agent files and the database.
 
 ---
 
@@ -830,7 +1120,7 @@ git merge origin/main
 2. **Read the full spec** — Don't skim
 3. **Stay in scope** — Only modify listed files
 4. **Follow patterns** — Copy existing code style exactly
-5. **Check everything** — typecheck, lint, build before pushing
+5. **Check everything** — typecheck, lint, build before completing
 6. **Report blockers immediately** — Don't spin; STOP and write blocker to `docs/agent-output/blocked/`
 7. **Document progress** — Especially when blocked
 8. **Don't over-engineer** — Simple solutions for simple problems

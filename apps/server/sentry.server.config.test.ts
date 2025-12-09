@@ -164,3 +164,4 @@ describe("Sentry server configuration", () => {
     });
   });
 });
+

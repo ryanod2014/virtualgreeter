@@ -1,0 +1,226 @@
+{
+  "meta": {
+    "last_updated": "2025-12-06",
+    "total_processed": 30,
+    "format_version": "1.0",
+    "description": "Audit trail of findings that were rejected, merged, or otherwise processed by Cleanup Agent"
+  },
+  "summary": {
+    "promoted": 30,
+    "rejected": 0,
+    "merged": 0,
+    "deferred_then_processed": 0
+  },
+  "findings": [
+    {
+      "id": "F-655",
+      "action": "promoted",
+      "reason": "Critical documentation error - health endpoint response format mismatch would cause false positive alerts",
+      "processed_at": "2025-12-06T12:00:00Z",
+      "batch": "cleanup-batch-001"
+    },
+    {
+      "id": "F-141",
+      "action": "promoted",
+      "reason": "Medium severity accessibility issue - table rows not keyboard navigable",
+      "processed_at": "2025-12-06T12:00:00Z",
+      "batch": "cleanup-batch-001"
+    },
+    {
+      "id": "F-090",
+      "action": "promoted",
+      "reason": "Medium severity - silent degradation when database is slow, agents miss routed leads",
+      "processed_at": "2025-12-06T12:00:00Z",
+      "batch": "cleanup-batch-001"
+    },
+    {
+      "id": "F-094",
+      "action": "promoted",
+      "reason": "Medium severity security concern - no domain validation allows embed code abuse",
+      "processed_at": "2025-12-06T12:00:00Z",
+      "batch": "cleanup-batch-001"
+    },
+    {
+      "id": "F-095",
+      "action": "promoted",
+      "reason": "Medium severity - infinite polling without backoff wastes resources",
+      "processed_at": "2025-12-06T12:00:00Z",
+      "batch": "cleanup-batch-001"
+    },
+    {
+      "id": "F-096",
+      "action": "promoted",
+      "reason": "Medium severity - pageview tracking requires agent online, causing inaccurate analytics",
+      "processed_at": "2025-12-06T12:00:00Z",
+      "batch": "cleanup-batch-001"
+    },
+    {
+      "id": "F-097",
+      "action": "promoted",
+      "reason": "Medium severity - mixed content block with no user feedback when widget fails",
+      "processed_at": "2025-12-06T12:00:00Z",
+      "batch": "cleanup-batch-001"
+    },
+    {
+      "id": "F-098",
+      "action": "promoted",
+      "reason": "Medium severity - ad blocker blocks widget silently with no admin notification",
+      "processed_at": "2025-12-06T12:00:00Z",
+      "batch": "cleanup-batch-001"
+    },
+    {
+      "id": "F-105",
+      "action": "promoted",
+      "reason": "Medium severity UX gap - no manual rule priority reordering in routing UI",
+      "processed_at": "2025-12-06T12:00:00Z",
+      "batch": "cleanup-batch-001"
+    },
+    {
+      "id": "F-106",
+      "action": "promoted",
+      "reason": "Medium severity - pool fallback ignores admin routing intent",
+      "processed_at": "2025-12-06T12:00:00Z",
+      "batch": "cleanup-batch-001"
+    },
+    {
+      "id": "F-129",
+      "action": "promoted",
+      "reason": "🚨 GO-LIVE BLOCKER: Recording data loss on page refresh - no recovery mechanism",
+      "processed_at": "2025-12-06T11:14:07.677Z",
+      "batch": "cleanup-batch-002-go-live-blockers"
+    },
+    {
+      "id": "F-163",
+      "action": "promoted",
+      "reason": "🚨 GO-LIVE BLOCKER: Recording data loss on browser crash - uploads only happen at call end",
+      "processed_at": "2025-12-06T11:14:07.682Z",
+      "batch": "cleanup-batch-002-go-live-blockers"
+    },
+    {
+      "id": "F-131",
+      "action": "promoted",
+      "reason": "🚨 GO-LIVE BLOCKER: GDPR Article 20 violation - no data export for recordings",
+      "processed_at": "2025-12-06T11:14:07.682Z",
+      "batch": "cleanup-batch-002-go-live-blockers"
+    },
+    {
+      "id": "F-513",
+      "action": "promoted",
+      "reason": "🚨 GO-LIVE BLOCKER: Security - password policy bypassed via direct API calls",
+      "processed_at": "2025-12-06T11:14:07.683Z",
+      "batch": "cleanup-batch-002-go-live-blockers"
+    },
+    {
+      "id": "F-515",
+      "action": "promoted",
+      "reason": "🚨 GO-LIVE BLOCKER: Revenue - paywall is disabled, users can use product for free",
+      "processed_at": "2025-12-06T11:14:07.683Z",
+      "batch": "cleanup-batch-002-go-live-blockers"
+    },
+    {
+      "id": "F-437",
+      "action": "promoted",
+      "reason": "🚨 GO-LIVE BLOCKER: Security - IP spoofing can bypass geo-blocking",
+      "processed_at": "2025-12-06T11:14:07.683Z",
+      "batch": "cleanup-batch-002-go-live-blockers"
+    },
+    {
+      "id": "F-107",
+      "action": "promoted",
+      "reason": "🚨 GO-LIVE BLOCKER: SPA visitors routed to wrong pool after navigation",
+      "processed_at": "2025-12-06T11:14:07.683Z",
+      "batch": "cleanup-batch-002-go-live-blockers"
+    },
+    {
+      "id": "F-233",
+      "action": "promoted",
+      "reason": "🚨 GO-LIVE BLOCKER: Compliance - co-browse is automatic with no visitor consent",
+      "processed_at": "2025-12-06T11:14:07.683Z",
+      "batch": "cleanup-batch-002-go-live-blockers"
+    },
+    {
+      "id": "F-197",
+      "action": "promoted",
+      "reason": "🚨 GO-LIVE BLOCKER: Transcription failures are silent and permanent",
+      "processed_at": "2025-12-06T11:14:07.683Z",
+      "batch": "cleanup-batch-002-go-live-blockers"
+    },
+    {
+      "id": "F-243",
+      "action": "promoted",
+      "reason": "🚨 GO-LIVE BLOCKER: Race condition could cause billing state inconsistency",
+      "processed_at": "2025-12-06T11:14:07.683Z",
+      "batch": "cleanup-batch-002-go-live-blockers"
+    },
+    {
+      "id": "F-200",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Deepgram rate limits undefined - high volume will fail",
+      "processed_at": "2025-12-06T11:28:34.436Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-140",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: 500 record limit cuts off agent data - pagination needed",
+      "processed_at": "2025-12-06T11:28:34.438Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-438",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Cache not shared across instances - scaling issues",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-122",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: FB token expiry not handled - silent tracking failure",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-121",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Disposition values half-built - admins see useless field",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-127",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: FB settings save without Pixel ID - silent failure",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-045",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Widget settings 5-min cache delay causes confusion",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-110",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Missing catch-all pool returns null - undefined behavior",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-152",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Multi-tab idle timers cause unexpected away status",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    },
+    {
+      "id": "F-153",
+      "action": "promoted",
+      "reason": "📢 PRE-MARKETING: Mobile browser suspends workers - unreliable idle detection",
+      "processed_at": "2025-12-06T11:28:34.439Z",
+      "batch": "cleanup-batch-003-pre-marketing"
+    }
+  ]
+}

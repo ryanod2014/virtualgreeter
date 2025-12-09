@@ -1,17 +1,31 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, Loader2 } from "lucide-react";
 import { Logo } from "@/lib/components/logo";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const supabase = createClient();
+
+  // Handle error query params
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam === "missing_profile") {
+      setError(
+        "Your account is missing required profile information. Please contact support for assistance."
+      );
+    } else if (errorParam === "auth_callback_error") {
+      setError("Authentication failed. Please try again.");
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,17 +52,30 @@ export default function LoginPage() {
     }
 
     console.log("[Login] Success! Checking user role...");
-    
+
     // Check user's role to determine redirect destination
     const { data: profile } = await supabase
       .from("users")
       .select("role")
       .eq("id", data.user.id)
       .single();
-    
-    const isAdmin = profile?.role === "admin";
+
+    // Handle missing user profile (orphaned auth.users record)
+    if (!profile) {
+      console.error("[Login] Orphaned user detected - auth.users exists but no users table row:", {
+        userId: data.user.id,
+        email: data.user.email,
+      });
+      setError(
+        "Your account is missing required profile information. Please contact support for assistance."
+      );
+      setIsLoading(false);
+      return;
+    }
+
+    const isAdmin = profile.role === "admin";
     const redirectUrl = isAdmin ? "/admin" : "/dashboard";
-    
+
     console.log("[Login] Redirecting to:", redirectUrl, "isAdmin:", isAdmin);
     // Use hard redirect to ensure cookies are properly sent with the request
     window.location.href = redirectUrl;

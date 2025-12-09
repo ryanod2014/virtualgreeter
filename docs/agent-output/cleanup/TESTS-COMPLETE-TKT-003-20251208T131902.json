@@ -1,0 +1,24 @@
+{
+  "ticket_id": "TKT-003",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "apps/dashboard/src/app/(app)/admin/settings/billing/cancel-subscription-modal.test.tsx"
+  ],
+  "test_updates": [
+    "Updated confirmation step tests to reflect TKT-003 30-day data retention messaging",
+    "Changed assertions from 'permanent deletion' to '30-day retention' language",
+    "Added tests for new resubscribe within 30 days message",
+    "Updated test descriptions to reference TKT-003 changes"
+  ],
+  "behaviors_tested": [
+    "Display of Data Retention Notice heading",
+    "30-day retention message display",
+    "Affected data types listing",
+    "Resubscribe within 30 days message",
+    "Modal visibility and navigation",
+    "Form validation and submission",
+    "State management and reset"
+  ],
+  "completed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}

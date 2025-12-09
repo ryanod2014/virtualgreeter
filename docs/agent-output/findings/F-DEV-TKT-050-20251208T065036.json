@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-050-1",
+  "source": "dev-agent-TKT-050",
+  "title": "Pre-existing type errors in server package test files",
+  "category": "bug",
+  "severity": "low",
+  "file": "apps/server/src/features/billing/stripe-webhook-handler.test.ts",
+  "line": 912,
+  "issue": "Multiple pre-existing type errors prevent server package from building, including: (1) Type mismatch in stripe-webhook-handler.test.ts line 912 for mock Response object, (2) Unused variable declarations in multiple test files, (3) Type import issues in health.test.ts. These errors exist in test files and do not affect production code.",
+  "suggestion": "Fix test type errors to allow clean builds: (1) Properly type mock Response objects in webhook handler tests, (2) Remove or use declared but unused variables, (3) Use type-only imports where required by verbatimModuleSyntax",
+  "status": "pending",
+  "found_at": "2025-12-08T06:50:36.650Z"
+}

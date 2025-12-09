@@ -38,6 +38,8 @@ vi.mock("lucide-react", () => ({
   Moon: () => <div data-testid="moon-icon" />,
   Droplets: () => <div data-testid="droplets-icon" />,
   AlertTriangle: () => <div data-testid="alert-triangle-icon" />,
+  CheckCircle2: () => <div data-testid="check-circle-icon" />,
+  AlertCircle: () => <div data-testid="alert-circle-icon" />,
 }));
 
 // Mock Supabase client
@@ -766,3 +768,4 @@ describe("PoolsClient", () => {
     });
   });
 });
+

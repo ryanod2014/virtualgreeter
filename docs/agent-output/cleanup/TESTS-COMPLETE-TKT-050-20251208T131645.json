@@ -1,0 +1,20 @@
+{
+  "ticket_id": "TKT-050",
+  "type": "tests",
+  "status": "complete",
+  "tests_added": [
+    "apps/server/src/features/billing/stripe-webhook-handler.test.ts:341-379 (updated existing test)",
+    "apps/server/src/features/billing/stripe-webhook-handler.test.ts:381-435 (new ops alert test)",
+    "apps/server/src/features/billing/stripe-webhook-handler.test.ts:437-468 (new negative test)"
+  ],
+  "behaviors_tested": [
+    "mapStripeStatusToDbStatus defaults unknown status to 'cancelled' (fail-safe) instead of 'active'",
+    "handleSubscriptionUpdated triggers ops alert (console.error) when unknown status encountered",
+    "handleSubscriptionUpdated does NOT trigger ops alert for known 'canceled' status"
+  ],
+  "test_results": "32 tests passing (includes 3 new/updated tests for TKT-050)",
+  "notes": "TKT-050 changed the fail-safe behavior from defaulting to 'active' to 'cancelled' for unknown Stripe statuses, and added comprehensive ops alerting. Test file already existed with comprehensive coverage - added 2 new tests and updated 1 existing test to match the new behavior.",
+  "commit_hash": "1e41da2",
+  "commit_message": "test(cleanup): Add TKT-002 test coverage for subscription cancellation (also includes TKT-050 tests)",
+  "completed_at": "2025-12-08T13:21:00Z"
+}
