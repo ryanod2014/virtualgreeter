@@ -3051,6 +3051,127 @@ function handleAPI(req, res, body) {
   }
 
   // ---------------------------------------------------------------------------
+  // REVIEW TOKENS (Magic Links for PM Review)
+  // ---------------------------------------------------------------------------
+  
+  const REVIEW_TOKENS_DIR = path.join(__dirname, '../agent-output/review-tokens');
+  
+  // POST /api/v2/review-tokens - Create a magic login token for PM review
+  if (req.method === 'POST' && url === '/api/v2/review-tokens') {
+    try {
+      const data = JSON.parse(body);
+      const { ticket_id, user_email, user_password, redirect_path, preview_base_url } = data;
+      
+      if (!ticket_id || !user_email || !user_password) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Missing required fields: ticket_id, user_email, user_password' }));
+        return true;
+      }
+      
+      // Generate a random token
+      const crypto = require('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Store token data
+      const tokenData = {
+        token,
+        ticket_id,
+        user_email,
+        user_password,
+        redirect_path: redirect_path || '/dashboard',
+        preview_base_url: preview_base_url || 'http://localhost:3000',
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+        used_count: 0
+      };
+      
+      // Ensure directory exists
+      if (!fs.existsSync(REVIEW_TOKENS_DIR)) {
+        fs.mkdirSync(REVIEW_TOKENS_DIR, { recursive: true });
+      }
+      
+      // Save token file
+      const filename = `${ticket_id}-${token.substring(0, 8)}.json`;
+      fs.writeFileSync(path.join(REVIEW_TOKENS_DIR, filename), JSON.stringify(tokenData, null, 2));
+      
+      const magicUrl = `${tokenData.preview_base_url}/api/review-login?token=${token}`;
+      
+      console.log(`🔗 Created magic link for ${ticket_id}: ${magicUrl}`);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        token,
+        magic_url: magicUrl,
+        expires_at: tokenData.expires_at
+      }));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // GET /api/v2/review-tokens/:token - Look up token details for login
+  if (req.method === 'GET' && url.match(/\/api\/v2\/review-tokens\/[a-f0-9]{64}$/)) {
+    try {
+      const token = url.split('/').pop();
+      
+      // Find token file
+      if (!fs.existsSync(REVIEW_TOKENS_DIR)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Token not found' }));
+        return true;
+      }
+      
+      const files = fs.readdirSync(REVIEW_TOKENS_DIR);
+      let tokenData = null;
+      let tokenFile = null;
+      
+      for (const file of files) {
+        const filePath = path.join(REVIEW_TOKENS_DIR, file);
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (data.token === token) {
+          tokenData = data;
+          tokenFile = filePath;
+          break;
+        }
+      }
+      
+      if (!tokenData) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Token not found' }));
+        return true;
+      }
+      
+      // Check if expired
+      if (new Date(tokenData.expires_at) < new Date()) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Token expired' }));
+        return true;
+      }
+      
+      // Update usage count
+      tokenData.used_count = (tokenData.used_count || 0) + 1;
+      tokenData.last_used_at = new Date().toISOString();
+      fs.writeFileSync(tokenFile, JSON.stringify(tokenData, null, 2));
+      
+      // Return credentials (without the token itself)
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ticket_id: tokenData.ticket_id,
+        user_email: tokenData.user_email,
+        user_password: tokenData.user_password,
+        redirect_path: tokenData.redirect_path
+      }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
   // INBOX v2 (Human Review Queue for UI Changes)
   // ---------------------------------------------------------------------------
 
