@@ -1984,7 +1984,67 @@ Run user code in our own containers, inject scripts when serving.
 
 ---
 
-#### Option E: Multiple Local Ports (Current approach)
+#### Option E: Fly.io Ephemeral Machines (Strong Contender for Product)
+
+Spin up one Fly Machine per branch. Each ticket gets its own isolated container with its own URL.
+
+```
+TKT-005 branch → Fly Machine A → https://tkt-005-abc123.fly.dev
+TKT-006 branch → Fly Machine B → https://tkt-006-def456.fly.dev
+TKT-007 branch → Fly Machine C → https://tkt-007-ghi789.fly.dev
+```
+
+| Pros | Cons |
+|------|------|
+| ✅ True branch isolation (each branch = own container) | ❌ ~300ms-2s cold start |
+| ✅ PM can preview ANY branch from inbox simultaneously | ❌ Need to manage machine lifecycle |
+| ✅ No Vercel lock-in | ❌ More infrastructure to build than Vercel |
+| ✅ Pay only for active previews (machines sleep) | ❌ Requires Fly.io account/billing |
+| ✅ Full control over environment | |
+| ✅ Works with any framework (not just Vercel-compatible) | |
+| ✅ Can inject preview SDK at container level | |
+
+**How it works:**
+
+1. **QA agent finishes testing** → triggers preview deployment
+2. **Fly Machine spins up** with ticket's branch checked out
+3. **Dev server starts** inside container
+4. **Fly assigns URL** automatically (`https://tkt-xxx.fly.dev` or custom subdomain)
+5. **Magic link uses Fly URL** → PM can access from anywhere
+6. **Machine sleeps after inactivity** → wakes on next request (~300ms)
+7. **Machine destroyed** after ticket merged/closed
+
+**Cost Model:**
+- Fly Machines: ~$0.0000022/sec when running (~$5.70/mo if running 24/7)
+- But machines **sleep when idle** → actual cost much lower
+- 50 preview machines running 10 min/day each = ~$0.50/month
+
+**Implementation:**
+
+```bash
+# Deploy a preview for a ticket
+fly machines run . \
+  --name "preview-tkt-005" \
+  --env BRANCH=agent/tkt-005 \
+  --env PORT=3000 \
+  --region ord \
+  --auto-stop \
+  --restart on-fail
+```
+
+**Why this might be better than Vercel for product:**
+- Vercel charges per-seat, Fly charges per-usage
+- More control over the runtime environment
+- Can run ANY stack (not just Vercel-supported frameworks)
+- Customer apps might not be on Vercel
+
+**Combine with Option C (Injected Script):**
+- Container serves app with preview SDK auto-injected
+- Enables click-to-comment without customer adding code
+
+---
+
+#### Option F: Multiple Local Ports (Current approach)
 
 Each QA agent runs on a unique port (3101, 3102, etc.).
 
@@ -2000,18 +2060,28 @@ Each QA agent runs on a unique port (3101, 3102, etc.).
 
 | Phase | Approach | Why |
 |-------|----------|-----|
-| **Now (MVP)** | Vercel Previews + local ports | Simple, unblocks workflow |
-| **V2** | Vercel + Injected Script (Option C) | Embedded iframe + basic click-to-comment |
-| **V3** | WebContainers (Option B) | Instant previews, full click-to-comment, best UX |
+| **Now (internal)** | Local ports + ngrok/Cloudflare Tunnel (Option F) | Quick fix, unblocks workflow, PM can access remotely |
+| **Product MVP** | Fly.io Machines (Option E) | True branch isolation, pay-per-use, works with any stack |
+| **Product V2** | Fly.io + Injected Script (Option C) | Embedded iframe + click-to-comment |
+| **Product V3** | WebContainers (Option B) | Instant previews, best UX, lowest cost |
+
+**Why Fly.io over Vercel for Product:**
+- Customers may not use Vercel (we need to support any stack)
+- Pay-per-usage vs pay-per-seat pricing
+- Full control over runtime environment
+- Can auto-inject preview SDK at container level
+- One container per branch = true isolation for parallel previews
 
 **Decision Needed:**
-- [ ] Confirm Vercel preview approach for MVP
+- [ ] Confirm local + tunnel approach for internal workflow
+- [ ] Prototype Fly.io machine deployment for one ticket
 - [ ] Audit Next.js app for WebContainer compatibility
 - [ ] Design click-to-comment SDK interface
 
 **Files to Create/Modify:**
 - `packages/preview-sdk/` - New package for click-to-comment script
-- `scripts/launch-qa-agents.sh` - Use Vercel preview URLs instead of localhost
+- `scripts/deploy-preview.sh` - Script to spin up Fly Machine for a branch
+- `scripts/launch-qa-agents.sh` - Integrate tunnel for internal, Fly for product
 - `docs/workflow/UI_TICKET_QA_WORKFLOW.md` - Update preview instructions
 
 ---
