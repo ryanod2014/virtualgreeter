@@ -137,10 +137,23 @@ check_prerequisites() {
         exit 1
     fi
     
-    # Check Playwright MCP is configured
+    # Check Playwright MCP is configured and browsers are installed
     if ! claude mcp list 2>/dev/null | grep -q "playwright"; then
         print_warning "Playwright MCP not configured. Browser testing may not work."
         print_warning "Add with: claude mcp add --scope user playwright -- npx @playwright/mcp@latest"
+    else
+        # Verify Playwright browsers are installed
+        if [ ! -d "$HOME/.cache/ms-playwright/chromium-"* ] 2>/dev/null; then
+            print_warning "Playwright browsers not installed. Installing..."
+            PLAYWRIGHT_BROWSERS_PATH="$HOME/.cache/ms-playwright" npx playwright install chromium 2>/dev/null
+            if [ $? -eq 0 ]; then
+                print_success "Playwright browsers installed"
+            else
+                print_error "Failed to install Playwright browsers"
+            fi
+        else
+            print_success "Playwright MCP configured with browsers"
+        fi
     fi
 }
 
@@ -883,6 +896,21 @@ REMEMBER: If you didn't EXECUTE it, you didn't TEST it.
 #!/bin/bash
 cd '$WORKTREE_DIR'
 export AGENT_SESSION_ID='$DB_SESSION_ID'
+
+# Ensure Playwright environment is available
+export PLAYWRIGHT_BROWSERS_PATH="\$HOME/.cache/ms-playwright"
+
+# Verify Playwright MCP connection before starting
+echo '=== Pre-flight: Checking Playwright MCP ==='
+if claude mcp list 2>/dev/null | grep -q "playwright.*Connected"; then
+    echo '✓ Playwright MCP connected'
+else
+    echo '⚠ Playwright MCP not connected, attempting restart...'
+    # Give MCP a moment to initialize
+    sleep 3
+fi
+
+echo ''
 echo '=== QA Agent: $TICKET_ID ==='
 echo 'Started: $(date)'
 echo ''

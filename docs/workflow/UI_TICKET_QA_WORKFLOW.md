@@ -119,6 +119,47 @@ curl -s http://localhost:3000 | head -1
 2. Verify `.env.local` exists and has `NEXT_PUBLIC_SUPABASE_URL`
 3. Try: `cd apps/dashboard && pnpm install && pnpm dev`
 
+### Step 2.0b: Verify Playwright MCP (CRITICAL for browser testing!)
+
+Before attempting any browser operations, verify Playwright MCP is working:
+
+```bash
+# Check MCP status
+claude mcp list | grep playwright
+# Should show: playwright: ... - ✓ Connected
+```
+
+**If Playwright returns "Not connected" errors:**
+
+1. **Wait and retry** - MCP may take a few seconds to connect:
+   ```bash
+   sleep 5
+   # Then retry your browser command
+   ```
+
+2. **Check browsers are installed:**
+   ```bash
+   ls ~/.cache/ms-playwright/
+   # Should show chromium-XXXX directories
+   
+   # If empty, install browsers:
+   npx playwright install chromium
+   ```
+
+3. **Restart MCP:**
+   ```bash
+   # List current MCPs
+   claude mcp list
+   
+   # If playwright shows disconnected, the agent should retry
+   # The MCP will auto-reconnect on next browser command
+   ```
+
+4. **Last resort - skip browser testing:**
+   - Document that Playwright MCP is not working
+   - Create blocker file with `blocker_type: "infrastructure"`
+   - Include magic links so PM can test manually
+
 ### The Testing Loop (Repeat for EACH Role/State)
 
 ```

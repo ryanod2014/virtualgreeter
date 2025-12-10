@@ -1,0 +1,43 @@
+{
+  "ticket_id": "TKT-005b",
+  "ticket_title": "Create Payment Failure Blocking Modal",
+  "branch": "agent/tkt-005b",
+  "blocked_at": "2025-12-09T16:46:00Z",
+  "blocker_type": "infrastructure_blocked_qa",
+  "summary": "Browser testing impossible - Dashboard (Next.js) fails to start on port 3000. Code inspection shows correct implementation, but UI tickets require MANDATORY browser testing with visual evidence.",
+  "failures": [
+    {
+      "category": "infrastructure",
+      "criterion": "Browser testing requirement for UI tickets",
+      "expected": "Dashboard dev server starts on port 3000, allowing Playwright browser testing",
+      "actual": "Dashboard does not start. Only Widget (5173) and Server (3001) running. No Next.js process found.",
+      "evidence": "lsof -i TCP:3000 -sTCP:LISTEN shows no process listening. Waited 60+ seconds after pnpm dev."
+    },
+    {
+      "category": "build",
+      "criterion": "Pre-existing infrastructure failures",
+      "expected": "Clean typecheck and build on main branch",
+      "actual": "Main branch has typecheck errors in @ghost-greeter/domain and build errors in @ghost-greeter/server",
+      "evidence": "Same errors present on main branch commit be3d0be - NOT caused by TKT-005b"
+    }
+  ],
+  "code_inspection_findings": {
+    "ac1_full_screen_modal": "APPEARS CORRECT - uses fixed inset-0 z-50, conditional on past_due status",
+    "ac2_admin_button": "APPEARS CORRECT - Update Payment Method button with href=/admin/settings/billing, conditional on isAdmin",
+    "ac3_agent_message": "APPEARS CORRECT - read-only message for agents, no button shown",
+    "ac4_non_dismissible": "APPEARS CORRECT - no close button, no onClick handlers, backdrop is visual only",
+    "files_modified": [
+      "apps/dashboard/src/components/PaymentBlocker.tsx",
+      "apps/dashboard/src/app/(app)/admin/admin-layout-client.tsx"
+    ],
+    "out_of_scope_changes": "NONE",
+    "code_quality": "GOOD - clean structure, proper types, follows existing patterns"
+  },
+  "recommendation": "Manual PM verification required. Code appears correct but cannot be verified without browser testing. PM should test locally if their environment allows dashboard to start.",
+  "alternative_paths": [
+    "Manual PM testing on local environment",
+    "Fix infrastructure issues (create investigation ticket)",
+    "Provide working Vercel preview URL for testing"
+  ],
+  "dispatch_action": "manual_pm_verification"
+}
