@@ -108,6 +108,45 @@ get_port_for_ticket() {
     echo $PORT
 }
 
+# Start a Cloudflare tunnel and return the public URL
+# This enables PM to access magic links from anywhere (not just localhost)
+start_cloudflare_tunnel() {
+    local PORT="$1"
+    local TICKET_ID="$2"
+    local TUNNEL_LOG="/tmp/cloudflare-tunnel-$TICKET_ID.log"
+    
+    # Check if cloudflared is available
+    if ! command -v cloudflared &> /dev/null; then
+        echo ""  # Return empty - will fall back to localhost
+        return 1
+    fi
+    
+    # Start tunnel in background
+    cloudflared tunnel --url "http://localhost:$PORT" > "$TUNNEL_LOG" 2>&1 &
+    local TUNNEL_PID=$!
+    
+    # Wait for tunnel URL to appear (max 15 seconds)
+    local TRIES=0
+    local MAX_TRIES=15
+    local TUNNEL_URL=""
+    
+    while [ $TRIES -lt $MAX_TRIES ]; do
+        # Look for the trycloudflare.com URL in the log
+        TUNNEL_URL=$(grep -o 'https://[a-zA-Z0-9-]*\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | head -1)
+        if [ -n "$TUNNEL_URL" ]; then
+            echo "$TUNNEL_URL"
+            return 0
+        fi
+        sleep 1
+        TRIES=$((TRIES + 1))
+    done
+    
+    # Failed to get URL
+    kill $TUNNEL_PID 2>/dev/null || true
+    echo ""
+    return 1
+}
+
 # Pre-flight check: verify dashboard can start in worktree
 preflight_dashboard_check() {
     local WORKTREE_DIR="$1"
@@ -163,6 +202,15 @@ check_prerequisites() {
     if ! command -v claude &> /dev/null; then
         print_error "Claude Code CLI not found."
         exit 1
+    fi
+    
+    # Check cloudflared for tunnel support (enables remote magic link access)
+    if ! command -v cloudflared &> /dev/null; then
+        print_warning "cloudflared not found. Magic links will only work locally."
+        print_warning "Install with: brew install cloudflared"
+        print_warning "This enables PM to access previews from anywhere."
+    else
+        print_success "cloudflared available for tunnel support"
     fi
     
     # Check Playwright MCP is configured and browsers are installed
@@ -671,6 +719,10 @@ SESSION INFO:
   This port is unique to your ticket - use it for all testing!
   Other QA agents may be running on different ports simultaneously.
   
+  🌐 TUNNEL URL: $TUNNEL_URL
+  Use this URL for magic links! PM can access from anywhere.
+  (If tunnel unavailable, falls back to localhost:$AGENT_PORT)
+  
 Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/heartbeat
 
 ═══════════════════════════════════════════════════════════════
@@ -765,12 +817,16 @@ PART B: UI TESTING (Do this AFTER API testing passes!)
 ──────────────────────────────────────────────────────
 For EACH role in your test plan:
   1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
-  2. Login via Playwright (creates org!)
+  2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
   3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
   4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
   5. Test feature WITH the API you just verified, take screenshots
-  6. Generate magic link: curl -X POST http://localhost:3456/api/v2/review-tokens
+  6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
+       -H \"Content-Type: application/json\" \\
+       -d '\"'\"'{\"ticket_id\":\"$TICKET_ID\",\"user_email\":\"...\",\"preview_base_url\":\"$TUNNEL_URL\"}'\"'\"'
   7. REPEAT for next role
+  
+  🌐 Magic links use TUNNEL URL - PM can access from anywhere!
 '; elif [ \"$TICKET_TYPE\" = \"ui\" ]; then echo '
 UI TICKETS - For EACH role:
   1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
@@ -778,11 +834,12 @@ UI TICKETS - For EACH role:
   3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
   4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
   5. Test feature at http://localhost:$AGENT_PORT, take screenshot
-  6. Generate magic link: curl -X POST http://localhost:3456/api/v2/review-tokens \\
-       -d '{"ticket_id":"...","user_email":"...","preview_base_url":"http://localhost:$AGENT_PORT"}'
+  6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
+       -H \"Content-Type: application/json\" \\
+       -d '\"'\"'{\"ticket_id\":\"$TICKET_ID\",\"user_email\":\"...\",\"preview_base_url\":\"$TUNNEL_URL\"}'\"'\"'
   7. REPEAT for next role
   
-  NOTE: Magic links will use YOUR port ($AGENT_PORT). PM will need dashboard running on that port.
+  🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
 '; else echo '
 API/BACKEND TICKETS - For EACH endpoint:
   1. curl -X POST/GET the endpoint
@@ -858,18 +915,21 @@ If PASS:
     \"created_at\": \"[ISO timestamp]\",
     \"message\": \"QA verified ALL roles. PM please confirm each.\",
     \"branch\": \"$BRANCH\",
+    \"tunnel_url\": \"$TUNNEL_URL\",
     \"qa_report\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-[timestamp].md\",
     \"screenshots\": [
       {\"name\": \"Admin View\", \"path\": \"...\"},
       {\"name\": \"Agent View\", \"path\": \"...\"}
     ],
     \"magic_links\": [
-      {\"role\": \"admin\", \"url\": \"http://...\", \"what_pm_sees\": \"...\"},
-      {\"role\": \"agent\", \"url\": \"http://...\", \"what_pm_sees\": \"...\"}
+      {\"role\": \"admin\", \"url\": \"$TUNNEL_URL/login?token=...\", \"what_pm_sees\": \"...\"},
+      {\"role\": \"agent\", \"url\": \"$TUNNEL_URL/login?token=...\", \"what_pm_sees\": \"...\"}
     ],
     \"test_setup\": \"[how test accounts are configured]\",
     \"acceptance_criteria\": [\"list from ticket\"]
   }
+  
+  🌐 Magic links use TUNNEL_URL ($TUNNEL_URL) - PM can click from anywhere!
   
   Update ticket:
   curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -d '{\"status\": \"qa_approved\"}'
@@ -938,6 +998,18 @@ REMEMBER: If you didn't EXECUTE it, you didn't TEST it.
     local PROMPT_TEMP_FILE="$MAIN_REPO_DIR/.agent-logs/qa-$TICKET_ID-prompt.txt"
     echo "$CLAUDE_PROMPT" > "$PROMPT_TEMP_FILE"
     
+    # Start Cloudflare tunnel for remote access to magic links
+    echo "Starting Cloudflare tunnel for remote preview access..."
+    local TUNNEL_URL=$(start_cloudflare_tunnel "$AGENT_PORT" "$TICKET_ID")
+    
+    if [ -n "$TUNNEL_URL" ]; then
+        print_success "Tunnel started: $TUNNEL_URL"
+        echo -e "  ${CYAN}PM can access magic links from anywhere!${NC}"
+    else
+        print_warning "Tunnel not available - magic links will use localhost:$AGENT_PORT"
+        TUNNEL_URL="http://localhost:$AGENT_PORT"
+    fi
+    
     # Create a wrapper script for reliable execution
     local WRAPPER_SCRIPT="/tmp/qa-$TICKET_ID-wrapper.sh"
     cat > "$WRAPPER_SCRIPT" << WRAPPER_EOF
@@ -945,6 +1017,7 @@ REMEMBER: If you didn't EXECUTE it, you didn't TEST it.
 cd '$WORKTREE_DIR'
 export AGENT_SESSION_ID='$DB_SESSION_ID'
 export AGENT_PORT='$AGENT_PORT'
+export TUNNEL_URL='$TUNNEL_URL'
 
 # Ensure Playwright environment is available
 export PLAYWRIGHT_BROWSERS_PATH="\$HOME/.cache/ms-playwright"
@@ -961,11 +1034,17 @@ fi
 
 echo ''
 echo '=== QA Agent: $TICKET_ID ==='
-echo 'Started: $(date)'
+echo 'Started: \$(date)'
+echo 'Port: $AGENT_PORT'
+echo 'Tunnel: $TUNNEL_URL'
 echo ''
 claude --dangerously-skip-permissions -p "\$(cat '$PROMPT_TEMP_FILE')" 2>&1 | tee '$LOG_FILE'
 echo ''
-echo '=== Completed: $(date) ==='
+echo '=== Completed: \$(date) ==='
+
+# Cleanup tunnel on exit
+pkill -f "cloudflared.*localhost:$AGENT_PORT" 2>/dev/null || true
+
 sleep 3600
 WRAPPER_EOF
     chmod +x "$WRAPPER_SCRIPT"

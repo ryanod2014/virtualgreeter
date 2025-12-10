@@ -275,9 +275,35 @@ mkdir -p docs/agent-output/qa-results/screenshots/[TICKET-ID]
 
 ### Step 2.7: Generate Magic Link (for THIS role)
 
-**⚠️ Include YOUR port in preview_base_url so the magic link uses the right server!**
+**🌐 Use TUNNEL_URL for magic links so PM can access from anywhere!**
+
+The tunnel URL is provided in your session info (e.g., `https://random-words.trycloudflare.com`).
+This allows the PM to click magic links without needing to run a local server.
 
 ```bash
+# Check your tunnel URL (set by the launch script)
+echo "Tunnel URL: $TUNNEL_URL"
+
+# Generate magic link with the tunnel URL
+MAGIC_RESPONSE=$(curl -s -X POST http://localhost:3456/api/v2/review-tokens \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"ticket_id\": \"[TICKET-ID]\",
+    \"user_email\": \"qa-[role]-[TICKET-ID]@greetnow.test\",
+    \"user_password\": \"QATest-[TICKET-ID]!\",
+    \"redirect_path\": \"/dashboard\",
+    \"preview_base_url\": \"$TUNNEL_URL\"
+  }")
+
+echo "Magic URL for [ROLE]: $(echo $MAGIC_RESPONSE | jq -r '.magic_url')"
+
+# The magic link will look like: https://random-words.trycloudflare.com/api/review-login?token=...
+# PM can click this from ANYWHERE - no local setup needed!
+```
+
+**If TUNNEL_URL is not set (fallback):**
+```bash
+# Use localhost with your assigned port
 MAGIC_RESPONSE=$(curl -s -X POST http://localhost:3456/api/v2/review-tokens \
   -H "Content-Type: application/json" \
   -d "{
@@ -288,9 +314,6 @@ MAGIC_RESPONSE=$(curl -s -X POST http://localhost:3456/api/v2/review-tokens \
     \"preview_base_url\": \"http://localhost:$AGENT_PORT\"
   }")
 
-echo "Magic URL for [ROLE]: $(echo $MAGIC_RESPONSE | jq -r '.magic_url')"
-
-# SAVE THIS! You need it for the inbox item.
 # Note: PM will need to start dashboard on port $AGENT_PORT to use this link
 ```
 
@@ -332,10 +355,11 @@ After each role is complete, update your tracking:
 
 | Role | Magic Link | What PM Will See |
 |------|-----------|------------------|
-| Admin | http://localhost:$AGENT_PORT/api/review-login?token=abc... | Modal with "Update Payment Method" button |
-| Agent | http://localhost:$AGENT_PORT/api/review-login?token=xyz... | Modal with "Contact your admin" message |
+| Admin | $TUNNEL_URL/api/review-login?token=abc... | Modal with "Update Payment Method" button |
+| Agent | $TUNNEL_URL/api/review-login?token=xyz... | Modal with "Contact your admin" message |
 
-**Note:** PM needs to start dashboard on the port shown in the magic link URL (e.g., `PORT=3105 pnpm dev`).
+**🌐 Tunnel URL:** PM can click these links from anywhere - no local setup required!  
+(If tunnel unavailable, links use `localhost:$AGENT_PORT` and PM needs to run dashboard on that port.)
 
 ## Screenshots
 [List all screenshots with descriptions]
@@ -360,15 +384,16 @@ After each role is complete, update your tracking:
   "magic_links": [
     {
       "role": "admin",
-      "url": "http://localhost:$AGENT_PORT/api/review-login?token=abc...",
+      "url": "$TUNNEL_URL/api/review-login?token=abc...",
       "what_pm_sees": "Modal with Update Payment Method button"
     },
     {
       "role": "agent",
-      "url": "http://localhost:$AGENT_PORT/api/review-login?token=xyz...",
+      "url": "$TUNNEL_URL/api/review-login?token=xyz...",
       "what_pm_sees": "Modal with Contact Admin message"
     }
   ],
+  "tunnel_url": "$TUNNEL_URL",
   "preview_port": "$AGENT_PORT",
   "test_setup": "Both users' orgs set to past_due.",
   "acceptance_criteria": ["AC1", "AC2", "AC3", "AC4"]
@@ -512,16 +537,18 @@ curl -X POST http://localhost:3456/api/v2/qa/create-test-user -d '{"email":"qa-a
 
 ### Phase 3: Deliverables
 
-Inbox JSON with BOTH magic links (use YOUR port in the URLs):
+Inbox JSON with BOTH magic links (use TUNNEL_URL for remote access):
 ```json
 {
   "magic_links": [
-    {"role": "admin", "url": "http://localhost:$AGENT_PORT/api/review-login?token=abc", "what_pm_sees": "Update Payment button"},
-    {"role": "agent", "url": "http://localhost:$AGENT_PORT/api/review-login?token=xyz", "what_pm_sees": "Contact Admin message"}
+    {"role": "admin", "url": "$TUNNEL_URL/api/review-login?token=abc", "what_pm_sees": "Update Payment button"},
+    {"role": "agent", "url": "$TUNNEL_URL/api/review-login?token=xyz", "what_pm_sees": "Contact Admin message"}
   ],
+  "tunnel_url": "$TUNNEL_URL",
   "preview_port": "$AGENT_PORT"
 }
 ```
+🌐 PM can click these links from anywhere - tunnel provides public access to your local server!
 
 ### Phase 4: Self-Audit
 

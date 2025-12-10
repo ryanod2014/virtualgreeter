@@ -2137,6 +2137,73 @@ Integrate Sentry MCP so autonomous agents can access error tracking data when de
 
 ---
 
+### WORKFLOW-004: Nanobanana Image Tool for Site Generation
+
+**Priority:** P2 - Medium  
+**Type:** Feature  
+**Estimated Effort:** 2-4 hours
+
+**Goal:**  
+Integrate Nanobanana API so agents can automatically add high-quality images to sites, landing pages, and funnels during development.
+
+**Benefits:**
+- Dev agents can add relevant images without manual asset hunting
+- Faster site/funnel generation with visual content
+- Consistent image quality across generated pages
+- Reduces back-and-forth for "add an image here" requests
+
+**Implementation:**
+
+1. **Create Nanobanana tool/MCP:**
+   - API wrapper for Nanobanana image generation
+   - Support for image search, generation, or both
+
+2. **Configure credentials:**
+   - Add `NANOBANANA_API_KEY` to environment
+
+3. **Update agent workflows:**
+   - Dev agents can call tool when building pages
+   - Specify image context (e.g., "hero image for SaaS landing page")
+   - Tool returns image URL or downloads to assets folder
+
+**Expected Tool Interface:**
+
+```typescript
+// Tool: nanobanana_get_image
+{
+  prompt: "professional hero image for video call SaaS product",
+  style?: "photo" | "illustration" | "3d",
+  size?: "1200x630" | "800x600" | "square",
+  output?: "url" | "download"
+}
+
+// Returns
+{
+  url: "https://nanobanana.com/images/abc123.jpg",
+  local_path?: "/public/images/hero.jpg"  // if downloaded
+}
+```
+
+**Use Cases:**
+- Hero images for landing pages
+- Feature section illustrations
+- Blog post headers
+- Testimonial backgrounds
+- Product screenshots/mockups
+
+**Files to Create/Modify:**
+- `.mcp.json` - Add Nanobanana MCP/tool configuration
+- `packages/tools/nanobanana.ts` - API wrapper (if custom tool)
+- `docs/workflow/DEV_AGENT_SOP.md` - Document image tool usage
+
+**Acceptance Criteria:**
+- [ ] Nanobanana tool accessible to dev agents
+- [ ] Agents can request images by description
+- [ ] Images automatically added to appropriate location
+- [ ] Works for both URL references and downloaded assets
+
+---
+
 ### WORKFLOW-001: Sync Feature Branches with Main Before QA/Preview
 
 **Priority:** P1 - High  
@@ -2185,6 +2252,218 @@ git merge origin/main --no-edit || {
 - [ ] Merge conflicts create a blocker for human resolution
 - [ ] PM previews show all recent changes from main
 - [ ] QA agent is aware of the sync and tests the merged state
+
+---
+
+## Product Features - Future Roadmap
+
+> These are product features for when this becomes a multi-tenant platform for business owners.
+
+---
+
+### PRODUCT-001: Universal Design System & Theme Editor
+
+**Priority:** P1 - High  
+**Type:** Feature  
+**Estimated Effort:** 2-3 weeks
+
+**Goal:**  
+Make it easy for users to change the design of their entire app with a single set of controls. Margin, padding, colors, fonts, border radius — everything should be configurable from one place.
+
+**Benefits:**
+- Users can match their brand without touching code
+- Reduces engineering work for each customer
+- Enables "design in minutes, not days" marketing
+
+**Implementation Options:**
+
+#### Option A: CSS Variable Theme System (Recommended for MVP)
+```typescript
+// User-configurable theme object
+const theme = {
+  colors: { primary: '#10b981', background: '#ffffff', text: '#1f2937' },
+  spacing: { base: 4, scale: 1.5 },  // spacing-1 = 4px, spacing-2 = 6px, etc.
+  fonts: { heading: 'Inter', body: 'Inter' },
+  radii: { sm: 4, md: 8, lg: 16 },
+  shadows: { sm: '...', md: '...' }
+}
+```
+
+- Generate CSS variables at runtime from theme config
+- All components use CSS variables (e.g., `var(--color-primary)`)
+- Theme stored in database per organization
+- Live preview in theme editor
+
+**Acceptance Criteria:**
+- [ ] Users can customize colors (primary, secondary, background, text, accent)
+- [ ] Users can customize spacing scale (affects all margins/padding)
+- [ ] Users can customize border radius (affects buttons, cards, inputs)
+- [ ] Users can customize fonts (heading, body)
+- [ ] Live preview shows changes instantly
+- [ ] Saved theme persists and applies to widget + dashboard
+- [ ] Reset to default option
+
+---
+
+### PRODUCT-002: Staging & Production Environments with Rollback
+
+**Priority:** P1 - High  
+**Type:** Feature  
+**Estimated Effort:** 1-2 weeks
+
+**Goal:**  
+Provide users with staging and production environments so they can test changes before going live, plus the ability to rollback if something goes wrong.
+
+**Benefits:**
+- Users can safely test changes before visitors see them
+- Reduces fear of making updates
+- Professional workflow that enterprise clients expect
+
+**Implementation:**
+
+#### Environment Model
+```typescript
+interface Environment {
+  id: string;
+  name: 'staging' | 'production';
+  organization_id: string;
+  config_version_id: string;  // Current deployed version
+  widget_embed_code: string;  // Different embed per env
+}
+
+interface ConfigVersion {
+  id: string;
+  organization_id: string;
+  version_number: number;
+  config_snapshot: JSON;  // Full config at this point in time
+  created_at: Date;
+  deployed_to_staging_at: Date | null;
+  deployed_to_production_at: Date | null;
+}
+```
+
+#### User Flow
+1. **Make changes** → Auto-saves to draft
+2. **Deploy to Staging** → Creates version snapshot, serves to staging embed
+3. **Test in Staging** → Uses staging widget embed code
+4. **Deploy to Production** → Promotes staging version to production
+5. **Rollback** → One-click to revert to any previous version
+
+**Acceptance Criteria:**
+- [ ] Users have staging and production environments
+- [ ] Each environment has its own embed code
+- [ ] Deploy to staging creates a version snapshot
+- [ ] Promote to production copies staging version
+- [ ] Rollback reverts to any previous version
+- [ ] Version history with timestamps visible
+
+---
+
+### PRODUCT-003: Custom Domains via Cloudflare
+
+**Priority:** P2 - Medium  
+**Type:** Feature  
+**Estimated Effort:** 1-2 weeks
+
+**Goal:**  
+Allow users to deploy their funnels/widgets on their own custom domains, with SSL handled automatically via Cloudflare.
+
+**Benefits:**
+- Professional branding (not `yoursite.greetnow.com`)
+- Better SEO and trust signals
+- Required for enterprise clients
+
+**Implementation:**
+
+#### Domain Verification Flow
+1. User enters desired domain: `video.clientsite.com`
+2. We show required DNS records:
+   - `CNAME video.clientsite.com → custom.greetnow.com`
+   - `TXT _greetnow-verify.clientsite.com → verify=abc123`
+3. User adds records to their DNS
+4. We verify records via Cloudflare API
+5. Add domain to Cloudflare for SaaS (automatic SSL)
+6. Domain goes live
+
+**Acceptance Criteria:**
+- [ ] Users can add custom domains from dashboard
+- [ ] Clear instructions for DNS setup
+- [ ] Automatic verification polling
+- [ ] SSL certificate provisioned automatically
+- [ ] Domain works within 5-10 minutes of DNS propagation
+- [ ] Users can remove domains
+
+---
+
+### PRODUCT-004: Pre-Built Backend for Funnels/Websites
+
+**Priority:** P1 - High  
+**Type:** Feature  
+**Estimated Effort:** 3-4 weeks
+
+**Goal:**  
+When users build funnels or websites, provide a pre-built backend with stats, split testing, and integrations (GHL, etc.) so there's minimal engineering work for each use case.
+
+**Benefits:**
+- Users don't need to build analytics infrastructure
+- Split testing out of the box = higher conversions
+- GHL integration = fits into existing agency workflows
+- Less custom code = faster launches
+
+**Components:**
+
+#### 4.1: Stats Dashboard
+```typescript
+interface FunnelStats {
+  pageviews: number;
+  unique_visitors: number;
+  widget_impressions: number;
+  call_requests: number;
+  calls_completed: number;
+  conversion_rate: number;
+  utm_source_breakdown: Record<string, number>;
+}
+```
+
+#### 4.2: Split Testing (A/B Testing)
+```typescript
+interface SplitTest {
+  id: string;
+  name: string;
+  status: 'draft' | 'running' | 'completed';
+  variants: {
+    id: string;
+    name: string;
+    weight: number;  // Traffic percentage
+    config: JSON;    // What's different in this variant
+  }[];
+  goal_metric: 'calls_completed' | 'call_requests' | 'custom_event';
+  winner_variant_id: string | null;
+}
+```
+
+#### 4.3: GHL Integration
+- Sync contacts on call events
+- Create opportunities from completed calls
+- Custom field mapping
+
+**Acceptance Criteria:**
+
+*Stats:*
+- [ ] Real-time stats dashboard with key metrics
+- [ ] Date range filtering
+- [ ] UTM source breakdown
+
+*Split Testing:*
+- [ ] Create A/B tests with multiple variants
+- [ ] Traffic splitting with configurable weights
+- [ ] Statistical significance calculation
+- [ ] Winner declaration and promotion
+
+*GHL Integration:*
+- [ ] OAuth connection flow
+- [ ] Contact sync on call events
+- [ ] Opportunity creation
 
 ---
 
