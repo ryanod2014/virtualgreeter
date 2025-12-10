@@ -3241,15 +3241,26 @@ function handleAPI(req, res, body) {
   // ---------------------------------------------------------------------------
   
   // POST /api/v2/qa/create-test-user - Create a Supabase auth user for testing
+  // Supports optional role and org_id to create users with specific roles in existing orgs
   if (req.method === 'POST' && url === '/api/v2/qa/create-test-user') {
     (async () => {
       try {
         const data = JSON.parse(body);
-        const { email, password, full_name } = data;
+        const { email, password, full_name, role, org_id } = data;
         
         if (!email || !password) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Missing required fields: email, password' }));
+          return;
+        }
+        
+        // Validate role if provided
+        const validRoles = ['owner', 'admin', 'agent'];
+        if (role && !validRoles.includes(role)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: `Invalid role. Must be one of: ${validRoles.join(', ')}` 
+          }));
           return;
         }
         
@@ -3258,6 +3269,23 @@ function handleAPI(req, res, body) {
           res.writeHead(503, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Supabase client not available. Check SUPABASE_SERVICE_ROLE_KEY.' }));
           return;
+        }
+        
+        // If org_id provided, verify it exists
+        if (org_id) {
+          const { data: orgData, error: orgError } = await supabase
+            .from('organizations')
+            .select('id, name')
+            .eq('id', org_id)
+            .single();
+          
+          if (orgError || !orgData) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              error: `Organization not found: ${org_id}. Create an admin user first and log in to create the org.`
+            }));
+            return;
+          }
         }
         
         // Create user in Supabase Auth
@@ -3271,27 +3299,106 @@ function handleAPI(req, res, body) {
         if (authError) {
           // Check if user already exists
           if (authError.message?.includes('already been registered')) {
+            // If org_id provided, try to add existing user to org
+            if (org_id) {
+              // Look up the existing user by email
+              const { data: existingUsers } = await supabase
+                .from('users')
+                .select('id, organization_id')
+                .eq('email', email)
+                .limit(1);
+              
+              if (existingUsers && existingUsers.length > 0) {
+                const existingUser = existingUsers[0];
+                if (existingUser.organization_id === org_id) {
+                  res.writeHead(200, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ 
+                    success: true, 
+                    message: 'User already exists in this org',
+                    email,
+                    organization_id: org_id
+                  }));
+                  return;
+                }
+              }
+            }
+            
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ 
               success: true, 
               message: 'User already exists',
               email,
-              note: 'User must log in once to create organization'
+              note: org_id ? 'User exists but may be in different org' : 'User must log in once to create organization'
             }));
             return;
           }
           throw authError;
         }
         
-        console.log(`✅ Created test user: ${email} (id: ${authData.user.id})`);
+        const userId = authData.user.id;
+        const userRole = role || 'owner';
+        const displayName = full_name || 'QA Test User';
         
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          success: true,
-          user_id: authData.user.id,
-          email,
-          note: 'User must log in once to trigger organization creation'
-        }));
+        console.log(`✅ Created auth user: ${email} (id: ${userId})`);
+        
+        // If org_id provided, add user directly to that org with specified role
+        if (org_id) {
+          // Insert into users table with the specified org
+          const { error: userInsertError } = await supabase
+            .from('users')
+            .insert({
+              id: userId,
+              email: email,
+              full_name: displayName,
+              organization_id: org_id,
+              role: userRole
+            });
+          
+          if (userInsertError) {
+            console.error('Error inserting user:', userInsertError);
+            // Don't fail - auth user created, they can still log in
+          } else {
+            console.log(`✅ Added user to org ${org_id} with role: ${userRole}`);
+          }
+          
+          // If role is 'agent', also create agent_profile
+          if (userRole === 'agent') {
+            const { error: profileError } = await supabase
+              .from('agent_profiles')
+              .insert({
+                user_id: userId,
+                organization_id: org_id,
+                display_name: displayName,
+                is_active: true,
+                status: 'offline'
+              });
+            
+            if (profileError) {
+              console.error('Error creating agent profile:', profileError);
+            } else {
+              console.log(`✅ Created agent_profile for ${email}`);
+            }
+          }
+          
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: true,
+            user_id: userId,
+            email,
+            organization_id: org_id,
+            role: userRole,
+            note: `User added to existing org with role: ${userRole}. Can log in immediately.`
+          }));
+        } else {
+          // No org_id - original behavior (user creates org on first login)
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: true,
+            user_id: userId,
+            email,
+            note: 'User must log in once to trigger organization creation'
+          }));
+        }
       } catch (e) {
         console.error('Error creating test user:', e);
         res.writeHead(400, { 'Content-Type': 'application/json' });

@@ -21,8 +21,24 @@ These phrases in your report = **AUTOMATIC REJECTION**:
 | "The test user is an admin, but agent logic is correct" | You didn't test agent. Create an agent user. |
 | "Verified via code" for any UI element | You must SEE it, not read about it. |
 | "N/A - only one role needed" without justification | You decided, not the AC. Check the AC. |
+| "User already exists" (and continuing with that user) | NEVER reuse existing users. Create NEW ones with timestamps. |
+| "QA tooling cannot create agent users" | YES IT CAN. Use `role: "agent"` and `org_id` with NEW unique emails. |
 
 **If you catch yourself writing any of these → STOP → Go back and actually test it.**
+
+### ⚠️ CRITICAL: Always Create FRESH Test Users
+
+**NEVER reuse existing test users.** Always generate unique emails with timestamps:
+
+```bash
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+EMAIL="qa-admin-[TICKET-ID]-$TIMESTAMP@greetnow.test"
+```
+
+**Why?**
+- Existing users keep their old role/org - `role` and `org_id` params are IGNORED for existing users
+- Previous QA runs may have left users in incorrect states
+- Clean slate = reliable tests
 
 ---
 
@@ -190,28 +206,38 @@ claude mcp list | grep playwright
 
 ### Step 2.1: Create User (for current role)
 
+**⚠️ ALWAYS use UNIQUE emails with timestamps!** Never reuse existing test users.
+
 ```bash
+# Generate unique timestamp for this QA run
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+
 # For ADMIN user:
 curl -X POST http://localhost:3456/api/v2/qa/create-test-user \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "qa-admin-[TICKET-ID]@greetnow.test",
+    "email": "qa-admin-[TICKET-ID]-'$TIMESTAMP'@greetnow.test",
     "password": "QATest-[TICKET-ID]!",
     "full_name": "QA Admin [TICKET-ID]"
   }'
 
 # For AGENT user (create in SAME org as admin):
-# First, get the org_id from the admin user, then invite agent
+# First, get the org_id from the admin user, then create agent WITH role and org_id
 curl -X POST http://localhost:3456/api/v2/qa/create-test-user \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "qa-agent-[TICKET-ID]@greetnow.test",
+    "email": "qa-agent-[TICKET-ID]-'$TIMESTAMP'@greetnow.test",
     "password": "QATest-[TICKET-ID]!",
     "full_name": "QA Agent [TICKET-ID]",
     "role": "agent",
     "org_id": "[ORG_ID from admin]"
   }'
 ```
+
+**Why unique emails?**
+- Reusing existing users inherits their old role/org - the `role` and `org_id` params are IGNORED
+- Each QA run should be a clean slate
+- Timestamps ensure uniqueness across multiple QA attempts
 
 ### Step 2.2: Log In via Playwright (CRITICAL!)
 
@@ -441,6 +467,118 @@ If any number is LESS than #1, I took a shortcut. GO BACK.
 ---
 
 ## 🚨 SPECIAL CASES
+
+### ⛔ BLOCKED: When Tooling Prevents Testing (CRITICAL!)
+
+**If you CANNOT create the required test scenario, you MUST mark it as BLOCKED.**
+
+This is NOT a failure on your part - it's a tooling gap that needs to be fixed.
+
+#### When to Mark as BLOCKED (not PASSED):
+
+| Situation | ❌ WRONG Response | ✅ CORRECT Response |
+|-----------|-------------------|---------------------|
+| Can't create agent user | "PASSED (code verified)" | "BLOCKED - tooling gap" |
+| Can't set required DB state | "PASSED (logic verified)" | "BLOCKED - missing API" |
+| Playwright MCP not working | "PASSED (manual inspection)" | "BLOCKED - infrastructure" |
+| Can't test mobile viewport | "PASSED (CSS looks correct)" | "BLOCKED - tooling gap" |
+
+#### Step-by-Step: How to Create a Blocker
+
+**1. Identify the gap:**
+```markdown
+I need to test AC3 (agent view) but:
+- create-test-user API doesn't support `role` or `org_id` parameters
+- Every user I create becomes an org owner (admin)
+- I cannot create a true "agent" user to test the agent view
+```
+
+**2. Create blocker file:** `docs/agent-output/blocked/QA-[TICKET-ID]-TOOLING-[timestamp].json`
+
+```json
+{
+  "ticket_id": "[TICKET-ID]",
+  "blocker_type": "missing_tooling",
+  "created_at": "[ISO timestamp]",
+  "agent_type": "qa",
+  "summary": "Cannot test AC3 (agent view) - API doesn't support creating agent-role users",
+  "blocked_criteria": ["AC3"],
+  "passed_criteria": ["AC1", "AC2", "AC4"],
+  "tooling_gap": {
+    "current_behavior": "create-test-user only accepts email/password/full_name - all users become org owners",
+    "needed_behavior": "create-test-user should accept role and org_id to create users with specific roles in existing orgs",
+    "endpoint": "/api/v2/qa/create-test-user",
+    "file": "docs/pm-dashboard-ui/server.js"
+  },
+  "suggested_fix": {
+    "title": "Add role/org_id support to create-test-user endpoint",
+    "description": "Extend the QA helper endpoint to accept optional role ('owner'|'admin'|'agent') and org_id parameters. When org_id is provided, add user to existing org with specified role instead of creating new org.",
+    "acceptance_criteria": [
+      "create-test-user accepts optional 'role' parameter",
+      "create-test-user accepts optional 'org_id' parameter", 
+      "When org_id provided, user is added to existing org (not new org)",
+      "When role='agent', user gets agent role and agent_profile is created"
+    ]
+  },
+  "dispatch_action": "create_tooling_ticket",
+  "partial_test_results": {
+    "tested_in_browser": ["AC1", "AC2", "AC4"],
+    "could_not_test": ["AC3"],
+    "screenshots": ["admin-view.png"],
+    "magic_links": [
+      {"role": "admin", "url": "...", "note": "Admin view tested and working"}
+    ]
+  },
+  "requeue_when": "Tooling ticket merged - then re-run QA with new endpoint"
+}
+```
+
+**3. Create partial inbox item (for PM visibility):**
+
+Even if blocked, create an inbox item showing what WAS tested:
+
+```json
+{
+  "ticket_id": "[TICKET-ID]",
+  "type": "ui_review",
+  "status": "blocked",
+  "message": "QA partially complete - blocked on AC3 (agent view) due to tooling gap",
+  "blocked_criteria": ["AC3 - Cannot create agent-role user"],
+  "passed_criteria": ["AC1", "AC2", "AC4"],
+  "blocker_file": "docs/agent-output/blocked/QA-[TICKET-ID]-TOOLING-[timestamp].json",
+  "magic_links": [
+    {"role": "admin", "url": "...", "what_pm_sees": "Admin view (tested)"}
+  ],
+  "pm_note": "Admin functionality verified. Agent view blocked pending tooling fix. Dispatch will create continuation ticket."
+}
+```
+
+**4. DO NOT:**
+- ❌ Mark blocked criteria as "PASSED (code verified)"
+- ❌ Claim you tested something you didn't see in browser
+- ❌ Skip creating the blocker file
+- ❌ Submit as fully passed when partially blocked
+
+#### Blocker Types for QA Agents
+
+| `blocker_type` | When to Use | Dispatch Action |
+|----------------|-------------|-----------------|
+| `missing_tooling` | API/endpoint doesn't exist or lacks features | Auto-create tooling ticket |
+| `infrastructure` | Playwright MCP down, build won't start | Route to inbox (human) |
+| `environment` | Missing env vars, DB not accessible | Route to inbox (human) |
+| `clarification` | AC is ambiguous, need PM input | Route to inbox (human) |
+
+#### What Happens After You Create a Blocker
+
+1. **Dispatch Agent** reads `docs/agent-output/blocked/`
+2. **For `missing_tooling`:** Auto-creates a ticket to fix the tooling
+3. **Dev Agent** implements the tooling fix
+4. **When tooling merged:** Dispatch re-queues original ticket for QA
+5. **You (or another QA agent)** re-run with proper tooling
+
+**This is the self-fixing loop. Your job is to identify gaps accurately, not work around them.**
+
+---
 
 ### If AC Doesn't Mention Multiple Roles
 

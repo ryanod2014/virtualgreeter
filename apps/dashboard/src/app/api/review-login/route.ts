@@ -130,7 +130,22 @@ export async function GET(request: Request) {
     console.log(`[review-login] Successfully logged in as ${user_email}, redirecting to ${redirect_path}`);
 
     // Redirect to the target page
-    const redirectUrl = new URL(redirect_path || "/dashboard", request.url);
+    // Use the original host from headers (for tunnel/proxy support) or fall back to request.url
+    const forwardedHost = request.headers.get("x-forwarded-host");
+    const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
+    const host = request.headers.get("host");
+    
+    let baseUrl: string;
+    if (forwardedHost) {
+      baseUrl = `${forwardedProto}://${forwardedHost}`;
+    } else if (host && !host.includes("localhost")) {
+      baseUrl = `${forwardedProto}://${host}`;
+    } else {
+      baseUrl = request.url;
+    }
+    
+    const redirectUrl = new URL(redirect_path || "/dashboard", baseUrl);
+    console.log(`[review-login] Redirecting to: ${redirectUrl.toString()}`);
     return NextResponse.redirect(redirectUrl);
 
   } catch (error) {

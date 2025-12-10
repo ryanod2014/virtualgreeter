@@ -56,13 +56,16 @@ echo "Dispatch Session started: $AGENT_SESSION_ID"
 | Blocker Type | Action | Human Needed? |
 |--------------|--------|---------------|
 | `QA-*-FAILED-*` | Auto-create continuation ticket | ❌ NO |
+| `QA-*-TOOLING-*` | Auto-create tooling ticket + re-queue | ❌ NO |
 | `CI-TKT-*` | Auto-create continuation ticket | ❌ NO |
 | `REGRESSION-TKT-*` | Auto-create continuation ticket | ❌ NO |
 | `BLOCKED-TKT-*` | Route to inbox | ✅ YES |
 | `ENV-TKT-*` | Route to inbox | ✅ YES |
 | `EXT-TKT-*` | Route to inbox (external setup needed) | ✅ YES |
 
-**Only clarifications, environment issues, and external setup need human decisions.** Everything else (QA failures, CI failures, regression failures) gets auto-processed into continuation tickets for dev agents to pick up.
+**Only clarifications, environment issues, and external setup need human decisions.** Everything else (QA failures, CI failures, regression failures, tooling gaps) gets auto-processed into continuation tickets for dev agents to pick up.
+
+**Self-healing loop:** When QA identifies missing tooling, Dispatch creates a ticket to fix it. When fixed, the original ticket is automatically re-queued for QA.
 
 **⚠️ EXT-TKT-* Blockers (External Setup):** These require human to create accounts, download files, or set up third-party services. Agent CANNOT proceed until human completes setup.
 
@@ -106,6 +109,7 @@ For each blocker file, determine its type from the filename prefix:
 | Prefix | Type | Auto-Handle? | Description |
 |--------|------|--------------|-------------|
 | `QA-*-FAILED-*` | QA Failure | ⚠️ CHECK `blocker_type` | See below |
+| `QA-*-TOOLING-*` | Missing Tooling | ✅ YES | QA needs new endpoint/feature to test |
 | `CI-TKT-*` | CI Failure | ✅ YES | Tests failed on agent branch |
 | `REGRESSION-TKT-*` | Regression Failure | ✅ YES | Dev broke tests outside ticket scope |
 | `BLOCKED-TKT-*` | Clarification | ❌ NO | Agent has a question (needs human) |
@@ -119,10 +123,12 @@ For each blocker file, determine its type from the filename prefix:
 | `blocker_type` in JSON | Action | Human Needed? |
 |------------------------|--------|---------------|
 | `qa_failure` | Auto-create continuation ticket | ❌ NO |
+| `missing_tooling` | Auto-create tooling ticket | ❌ NO |
 | `external_setup_incomplete` | Route to inbox | ✅ YES |
 | `clarification` | Route to inbox | ✅ YES |
 
 Also check for `dispatch_action: "route_to_inbox"` which always means human required.
+Also check for `dispatch_action: "create_tooling_ticket"` which means auto-create a tooling improvement ticket.
 
 ### Step 1.2: Route Each Blocker
 
@@ -289,6 +295,122 @@ const config = levelConfigs[value ?? "default"];
 1. Create the v3+ continuation with explicit code examples
 2. Flag for human review: Add to `docs/agent-output/inbox/TKT-XXX-escalation.json`
 3. Consider if the ticket spec itself is unclear
+
+---
+
+#### Missing Tooling Blockers (QA-*-TOOLING-* or blocker_type: "missing_tooling") - AUTO-HANDLE
+
+**QA agent identified a gap in the testing infrastructure.** This is a self-healing mechanism - the system identifies its own tooling needs.
+
+Read the blocker JSON:
+```json
+{
+  "ticket_id": "TKT-005b",
+  "blocker_type": "missing_tooling",
+  "summary": "Cannot test AC3 (agent view) - API doesn't support creating agent-role users",
+  "blocked_criteria": ["AC3"],
+  "passed_criteria": ["AC1", "AC2", "AC4"],
+  "tooling_gap": {
+    "current_behavior": "create-test-user only accepts email/password",
+    "needed_behavior": "Should accept role and org_id parameters",
+    "endpoint": "/api/v2/qa/create-test-user",
+    "file": "docs/pm-dashboard-ui/server.js"
+  },
+  "suggested_fix": {
+    "title": "Add role/org_id support to create-test-user endpoint",
+    "acceptance_criteria": ["..."]
+  },
+  "dispatch_action": "create_tooling_ticket",
+  "requeue_when": "Tooling ticket merged"
+}
+```
+
+**Action: Auto-create TWO things:**
+
+1. **Tooling Ticket** - For dev agent to implement the missing feature
+2. **Re-queue Entry** - To track when original ticket should be re-tested
+
+**Step 1: Create Tooling Ticket**
+
+Create prompt file: `docs/prompts/active/dev-agent-TOOL-[N].md`
+
+```markdown
+# Dev Agent: TOOL-[N] - [Title from suggested_fix]
+
+> **Type:** Tooling Improvement
+> **Priority:** High (blocking QA)
+> **Source:** QA blocker for [TICKET-ID]
+
+---
+
+## Context
+
+QA agent was testing [TICKET-ID] but could not complete testing because:
+
+**Current Behavior:**
+[From tooling_gap.current_behavior]
+
+**Needed Behavior:**
+[From tooling_gap.needed_behavior]
+
+---
+
+## Your Task
+
+[From suggested_fix.description]
+
+**File to Modify:** [From tooling_gap.file]
+
+**Acceptance Criteria:**
+[From suggested_fix.acceptance_criteria]
+
+---
+
+## Why This Matters
+
+Without this tooling improvement, QA agents cannot:
+- [What they can't test]
+- This blocks proper verification of [blocked_criteria]
+
+---
+
+## After Implementation
+
+1. Test that the new functionality works
+2. Push to main (tooling improvements don't need feature branches)
+3. This will automatically re-queue [TICKET-ID] for QA re-testing
+```
+
+**Step 2: Create Re-queue Entry**
+
+Add to `docs/data/requeue.json`:
+
+```json
+{
+  "blocked_ticket": "[TICKET-ID]",
+  "waiting_for": "TOOL-[N]",
+  "blocked_criteria": ["AC3"],
+  "requeue_to": "qa",
+  "created_at": "[timestamp]",
+  "status": "waiting"
+}
+```
+
+**Step 3: Update Original Ticket Status**
+
+```bash
+./scripts/agent-cli.sh update-ticket [TICKET-ID] --status blocked_tooling
+```
+
+**Step 4: Archive Blocker**
+
+```bash
+mv docs/agent-output/blocked/QA-*-TOOLING-*.json docs/agent-output/archive/
+```
+
+**Step 5: Log**
+
+`"Created TOOL-[N] for QA tooling gap. [TICKET-ID] will re-queue when merged."`
 
 ---
 
@@ -721,6 +843,131 @@ This catches any inconsistencies between files.
 
 ---
 
+## Task 5: PROCESS RE-QUEUE (Self-Healing Loop)
+
+Check if any tooling tickets have been merged, which should trigger re-queue of blocked tickets.
+
+### Step 5.1: Check Re-queue File
+
+```bash
+cat docs/data/requeue.json
+```
+
+Look for entries with `status: "waiting"`:
+
+```json
+{
+  "blocked_ticket": "TKT-005b",
+  "waiting_for": "TOOL-001",
+  "blocked_criteria": ["AC3"],
+  "requeue_to": "qa",
+  "created_at": "2025-12-09T...",
+  "status": "waiting"
+}
+```
+
+### Step 5.2: Check if Tooling Ticket is Merged
+
+For each waiting entry:
+
+```bash
+# Check if the tooling prompt still exists (not archived)
+ls docs/prompts/active/dev-agent-TOOL-*.md
+
+# Check if there's a merged/completed status
+# Tooling tickets go to main directly, so check git log
+git log --oneline -10 main | grep -i "TOOL-001"
+```
+
+**Alternatively, check if the tooling improvement exists:**
+```bash
+# For API endpoints, check if the feature now works
+# Example: Check if create-test-user now supports role/org_id
+grep -A5 "role.*org_id" docs/pm-dashboard-ui/server.js
+```
+
+### Step 5.3: Re-queue Blocked Ticket
+
+If tooling is merged/implemented:
+
+1. **Create QA re-run prompt:**
+
+```markdown
+# QA Agent: Re-test [TICKET-ID]
+
+> **Type:** QA Re-run (tooling now available)
+> **Original Ticket:** [TICKET-ID]
+> **Branch:** agent/[ticket-id]
+
+---
+
+## Context
+
+This ticket was previously blocked on QA due to missing tooling:
+- **Missing:** [tooling_gap from original blocker]
+- **Now Available:** [TOOL-N] has been implemented
+
+**Previously Passed:** [passed_criteria]
+**Needs Testing:** [blocked_criteria]
+
+---
+
+## Your Task
+
+1. Re-read the original ticket acceptance criteria
+2. Use the NEW tooling to create proper test users
+3. Test the previously blocked criteria
+4. Complete the full QA workflow
+
+**New Tooling Available:**
+[Describe the new endpoint/feature]
+
+Example for create-test-user with role:
+\`\`\`bash
+# Create admin first
+curl -X POST http://localhost:3456/api/v2/qa/create-test-user \\
+  -d '{"email": "admin@test", "password": "..."}'
+
+# Log in as admin to create org, then get org_id
+curl http://localhost:3456/api/v2/qa/org-by-email/admin@test
+
+# Create agent in SAME org
+curl -X POST http://localhost:3456/api/v2/qa/create-test-user \\
+  -d '{"email": "agent@test", "password": "...", "org_id": "[ORG_ID]", "role": "agent"}'
+\`\`\`
+```
+
+2. **Update re-queue entry:**
+
+```json
+{
+  "blocked_ticket": "TKT-005b",
+  "waiting_for": "TOOL-001",
+  "status": "requeued",
+  "requeued_at": "[timestamp]"
+}
+```
+
+3. **Update original ticket status:**
+
+```bash
+./scripts/agent-cli.sh update-ticket [TICKET-ID] --status qa_pending
+```
+
+4. **Log:**
+
+`"Re-queued [TICKET-ID] for QA - tooling [TOOL-N] now available"`
+
+### Step 5.4: Create Re-queue File if Missing
+
+If `docs/data/requeue.json` doesn't exist:
+
+```bash
+echo '{"entries": []}' > docs/data/requeue.json
+```
+
+---
+
 ## Output Report
 
 ```markdown
@@ -735,12 +982,23 @@ This catches any inconsistencies between files.
 | QA-TKT-005E-FAILED | Auto-continuation | Created TKT-005E-v2 for QA rework |
 | CI-TKT-006 | Auto-continuation | Created TKT-006-v2 for regression fix |
 
+### Tooling Blockers (Self-Healing Loop)
+| Blocker | Tooling Gap | Ticket Created | Re-queue |
+|---------|-------------|----------------|----------|
+| QA-TKT-005b-TOOLING | create-test-user needs role/org_id | TOOL-001 | TKT-005b waiting |
+
 ### Blockers Routed to Inbox (Human Needed)
 | Blocker | Reason | Status |
 |---------|--------|--------|
 | BLOCKED-TKT-063 | Clarification needed | Awaiting human decision |
 | ENV-TKT-070 | Environment issue | Awaiting human intervention |
 | EXT-TKT-062 | External setup (MaxMind) | Awaiting human to create account |
+
+### Re-queue Status
+| Blocked Ticket | Waiting For | Status |
+|----------------|-------------|--------|
+| TKT-005b | TOOL-001 | waiting |
+| TKT-012 | TOOL-002 | requeued ✅ |
 
 ### Questions Answered
 | Thread | Summary |
@@ -768,36 +1026,38 @@ This catches any inconsistencies between files.
 ## Blocker Routing Decision Tree
 
 ```
-                         ┌─────────────────┐
-                         │  Read Blocker   │
-                         └────────┬────────┘
-                                  │
-         ┌────────────────────────┼────────────────────────┐
-         ▼                        ▼                        ▼
-   ┌───────────┐           ┌───────────┐           ┌───────────┐
-   │ QA-*-FAIL │           │ CI-TKT-*  │           │BLOCKED-*  │
-   │           │           │           │           │ ENV-TKT-* │
-   └─────┬─────┘           └─────┬─────┘           │ EXT-TKT-* │
-         │                       │                 └─────┬─────┘
-         ▼                       ▼                       │
-   ┌───────────┐          ┌───────────┐           ┌─────▼─────┐
-   │  AUTO:    │          │ Compare   │           │  INBOX:   │
-   │  Create   │          │ to scope  │           │  Human    │
-   │  rework   │          └─────┬─────┘           │  needed   │
-   │  ticket   │          ┌─────┴─────┐           └───────────┘
-   └───────────┘          ▼           ▼
-                    ┌─────────┐ ┌─────────┐
-                    │ Outside │ │ Inside  │
-                    └────┬────┘ └────┬────┘
-                         ▼           ▼
-                    ┌─────────┐ ┌─────────┐
-                    │  AUTO:  │ │  AUTO:  │
-                    │  fix    │ │  "Fix   │
-                    │  regr.  │ │  tests" │
-                    └─────────┘ └─────────┘
+                              ┌─────────────────┐
+                              │  Read Blocker   │
+                              └────────┬────────┘
+                                       │
+    ┌──────────────┬───────────────────┼───────────────────┬──────────────┐
+    ▼              ▼                   ▼                   ▼              ▼
+┌────────┐   ┌──────────┐        ┌───────────┐      ┌───────────┐  ┌───────────┐
+│QA-FAIL │   │QA-TOOLING│        │ CI-TKT-*  │      │BLOCKED-*  │  │ EXT-TKT-* │
+│        │   │          │        │           │      │ ENV-TKT-* │  │           │
+└───┬────┘   └────┬─────┘        └─────┬─────┘      └─────┬─────┘  └─────┬─────┘
+    │             │                    │                  │              │
+    ▼             ▼                    ▼                  ▼              ▼
+┌────────┐   ┌──────────┐        ┌───────────┐      ┌───────────┐  ┌───────────┐
+│ AUTO:  │   │  AUTO:   │        │ Compare   │      │  INBOX:   │  │  INBOX:   │
+│ Create │   │ Create   │        │ to scope  │      │  Human    │  │  Human    │
+│ rework │   │ TOOL-xxx │        └─────┬─────┘      │  needed   │  │  setup    │
+│ ticket │   │ +requeue │        ┌─────┴─────┐      └───────────┘  └───────────┘
+└────────┘   └────┬─────┘        ▼           ▼
+                  │         ┌─────────┐ ┌─────────┐
+                  ▼         │ Outside │ │ Inside  │
+           ┌───────────┐    └────┬────┘ └────┬────┘
+           │ When TOOL │         ▼           ▼
+           │ merged:   │    ┌─────────┐ ┌─────────┐
+           │ Re-queue  │    │  AUTO:  │ │  AUTO:  │
+           │ original  │    │  fix    │ │  "Fix   │
+           │ for QA    │    │  regr.  │ │  tests" │
+           └───────────┘    └─────────┘ └─────────┘
 ```
 
-**Key Principle:** Only BLOCKED-* and ENV-* go to inbox. Everything else is auto-handled.
+**Key Principle:** Only BLOCKED-* and ENV-* and EXT-* go to inbox. Everything else is auto-handled.
+
+**Self-Healing Loop:** QA-TOOLING blockers create tooling tickets. When merged, original ticket is re-queued for QA.
 
 ---
 
@@ -805,6 +1065,7 @@ This catches any inconsistencies between files.
 
 - [ ] All blockers in `blocked/` folder processed
 - [ ] **QA failures: AUTO-created continuation tickets (no human needed)**
+- [ ] **Tooling blockers: AUTO-created tooling tickets + re-queue entries (no human needed)**
 - [ ] CI blockers: continuation tickets created OR routed to inbox
 - [ ] Clarification blockers: decision threads created (human needed)
 - [ ] Environment blockers: routed to inbox (human needed)
@@ -813,6 +1074,8 @@ This catches any inconsistencies between files.
 - [ ] `decisions.json` threads marked resolved where appropriate
 - [ ] `findings.json` statuses updated (ticketed/skipped)
 - [ ] `tickets.json` updated with new tickets
+- [ ] `requeue.json` updated for any tooling blockers
+- [ ] Re-queue check: Any waiting entries where tooling is now merged?
 - [ ] Archived processed blockers to `docs/agent-output/archive/`
 - [ ] Sync check passed
 - [ ] Report generated

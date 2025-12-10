@@ -54,6 +54,7 @@ Your job RIGHT NOW:
 
    AUTO-HANDLE (create continuation ticket):
    - blocker_type: qa_failure -> Create rework ticket for dev agent
+   - blocker_type: missing_tooling -> Create tooling ticket + add to requeue.json (SELF-HEALING LOOP)
    - blocker_type: ci_failure -> Create fix ticket for dev agent
    - blocker_type: external_setup_incomplete WITH recommendation mentioning "credentials stored" or "account exists" -> Create setup script ticket
    
@@ -65,12 +66,16 @@ Your job RIGHT NOW:
 
 3. For AUTO-HANDLE blockers:
    - Create a continuation ticket in docs/prompts/active/dev-agent-{TICKET}-v{N}.md
+   - For missing_tooling: Create docs/prompts/active/dev-agent-TOOL-{N}.md AND add to docs/data/requeue.json
    - Include clear instructions for what needs to be fixed
    - Archive the blocker to docs/agent-output/archive/
 
 4. For INBOX blockers:
    - Add entry to docs/data/decisions.json with status: awaiting_human
    - Include human_actions_required from the blocker
+
+5. Check docs/data/requeue.json for any tickets waiting on tooling that's now merged
+   - If tooling is available, re-queue the original ticket for QA
 
 After processing, write a report to docs/agent-output/dispatch-report-TIMESTAMP.md
 
