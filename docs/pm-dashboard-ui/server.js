@@ -3331,21 +3331,21 @@ function handleAPI(req, res, body) {
         orgId = orgData.id;
         console.log(`   ✅ Created organization: ${orgId} (${orgName})`);
         
-        // Step 3: Add admin user to org as owner
+        // Step 3: Add admin user to org as admin (users table only allows 'admin' or 'agent')
         const { error: adminUserError } = await supabase
           .from('users')
-          .insert({
+          .upsert({
             id: adminUserId,
             email: adminEmail,
             full_name: adminName,
             organization_id: orgId,
-            role: 'owner'
-          });
+            role: 'admin'  // 'owner' is not valid - use 'admin' which grants isAdmin=true
+          }, { onConflict: 'id' });
         
         if (adminUserError) {
           console.error(`   ⚠️ Error adding admin to users table: ${adminUserError.message}`);
         } else {
-          console.log(`   ✅ Added ${adminRole} to org with role: owner`);
+          console.log(`   ✅ Added ${adminRole} to org with role: admin`);
         }
         
         // Generate magic link for admin
@@ -3404,16 +3404,16 @@ function handleAPI(req, res, body) {
           const userId = userAuthData.user.id;
           console.log(`   ✅ Created ${role} auth user: ${userId}`);
           
-          // Add to users table with correct role in same org
+          // Add to users table with correct role in same org (use upsert to handle existing users)
           const { error: userInsertError } = await supabase
             .from('users')
-            .insert({
+            .upsert({
               id: userId,
               email: userEmail,
               full_name: userName,
               organization_id: orgId,
-              role: role
-            });
+              role: role  // 'admin' or 'agent' - matches users_role_check constraint
+            }, { onConflict: 'id' });
           
           if (userInsertError) {
             console.error(`   ⚠️ Error adding ${role} to users table: ${userInsertError.message}`);
@@ -3421,22 +3421,22 @@ function handleAPI(req, res, body) {
             console.log(`   ✅ Added ${role} to org ${orgId} with role: ${role}`);
           }
           
-          // If agent, create agent_profile
+          // If agent, create agent_profile (use upsert to handle existing profiles)
           if (role === 'agent') {
             const { error: profileError } = await supabase
               .from('agent_profiles')
-              .insert({
+              .upsert({
                 user_id: userId,
                 organization_id: orgId,
                 display_name: userName,
                 is_active: true,
                 status: 'offline'
-              });
+              }, { onConflict: 'user_id' });
             
             if (profileError) {
               console.error(`   ⚠️ Error creating agent_profile: ${profileError.message}`);
             } else {
-              console.log(`   ✅ Created agent_profile for ${userEmail}`);
+              console.log(`   ✅ Created/updated agent_profile for ${userEmail}`);
             }
           }
           
