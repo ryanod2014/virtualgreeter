@@ -1898,6 +1898,65 @@ Email addresses should be case-insensitive for matching. USER@EMAIL.COM and user
 
 ---
 
+---
+
+## Autonomous Workflow Improvements
+
+> Future enhancements for the autonomous agent workflow system.
+
+---
+
+### WORKFLOW-001: Sync Feature Branches with Main Before QA/Preview
+
+**Priority:** P1 - High  
+**Type:** Feature  
+**Estimated Effort:** 1-2 hours
+
+**Problem:**  
+When a PM previews a UI change via magic link, the preview may be missing recent commits to `main` that were merged AFTER the feature branch was created. This makes it look like previously approved changes have been "reverted".
+
+```
+main:     A ─── B ─── C ─── D ─── E (PM approves TKT-006, merged!)
+                │
+TKT-007:        └─── X ─── Y (branched from C, missing D and E!)
+
+PM previews TKT-007 → doesn't see changes from D & E → confused!
+```
+
+**Solution Options:**
+
+| Option | Approach | Pros | Cons |
+|--------|----------|------|------|
+| **Merge main into branch** | `git merge origin/main` before QA | Safe, preserves history | Creates merge commits |
+| **Rebase on main** | `git rebase origin/main` before QA | Clean history | Rewrites commits, needs force push |
+| **Temporary merge preview** | Merge without committing for preview only | Best UX, no history changes | Complex infrastructure |
+| **Vercel merge previews** | Use platform's merge preview feature | Zero custom code | Platform lock-in |
+
+**Recommended Implementation:**  
+Add a "sync with main" step to `scripts/launch-qa-agents.sh`:
+
+```bash
+# After creating worktree, before QA agent runs:
+echo "Syncing branch with latest main..."
+git fetch origin main
+git merge origin/main --no-edit || {
+    echo "Merge conflict detected - needs manual resolution"
+    # Create blocker file for human resolution
+}
+```
+
+**Files to Modify:**
+- `scripts/launch-qa-agents.sh` - Add sync step after worktree creation
+- `docs/workflow/QA_REVIEW_AGENT_SOP.md` - Document the sync behavior
+
+**Acceptance Criteria:**
+- [ ] Feature branches are synced with latest main before QA testing
+- [ ] Merge conflicts create a blocker for human resolution
+- [ ] PM previews show all recent changes from main
+- [ ] QA agent is aware of the sync and tests the merged state
+
+---
+
 ## Test Coverage Tickets
 
 > These tickets track automated test creation for the above fixes.
