@@ -91,6 +91,31 @@ For EACH acceptance criterion, you must have:
 
 Execute your test plan **systematically, one test at a time**.
 
+### Step 2.0: Start the Dev Server (IMPORTANT!)
+
+**DO NOT use `pnpm dev` from the repo root.** The Turbo concurrent startup often causes the dashboard to fail silently.
+
+Instead, start the dashboard directly:
+
+```bash
+# Kill any existing processes on port 3000
+lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+
+# Start dashboard directly (NOT from repo root)
+cd apps/dashboard
+pnpm dev &
+sleep 10
+
+# Verify it's running
+curl -s http://localhost:3000 | head -1
+# Should return HTML, not an error
+```
+
+**If the dashboard doesn't start:**
+1. Check for port conflicts: `lsof -i :3000`
+2. Verify `.env.local` exists and has `NEXT_PUBLIC_SUPABASE_URL`
+3. Try: `cd apps/dashboard && pnpm install && pnpm dev`
+
 ### The Testing Loop (Repeat for EACH Role/State)
 
 ```

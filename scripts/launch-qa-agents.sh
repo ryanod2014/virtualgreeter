@@ -55,6 +55,75 @@ print_error() {
     echo -e "${RED}✗ $1${NC}"
 }
 
+# Validate that an env file contains required variables
+validate_env_file() {
+    local ENV_FILE="$1"
+    local REQUIRED_VARS=("NEXT_PUBLIC_SUPABASE_URL" "NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    local MISSING=()
+    
+    if [ ! -f "$ENV_FILE" ]; then
+        print_error "Env file not found: $ENV_FILE"
+        return 1
+    fi
+    
+    for var in "${REQUIRED_VARS[@]}"; do
+        if ! grep -q "^${var}=" "$ENV_FILE" 2>/dev/null; then
+            MISSING+=("$var")
+        fi
+    done
+    
+    if [ ${#MISSING[@]} -gt 0 ]; then
+        print_error "Missing required env vars in $ENV_FILE: ${MISSING[*]}"
+        print_error "Copy from main project or run 'vercel env pull' in apps/dashboard"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Pre-flight check: verify dashboard can start in worktree
+preflight_dashboard_check() {
+    local WORKTREE_DIR="$1"
+    local DASHBOARD_DIR="$WORKTREE_DIR/apps/dashboard"
+    
+    echo -e "${CYAN}[PRE-FLIGHT]${NC} Testing dashboard startup..."
+    
+    # Kill any existing process on port 3000
+    lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+    sleep 1
+    
+    # Try to start dashboard
+    cd "$DASHBOARD_DIR"
+    pnpm dev > /tmp/dashboard-preflight.log 2>&1 &
+    local DEV_PID=$!
+    
+    # Wait for startup (max 15 seconds)
+    local TRIES=0
+    local MAX_TRIES=15
+    while [ $TRIES -lt $MAX_TRIES ]; do
+        if curl -s http://localhost:3000 2>/dev/null | head -1 | grep -q "<!DOCTYPE\|<html"; then
+            print_success "Dashboard starts successfully on port 3000"
+            kill $DEV_PID 2>/dev/null || true
+            lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+            return 0
+        fi
+        sleep 1
+        TRIES=$((TRIES + 1))
+    done
+    
+    # Failed to start
+    print_error "Dashboard failed to start within ${MAX_TRIES}s"
+    print_error "Check /tmp/dashboard-preflight.log for details"
+    kill $DEV_PID 2>/dev/null || true
+    lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+    
+    # Show last few lines of log
+    echo -e "${YELLOW}Last lines of startup log:${NC}"
+    tail -10 /tmp/dashboard-preflight.log 2>/dev/null || true
+    
+    return 1
+}
+
 check_prerequisites() {
     # Check tmux
     if ! command -v tmux &> /dev/null; then
@@ -395,6 +464,29 @@ EOF
     if [ -f "$MAIN_REPO_DIR/apps/widget/.env.local" ]; then
         cp "$MAIN_REPO_DIR/apps/widget/.env.local" "$WORKTREE_DIR/apps/widget/.env.local"
         print_success "Copied apps/widget/.env.local"
+    fi
+
+    # Validate dashboard env file has required variables
+    if [ -f "$WORKTREE_DIR/apps/dashboard/.env.local" ]; then
+        if ! validate_env_file "$WORKTREE_DIR/apps/dashboard/.env.local"; then
+            print_error "Environment validation failed - QA agent may not be able to start dashboard"
+            print_warning "Continuing anyway, but browser testing may fail..."
+        else
+            print_success "Validated apps/dashboard/.env.local"
+        fi
+    else
+        print_error "No .env.local found in dashboard - create one with Supabase credentials"
+    fi
+
+    # Pre-flight: verify dashboard can start (for UI tickets)
+    if [ "$HAS_UI_FILES" = true ]; then
+        echo ""
+        if ! preflight_dashboard_check "$WORKTREE_DIR"; then
+            print_warning "Pre-flight dashboard check failed"
+            print_warning "QA agent will attempt to start it, but may hit the same issues"
+            print_warning "Consider fixing dashboard startup before re-running QA"
+        fi
+        echo ""
     fi
 
     # Checkout the correct branch in worktree
