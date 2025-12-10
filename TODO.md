@@ -1906,6 +1906,116 @@ Email addresses should be case-insensitive for matching. USER@EMAIL.COM and user
 
 ---
 
+### WORKFLOW-002: Preview System Architecture Decision
+
+**Priority:** P1 - High  
+**Type:** Architecture Decision  
+**Estimated Effort:** TBD based on chosen approach
+
+**Goal:**  
+Enable PMs to preview UI changes from multiple branches simultaneously via magic links, with future support for:
+- Embedded iframe previews (no new tab)
+- Click-to-comment on specific UI elements
+
+**Options Evaluated:**
+
+#### Option A: Vercel Preview Deployments (Recommended for MVP)
+
+Each branch auto-deploys to a unique URL like `tkt-005b.preview.greetnow.vercel.app`.
+
+| Pros | Cons |
+|------|------|
+| ✅ Zero infrastructure to build | ❌ 1-2 min deploy time per branch |
+| ✅ Works remotely (PM doesn't need local setup) | ❌ Platform lock-in (Vercel) |
+| ✅ Scales infinitely | ❌ Click-to-comment requires injected script |
+| ✅ Already using Vercel | ❌ Cross-origin iframe restrictions |
+
+**Click-to-comment:** Requires adding a script to the app (Option C below).
+
+---
+
+#### Option B: WebContainers (Best for instant previews + click-to-comment)
+
+Run the Next.js app entirely in the browser using StackBlitz WebContainers (WASM-based).
+
+| Pros | Cons |
+|------|------|
+| ✅ Instant (0 cold start) | ❌ No direct database connections (HTTP only) |
+| ✅ Same-origin = full DOM access for click-to-comment | ❌ Server secrets exposed in browser |
+| ✅ No server costs for previews | ❌ Native Node modules won't work |
+| ✅ Works offline | ❌ Memory limits (~1-2GB per preview) |
+| ✅ This is what Bolt.new and Lovable use | ❌ Need to audit app for compatibility |
+
+**Supabase:** ✅ Works (HTTP-based JS client)  
+**Click-to-comment:** ✅ Easy (same origin, full DOM access)
+
+---
+
+#### Option C: Injected Script for Click-to-Comment
+
+Add a small SDK to the app that enables element selection when in preview mode.
+
+```jsx
+// User adds to their app once
+import { PreviewTools } from '@workflow-product/preview-sdk'
+<PreviewTools projectId="..." />
+```
+
+| Pros | Cons |
+|------|------|
+| ✅ Works with ANY hosting (Vercel, local, etc.) | ❌ Requires script in every app |
+| ✅ No infrastructure cost | ❌ Cross-origin postMessage communication |
+| ✅ Scales infinitely | ❌ CSP conflicts possible |
+| ✅ Industry standard (how Vercel Comments works) | |
+
+**Since we control user codebases via agents, we can auto-inject this script.**
+
+---
+
+#### Option D: Replit-Style Server Containers
+
+Run user code in our own containers, inject scripts when serving.
+
+| Pros | Cons |
+|------|------|
+| ✅ Full control over runtime | ❌ High infrastructure cost |
+| ✅ Works with any app | ❌ 1-3s cold start |
+| ✅ Can inject scripts at serve time | ❌ Complex to build and maintain |
+
+---
+
+#### Option E: Multiple Local Ports (Current approach)
+
+Each QA agent runs on a unique port (3101, 3102, etc.).
+
+| Pros | Cons |
+|------|------|
+| ✅ Already implemented | ❌ Only works locally |
+| ✅ Instant (dev server) | ❌ PM must start servers manually |
+| ✅ No deploy wait | ❌ Doesn't scale to real product |
+
+---
+
+**Recommendation:**
+
+| Phase | Approach | Why |
+|-------|----------|-----|
+| **Now (MVP)** | Vercel Previews + local ports | Simple, unblocks workflow |
+| **V2** | Vercel + Injected Script (Option C) | Embedded iframe + basic click-to-comment |
+| **V3** | WebContainers (Option B) | Instant previews, full click-to-comment, best UX |
+
+**Decision Needed:**
+- [ ] Confirm Vercel preview approach for MVP
+- [ ] Audit Next.js app for WebContainer compatibility
+- [ ] Design click-to-comment SDK interface
+
+**Files to Create/Modify:**
+- `packages/preview-sdk/` - New package for click-to-comment script
+- `scripts/launch-qa-agents.sh` - Use Vercel preview URLs instead of localhost
+- `docs/workflow/UI_TICKET_QA_WORKFLOW.md` - Update preview instructions
+
+---
+
 ### WORKFLOW-001: Sync Feature Branches with Main Before QA/Preview
 
 **Priority:** P1 - High  
