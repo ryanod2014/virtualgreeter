@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/actions";
 import { DashboardLayoutClient } from "./dashboard-layout-client";
 
+// Force dynamic rendering to prevent caching of organization data
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardLayout({
   children,
 }: {
