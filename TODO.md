@@ -2016,6 +2016,57 @@ Each QA agent runs on a unique port (3101, 3102, etc.).
 
 ---
 
+### WORKFLOW-003: Implement Sentry MCP for Error Tracking
+
+**Priority:** P2 - Medium  
+**Type:** Feature  
+**Estimated Effort:** 2-4 hours
+
+**Goal:**  
+Integrate Sentry MCP so autonomous agents can access error tracking data when debugging issues, investigating production bugs, or validating that fixes resolved errors.
+
+**Benefits:**
+- Agents can query Sentry for recent errors when investigating bugs
+- QA agents can verify no new errors were introduced
+- Dev agents can see stack traces and error context automatically
+- Dispatch agent can create tickets from Sentry issues
+
+**Implementation:**
+
+1. **Install Sentry MCP:**
+   ```bash
+   claude mcp add sentry
+   ```
+
+2. **Configure credentials:**
+   - Add `SENTRY_AUTH_TOKEN` to environment
+   - Add `SENTRY_ORG` and `SENTRY_PROJECT` settings
+
+3. **Update agent workflows:**
+   - QA agents check for new errors after testing
+   - Dev agents query related errors when fixing bugs
+   - Dispatch agent can pull error data for ticket context
+
+**MCP Capabilities (expected):**
+- `sentry_list_issues` - Get recent issues/errors
+- `sentry_get_issue` - Get detailed error with stack trace
+- `sentry_list_events` - Get occurrences of an issue
+- `sentry_resolve_issue` - Mark issue as resolved
+
+**Files to Modify:**
+- `.mcp.json` - Add Sentry MCP configuration
+- `docs/workflow/QA_REVIEW_AGENT_SOP.md` - Add Sentry error checking step
+- `docs/workflow/DEV_AGENT_SOP.md` - Add Sentry context retrieval
+- `scripts/launch-qa-agents.sh` - Ensure Sentry MCP is available
+
+**Acceptance Criteria:**
+- [ ] Sentry MCP configured and accessible to agents
+- [ ] QA agents check Sentry after testing for new errors
+- [ ] Dev agents can query Sentry for error context
+- [ ] No false positives (agents understand pre-existing vs new errors)
+
+---
+
 ### WORKFLOW-001: Sync Feature Branches with Main Before QA/Preview
 
 **Priority:** P1 - High  
