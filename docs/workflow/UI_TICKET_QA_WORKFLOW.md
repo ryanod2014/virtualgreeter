@@ -185,26 +185,74 @@ claude mcp list | grep playwright
    - Create blocker file with `blocker_type: "infrastructure"`
    - Include magic links so PM can test manually
 
-### The Testing Loop (Repeat for EACH Role/State)
+### Step 2.1: Setup ALL Test Users with ONE API Call (RECOMMENDED!)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  FOR EACH role in my test plan:                              │
-│                                                              │
-│    1. CREATE user for this role                              │
-│    2. LOG IN as this user (creates org)                      │
-│    3. VERIFY org exists                                       │
-│    4. SET required state                                      │
-│    5. TEST the feature in browser                             │
-│    6. TAKE screenshot proving it works                        │
-│    7. GENERATE magic link for this user                       │
-│    8. RECORD in my artifact table                             │
-│                                                              │
-│  DO NOT proceed to next role until current role is complete  │
-└─────────────────────────────────────────────────────────────┘
+**🚀 USE THE ATOMIC ENDPOINT - This does EVERYTHING in one call:**
+
+```bash
+# ONE CALL creates all users, org, sets status, and generates magic links!
+curl -X POST http://localhost:3456/api/v2/qa/setup-multi-role-test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticket_id": "[TICKET-ID]",
+    "roles": ["admin", "agent"],
+    "org_status": "past_due",
+    "tunnel_url": "'$TUNNEL_URL'"
+  }'
 ```
 
-### Step 2.1: Create User (for current role)
+**Response includes EVERYTHING you need:**
+```json
+{
+  "success": true,
+  "ticket_id": "TKT-005b",
+  "timestamp": "20251209235959",
+  "organization": {
+    "id": "uuid-here",
+    "name": "QA Org TKT-005b 20251209235959",
+    "subscription_status": "past_due"
+  },
+  "users": [
+    {
+      "role": "admin",
+      "email": "qa-admin-tkt005b-20251209235959@greetnow.test",
+      "password": "QATest-TKT-005b!",
+      "magic_url": "https://tunnel.trycloudflare.com/api/review-login?token=abc...",
+      "redirect_path": "/admin"
+    },
+    {
+      "role": "agent",
+      "email": "qa-agent-tkt005b-20251209235959@greetnow.test",
+      "password": "QATest-TKT-005b!",
+      "magic_url": "https://tunnel.trycloudflare.com/api/review-login?token=xyz...",
+      "redirect_path": "/dashboard"
+    }
+  ],
+  "test_password": "QATest-TKT-005b!",
+  "base_url": "https://tunnel.trycloudflare.com"
+}
+```
+
+**What this ONE call does:**
+1. ✅ Generates unique timestamp (consistent for all users)
+2. ✅ Creates admin user with auth account
+3. ✅ Creates organization owned by admin
+4. ✅ Creates agent user **in the SAME org** with correct role
+5. ✅ Creates agent_profile for agent users
+6. ✅ Sets org subscription_status (e.g., "past_due")
+7. ✅ Generates magic links for ALL users
+8. ✅ Returns everything in one response
+
+**Save the response!** You'll need the emails, passwords, and magic_urls for testing.
+
+---
+
+### Alternative: Manual Multi-Step Setup (If atomic endpoint unavailable)
+
+<details>
+<summary>Click to expand manual steps (NOT RECOMMENDED)</summary>
+
+#### Step 2.1-ALT: Create User (for current role)
 
 **⚠️ ALWAYS use UNIQUE emails with timestamps!** Never reuse existing test users.
 
@@ -234,48 +282,43 @@ curl -X POST http://localhost:3456/api/v2/qa/create-test-user \
   }'
 ```
 
-**Why unique emails?**
-- Reusing existing users inherits their old role/org - the `role` and `org_id` params are IGNORED
-- Each QA run should be a clean slate
-- Timestamps ensure uniqueness across multiple QA attempts
-
-### Step 2.2: Log In via Playwright (CRITICAL!)
+#### Step 2.2-ALT: Log In via Playwright (CRITICAL!)
 
 **This step creates the organization. DO NOT SKIP.**
 
-**⚠️ Use YOUR assigned port ($AGENT_PORT), not 3000!**
-
 ```
 Use Playwright MCP to:
-1. Navigate to http://localhost:$AGENT_PORT/login  (use YOUR port!)
+1. Navigate to http://localhost:$AGENT_PORT/login
 2. Fill email field with user's email
 3. Fill password field with user's password
 4. Click sign in button
 5. WAIT for dashboard to load (this creates the org!)
-6. Take screenshot: "qa-[role]-[TICKET-ID]-01-logged-in.png"
 ```
 
-### Step 2.3: Verify Org Exists
+#### Step 2.3-ALT: Verify Org Exists
 
 ```bash
-curl -s "http://localhost:3456/api/v2/qa/org-by-email/qa-[role]-[TICKET-ID]@greetnow.test"
-
-# MUST see: {"organization": {"id": "...", ...}}
-# If you see "error" → Go back to Step 2.2!
+curl -s "http://localhost:3456/api/v2/qa/org-by-email/qa-admin-[TICKET-ID]-$TIMESTAMP@greetnow.test"
 ```
 
-### Step 2.4: Set Database State
+#### Step 2.4-ALT: Set Database State
 
 ```bash
 curl -X POST http://localhost:3456/api/v2/qa/set-org-status \
   -H "Content-Type: application/json" \
   -d '{
-    "user_email": "qa-[role]-[TICKET-ID]@greetnow.test",
+    "user_email": "qa-admin-[TICKET-ID]-'$TIMESTAMP'@greetnow.test",
     "subscription_status": "past_due"
   }'
-
-# Verify response shows "success": true
 ```
+
+</details>
+
+---
+
+### Step 2.2: Browser Test EACH Role
+
+Now test the feature for EACH user from the setup response:
 
 ### Step 2.5: Test the Feature (SEE IT YOURSELF)
 

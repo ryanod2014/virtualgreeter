@@ -3240,6 +3240,277 @@ function handleAPI(req, res, body) {
   // QA HELPER ENDPOINTS (Test User & Org Management)
   // ---------------------------------------------------------------------------
   
+  // POST /api/v2/qa/setup-multi-role-test - ATOMIC: Create all test users, org, and magic links in ONE call
+  // This eliminates the need for QA agents to run multiple commands with variable passing
+  if (req.method === 'POST' && url === '/api/v2/qa/setup-multi-role-test') {
+    (async () => {
+      try {
+        const data = JSON.parse(body);
+        const { ticket_id, roles, org_status, tunnel_url } = data;
+        
+        // Validate required fields
+        if (!ticket_id) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing required field: ticket_id' }));
+          return;
+        }
+        
+        // Default roles if not specified
+        const rolesToCreate = roles || ['admin', 'agent'];
+        const validRoles = ['admin', 'agent', 'owner'];
+        for (const role of rolesToCreate) {
+          if (!validRoles.includes(role)) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Invalid role: ${role}. Must be one of: ${validRoles.join(', ')}` }));
+            return;
+          }
+        }
+        
+        const supabase = await getSupabaseClient();
+        if (!supabase) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Supabase client not available. Check SUPABASE_SERVICE_ROLE_KEY.' }));
+          return;
+        }
+        
+        // Generate consistent timestamp for all users in this setup
+        const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+        const ticketSlug = ticket_id.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const password = `QATest-${ticket_id}!`;
+        const baseUrl = tunnel_url || `http://localhost:3000`;
+        
+        console.log(`\n🔧 Setting up multi-role test for ${ticket_id}`);
+        console.log(`   Timestamp: ${timestamp}`);
+        console.log(`   Roles: ${rolesToCreate.join(', ')}`);
+        console.log(`   Base URL: ${baseUrl}`);
+        
+        const createdUsers = [];
+        let orgId = null;
+        let orgName = null;
+        
+        // Step 1: Create the first user (admin/owner) who will own the org
+        const adminRole = rolesToCreate.find(r => r === 'admin' || r === 'owner') || rolesToCreate[0];
+        const adminEmail = `qa-${adminRole}-${ticketSlug}-${timestamp}@greetnow.test`;
+        const adminName = `QA ${adminRole.charAt(0).toUpperCase() + adminRole.slice(1)} ${ticket_id}`;
+        
+        console.log(`   Creating ${adminRole}: ${adminEmail}`);
+        
+        // Create admin auth user
+        const { data: adminAuthData, error: adminAuthError } = await supabase.auth.admin.createUser({
+          email: adminEmail,
+          password: password,
+          email_confirm: true,
+          user_metadata: { full_name: adminName }
+        });
+        
+        if (adminAuthError) {
+          throw new Error(`Failed to create admin user: ${adminAuthError.message}`);
+        }
+        
+        const adminUserId = adminAuthData.user.id;
+        console.log(`   ✅ Created admin auth user: ${adminUserId}`);
+        
+        // Step 2: Create organization directly (don't wait for login)
+        orgName = `QA Org ${ticket_id} ${timestamp}`;
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .insert({
+            name: orgName,
+            subscription_status: org_status || 'active',
+            plan: 'pro'
+          })
+          .select()
+          .single();
+        
+        if (orgError) {
+          throw new Error(`Failed to create organization: ${orgError.message}`);
+        }
+        
+        orgId = orgData.id;
+        console.log(`   ✅ Created organization: ${orgId} (${orgName})`);
+        
+        // Step 3: Add admin user to org as owner
+        const { error: adminUserError } = await supabase
+          .from('users')
+          .insert({
+            id: adminUserId,
+            email: adminEmail,
+            full_name: adminName,
+            organization_id: orgId,
+            role: 'owner'
+          });
+        
+        if (adminUserError) {
+          console.error(`   ⚠️ Error adding admin to users table: ${adminUserError.message}`);
+        } else {
+          console.log(`   ✅ Added ${adminRole} to org with role: owner`);
+        }
+        
+        // Generate magic link for admin
+        const adminToken = require('crypto').randomBytes(32).toString('hex');
+        const adminTokenData = {
+          token: adminToken,
+          ticket_id,
+          user_email: adminEmail,
+          user_password: password,
+          redirect_path: '/admin',
+          preview_base_url: baseUrl,
+          created_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          used_count: 0
+        };
+        
+        if (!fs.existsSync(REVIEW_TOKENS_DIR)) {
+          fs.mkdirSync(REVIEW_TOKENS_DIR, { recursive: true });
+        }
+        fs.writeFileSync(
+          path.join(REVIEW_TOKENS_DIR, `${ticket_id}-${adminToken.substring(0, 8)}.json`),
+          JSON.stringify(adminTokenData, null, 2)
+        );
+        
+        createdUsers.push({
+          role: adminRole,
+          email: adminEmail,
+          password: password,
+          user_id: adminUserId,
+          magic_url: `${baseUrl}/api/review-login?token=${adminToken}`,
+          redirect_path: '/admin'
+        });
+        
+        // Step 4: Create additional users (agents) in the same org
+        for (const role of rolesToCreate) {
+          if (role === adminRole) continue; // Skip the admin we already created
+          
+          const userEmail = `qa-${role}-${ticketSlug}-${timestamp}@greetnow.test`;
+          const userName = `QA ${role.charAt(0).toUpperCase() + role.slice(1)} ${ticket_id}`;
+          
+          console.log(`   Creating ${role}: ${userEmail}`);
+          
+          // Create auth user
+          const { data: userAuthData, error: userAuthError } = await supabase.auth.admin.createUser({
+            email: userEmail,
+            password: password,
+            email_confirm: true,
+            user_metadata: { full_name: userName }
+          });
+          
+          if (userAuthError) {
+            console.error(`   ⚠️ Failed to create ${role} auth user: ${userAuthError.message}`);
+            continue;
+          }
+          
+          const userId = userAuthData.user.id;
+          console.log(`   ✅ Created ${role} auth user: ${userId}`);
+          
+          // Add to users table with correct role in same org
+          const { error: userInsertError } = await supabase
+            .from('users')
+            .insert({
+              id: userId,
+              email: userEmail,
+              full_name: userName,
+              organization_id: orgId,
+              role: role
+            });
+          
+          if (userInsertError) {
+            console.error(`   ⚠️ Error adding ${role} to users table: ${userInsertError.message}`);
+          } else {
+            console.log(`   ✅ Added ${role} to org ${orgId} with role: ${role}`);
+          }
+          
+          // If agent, create agent_profile
+          if (role === 'agent') {
+            const { error: profileError } = await supabase
+              .from('agent_profiles')
+              .insert({
+                user_id: userId,
+                organization_id: orgId,
+                display_name: userName,
+                is_active: true,
+                status: 'offline'
+              });
+            
+            if (profileError) {
+              console.error(`   ⚠️ Error creating agent_profile: ${profileError.message}`);
+            } else {
+              console.log(`   ✅ Created agent_profile for ${userEmail}`);
+            }
+          }
+          
+          // Generate magic link
+          const userToken = require('crypto').randomBytes(32).toString('hex');
+          const redirectPath = role === 'agent' ? '/dashboard' : '/admin';
+          const userTokenData = {
+            token: userToken,
+            ticket_id,
+            user_email: userEmail,
+            user_password: password,
+            redirect_path: redirectPath,
+            preview_base_url: baseUrl,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            used_count: 0
+          };
+          
+          fs.writeFileSync(
+            path.join(REVIEW_TOKENS_DIR, `${ticket_id}-${userToken.substring(0, 8)}.json`),
+            JSON.stringify(userTokenData, null, 2)
+          );
+          
+          createdUsers.push({
+            role: role,
+            email: userEmail,
+            password: password,
+            user_id: userId,
+            magic_url: `${baseUrl}/api/review-login?token=${userToken}`,
+            redirect_path: redirectPath
+          });
+        }
+        
+        // Step 5: Set org status if specified
+        if (org_status && org_status !== 'active') {
+          const { error: statusError } = await supabase
+            .from('organizations')
+            .update({ subscription_status: org_status })
+            .eq('id', orgId);
+          
+          if (statusError) {
+            console.error(`   ⚠️ Error setting org status: ${statusError.message}`);
+          } else {
+            console.log(`   ✅ Set org status to: ${org_status}`);
+          }
+        }
+        
+        console.log(`\n✅ Multi-role test setup complete for ${ticket_id}`);
+        console.log(`   Org: ${orgId}`);
+        console.log(`   Users: ${createdUsers.length}`);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          ticket_id,
+          timestamp,
+          organization: {
+            id: orgId,
+            name: orgName,
+            subscription_status: org_status || 'active'
+          },
+          users: createdUsers,
+          test_password: password,
+          base_url: baseUrl,
+          note: 'All users created in same org. Admin is owner, others have their specified roles. Magic links ready for PM review.'
+        }));
+        
+      } catch (e) {
+        console.error('Error in setup-multi-role-test:', e);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return true;
+  }
+  
   // POST /api/v2/qa/create-test-user - Create a Supabase auth user for testing
   // Supports optional role and org_id to create users with specific roles in existing orgs
   if (req.method === 'POST' && url === '/api/v2/qa/create-test-user') {
