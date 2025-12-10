@@ -649,7 +649,7 @@
     },
     {
       "finding_id": "F-043",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -688,9 +688,20 @@
     },
     {
       "finding_id": "F-045",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "changes should apply immeditately - whats best way to do that?",
+          "timestamp": "2025-12-09T22:54:18.885Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "changes should apply immeditately - whats best way to do that?",
+        "timestamp": "2025-12-09T22:54:18.885Z"
+      }
     },
     {
       "finding_id": "F-046",
@@ -724,7 +735,7 @@
     },
     {
       "finding_id": "F-051",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -738,15 +749,15 @@
         }
       ],
       "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "i think we already have a ticket for this",
-        "timestamp": "2025-12-05T02:14:07.150Z"
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-06T21:04:20.597Z"
       }
     },
     {
       "finding_id": "F-052",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -760,10 +771,10 @@
         }
       ],
       "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "i think we already have a ticket for this",
-        "timestamp": "2025-12-05T02:14:27.136Z"
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-06T21:04:27.562Z"
       }
     },
     {
@@ -900,7 +911,7 @@
     },
     {
       "finding_id": "F-065",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -968,7 +979,7 @@
     },
     {
       "finding_id": "F-071",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -982,10 +993,10 @@
         }
       ],
       "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "already have a ticket i think",
-        "timestamp": "2025-12-05T02:18:03.876Z"
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-06T21:04:30.625Z"
       }
     },
     {
@@ -1118,7 +1129,7 @@
     },
     {
       "finding_id": "F-089",
-      "status": "in_discussion",
+      "status": "resolved",
       "messages": [
         {
           "role": "human",
@@ -1132,16 +1143,22 @@
         }
       ],
       "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "visitors should not be able to get assigned to agents who were not ini the pool of a page they landed in",
-        "timestamp": "2025-12-05T02:20:44.007Z"
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-08T22:07:46.257Z"
       }
     },
     {
       "finding_id": "F-090",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "it should NEVER connect agents without them being a pool - it shouldnt show them as active iff this is the case it should still be in the \"connecting\" state. is this what youre asking about",
+          "timestamp": "2025-12-08T22:10:02.989Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1181,7 +1198,13 @@
     {
       "finding_id": "F-095",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "whats best practice on this? because if its not infinite polling how does it detect new URLs?",
+          "timestamp": "2025-12-08T21:37:38.916Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1192,7 +1215,13 @@
     {
       "finding_id": "F-096",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "yah we need to track pageviews when agents are available seperately from widget views. we use both of these stats in admin & agent call logs pages. does this make sesne?",
+          "timestamp": "2025-12-08T22:10:57.037Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1203,7 +1232,13 @@
     {
       "finding_id": "F-097",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "i dont understandd - it should work no matter what",
+          "timestamp": "2025-12-08T22:11:34.246Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1214,7 +1249,13 @@
     {
       "finding_id": "F-098",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "ad blocker should never block our widdget. how do we make sure this doesnt happen",
+          "timestamp": "2025-12-08T22:12:10.160Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1261,7 +1302,13 @@
     {
       "finding_id": "F-105",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "not sure what you're referring to",
+          "timestamp": "2025-12-08T22:12:35.301Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1272,7 +1319,13 @@
     {
       "finding_id": "F-106",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "didnt we already talk about this in another ticket?",
+          "timestamp": "2025-12-08T22:12:52.954Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1283,7 +1336,13 @@
     {
       "finding_id": "F-107",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "how does it behave when they are on a live call vs when they arent? because deisred behavior is dependent on that. i they are on a live call it shouldnt end the call because they changed urls. but if they change pages without accepting call the widget pool shoiuld change based on what page they go to and the agent there to help them waiting for them to unmute will change",
+          "timestamp": "2025-12-08T22:14:39.644Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1305,7 +1364,13 @@
     {
       "finding_id": "F-109",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "i dont unerstand - simplify explanation and make it real",
+          "timestamp": "2025-12-08T22:26:31.897Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1316,7 +1381,13 @@
     {
       "finding_id": "F-110",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "they shouldnt be able to delete catch all pool. thoughts?",
+          "timestamp": "2025-12-08T22:25:42.815Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1385,7 +1456,13 @@
     {
       "finding_id": "F-119",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "i think we have a ticket for this already",
+          "timestamp": "2025-12-08T22:25:07.415Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1396,7 +1473,13 @@
     {
       "finding_id": "F-120",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "do we already have a ticket for this? or did we already ffix this maybe?",
+          "timestamp": "2025-12-08T22:24:27.309Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1407,7 +1490,13 @@
     {
       "finding_id": "F-121",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "we save it in DB right? we may create a feature based on it later",
+          "timestamp": "2025-12-08T22:23:59.080Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1457,9 +1546,14 @@
     },
     {
       "finding_id": "F-127",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix",
+        "recommended": false,
+        "timestamp": "2025-12-09T22:54:36.681Z"
+      }
     },
     {
       "finding_id": "F-128",
@@ -1487,7 +1581,13 @@
     {
       "finding_id": "F-130",
       "status": "resolved",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "yah do 4 hoours as maximum",
+          "timestamp": "2025-12-08T22:16:22.954Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1498,7 +1598,13 @@
     {
       "finding_id": "F-131",
       "status": "in_discussion",
-      "messages": [],
+      "messages": [
+        {
+          "role": "human",
+          "text": "what would a (DSAR) workflow look like? how would it change ui etc?",
+          "timestamp": "2025-12-08T22:19:04.973Z"
+        }
+      ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
@@ -1556,9 +1662,20 @@
     },
     {
       "finding_id": "F-140",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "I think we already have a ticket for this? check & if so discard this ",
+          "timestamp": "2025-12-09T22:53:09.803Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "I think we already have a ticket for this? check & if so discard this ",
+        "timestamp": "2025-12-09T22:53:09.803Z"
+      }
     },
     {
       "finding_id": "F-141",
@@ -1633,15 +1750,37 @@
     },
     {
       "finding_id": "F-152",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "please explain this as simply as possible - i dont have enoough context to make a decision",
+          "timestamp": "2025-12-09T22:57:29.755Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "please explain this as simply as possible - i dont have enoough context to make a decision",
+        "timestamp": "2025-12-09T22:57:29.755Z"
+      }
     },
     {
       "finding_id": "F-153",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "please explain this to me in simpler more real terms i will understand",
+          "timestamp": "2025-12-09T22:55:05.919Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "please explain this to me in simpler more real terms i will understand",
+        "timestamp": "2025-12-09T22:55:05.919Z"
+      }
     },
     {
       "finding_id": "F-154",
@@ -1711,9 +1850,14 @@
     },
     {
       "finding_id": "F-163",
-      "status": "pending",
+      "status": "resolved",
       "messages": [],
-      "decision": null
+      "decision": {
+        "option_id": "implement_fix",
+        "option_label": "Consider chunked upload during call (every N minutes) or background service worker to queue uploads. At minimum, document the risk for agents handling sensitive calls.",
+        "recommended": true,
+        "timestamp": "2025-12-09T22:48:31.783Z"
+      }
     },
     {
       "finding_id": "F-164",
@@ -1933,9 +2077,20 @@
     },
     {
       "finding_id": "F-197",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "whats best practice?",
+          "timestamp": "2025-12-09T22:51:27.240Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "whats best practice?",
+        "timestamp": "2025-12-09T22:51:27.240Z"
+      }
     },
     {
       "finding_id": "F-198",
@@ -1951,9 +2106,20 @@
     },
     {
       "finding_id": "F-200",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "what is best practice? also if you need to look at deepgram documentation then do so beore proposing what we should do",
+          "timestamp": "2025-12-09T22:52:51.819Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "what is best practice? also if you need to look at deepgram documentation then do so beore proposing what we should do",
+        "timestamp": "2025-12-09T22:52:51.819Z"
+      }
     },
     {
       "finding_id": "F-201",
@@ -2191,9 +2357,20 @@
     },
     {
       "finding_id": "F-233",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "is it illegal? its the same as hotjar for example since we are only viewing what they see on our website not their full screen",
+          "timestamp": "2025-12-09T22:50:53.574Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "is it illegal? its the same as hotjar for example since we are only viewing what they see on our website not their full screen",
+        "timestamp": "2025-12-09T22:50:53.574Z"
+      }
     },
     {
       "finding_id": "F-234",
@@ -2262,9 +2439,20 @@
     },
     {
       "finding_id": "F-243",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "what is the actualy outcome of this for the user? and whats best practice",
+          "timestamp": "2025-12-09T22:52:10.305Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "what is the actualy outcome of this for the user? and whats best practice",
+        "timestamp": "2025-12-09T22:52:10.305Z"
+      }
     },
     {
       "finding_id": "F-244",
@@ -3707,15 +3895,37 @@
     },
     {
       "finding_id": "F-437",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "explain to me like im a 3rd grader im not following",
+          "timestamp": "2025-12-09T22:49:53.660Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "explain to me like im a 3rd grader im not following",
+        "timestamp": "2025-12-09T22:49:53.660Z"
+      }
     },
     {
       "finding_id": "F-438",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "in_discussion",
+      "messages": [
+        {
+          "role": "human",
+          "text": "i have no context on what this is regarding - please make this more real and help me undserstand i we need to do it",
+          "timestamp": "2025-12-09T22:53:49.168Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "i have no context on what this is regarding - please make this more real and help me undserstand i we need to do it",
+        "timestamp": "2025-12-09T22:53:49.168Z"
+      }
     },
     {
       "finding_id": "F-439",
@@ -4163,9 +4373,20 @@
     },
     {
       "finding_id": "F-513",
-      "status": "pending",
-      "messages": [],
-      "decision": null
+      "status": "resolved",
+      "messages": [
+        {
+          "role": "human",
+          "text": "yah do minimum 8 like you said",
+          "timestamp": "2025-12-09T22:48:50.522Z"
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "yah do minimum 8 like you said",
+        "timestamp": "2025-12-09T22:48:50.522Z"
+      }
     },
     {
       "finding_id": "F-514",
@@ -6073,28 +6294,6 @@
       "decision": null
     },
     {
-      "finding_id": "BLOCKED-TKT-063-1",
-      "status": "resolved",
-      "messages": [],
-      "decision": {
-        "option_id": 3,
-        "option_label": "Document trade-offs only — Add analysis to widget-settings.md explaining the 5-minute choice, trade-offs, and when to reconsider. No code changes needed.",
-        "recommended": true,
-        "timestamp": "2025-12-06T10:45:42.123Z"
-      }
-    },
-    {
-      "finding_id": "BLOCKED-TKT-064-1",
-      "status": "resolved",
-      "messages": [],
-      "decision": {
-        "option_id": "skip",
-        "option_label": "Won't fix - acceptable risk",
-        "recommended": false,
-        "timestamp": "2025-12-06T10:47:54.555Z"
-      }
-    },
-    {
       "finding_id": "BLOCKED-TKT-042-1",
       "status": "in_discussion",
       "messages": [
@@ -6109,6 +6308,28 @@
         "option_label": "Custom response",
         "custom_note": "what is industry best practice",
         "timestamp": "2025-12-05T22:37:16.064Z"
+      }
+    },
+    {
+      "finding_id": "BLOCKED-TKT-064-1",
+      "status": "resolved",
+      "messages": [],
+      "decision": {
+        "option_id": "skip",
+        "option_label": "Won't fix - acceptable risk",
+        "recommended": false,
+        "timestamp": "2025-12-06T10:47:54.555Z"
+      }
+    },
+    {
+      "finding_id": "BLOCKED-TKT-063-1",
+      "status": "resolved",
+      "messages": [],
+      "decision": {
+        "option_id": 3,
+        "option_label": "Document trade-offs only — Add analysis to widget-settings.md explaining the 5-minute choice, trade-offs, and when to reconsider. No code changes needed.",
+        "recommended": true,
+        "timestamp": "2025-12-06T10:45:42.123Z"
       }
     },
     {

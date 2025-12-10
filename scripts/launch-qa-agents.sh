@@ -381,7 +381,22 @@ EOF
         return 1
     fi
     print_success "Created worktree: $WORKTREE_DIR"
-    
+
+    # Copy .env files from main repo to worktree (required for Supabase connection)
+    echo "Copying environment files to worktree..."
+    if [ -f "$MAIN_REPO_DIR/apps/dashboard/.env.local" ]; then
+        cp "$MAIN_REPO_DIR/apps/dashboard/.env.local" "$WORKTREE_DIR/apps/dashboard/.env.local"
+        print_success "Copied apps/dashboard/.env.local"
+    fi
+    if [ -f "$MAIN_REPO_DIR/apps/server/.env.local" ]; then
+        cp "$MAIN_REPO_DIR/apps/server/.env.local" "$WORKTREE_DIR/apps/server/.env.local"
+        print_success "Copied apps/server/.env.local"
+    fi
+    if [ -f "$MAIN_REPO_DIR/apps/widget/.env.local" ]; then
+        cp "$MAIN_REPO_DIR/apps/widget/.env.local" "$WORKTREE_DIR/apps/widget/.env.local"
+        print_success "Copied apps/widget/.env.local"
+    fi
+
     # Checkout the correct branch in worktree
     cd "$WORKTREE_DIR"
     git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH" "origin/$BRANCH" 2>/dev/null || true
@@ -410,11 +425,37 @@ for t in data.get('tickets', []):
         break
 " 2>/dev/null || echo "")
 
-    # Detect if this is a UI ticket (has .tsx, .css, or component files)
-    IS_UI_TICKET="false"
+    # Detect what types of testing are needed (can be BOTH!)
+    HAS_UI_FILES="false"
+    HAS_API_FILES="false"
+    
+    # Check for UI files
     if echo "$FILES_TO_MODIFY" | grep -qE '\.(tsx|css)$|/components/|/features/|/app/'; then
-        IS_UI_TICKET="true"
+        HAS_UI_FILES="true"
+    fi
+    
+    # Check for API/backend files (exclude .tsx files)
+    if echo "$FILES_TO_MODIFY" | grep -E '/api/|/server/|/lib/|\.ts$' | grep -qvE '\.tsx$'; then
+        HAS_API_FILES="true"
+    fi
+    
+    # Determine ticket type
+    TICKET_TYPE="api"  # default
+    if [ "$HAS_UI_FILES" = "true" ] && [ "$HAS_API_FILES" = "true" ]; then
+        TICKET_TYPE="hybrid"
+        print_warning "HYBRID TICKET DETECTED - Will test BOTH API and UI"
+    elif [ "$HAS_UI_FILES" = "true" ]; then
+        TICKET_TYPE="ui"
         print_warning "UI TICKET DETECTED - Will require PM approval via magic link"
+    else
+        TICKET_TYPE="api"
+        print_success "API/Backend ticket - Will auto-merge after QA"
+    fi
+    
+    # Legacy variable for backward compatibility
+    IS_UI_TICKET="false"
+    if [ "$HAS_UI_FILES" = "true" ]; then
+        IS_UI_TICKET="true"
     fi
     
     # Register session in database (v2 API)
@@ -429,258 +470,308 @@ for t in data.get('tickets', []):
     fi
     
     # Build the Claude command - run in worktree, selective merge
-    CLAUDE_PROMPT="You are a QA Review Agent.
-
-CRITICAL: First read docs/workflow/QA_REVIEW_AGENT_SOP.md for your full testing procedure.
-
-Your job is to THOROUGHLY test ticket $TICKET_ID on branch: $BRANCH
-Your goal is to TRY TO BREAK IT, not just verify the happy path works.
-
-SESSION_ID: $DB_SESSION_ID
-Send heartbeat periodically:
-  curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/heartbeat
-
-IMPORTANT: You are running in an ISOLATED WORKTREE at:
-  $WORKTREE_DIR
-
-This prevents conflicts with other agents. Do NOT cd to the main repo.
+    CLAUDE_PROMPT="You are a QA Review Agent. You are REPLACING a human QA team.
 
 ═══════════════════════════════════════════════════════════════
-MANDATORY BROWSER TESTING (DO NOT SKIP)
+⛔ FORBIDDEN SHORTCUTS - READ THIS FIRST (ALL TICKET TYPES)
 ═══════════════════════════════════════════════════════════════
 
-You MUST use Playwright MCP tools for browser testing. Available tools:
-- mcp__playwright__browser_navigate - Go to URL
-- mcp__playwright__browser_snapshot - Get page state (use this to find elements)
-- mcp__playwright__browser_click - Click elements
-- mcp__playwright__browser_type - Type into inputs
-- mcp__playwright__browser_take_screenshot - REQUIRED for evidence
+These phrases = AUTOMATIC REJECTION:
+❌ 'Verified via code inspection' → EXECUTE, don't READ
+❌ 'Unit tests pass' → Mocks don't prove real behavior
+❌ 'Logic appears correct' → RUN IT to verify
+❌ For UI: Testing one role and inferring others work → TEST EACH ROLE
 
-SCREENSHOTS ARE MANDATORY:
-1. Create directory: mkdir -p $MAIN_REPO_DIR/docs/agent-output/qa-results/screenshots/$TICKET_ID
-2. Take BEFORE screenshot (initial state)
-3. Take AFTER screenshot (after your actions)
-4. Take ERROR STATE screenshot (force an error)
-5. Include ALL screenshot paths in your report
-
-If you skip browser testing or screenshots, your QA is INVALID and will be rejected.
-
-EXCEPTION: If browser testing is BLOCKED by pre-existing build failures
-(errors that exist on main branch too), you may PASS based on thorough
-code inspection. But you MUST:
-1. Verify errors exist on BOTH main and feature branch
-2. Document this in your report
-3. Still verify all acceptance criteria via code inspection
-4. Confirm no NEW errors were introduced by this ticket
+THE GOLDEN RULE: If your evidence is 'I read the code', your QA is INVALID.
 
 ═══════════════════════════════════════════════════════════════
-ADVERSARIAL TESTING - TRY TO BREAK IT
+TICKET TYPE: $TICKET_TYPE
 ═══════════════════════════════════════════════════════════════
 
-You are NOT just verifying it works. You are trying to FIND BUGS.
+$(if [ \"$TICKET_TYPE\" = \"hybrid\" ]; then echo '
+⚠️  HYBRID TICKET - YOU MUST TEST BOTH API AND UI! ⚠️
 
-TEST THESE EDGE CASES:
-- Empty inputs: Submit forms with blank required fields
-- Invalid inputs: Wrong types, special chars (<script>alert(1)</script>), SQL injection ('; DROP TABLE)
-- Boundary values: 0, -1, 999999999, strings with 1000+ characters
-- Rapid clicks: Click submit button 5 times rapidly
-- Cancel mid-action: Start an operation then navigate away
-- Duplicate submission: Submit same form twice
-- Unauthorized access: Try accessing without proper permissions
-- Mobile viewport: Test at 375px width
+This ticket modifies BOTH backend/API files AND UI components.
+You MUST complete BOTH workflows:
 
-For EACH edge case, document what you tried and what happened.
-If you ONLY test the happy path, your QA is INCOMPLETE.
+1. FIRST: API/Backend Testing (docs/workflow/NON_UI_TICKET_QA_WORKFLOW.md)
+   - Test all API endpoints with curl
+   - Verify request/response behavior
+   - Test error cases and edge cases
+   - Document all curl commands and responses
+
+2. THEN: UI Testing (docs/workflow/UI_TICKET_QA_WORKFLOW.md)
+   - Test UI components with Playwright
+   - Test for each role (admin, agent)
+   - Generate magic links for PM review
+
+Your test plan MUST have sections for BOTH API and UI tests.
+Your self-audit MUST verify BOTH types of testing were done.
+'; elif [ \"$TICKET_TYPE\" = \"ui\" ]; then echo '
+UI TICKET - Browser testing required
+
+Read: docs/workflow/UI_TICKET_QA_WORKFLOW.md
+- Test with Playwright
+- Test each role separately
+- Generate magic links for PM review
+'; else echo '
+API/BACKEND TICKET - Execution-based testing required
+
+Read: docs/workflow/NON_UI_TICKET_QA_WORKFLOW.md
+- Test all endpoints with curl
+- Verify responses and state changes
+- Auto-merge after QA passes
+'; fi)
+
+GENERAL: docs/workflow/QA_REVIEW_AGENT_SOP.md
+
+SESSION INFO:
+  TICKET: $TICKET_ID | BRANCH: $BRANCH | TYPE: $TICKET_TYPE
+  HAS_UI: $HAS_UI_FILES | HAS_API: $HAS_API_FILES
+  SESSION_ID: $DB_SESSION_ID
+  WORKTREE: $WORKTREE_DIR
+  
+Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/heartbeat
 
 ═══════════════════════════════════════════════════════════════
-TESTING STEPS
+PHASE 1: CREATE YOUR TEST PLAN (BEFORE any testing!)
 ═══════════════════════════════════════════════════════════════
 
-PHASE 1: UNDERSTAND & PLAN (Do this BEFORE running any tests)
-1. READ the full SOP: docs/workflow/QA_REVIEW_AGENT_SOP.md
-2. READ the ticket spec from docs/data/tickets.json  
-3. READ the dev completion report from docs/agent-output/completions/
-4. DESIGN YOUR TESTING PROTOCOL:
-   - List ALL acceptance criteria
-   - For EACH criterion: How will you verify it? What tools will you use?
-   - List ALL edge cases you will test
-   - List ALL adversarial attacks you will try
-   - Plan your fallback if browser testing is blocked
+Write this FIRST:
 
+\`\`\`markdown
+## Test Plan for $TICKET_ID
+## TICKET TYPE: $TICKET_TYPE
+
+$(if [ \"$TICKET_TYPE\" = \"hybrid\" ] || [ \"$HAS_API_FILES\" = \"true\" ]; then echo '
+### API/BACKEND TESTS (Minimum 5)
+| # | Endpoint/Operation | Method | Input | Expected | 
+|---|-------------------|--------|-------|----------|
+| 1 | /api/example | POST | {valid data} | 200 + success |
+| 2 | /api/example | POST | {} | 400 + error |
+| 3 | /api/example | POST | {invalid} | 400 + validation |
+| 4 | /api/example | GET | unauthorized | 401 |
+| 5 | /api/example/:id | GET | bad id | 404 |
+'; fi)
+
+$(if [ \"$TICKET_TYPE\" = \"hybrid\" ] || [ \"$HAS_UI_FILES\" = \"true\" ]; then echo '
+### UI TESTS - ROLES TO TEST
+| Role | User Email | Tests | Magic Link? |
+|------|-----------|-------|-------------|
+| Admin | qa-admin-$TICKET_ID@greetnow.test | [list] | Yes |
+| Agent | qa-agent-$TICKET_ID@greetnow.test | [list] | Yes |
+
+### UI TESTS - SCENARIOS
+| # | Scenario | User Action | Expected Result |
+|---|----------|-------------|-----------------|
+| 1 | Happy path | [action] | [result] |
+| 2 | Error state | [trigger error] | [error UI] |
+| 3 | Edge case | [boundary] | [behavior] |
+'; fi)
+
+### ARTIFACT TRACKING
+| Test | Type | Executed? | Evidence | Pass/Fail |
+|------|------|-----------|----------|-----------|
+| [test] | API/UI | ☐ | [pending] | [pending] |
+\`\`\`
+
+⚠️ DO NOT proceed until test plan is written!
+
+═══════════════════════════════════════════════════════════════
 PHASE 2: BUILD VERIFICATION
-5. Run: pnpm install && pnpm typecheck && pnpm lint && pnpm build && pnpm test
-6. IF BUILD FAILS: Check if same errors exist on main branch
-   - Same errors on main = PRE-EXISTING, proceed with code verification
-   - New errors only on feature = FAIL the ticket
+═══════════════════════════════════════════════════════════════
 
-PHASE 3: EXECUTE YOUR TEST PROTOCOL
-7. Start dev server: pnpm dev (if build passed)
-8. Execute each test in your protocol with evidence
-9. BROWSER TEST the happy path with screenshots
-10. BROWSER TEST edge cases and try to break it
-11. Document ALL findings with evidence
-12. Make PASS/FAIL decision based on YOUR protocol criteria
+pnpm install && pnpm typecheck && pnpm lint && pnpm build && pnpm test
+
+If fails: Check if same errors on main. Pre-existing = try pnpm dev anyway.
+New errors = FAIL ticket.
+
+═══════════════════════════════════════════════════════════════
+PHASE 3: EXECUTE TESTS (One at a time, with evidence)
+═══════════════════════════════════════════════════════════════
+
+Start: pnpm dev
+
+$(if [ \"$TICKET_TYPE\" = \"hybrid\" ]; then echo '
+═══════════════════════════════════════════════════════════════
+⚠️  HYBRID: Complete BOTH sections below!
+═══════════════════════════════════════════════════════════════
+
+PART A: API/BACKEND TESTING (Do this FIRST!)
+───────────────────────────────────────────
+For EACH endpoint in your test plan:
+  1. curl -X POST/GET the endpoint
+  2. Capture full response
+  3. Test error cases (missing fields, invalid types, unauthorized)
+  4. Verify DB state changes via API
+  5. Document request/response pairs
+
+Example:
+  curl -s -X POST http://localhost:3001/api/endpoint \\
+    -H \"Content-Type: application/json\" \\
+    -d \"{...}\" | jq .
+
+PART B: UI TESTING (Do this AFTER API testing passes!)
+──────────────────────────────────────────────────────
+For EACH role in your test plan:
+  1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
+  2. Login via Playwright (creates org!)
+  3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
+  4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
+  5. Test feature WITH the API you just verified, take screenshots
+  6. Generate magic link: curl -X POST http://localhost:3456/api/v2/review-tokens
+  7. REPEAT for next role
+'; elif [ \"$TICKET_TYPE\" = \"ui\" ]; then echo '
+UI TICKETS - For EACH role:
+  1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
+  2. Login via Playwright (creates org!)
+  3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
+  4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
+  5. Test feature, take screenshot
+  6. Generate magic link: curl -X POST http://localhost:3456/api/v2/review-tokens
+  7. REPEAT for next role
+'; else echo '
+API/BACKEND TICKETS - For EACH endpoint:
+  1. curl -X POST/GET the endpoint
+  2. Capture full response
+  3. Test error cases (missing fields, invalid types)
+  4. Verify DB state changes
+  5. Document request/response pairs
+'; fi)
+
+═══════════════════════════════════════════════════════════════
+PHASE 4: SELF-AUDIT (Before marking complete)
+═══════════════════════════════════════════════════════════════
+
+Answer honestly:
+
+### General (ALL tickets)
+- Total tests executed: ___ (should be ≥5)
+- Evidence pieces: ___ (responses/screenshots)
+- [ ] No 'verified via code inspection' phrases
+- [ ] Every test has execution evidence
+
+$(if [ \"$TICKET_TYPE\" = \"hybrid\" ]; then echo '
+### HYBRID TICKET - BOTH SECTIONS REQUIRED!
+
+API Testing:
+- API endpoints tested: ___
+- curl commands executed: ___
+- Responses captured: ___
+- [ ] Tested error cases (400, 401, 404)
+- [ ] Verified state changes
+
+UI Testing:
+- Roles in AC: ___ | Users created: ___ | Magic links: ___
+- Screenshots taken: ___
+- [ ] All role numbers match
+- [ ] Each role has its own magic link
+
+⛔ HYBRID TICKETS: Both sections must be complete!
+'; elif [ \"$TICKET_TYPE\" = \"ui\" ]; then echo '
+### UI Testing
+- Roles in AC: ___ | Users created: ___ | Magic links: ___
+- All numbers must match!
+'; else echo '
+### API Testing
+- Endpoints tested: ___
+- curl commands executed: ___
+- Error cases tested: ___
+'; fi)
+
+⛔ DO NOT mark complete until self-audit passes!
 
 If PASS:
   ═══════════════════════════════════════════════════════════════
-  ⚠️  THIS IS A UI TICKET - ANALYZE THEN TEST THOROUGHLY ⚠️
+  DELIVERABLES (Both UI and Non-UI)
   ═══════════════════════════════════════════════════════════════
   
-  You are REPLACING a human QA team. A thorough QA means:
-  1. ANALYZE the acceptance criteria to understand WHAT needs testing
-  2. Test the feature in the BROWSER (not just code inspection)
-  3. Test ALL relevant scenarios mentioned in the AC
-  4. Provide magic links so PM can verify what you tested
+  1. Write QA Report:
+     $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md
+     
+     Include: Test plan, all test results, evidence, self-audit
   
   ─────────────────────────────────────────────────────────────
-  FIRST: Analyze the acceptance criteria
+  FOR UI TICKETS: Create inbox with magic_links (PLURAL!)
   ─────────────────────────────────────────────────────────────
   
-  Read the ticket's acceptance_criteria and determine:
+  Write: $MAIN_REPO_DIR/docs/agent-output/inbox/$TICKET_ID.json
   
-  1. ROLE-BASED UI? (admin vs agent see different things)
-     Look for: \"admin sees X\", \"agent sees Y\", \"role-specific\"
-     → If YES: Test BOTH roles, provide magic link for EACH
-     → If NO: Single user test is sufficient
-  
-  2. STATE-BASED UI? (different states show different UI)
-     Look for: \"when status is X\", \"if paused/cancelled/past_due\"
-     → Set up the SPECIFIC state mentioned in AC
-  
-  3. WHAT PAGES/ROUTES? 
-     → Identify which pages you need to test on
-  
-  ─────────────────────────────────────────────────────────────
-  THEN: Execute the appropriate test flow
-  ─────────────────────────────────────────────────────────────
-  
-  FOR EACH unique view/role combination you need to test:
-  
-  1. Create test user:
-     curl -X POST http://localhost:3456/api/v2/qa/create-test-user \\
-       -H 'Content-Type: application/json' \\
-       -d '{\"email\": \"qa-$TICKET_ID-[role]@greetnow.test\", \"password\": \"QATest-$TICKET_ID!\", \"full_name\": \"QA [Role] $TICKET_ID\"}'
-  
-  2. LOG IN via Playwright (CRITICAL - creates org!):
-     - Navigate to login page
-     - Fill credentials and submit
-     - WAIT for dashboard to load
-  
-  3. Verify org was created:
-     curl -s \"http://localhost:3456/api/v2/qa/org-by-email/qa-$TICKET_ID-[role]@greetnow.test\"
-     MUST return organization data. If error → redo login step.
-  
-  4. Set up required state (based on what AC needs):
-     curl -X POST http://localhost:3456/api/v2/qa/set-org-status \\
-       -H 'Content-Type: application/json' \\
-       -d '{\"user_email\": \"...\", \"subscription_status\": \"[required_status]\"}'
-  
-  5. TEST the feature in browser:
-     - Navigate to the page
-     - Verify the AC-specified behavior
-     - Take SCREENSHOT as proof
-  
-  6. Generate magic link for this user:
-     curl -s -X POST http://localhost:3456/api/v2/review-tokens \\
-       -H 'Content-Type: application/json' \\
-       -d '{\"ticket_id\": \"$TICKET_ID\", \"user_email\": \"...\", \"user_password\": \"...\", \"redirect_path\": \"/[page]\"}'
-  
-  REPEAT steps 1-6 for each role/view if multiple are needed.
-  
-  ─────────────────────────────────────────────────────────────
-  FINALLY: Create QA report and inbox item
-  ─────────────────────────────────────────────────────────────
-  
-  Write QA report to: $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md
-  
-  Write inbox JSON to: $MAIN_REPO_DIR/docs/agent-output/inbox/$TICKET_ID.json
-  
-  Include in inbox item:
-  - ALL screenshots you took
-  - ALL magic links (one per role/view tested)
-  - Description of what each magic link shows
-  - Test setup notes (what state was configured)
-  
-  Example inbox structure for multi-role ticket:
   {
-    \"magic_links\": {
-      \"admin\": {\"url\": \"...\", \"description\": \"Admin view - sees action button\"},
-      \"agent\": {\"url\": \"...\", \"description\": \"Agent view - sees read-only\"}
-    }
+    \"ticket_id\": \"$TICKET_ID\",
+    \"title\": \"[title]\",
+    \"type\": \"ui_review\",
+    \"status\": \"pending\",
+    \"created_at\": \"[ISO timestamp]\",
+    \"message\": \"QA verified ALL roles. PM please confirm each.\",
+    \"branch\": \"$BRANCH\",
+    \"qa_report\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-[timestamp].md\",
+    \"screenshots\": [
+      {\"name\": \"Admin View\", \"path\": \"...\"},
+      {\"name\": \"Agent View\", \"path\": \"...\"}
+    ],
+    \"magic_links\": [
+      {\"role\": \"admin\", \"url\": \"http://...\", \"what_pm_sees\": \"...\"},
+      {\"role\": \"agent\", \"url\": \"http://...\", \"what_pm_sees\": \"...\"}
+    ],
+    \"test_setup\": \"[how test accounts are configured]\",
+    \"acceptance_criteria\": [\"list from ticket\"]
   }
   
-  Example inbox structure for single-role ticket:
-  {
-    \"magic_url\": \"...\",
-    \"test_credentials\": {\"email\": \"...\", \"role\": \"user\"}
-  }
+  Update ticket:
+  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -d '{\"status\": \"qa_approved\"}'
   
   ─────────────────────────────────────────────────────────────
-  STEP 9: Update ticket status
+  FOR NON-UI TICKETS: Auto-merge flow
   ─────────────────────────────────────────────────────────────
-  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID \\
-    -H 'Content-Type: application/json' \\
-    -d '{\"status\": \"qa_approved\"}'
   
-  ─────────────────────────────────────────────────────────────
-  STEP 10: Mark session complete
-  ─────────────────────────────────────────────────────────────
-  curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete \\
-    -H 'Content-Type: application/json' \\
-    -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
+  QA Report must include:
+  - All curl commands executed
+  - All responses received  
+  - Expected vs actual for each test
+  - State verification evidence
   
-  ═══════════════════════════════════════════════════════════════
-  ✅ VERIFICATION CHECKLIST - All must be TRUE before you exit:
-  ═══════════════════════════════════════════════════════════════
-  - [ ] I logged in as the test user via Playwright (Step 2)
-  - [ ] I verified org exists via API (Step 3)
-  - [ ] I SAW the feature working in browser (Step 5)
-  - [ ] I have screenshots proving the feature works
-  - [ ] Inbox JSON exists with valid magic_url (Step 8)
-  - [ ] QA report exists in qa-results/
+  Update ticket:
+  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -d '{\"status\": \"merged\"}'
   
-  DO NOT exit until all checkboxes are verified!
-  
-  ═══════════════════════════════════════════════════════════════
-  FOR NON-UI TICKETS ONLY (no .tsx files): Auto-merge flow
-  ═══════════════════════════════════════════════════════════════
-  
-  - Write PASS report to: $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md
-  - Mark session complete:
-    curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete -H 'Content-Type: application/json' -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
-  - Update ticket status:
-    curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -H 'Content-Type: application/json' -d '{\"status\": \"merged\"}'
-  - Include these SELECTIVE MERGE commands (only merge ticket files, not entire branch):
+  Selective merge:
     cd $MAIN_REPO_DIR
-    git checkout main
-    git pull origin main
+    git checkout main && git pull origin main
     git checkout $BRANCH -- $FILES_TO_MODIFY
     git add $FILES_TO_MODIFY
     git commit -m 'Merge $TICKET_ID: [title] - QA Passed'
     git push origin main
+  
+  ─────────────────────────────────────────────────────────────
+  BOTH: Mark session complete
+  ─────────────────────────────────────────────────────────────
+  
+  curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete \\
+    -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
 
 If FAIL:
-  - Write BOTH files (CRITICAL - Dispatch needs the JSON!):
-    1. JSON blocker: $MAIN_REPO_DIR/docs/agent-output/blocked/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).json
-    2. MD report: $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).md
-  - Mark session blocked:
-    curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/block -H 'Content-Type: application/json' -d '{\"blocker_type\": \"qa_failure\", \"summary\": \"QA tests failed\"}'
-  - Update ticket status:
-    curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -H 'Content-Type: application/json' -d '{\"status\": \"qa_failed\"}'
+  ═══════════════════════════════════════════════════════════════
   
-  JSON blocker format:
+  Write BOTH files:
+  1. $MAIN_REPO_DIR/docs/agent-output/blocked/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).json
+  2. $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).md
+  
+  JSON format:
   {
     \"ticket_id\": \"$TICKET_ID\",
     \"blocker_type\": \"qa_failure\",
-    \"summary\": \"One-line summary\",
-    \"failures\": [{\"criterion\": \"...\", \"expected\": \"...\", \"actual\": \"...\"}],
+    \"summary\": \"[one-line summary]\",
+    \"failures\": [{\"test\": \"...\", \"expected\": \"...\", \"actual\": \"...\"}],
     \"dispatch_action\": \"create_continuation_ticket\"
   }
+  
+  Update status:
+  curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/block -d '{\"blocker_type\": \"qa_failure\", ...}'
+  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -d '{\"status\": \"qa_failed\"}'
 
-CRITICAL: Only merge the specific files for this ticket. Do NOT merge:
-  - docs/data/*.json (shared data files)
-  - docs/pm-dashboard-ui/* (dashboard)
-  - Any files not in the ticket's files_to_modify list"
+═══════════════════════════════════════════════════════════════
+REMEMBER: If you didn't EXECUTE it, you didn't TEST it.
+═══════════════════════════════════════════════════════════════"
 
     # Launch in tmux - run in worktree directory
     # Use remain-on-exit so the session stays after claude exits

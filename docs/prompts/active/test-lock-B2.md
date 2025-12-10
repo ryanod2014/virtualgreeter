@@ -99,3 +99,4 @@ Seat management enables admins to add and remove agent seats with automatic Stri
 - [ ] Specific test names (not "works correctly")
 
 
+

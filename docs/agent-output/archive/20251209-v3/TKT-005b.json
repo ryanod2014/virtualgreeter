@@ -1,0 +1,24 @@
+{
+  "ticket_id": "TKT-005b",
+  "title": "Payment Failure Blocking Modal",
+  "type": "ui_review",
+  "status": "pending",
+  "created_at": "2025-12-09T22:07:20.000Z",
+  "message": "QA verified - Payment blocker modal working correctly. PM please confirm UI and UX.",
+  "branch": "agent/tkt-005b",
+  "qa_report": "docs/agent-output/qa-results/QA-TKT-005b-PASSED-20251209T220720.md",
+  "screenshots": [
+    {
+      "name": "Admin Payment Blocker Modal",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-005b/01-admin-payment-blocker.png"
+    }
+  ],
+  "magic_url": "http://localhost:3000/api/review-login?token=3519c544374b14273234bea4f5a9dd5e25104de583b219d33e56b82e206009a0",
+  "test_setup": "Organization subscription_status set to 'past_due'. PaymentBlocker modal appears immediately on all dashboard routes.",
+  "acceptance_criteria": [
+    "Full-screen modal appears when org status is 'past_due'",
+    "Admins see 'Update Payment Method' button",
+    "Agents see read-only message directing them to contact admin",
+    "Modal cannot be dismissed without resolving payment"
+  ]
+}

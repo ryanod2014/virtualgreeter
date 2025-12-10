@@ -1,0 +1,26 @@
+{
+  "ticket_id": "TKT-005b",
+  "ticket_title": "Create Payment Failure Blocking Modal",
+  "branch": "agent/tkt-005b",
+  "blocked_at": "2025-12-09T22:49:00Z",
+  "blocker_type": "qa_failure",
+  "summary": "PaymentBlocker component not integrated into layout - modal never appears",
+  "failures": [
+    {
+      "category": "acceptance",
+      "criterion": "AC#1: Full-screen modal appears when org status is 'past_due'",
+      "expected": "Modal blocks dashboard when organization.subscription_status === 'past_due'",
+      "actual": "No modal appears. Dashboard loads normally with full access despite past_due status.",
+      "evidence": "Browser test: Set org to past_due via API (confirmed success), navigated to /admin, no modal rendered. Screenshot: docs/agent-output/qa-results/screenshots/TKT-005b/admin-no-modal-past-due.png"
+    },
+    {
+      "category": "acceptance",
+      "criterion": "AC#4: Layout checks org status and renders blocker if past_due",
+      "expected": "Layout file (apps/dashboard/src/app/(app)/layout.tsx) imports PaymentBlocker, checks org status, conditionally renders component",
+      "actual": "Layout does not import PaymentBlocker. No org status checking. No conditional rendering. Component is orphaned.",
+      "evidence": "Code inspection: layout.tsx lines 1-31 show no import of PaymentBlocker, no subscription_status check, no conditional render"
+    }
+  ],
+  "recommendation": "Create continuation ticket to integrate PaymentBlocker into layout with org status checking logic",
+  "dispatch_action": "create_continuation_ticket"
+}

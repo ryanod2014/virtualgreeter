@@ -1,0 +1,12 @@
+{
+  "token": "0aa3775189bf10f91da04ea050f845a89bfd485135efb29a3a3e56fd01df51cb",
+  "ticket_id": "TKT-005b",
+  "user_email": "qa-tkt-005b-v2@greetnow.test",
+  "user_password": "TestPass123",
+  "redirect_path": "/dashboard",
+  "preview_base_url": "http://localhost:3000",
+  "created_at": "2025-12-09T21:45:38.925Z",
+  "expires_at": "2025-12-16T21:45:38.925Z",
+  "used_count": 1,
+  "last_used_at": "2025-12-09T21:47:43.075Z"
+}
