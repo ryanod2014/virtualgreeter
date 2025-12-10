@@ -3312,10 +3312,12 @@ function handleAPI(req, res, body) {
         
         // Step 2: Create organization directly (don't wait for login)
         orgName = `QA Org ${ticket_id} ${timestamp}`;
+        const orgSlug = `qa-${ticketSlug}-${timestamp}`.toLowerCase();
         const { data: orgData, error: orgError } = await supabase
           .from('organizations')
           .insert({
             name: orgName,
+            slug: orgSlug,
             subscription_status: org_status || 'active',
             plan: 'pro'
           })
