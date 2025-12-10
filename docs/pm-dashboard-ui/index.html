@@ -1632,8 +1632,90 @@ pnpm build`}
                     </div>
                   )}
 
-                  {/* Magic URL (One-Click Login) - Preferred */}
-                  {review.magic_url && (
+                  {/* Magic Links (Multi-Role) - New format with role descriptions */}
+                  {review.magic_links && review.magic_links.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '12px', fontSize: '14px' }}>🚀 Try It Live (Auto-Login):</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {review.magic_links.map((link, idx) => (
+                          <div key={idx} style={{
+                            padding: '16px',
+                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05))',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            borderRadius: '10px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                              <span style={{
+                                background: link.role === 'admin' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                color: 'white',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                textTransform: 'uppercase'
+                              }}>
+                                {link.role}
+                              </span>
+                              <a 
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '10px 20px',
+                                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                                  color: 'white',
+                                  borderRadius: '8px',
+                                  textDecoration: 'none',
+                                  fontWeight: 600,
+                                  fontSize: '14px',
+                                  boxShadow: '0 2px 10px rgba(16, 185, 129, 0.3)',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseOver={(e) => {
+                                  e.currentTarget.style.transform = 'translateY(-2px)';
+                                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(16, 185, 129, 0.4)';
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.transform = 'translateY(0)';
+                                  e.currentTarget.style.boxShadow = '0 2px 10px rgba(16, 185, 129, 0.3)';
+                                }}
+                              >
+                                Open as {link.role}
+                                <span style={{ fontSize: '12px', opacity: 0.8 }}>↗</span>
+                              </a>
+                            </div>
+                            {link.what_pm_sees && (
+                              <div style={{ 
+                                fontSize: '13px', 
+                                color: 'var(--text-secondary)',
+                                marginTop: '8px',
+                                paddingLeft: '4px'
+                              }}>
+                                <span style={{ fontWeight: 500 }}>What you'll see:</span> {link.what_pm_sees}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ 
+                        marginTop: '10px', 
+                        fontSize: '12px', 
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <span style={{ color: '#10b981' }}>✓</span>
+                        One click per role - no login required
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Legacy Magic URL (Single link) - for backwards compatibility */}
+                  {review.magic_url && !review.magic_links && (
                     <div style={{ marginBottom: '16px' }}>
                       <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Try It Live:</div>
                       <a 

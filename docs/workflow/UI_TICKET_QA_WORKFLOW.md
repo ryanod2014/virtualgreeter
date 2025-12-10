@@ -96,28 +96,37 @@ Execute your test plan **systematically, one test at a time**.
 **CRITICAL RULES:**
 1. **DO NOT use `pnpm dev` from the repo root** - Turbo concurrent startup often fails silently
 2. **DO NOT use sudo for anything** - All commands should work without elevated privileges
-3. **DO NOT use `lsof` with sudo** - Use `lsof -ti :3000` (no sudo needed)
+3. **DO NOT use `lsof` with sudo** - Use `lsof -ti :$PORT` (no sudo needed)
+4. **USE YOUR ASSIGNED PORT** - Check $AGENT_PORT environment variable (or the port shown in your session info)
 
-Instead, start the dashboard directly:
+**Why unique ports?** Multiple QA agents may run in parallel. Each gets its own port to avoid conflicts.
+
+Instead, start the dashboard directly on YOUR assigned port:
 
 ```bash
-# Kill any existing processes on port 3000
-lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+# Your port is in the AGENT_PORT environment variable
+# If not set, it was shown in your session info (e.g., "YOUR DASHBOARD PORT: 3105")
+echo "My port: $AGENT_PORT"
 
-# Start dashboard directly (NOT from repo root)
+# Kill any existing processes on YOUR port
+lsof -ti :$AGENT_PORT | xargs kill -9 2>/dev/null || true
+
+# Start dashboard on YOUR port (NOT from repo root)
 cd apps/dashboard
-pnpm dev &
+PORT=$AGENT_PORT pnpm dev &
 sleep 10
 
-# Verify it's running
-curl -s http://localhost:3000 | head -1
+# Verify it's running on YOUR port
+curl -s http://localhost:$AGENT_PORT | head -1
 # Should return HTML, not an error
 ```
 
 **If the dashboard doesn't start:**
-1. Check for port conflicts: `lsof -i :3000`
+1. Check for port conflicts: `lsof -i :$AGENT_PORT`
 2. Verify `.env.local` exists and has `NEXT_PUBLIC_SUPABASE_URL`
-3. Try: `cd apps/dashboard && pnpm install && pnpm dev`
+3. Try: `cd apps/dashboard && pnpm install && PORT=$AGENT_PORT pnpm dev`
+
+**⚠️ IMPORTANT:** All browser testing must use `http://localhost:$AGENT_PORT`, NOT port 3000!
 
 ### Step 2.0b: Verify Playwright MCP (CRITICAL for browser testing!)
 
@@ -208,9 +217,11 @@ curl -X POST http://localhost:3456/api/v2/qa/create-test-user \
 
 **This step creates the organization. DO NOT SKIP.**
 
+**⚠️ Use YOUR assigned port ($AGENT_PORT), not 3000!**
+
 ```
 Use Playwright MCP to:
-1. Navigate to http://localhost:3000/login
+1. Navigate to http://localhost:$AGENT_PORT/login  (use YOUR port!)
 2. Fill email field with user's email
 3. Fill password field with user's password
 4. Click sign in button
@@ -264,19 +275,23 @@ mkdir -p docs/agent-output/qa-results/screenshots/[TICKET-ID]
 
 ### Step 2.7: Generate Magic Link (for THIS role)
 
+**⚠️ Include YOUR port in preview_base_url so the magic link uses the right server!**
+
 ```bash
 MAGIC_RESPONSE=$(curl -s -X POST http://localhost:3456/api/v2/review-tokens \
   -H "Content-Type: application/json" \
-  -d '{
-    "ticket_id": "[TICKET-ID]",
-    "user_email": "qa-[role]-[TICKET-ID]@greetnow.test",
-    "user_password": "QATest-[TICKET-ID]!",
-    "redirect_path": "/dashboard"
-  }')
+  -d "{
+    \"ticket_id\": \"[TICKET-ID]\",
+    \"user_email\": \"qa-[role]-[TICKET-ID]@greetnow.test\",
+    \"user_password\": \"QATest-[TICKET-ID]!\",
+    \"redirect_path\": \"/dashboard\",
+    \"preview_base_url\": \"http://localhost:$AGENT_PORT\"
+  }")
 
 echo "Magic URL for [ROLE]: $(echo $MAGIC_RESPONSE | jq -r '.magic_url')"
 
 # SAVE THIS! You need it for the inbox item.
+# Note: PM will need to start dashboard on port $AGENT_PORT to use this link
 ```
 
 ### Step 2.8: Update Your Artifact Table
@@ -317,8 +332,10 @@ After each role is complete, update your tracking:
 
 | Role | Magic Link | What PM Will See |
 |------|-----------|------------------|
-| Admin | http://localhost:3000/api/review-login?token=abc... | Modal with "Update Payment Method" button |
-| Agent | http://localhost:3000/api/review-login?token=xyz... | Modal with "Contact your admin" message |
+| Admin | http://localhost:$AGENT_PORT/api/review-login?token=abc... | Modal with "Update Payment Method" button |
+| Agent | http://localhost:$AGENT_PORT/api/review-login?token=xyz... | Modal with "Contact your admin" message |
+
+**Note:** PM needs to start dashboard on the port shown in the magic link URL (e.g., `PORT=3105 pnpm dev`).
 
 ## Screenshots
 [List all screenshots with descriptions]
@@ -343,15 +360,16 @@ After each role is complete, update your tracking:
   "magic_links": [
     {
       "role": "admin",
-      "url": "http://localhost:3000/api/review-login?token=abc...",
+      "url": "http://localhost:$AGENT_PORT/api/review-login?token=abc...",
       "what_pm_sees": "Modal with Update Payment Method button"
     },
     {
       "role": "agent",
-      "url": "http://localhost:3000/api/review-login?token=xyz...",
+      "url": "http://localhost:$AGENT_PORT/api/review-login?token=xyz...",
       "what_pm_sees": "Modal with Contact Admin message"
     }
   ],
+  "preview_port": "$AGENT_PORT",
   "test_setup": "Both users' orgs set to past_due.",
   "acceptance_criteria": ["AC1", "AC2", "AC3", "AC4"]
 }
@@ -494,13 +512,14 @@ curl -X POST http://localhost:3456/api/v2/qa/create-test-user -d '{"email":"qa-a
 
 ### Phase 3: Deliverables
 
-Inbox JSON with BOTH magic links:
+Inbox JSON with BOTH magic links (use YOUR port in the URLs):
 ```json
 {
   "magic_links": [
-    {"role": "admin", "url": "http://...token=abc", "what_pm_sees": "Update Payment button"},
-    {"role": "agent", "url": "http://...token=xyz", "what_pm_sees": "Contact Admin message"}
-  ]
+    {"role": "admin", "url": "http://localhost:$AGENT_PORT/api/review-login?token=abc", "what_pm_sees": "Update Payment button"},
+    {"role": "agent", "url": "http://localhost:$AGENT_PORT/api/review-login?token=xyz", "what_pm_sees": "Contact Admin message"}
+  ],
+  "preview_port": "$AGENT_PORT"
 }
 ```
 

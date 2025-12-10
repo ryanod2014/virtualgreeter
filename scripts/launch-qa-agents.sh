@@ -81,30 +81,58 @@ validate_env_file() {
     return 0
 }
 
+# Calculate a unique port for each ticket to enable parallel QA testing
+# Base port is 3100, ticket number is added (TKT-005 → 3105, TKT-042 → 3142)
+get_port_for_ticket() {
+    local TICKET_ID="$1"
+    local BASE_PORT=3100
+    
+    # Extract numeric part from ticket ID (TKT-005 → 005 → 5)
+    local TICKET_NUM=$(echo "$TICKET_ID" | grep -oE '[0-9]+' | head -1)
+    
+    if [ -z "$TICKET_NUM" ]; then
+        # Fallback: hash the ticket ID to get a number
+        TICKET_NUM=$(echo "$TICKET_ID" | cksum | cut -d' ' -f1)
+        TICKET_NUM=$((TICKET_NUM % 100))
+    fi
+    
+    # Remove leading zeros and calculate port
+    TICKET_NUM=$((10#$TICKET_NUM))
+    local PORT=$((BASE_PORT + TICKET_NUM))
+    
+    # Ensure port is in valid range (3100-3999)
+    if [ $PORT -gt 3999 ]; then
+        PORT=$((3100 + (TICKET_NUM % 900)))
+    fi
+    
+    echo $PORT
+}
+
 # Pre-flight check: verify dashboard can start in worktree
 preflight_dashboard_check() {
     local WORKTREE_DIR="$1"
+    local PORT="$2"
     local DASHBOARD_DIR="$WORKTREE_DIR/apps/dashboard"
     
-    echo -e "${CYAN}[PRE-FLIGHT]${NC} Testing dashboard startup..."
+    echo -e "${CYAN}[PRE-FLIGHT]${NC} Testing dashboard startup on port $PORT..."
     
-    # Kill any existing process on port 3000
-    lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+    # Kill any existing process on this port
+    lsof -ti :$PORT | xargs kill -9 2>/dev/null || true
     sleep 1
     
-    # Try to start dashboard
+    # Try to start dashboard on the specified port
     cd "$DASHBOARD_DIR"
-    pnpm dev > /tmp/dashboard-preflight.log 2>&1 &
+    PORT=$PORT pnpm dev > /tmp/dashboard-preflight-$PORT.log 2>&1 &
     local DEV_PID=$!
     
     # Wait for startup (max 15 seconds)
     local TRIES=0
     local MAX_TRIES=15
     while [ $TRIES -lt $MAX_TRIES ]; do
-        if curl -s http://localhost:3000 2>/dev/null | head -1 | grep -q "<!DOCTYPE\|<html"; then
-            print_success "Dashboard starts successfully on port 3000"
+        if curl -s http://localhost:$PORT 2>/dev/null | head -1 | grep -q "<!DOCTYPE\|<html"; then
+            print_success "Dashboard starts successfully on port $PORT"
             kill $DEV_PID 2>/dev/null || true
-            lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+            lsof -ti :$PORT | xargs kill -9 2>/dev/null || true
             return 0
         fi
         sleep 1
@@ -112,14 +140,14 @@ preflight_dashboard_check() {
     done
     
     # Failed to start
-    print_error "Dashboard failed to start within ${MAX_TRIES}s"
-    print_error "Check /tmp/dashboard-preflight.log for details"
+    print_error "Dashboard failed to start on port $PORT within ${MAX_TRIES}s"
+    print_error "Check /tmp/dashboard-preflight-$PORT.log for details"
     kill $DEV_PID 2>/dev/null || true
-    lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+    lsof -ti :$PORT | xargs kill -9 2>/dev/null || true
     
     # Show last few lines of log
     echo -e "${YELLOW}Last lines of startup log:${NC}"
-    tail -10 /tmp/dashboard-preflight.log 2>/dev/null || true
+    tail -10 /tmp/dashboard-preflight-$PORT.log 2>/dev/null || true
     
     return 1
 }
@@ -363,9 +391,12 @@ launch_agent() {
     local WORKTREE_BASE="$MAIN_REPO_DIR/../agent-worktrees"
     local WORKTREE_DIR="$WORKTREE_BASE/qa-$TICKET_ID"
     
+    # Calculate unique port for this ticket (enables parallel testing)
+    local AGENT_PORT=$(get_port_for_ticket "$TICKET_ID")
+    
     echo ""
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${BLUE}Launching QA agent for: $TICKET_ID${NC}"
+    echo -e "${BLUE}Launching QA agent for: $TICKET_ID (Port: $AGENT_PORT)${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     
     # Check if session already exists
@@ -494,8 +525,8 @@ EOF
     # Pre-flight: verify dashboard can start (for UI tickets)
     if [ "$HAS_UI_FILES" = true ]; then
         echo ""
-        if ! preflight_dashboard_check "$WORKTREE_DIR"; then
-            print_warning "Pre-flight dashboard check failed"
+        if ! preflight_dashboard_check "$WORKTREE_DIR" "$AGENT_PORT"; then
+            print_warning "Pre-flight dashboard check failed on port $AGENT_PORT"
             print_warning "QA agent will attempt to start it, but may hit the same issues"
             print_warning "Consider fixing dashboard startup before re-running QA"
         fi
@@ -636,6 +667,10 @@ SESSION INFO:
   SESSION_ID: $DB_SESSION_ID
   WORKTREE: $WORKTREE_DIR
   
+  ⚠️  YOUR DASHBOARD PORT: $AGENT_PORT
+  This port is unique to your ticket - use it for all testing!
+  Other QA agents may be running on different ports simultaneously.
+  
 Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/heartbeat
 
 ═══════════════════════════════════════════════════════════════
@@ -695,7 +730,17 @@ New errors = FAIL ticket.
 PHASE 3: EXECUTE TESTS (One at a time, with evidence)
 ═══════════════════════════════════════════════════════════════
 
-Start: pnpm dev
+⚠️  START DASHBOARD ON YOUR ASSIGNED PORT ($AGENT_PORT):
+
+cd apps/dashboard
+PORT=$AGENT_PORT pnpm dev &
+sleep 10
+
+# Verify it's running on YOUR port
+curl -s http://localhost:$AGENT_PORT | head -1
+
+# ALL your testing should use http://localhost:$AGENT_PORT
+# (NOT port 3000 - other agents may be using that!)
 
 $(if [ \"$TICKET_TYPE\" = \"hybrid\" ]; then echo '
 ═══════════════════════════════════════════════════════════════
@@ -729,12 +774,15 @@ For EACH role in your test plan:
 '; elif [ \"$TICKET_TYPE\" = \"ui\" ]; then echo '
 UI TICKETS - For EACH role:
   1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
-  2. Login via Playwright (creates org!)
+  2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
   3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
   4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
-  5. Test feature, take screenshot
-  6. Generate magic link: curl -X POST http://localhost:3456/api/v2/review-tokens
+  5. Test feature at http://localhost:$AGENT_PORT, take screenshot
+  6. Generate magic link: curl -X POST http://localhost:3456/api/v2/review-tokens \\
+       -d '{"ticket_id":"...","user_email":"...","preview_base_url":"http://localhost:$AGENT_PORT"}'
   7. REPEAT for next role
+  
+  NOTE: Magic links will use YOUR port ($AGENT_PORT). PM will need dashboard running on that port.
 '; else echo '
 API/BACKEND TICKETS - For EACH endpoint:
   1. curl -X POST/GET the endpoint
@@ -896,6 +944,7 @@ REMEMBER: If you didn't EXECUTE it, you didn't TEST it.
 #!/bin/bash
 cd '$WORKTREE_DIR'
 export AGENT_SESSION_ID='$DB_SESSION_ID'
+export AGENT_PORT='$AGENT_PORT'
 
 # Ensure Playwright environment is available
 export PLAYWRIGHT_BROWSERS_PATH="\$HOME/.cache/ms-playwright"

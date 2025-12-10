@@ -1,0 +1,12 @@
+{
+  "token": "58723fad49d003d71317f5a06516667ea919f1697b1eca79f09babcb032554f0",
+  "ticket_id": "TKT-005b",
+  "user_email": "qa-admin-tkt-005b@greetnow.test",
+  "user_password": "QATestTKT005b",
+  "redirect_path": "/admin",
+  "preview_base_url": "http://localhost:3000",
+  "created_at": "2025-12-10T00:54:44.004Z",
+  "expires_at": "2025-12-17T00:54:44.004Z",
+  "used_count": 3,
+  "last_used_at": "2025-12-10T01:15:50.605Z"
+}

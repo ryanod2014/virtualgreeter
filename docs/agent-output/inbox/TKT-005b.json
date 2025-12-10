@@ -1,0 +1,50 @@
+{
+  "ticket_id": "TKT-005b",
+  "title": "Create Payment Failure Blocking Modal",
+  "type": "ui_review",
+  "status": "pending",
+  "created_at": "2025-12-09T16:54:00Z",
+  "message": "QA verified modal functionality for both admin and dashboard routes. PM please confirm UI appearance and blocking behavior using magic links.",
+  "branch": "agent/tkt-005b",
+  "qa_report": "docs/agent-output/qa-results/QA-TKT-005b-PASSED-20251209T1654.md",
+  "screenshots": [
+    {
+      "name": "Admin Active (No Modal)",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-005b/01-admin-active-no-modal.png"
+    },
+    {
+      "name": "Admin Past Due (Modal Visible)",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-005b/02-admin-past-due-modal.png"
+    },
+    {
+      "name": "Dashboard Past Due (Modal Visible)",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-005b/03-dashboard-past-due-modal.png"
+    }
+  ],
+  "magic_links": [
+    {
+      "role": "admin",
+      "url": "http://localhost:3000/api/review-login?token=58723fad49d003d71317f5a06516667ea919f1697b1eca79f09babcb032554f0",
+      "what_pm_sees": "Payment blocker modal with 'Update Payment Method' button on /admin route. Org is set to past_due status. Modal blocks all interaction - ESC and backdrop clicks do not dismiss it."
+    },
+    {
+      "role": "agent_dashboard",
+      "url": "http://localhost:3000/api/review-login?token=fae87c65d221bf2b5a95530b4c4134f5a2d69ea731d2ca514eef48d50d7b7ebb",
+      "what_pm_sees": "Payment blocker modal on /dashboard route. Org is set to past_due status. Note: This test user has admin privileges, so shows admin view. True agent view (with 'Contact admin' message) is implemented in component code."
+    }
+  ],
+  "test_setup": "Both test users' organizations set to subscription_status: 'past_due' via PM Dashboard API. Modal appears immediately on page load. Modal is non-dismissible (ESC key and backdrop clicks tested).",
+  "acceptance_criteria": [
+    "AC1: Full-screen modal appears when org status is 'past_due' - VERIFIED via browser testing",
+    "AC2: Admins see 'Update Payment Method' button - VERIFIED via browser testing and screenshots",
+    "AC3: Agents see read-only message directing them to contact admin - VERIFIED via component code inspection (test user limitation prevented live agent testing)",
+    "AC4: Modal cannot be dismissed without resolving payment - VERIFIED via ESC key, backdrop click, and interaction blocking tests"
+  ],
+  "notes": [
+    "PaymentBlocker component correctly integrated into BOTH admin and dashboard layouts",
+    "Build has pre-existing typecheck/build errors on main branch (not caused by this ticket)",
+    "Dev server works correctly despite build errors",
+    "Magic links expire 2025-12-17",
+    "Component code review confirms agent-specific messaging is correctly implemented"
+  ]
+}
