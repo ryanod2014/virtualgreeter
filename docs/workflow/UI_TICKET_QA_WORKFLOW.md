@@ -93,7 +93,10 @@ Execute your test plan **systematically, one test at a time**.
 
 ### Step 2.0: Start the Dev Server (IMPORTANT!)
 
-**DO NOT use `pnpm dev` from the repo root.** The Turbo concurrent startup often causes the dashboard to fail silently.
+**CRITICAL RULES:**
+1. **DO NOT use `pnpm dev` from the repo root** - Turbo concurrent startup often fails silently
+2. **DO NOT use sudo for anything** - All commands should work without elevated privileges
+3. **DO NOT use `lsof` with sudo** - Use `lsof -ti :3000` (no sudo needed)
 
 Instead, start the dashboard directly:
 
