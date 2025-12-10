@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/actions";
 import { AdminLayoutClient } from "./admin-layout-client";
 
+// Force dynamic rendering to prevent caching of organization data
+export const dynamic = 'force-dynamic';
+
 export default async function AdminLayout({
   children,
 }: {

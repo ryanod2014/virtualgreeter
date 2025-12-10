@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 export async function signUp(formData: FormData) {
@@ -62,8 +63,11 @@ export async function signOut() {
 }
 
 export async function getCurrentUser() {
+  // Opt out of Next.js data caching to ensure fresh organization data
+  noStore();
+
   const supabase = await createClient();
-  
+
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   
   console.log("[getCurrentUser] Auth result:", { userId: user?.id, email: user?.email, authError: authError?.message });
