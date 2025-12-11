@@ -69,6 +69,17 @@ interface Agent {
   agent_pool_members: PoolMembership[];
 }
 
+interface InactiveAgent {
+  id: string;
+  user_id: string;
+  display_name: string;
+  deactivated_at: string;
+  user: {
+    email: string;
+    full_name: string;
+  };
+}
+
 interface AgentStats {
   totalCalls: number;
   completedCalls: number;
@@ -116,6 +127,7 @@ interface Props {
   agentStats: Record<string, AgentStats>;
   organizationId: string;
   pendingInvites?: PendingInvite[];
+  inactiveAgents?: InactiveAgent[];
   currentUserId: string;
   currentUserName: string;
   isCurrentUserAgent: boolean;
@@ -126,12 +138,13 @@ interface Props {
   staffingMetrics: StaffingMetrics;
 }
 
-export function AgentsClient({ 
-  agents: initialAgents, 
-  pools, 
-  agentStats, 
-  organizationId, 
-  pendingInvites: initialInvites = [], 
+export function AgentsClient({
+  agents: initialAgents,
+  pools,
+  agentStats,
+  organizationId,
+  pendingInvites: initialInvites = [],
+  inactiveAgents: initialInactiveAgents = [],
   currentUserId,
   currentUserName,
   isCurrentUserAgent: initialIsCurrentUserAgent,
@@ -146,6 +159,7 @@ export function AgentsClient({
   
   const [agents, setAgents] = useState(initialAgents);
   const [pendingInvites, setPendingInvites] = useState(initialInvites);
+  const [inactiveAgents, setInactiveAgents] = useState(initialInactiveAgents);
   const [billingInfo, setBillingInfo] = useState(initialBillingInfo);
   const [isCurrentUserAgent, setIsCurrentUserAgent] = useState(initialIsCurrentUserAgent);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
@@ -549,6 +563,85 @@ export function AgentsClient({
       setRemoveError("An unexpected error occurred");
     } finally {
       setIsRemoving(false);
+    }
+  };
+
+  // Reactivate inactive agent
+  const [isReactivating, setIsReactivating] = useState(false);
+  const [reactivateError, setReactivateError] = useState<string | null>(null);
+
+  const handleReactivateAgent = async (inactiveAgent: InactiveAgent) => {
+    setIsReactivating(true);
+    setReactivateError(null);
+
+    try {
+      // Use the invite API with the agent's email to trigger reactivation
+      const response = await fetch("/api/invites/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: inactiveAgent.user.email,
+          fullName: inactiveAgent.user.full_name,
+          role: "agent",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setReactivateError(data.error || "Failed to reactivate agent");
+        setIsReactivating(false);
+        return;
+      }
+
+      if (data.reactivated) {
+        // Move from inactive to active agents list
+        setInactiveAgents(inactiveAgents.filter(a => a.id !== inactiveAgent.id));
+
+        // Fetch the full agent profile to add to active list
+        const { data: agentProfile } = await supabase
+          .from("agent_profiles")
+          .select(`
+            id,
+            user_id,
+            display_name,
+            status,
+            wave_video_url,
+            intro_video_url,
+            loop_video_url,
+            max_simultaneous_simulations,
+            user:users!agent_profiles_user_id_fkey(email, full_name),
+            agent_pool_members(
+              id,
+              priority_rank,
+              wave_video_url,
+              intro_video_url,
+              loop_video_url,
+              pool:agent_pools(id, name, is_catch_all)
+            )
+          `)
+          .eq("id", inactiveAgent.id)
+          .single();
+
+        if (agentProfile) {
+          setAgents([...agents, agentProfile as any]);
+        }
+
+        // Update billing info
+        setBillingInfo({
+          ...billingInfo,
+          usedSeats: billingInfo.usedSeats + 1,
+          availableSeats: Math.max(0, billingInfo.availableSeats - 1),
+          activeAgents: billingInfo.activeAgents + 1,
+        });
+
+        alert(`Successfully reactivated ${inactiveAgent.display_name}`);
+      }
+    } catch (error) {
+      console.error("Reactivate error:", error);
+      setReactivateError("An unexpected error occurred");
+    } finally {
+      setIsReactivating(false);
     }
   };
 
@@ -1631,6 +1724,66 @@ export function AgentsClient({
                           title="Revoke invite (credit refunded)"
                         >
                           <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* Inactive Agents (Available for Reactivation) */}
+              {inactiveAgents.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-muted/20 border-t border-border">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Inactive Agents ({inactiveAgents.length}) — Available for Reactivation
+                    </span>
+                  </div>
+                  {inactiveAgents.map((inactiveAgent) => (
+                    <div
+                      key={inactiveAgent.id}
+                      className="grid grid-cols-12 gap-4 p-4 items-center bg-muted/5 border-t border-border"
+                    >
+                      {/* Agent Info */}
+                      <div className="col-span-4 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          <UserMinus className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{inactiveAgent.display_name}</div>
+                          <div className="text-sm text-muted-foreground">{inactiveAgent.user.email}</div>
+                        </div>
+                      </div>
+
+                      {/* Status */}
+                      <div className="col-span-3">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">
+                          <Circle className="w-3 h-3" />
+                          Deactivated
+                        </span>
+                      </div>
+
+                      {/* Deactivated Date */}
+                      <div className="col-span-3 text-sm text-muted-foreground">
+                        {inactiveAgent.deactivated_at
+                          ? `Removed ${new Date(inactiveAgent.deactivated_at).toLocaleDateString()}`
+                          : "Previously removed"}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="col-span-2 flex justify-end gap-2">
+                        <button
+                          onClick={() => handleReactivateAgent(inactiveAgent)}
+                          disabled={isReactivating}
+                          className="px-3 py-2 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Reactivate this agent (will add billing seat)"
+                        >
+                          {isReactivating ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4" />
+                          )}
+                          Reactivate
                         </button>
                       </div>
                     </div>

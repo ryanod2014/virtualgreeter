@@ -65,6 +65,20 @@ export default async function AgentsPage({ searchParams }: Props) {
     console.error("[AgentsPage] Query error:", agentsError.message);
   }
 
+  // Fetch INACTIVE agents for reactivation UI
+  const { data: inactiveAgents } = await supabase
+    .from("agent_profiles")
+    .select(`
+      id,
+      user_id,
+      display_name,
+      deactivated_at,
+      user:users!agent_profiles_user_id_fkey(email, full_name)
+    `)
+    .eq("organization_id", auth!.organization.id)
+    .eq("is_active", false)
+    .order("deactivated_at", { ascending: false });
+
   // Fetch all pools for assignment dropdown
   const { data: pools } = await supabase
     .from("agent_pools")
@@ -278,6 +292,7 @@ export default async function AgentsPage({ searchParams }: Props) {
       agentStats={agentStats}
       organizationId={auth!.organization.id}
       pendingInvites={pendingInvites ?? []}
+      inactiveAgents={inactiveAgents ?? []}
       currentUserId={auth!.user.id}
       currentUserName={auth!.profile.full_name}
       isCurrentUserAgent={isCurrentUserAgent}

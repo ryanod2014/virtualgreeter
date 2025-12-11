@@ -1,0 +1,10 @@
+{
+  "ticket_id": "TKT-083",
+  "branch": "agent/tkt-083",
+  "started_at": "2025-12-11T21:40:00Z",
+  "files_locking": [
+    "apps/dashboard/src/app/api/agents/invite/route.ts",
+    "apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx",
+    "apps/dashboard/src/features/admin/components/InviteAgentModal.tsx"
+  ]
+}
