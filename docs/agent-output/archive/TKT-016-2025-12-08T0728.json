@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TKT-016",
+  "branch": "agent/tkt-016-webrtc-ice-restart",
+  "started_at": "2025-12-08T07:28:50Z",
+  "files_locking": [
+    "apps/dashboard/src/features/webrtc/use-webrtc.ts"
+  ]
+}

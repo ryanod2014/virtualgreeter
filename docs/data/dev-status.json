@@ -32,6 +32,7 @@
       "completion_file": "docs/agent-output/completions/TKT-003-2025-12-05T1935.md"
     },
     {
+<<<<<<< HEAD
       "ticket_id": "TKT-004D",
       "branch": "main",
       "completed_at": "2025-12-05T08:46:05.103Z",
@@ -84,6 +85,20 @@
       "branch": "main",
       "completed_at": "2025-12-05T08:46:05.294Z",
       "completion_file": "docs/agent-output/completions/TKT-062-2025-12-06T0600.md"
+=======
+      "ticket_id": "TKT-038",
+      "branch": "agent/tkt-038-add-delete-confirmation-for-po",
+      "started_at": "2025-12-05T15:00:00Z",
+      "completed_at": "2025-12-05T15:30:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-038-2025-12-05T1530.md"
+    },
+    {
+      "ticket_id": "TKT-016",
+      "branch": "agent/tkt-016-webrtc-ice-restart",
+      "started_at": "2025-12-08T07:28:50Z",
+      "completed_at": "2025-12-08T07:41:12Z",
+      "completion_file": "docs/agent-output/completions/TKT-016-2025-12-08T0741.md"
+>>>>>>> origin/agent/tkt-016-webrtc-ice-restart
     }
   ],
   "retry_history": [],

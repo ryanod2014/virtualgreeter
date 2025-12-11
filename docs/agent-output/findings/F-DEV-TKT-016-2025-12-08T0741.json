@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-016-1",
+  "source": "dev-agent-TKT-016",
+  "title": "Pre-existing typecheck errors in test files",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/dashboard/src/app/api/billing/*/route.test.ts",
+  "line": null,
+  "issue": "Multiple test files have TypeScript errors related to Stripe mocks being possibly null. Dashboard typecheck fails with 27 errors in billing test files and 1 error in workbench-client.tsx. Server typecheck also fails with 4 unused variable errors in test files.",
+  "suggestion": "Fix TypeScript strict null checks in test files by adding proper null checks or assertions for Stripe mock objects. Also fix the RecordingSettings type error in workbench-client.tsx and remove unused imports in server test files.",
+  "status": "pending",
+  "found_at": "2025-12-08T07:41:12Z"
+}
