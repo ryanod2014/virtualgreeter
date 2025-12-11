@@ -121,11 +121,19 @@
       "completion_file": "docs/agent-output/completions/TKT-062-2025-12-06T0600.md"
     },
     {
+<<<<<<< HEAD
       "ticket_id": "TKT-005a",
       "branch": "agent/tkt-005a",
       "started_at": "2025-12-06T06:38:54Z",
       "completed_at": "2025-12-06T06:45:25Z",
       "completion_file": "docs/agent-output/completions/TKT-005a-2025-12-06T0645.md"
+=======
+      "ticket_id": "TKT-005e",
+      "branch": "agent/tkt-005e",
+      "started_at": "2025-12-06T10:13:12Z",
+      "completed_at": "2025-12-06T10:20:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-005e-2025-12-06T102000.md"
+>>>>>>> origin/agent/tkt-005e
     }
   ],
   "retry_history": [],
