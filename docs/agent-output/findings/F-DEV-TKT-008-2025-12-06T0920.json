@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-008-1",
+  "source": "dev-agent-TKT-008",
+  "title": "Pre-existing test failures in typecheck and build",
+  "category": "bug",
+  "severity": "medium",
+  "file": "multiple test files",
+  "line": null,
+  "issue": "Both `pnpm typecheck` and `pnpm build` are failing with TypeScript errors in test files. These are pre-existing issues not related to TKT-008 documentation changes. Widget package has ~35 errors in test files (LiveCallView.test.tsx, useWebRTC.test.ts, main.test.ts, Widget.test.tsx) and server package has ~24 errors in test files (agentStatus.test.ts, stripe-webhook-handler.test.ts, pool-manager.test.ts, socket-handlers.test.ts, health.test.ts). Most errors are: TS6133 (unused variables), TS2532/TS18048 (possibly undefined), TS2339 (property does not exist), TS2352 (type conversion issues), TS1484 (type-only imports needed).",
+  "suggestion": "Create a ticket to fix all test TypeScript errors. These should be addressed before merging any new code changes to ensure CI/CD pipeline health. Consider running typecheck as part of pre-commit hooks to prevent new errors.",
+  "status": "pending",
+  "found_at": "2025-12-06T09:20:00Z"
+}
