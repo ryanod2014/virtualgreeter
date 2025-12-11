@@ -1,0 +1,94 @@
+{
+  "ticket_id": "TKT-067",
+  "blocker_type": "infrastructure",
+  "created_at": "2025-12-11T08:58:00Z",
+  "agent_type": "qa",
+  "agent_session_id": "62400fe7-e9a6-4bc5-976d-4798081aa33c",
+  "summary": "Codebase has unresolved merge conflicts preventing dashboard from loading",
+  "blocked_criteria": [
+    "All UI testing blocked - dashboard won't compile or load"
+  ],
+  "passed_criteria": [
+    "Code inspection shows feature implemented correctly",
+    "Test plan created and ready to execute once infrastructure fixed"
+  ],
+  "infrastructure_issue": {
+    "description": "Multiple files contain unresolved git merge conflict markers (<<<<<<< HEAD, =======, >>>>>>>)",
+    "affected_files": [
+      "apps/dashboard/src/features/surveys/ellis-survey-modal.tsx",
+      "apps/dashboard/src/app/(app)/platform/feedback/page.tsx",
+      "apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx",
+      "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx",
+      "apps/server/src/features/signaling/socket-handlers.ts",
+      "apps/server/src/features/signaling/socket-handlers.test.ts",
+      "apps/server/src/lib/geolocation.ts"
+    ],
+    "severity": "critical",
+    "impact": "Dashboard cannot compile, preventing all browser-based testing",
+    "branches_affected": ["main", "agent/tkt-067"],
+    "error_examples": [
+      "Error: Merge conflict marker encountered at ellis-survey-modal.tsx:136:1",
+      "Dashboard dev server fails to compile /admin route",
+      "Playwright browser testing fails with timeout due to compilation errors"
+    ]
+  },
+  "attempted_workarounds": [
+    "Tried testing on agent/tkt-067 branch - has conflicts",
+    "Switched to main branch - also has conflicts",
+    "Attempted to load dashboard - compilation fails immediately"
+  ],
+  "code_inspection_findings": {
+    "feature_file": "apps/dashboard/src/app/(app)/admin/sites/verification-status.tsx",
+    "implementation_status": "Correctly implemented",
+    "findings": [
+      "Exponential backoff logic correctly implements AC intervals (5s, 10s, 30s, 60s)",
+      "Polling stops after 10 minutes and shows button as specified",
+      "Manual check button triggers immediate check and resumes polling",
+      "Code structure and logic match acceptance criteria exactly"
+    ],
+    "line_references": {
+      "backoff_schedule": "lines 108-120",
+      "polling_stop": "line 118",
+      "button_ui": "lines 158-183",
+      "manual_check": "lines 75-86"
+    }
+  },
+  "suggested_fix": {
+    "title": "Resolve all merge conflicts in main branch",
+    "description": "The main branch has unresolved merge conflicts from a previous merge operation. These need to be resolved before any QA testing can proceed on UI tickets.",
+    "immediate_action": "Human intervention required to resolve conflicts - automated agents cannot safely resolve merge conflicts without understanding business logic",
+    "steps": [
+      "Review each conflicted file and choose correct resolution",
+      "Remove conflict markers (<<<<<<< HEAD, =======, >>>>>>>)",
+      "Test that dashboard compiles after resolution",
+      "Commit resolved conflicts",
+      "Re-run QA agent for TKT-067"
+    ]
+  },
+  "dispatch_action": "route_to_human",
+  "partial_test_results": {
+    "test_plan_created": true,
+    "build_verification": {
+      "pnpm_install": "✅ Success",
+      "typecheck": "❌ Failed - merge conflicts and pre-existing errors",
+      "lint": "⚠️  ESLint config prompt",
+      "build": "❌ Failed - merge conflicts",
+      "dev_server": "❌ Failed - compilation errors"
+    },
+    "user_creation": {
+      "email": "qa-admin-tkt067-20251211085500@greetnow.test",
+      "user_id": "3c3aa352-e84e-4a19-b038-6f148a186b7d",
+      "status": "✅ Created successfully"
+    },
+    "browser_testing_attempted": false,
+    "reason_not_tested": "Dashboard won't load due to merge conflicts"
+  },
+  "requeue_when": "Merge conflicts resolved in main branch",
+  "priority": "high",
+  "notes": [
+    "TKT-067 was already merged to main (commit 98f4fd1)",
+    "Feature code itself looks correct - blocker is infrastructure only",
+    "Multiple other agent branches likely have same conflicts",
+    "This affects all UI ticket QA until resolved"
+  ]
+}

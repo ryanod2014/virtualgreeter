@@ -262,10 +262,10 @@ if [ -n "$SESSION_ID" ]; then
                 && log_success "Session marked as completed" \
                 || log_warning "Could not update session status"
             
-            # Update ticket status to in_review (ready for QA)
+            # Update ticket status to in_review (ready for QA) - include branch for merge later
             curl -s -X PUT "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" \
                 -H "Content-Type: application/json" \
-                -d '{"status": "in_review"}' > /dev/null 2>&1 \
+                -d "{\"status\": \"in_review\", \"branch\": \"$BRANCH\"}" > /dev/null 2>&1 \
                 && log_success "Ticket status: in_review (waiting for QA)" \
                 || log_warning "Could not update ticket status"
         else
@@ -276,10 +276,10 @@ if [ -n "$SESSION_ID" ]; then
                 && log_warning "Session marked as blocked (regression failure)" \
                 || log_warning "Could not update session status"
             
-            # Update ticket status to blocked
+            # Update ticket status to blocked - include branch for retry later
             curl -s -X PUT "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" \
                 -H "Content-Type: application/json" \
-                -d '{"status": "blocked"}' > /dev/null 2>&1 \
+                -d "{\"status\": \"blocked\", \"branch\": \"$BRANCH\"}" > /dev/null 2>&1 \
                 || log_warning "Could not update ticket status"
         fi
     else

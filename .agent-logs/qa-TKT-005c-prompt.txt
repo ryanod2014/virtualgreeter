@@ -13,34 +13,46 @@ These phrases = AUTOMATIC REJECTION:
 THE GOLDEN RULE: If your evidence is 'I read the code', your QA is INVALID.
 
 ═══════════════════════════════════════════════════════════════
-TICKET TYPE: ui
+TICKET TYPE: hybrid
 ═══════════════════════════════════════════════════════════════
 
 
-UI TICKET - Browser testing required
+⚠️  HYBRID TICKET - YOU MUST TEST BOTH API AND UI! ⚠️
 
-Read: docs/workflow/UI_TICKET_QA_WORKFLOW.md
-- Test with Playwright
-- Test each role separately
-- Generate magic links for PM review
+This ticket modifies BOTH backend/API files AND UI components.
+You MUST complete BOTH workflows:
+
+1. FIRST: API/Backend Testing (docs/workflow/NON_UI_TICKET_QA_WORKFLOW.md)
+   - Test all API endpoints with curl
+   - Verify request/response behavior
+   - Test error cases and edge cases
+   - Document all curl commands and responses
+
+2. THEN: UI Testing (docs/workflow/UI_TICKET_QA_WORKFLOW.md)
+   - Test UI components with Playwright
+   - Test for each role (admin, agent)
+   - Generate magic links for PM review
+
+Your test plan MUST have sections for BOTH API and UI tests.
+Your self-audit MUST verify BOTH types of testing were done.
 
 GENERAL: docs/workflow/QA_REVIEW_AGENT_SOP.md
 
 SESSION INFO:
-  TICKET: TKT-003 | BRANCH: agent/TKT-003-cancel-copy | TYPE: ui
-  HAS_UI: true | HAS_API: false
-  SESSION_ID: 9b86a920-c552-4e78-837b-380497b39d83
-  WORKTREE: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-003
+  TICKET: TKT-005c | BRANCH: agent/tkt-005c | TYPE: hybrid
+  HAS_UI: true | HAS_API: true
+  SESSION_ID: 16db04fa-c2f1-43ce-b82f-8a11378d046c
+  WORKTREE: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-005c
   
-  ⚠️  YOUR DASHBOARD PORT: 3103
+  ⚠️  YOUR DASHBOARD PORT: 3105
   This port is unique to your ticket - use it for all testing!
   Other QA agents may be running on different ports simultaneously.
   
   🌐 TUNNEL URL: 
   Use this URL for magic links! PM can access from anywhere.
-  (If tunnel unavailable, falls back to localhost:3103)
+  (If tunnel unavailable, falls back to localhost:3105)
   
-Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/9b86a920-c552-4e78-837b-380497b39d83/heartbeat
+Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/16db04fa-c2f1-43ce-b82f-8a11378d046c/heartbeat
 
 ═══════════════════════════════════════════════════════════════
 PHASE 1: CREATE YOUR TEST PLAN (BEFORE any testing!)
@@ -49,10 +61,18 @@ PHASE 1: CREATE YOUR TEST PLAN (BEFORE any testing!)
 Write this FIRST:
 
 ```markdown
-## Test Plan for TKT-003
-## TICKET TYPE: ui
+## Test Plan for TKT-005c
+## TICKET TYPE: hybrid
 
 
+### API/BACKEND TESTS (Minimum 5)
+| # | Endpoint/Operation | Method | Input | Expected | 
+|---|-------------------|--------|-------|----------|
+| 1 | /api/example | POST | {valid data} | 200 + success |
+| 2 | /api/example | POST | {} | 400 + error |
+| 3 | /api/example | POST | {invalid} | 400 + validation |
+| 4 | /api/example | GET | unauthorized | 401 |
+| 5 | /api/example/:id | GET | bad id | 404 |
 
 
 ### UI TESTS - ROLES TO TEST
@@ -89,57 +109,117 @@ New errors = FAIL ticket.
 PHASE 3: EXECUTE TESTS (One at a time, with evidence)
 ═══════════════════════════════════════════════════════════════
 
-⚠️  START DASHBOARD ON YOUR ASSIGNED PORT (3103):
+⚠️  START DASHBOARD ON YOUR ASSIGNED PORT (3105):
 
 cd apps/dashboard
-PORT=3103 pnpm dev &
+PORT=3105 pnpm dev &
 sleep 10
 
 # Verify it's running on YOUR port
-curl -s http://localhost:3103 | head -1
+curl -s http://localhost:3105 | head -1
 
-# ALL your testing should use http://localhost:3103
+# ALL your testing should use http://localhost:3105
 # (NOT port 3000 - other agents may be using that!)
 
 
-UI TICKETS - For EACH role:
+═══════════════════════════════════════════════════════════════
+⚠️  HYBRID: Complete BOTH sections below!
+═══════════════════════════════════════════════════════════════
+
+PART A: API/BACKEND TESTING (Do this FIRST!)
+───────────────────────────────────────────
+For EACH endpoint in your test plan:
+  1. curl -X POST/GET the endpoint
+  2. Capture full response
+  3. Test error cases (missing fields, invalid types, unauthorized)
+  4. Verify DB state changes via API
+  5. Document request/response pairs
+
+Example:
+  curl -s -X POST http://localhost:3001/api/endpoint \\
+    -H \"Content-Type: application/json\" \\
+    -d \"{...}\" | jq .
+
+PART B: UI TESTING (Do this AFTER API testing passes!)
+──────────────────────────────────────────────────────
+For EACH role in your test plan:
   1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
   2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
   3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
   4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
-  5. Test feature at http://localhost:$AGENT_PORT, take screenshot
+  5. Test feature WITH the API you just verified, take screenshots
   6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
        -H \"Content-Type: application/json\" \\
-       -d "\""ticket_id":"TKT-003"\""
+       -d "\""ticket_id":"TKT-005c"\""
   7. REPEAT for next role
   
-  🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
+  🌐 Magic links use TUNNEL URL - PM can access from anywhere!
  
-UI TICKETS - For EACH role:
+═══════════════════════════════════════════════════════════════
+⚠️  HYBRID: Complete BOTH sections below!
+═══════════════════════════════════════════════════════════════
+
+PART A: API/BACKEND TESTING (Do this FIRST!)
+───────────────────────────────────────────
+For EACH endpoint in your test plan:
+  1. curl -X POST/GET the endpoint
+  2. Capture full response
+  3. Test error cases (missing fields, invalid types, unauthorized)
+  4. Verify DB state changes via API
+  5. Document request/response pairs
+
+Example:
+  curl -s -X POST http://localhost:3001/api/endpoint \\
+    -H \"Content-Type: application/json\" \\
+    -d \"{...}\" | jq .
+
+PART B: UI TESTING (Do this AFTER API testing passes!)
+──────────────────────────────────────────────────────
+For EACH role in your test plan:
   1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
   2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
   3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
   4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
-  5. Test feature at http://localhost:$AGENT_PORT, take screenshot
+  5. Test feature WITH the API you just verified, take screenshots
   6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
        -H \"Content-Type: application/json\" \\
        -d "\""user_email":"..."\""
   7. REPEAT for next role
   
-  🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
+  🌐 Magic links use TUNNEL URL - PM can access from anywhere!
  
-UI TICKETS - For EACH role:
+═══════════════════════════════════════════════════════════════
+⚠️  HYBRID: Complete BOTH sections below!
+═══════════════════════════════════════════════════════════════
+
+PART A: API/BACKEND TESTING (Do this FIRST!)
+───────────────────────────────────────────
+For EACH endpoint in your test plan:
+  1. curl -X POST/GET the endpoint
+  2. Capture full response
+  3. Test error cases (missing fields, invalid types, unauthorized)
+  4. Verify DB state changes via API
+  5. Document request/response pairs
+
+Example:
+  curl -s -X POST http://localhost:3001/api/endpoint \\
+    -H \"Content-Type: application/json\" \\
+    -d \"{...}\" | jq .
+
+PART B: UI TESTING (Do this AFTER API testing passes!)
+──────────────────────────────────────────────────────
+For EACH role in your test plan:
   1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
   2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
   3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
   4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
-  5. Test feature at http://localhost:$AGENT_PORT, take screenshot
+  5. Test feature WITH the API you just verified, take screenshots
   6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
        -H \"Content-Type: application/json\" \\
        -d "\""preview_base_url":""\""
   7. REPEAT for next role
   
-  🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
+  🌐 Magic links use TUNNEL URL - PM can access from anywhere!
 
 ═══════════════════════════════════════════════════════════════
 PHASE 4: SELF-AUDIT (Before marking complete)
@@ -154,9 +234,22 @@ Answer honestly:
 - [ ] Every test has execution evidence
 
 
-### UI Testing
+### HYBRID TICKET - BOTH SECTIONS REQUIRED!
+
+API Testing:
+- API endpoints tested: ___
+- curl commands executed: ___
+- Responses captured: ___
+- [ ] Tested error cases (400, 401, 404)
+- [ ] Verified state changes
+
+UI Testing:
 - Roles in AC: ___ | Users created: ___ | Magic links: ___
-- All numbers must match!
+- Screenshots taken: ___
+- [ ] All role numbers match
+- [ ] Each role has its own magic link
+
+⛔ HYBRID TICKETS: Both sections must be complete!
 
 ⛔ DO NOT mark complete until self-audit passes!
 
@@ -166,7 +259,7 @@ If PASS:
   ═══════════════════════════════════════════════════════════════
   
   1. Write QA Report:
-     /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-003-PASSED-$(date +%Y%m%dT%H%M).md
+     /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-005c-PASSED-$(date +%Y%m%dT%H%M).md
      
      Include: Test plan, all test results, evidence, self-audit
   
@@ -174,18 +267,18 @@ If PASS:
   FOR UI TICKETS: Create inbox with magic_links (PLURAL!)
   ─────────────────────────────────────────────────────────────
   
-  Write: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/inbox/TKT-003.json
+  Write: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/inbox/TKT-005c.json
   
   {
-    "ticket_id": "TKT-003",
+    "ticket_id": "TKT-005c",
     "title": "[title]",
     "type": "ui_review",
     "status": "pending",
     "created_at": "[ISO timestamp]",
     "message": "QA verified ALL roles. PM please confirm each.",
-    "branch": "agent/TKT-003-cancel-copy",
+    "branch": "agent/tkt-005c",
     "tunnel_url": "",
-    "qa_report": "docs/agent-output/qa-results/QA-TKT-003-PASSED-[timestamp].md",
+    "qa_report": "docs/agent-output/qa-results/QA-TKT-005c-PASSED-[timestamp].md",
     "screenshots": [
       {"name": "Admin View", "path": "..."},
       {"name": "Agent View", "path": "..."}
@@ -201,7 +294,7 @@ If PASS:
   🌐 Magic links use TUNNEL_URL () - PM can click from anywhere!
   
   Update ticket:
-  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-003 -d '{"status": "qa_approved"}'
+  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-005c -d '{"status": "qa_approved"}'
   
   ─────────────────────────────────────────────────────────────
   FOR NON-UI TICKETS: Auto-merge flow
@@ -214,33 +307,33 @@ If PASS:
   - State verification evidence
   
   Update ticket:
-  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-003 -d '{"status": "merged"}'
+  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-005c -d '{"status": "merged"}'
   
   Selective merge:
     cd /Users/ryanodonnell/projects/Digital_greeter
     git checkout main && git pull origin main
-    git checkout agent/TKT-003-cancel-copy -- apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx
-    git add apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx
-    git commit -m 'Merge TKT-003: [title] - QA Passed'
+    git checkout agent/tkt-005c -- apps/server/src/features/webhooks/stripe.ts
+    git add apps/server/src/features/webhooks/stripe.ts
+    git commit -m 'Merge TKT-005c: [title] - QA Passed'
     git push origin main
   
   ─────────────────────────────────────────────────────────────
   BOTH: Mark session complete
   ─────────────────────────────────────────────────────────────
   
-  curl -X POST http://localhost:3456/api/v2/agents/9b86a920-c552-4e78-837b-380497b39d83/complete \
-    -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-003-PASSED.md"}'
+  curl -X POST http://localhost:3456/api/v2/agents/16db04fa-c2f1-43ce-b82f-8a11378d046c/complete \
+    -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-005c-PASSED.md"}'
 
 If FAIL:
   ═══════════════════════════════════════════════════════════════
   
   Write BOTH files:
-  1. /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-003-FAILED-$(date +%Y%m%dT%H%M).json
-  2. /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-003-FAILED-$(date +%Y%m%dT%H%M).md
+  1. /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-005c-FAILED-$(date +%Y%m%dT%H%M).json
+  2. /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-005c-FAILED-$(date +%Y%m%dT%H%M).md
   
   JSON format:
   {
-    "ticket_id": "TKT-003",
+    "ticket_id": "TKT-005c",
     "blocker_type": "qa_failure",
     "summary": "[one-line summary]",
     "failures": [{"test": "...", "expected": "...", "actual": "..."}],
@@ -248,8 +341,8 @@ If FAIL:
   }
   
   Update status:
-  curl -X POST http://localhost:3456/api/v2/agents/9b86a920-c552-4e78-837b-380497b39d83/block -d '{"blocker_type": "qa_failure", ...}'
-  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-003 -d '{"status": "qa_failed"}'
+  curl -X POST http://localhost:3456/api/v2/agents/16db04fa-c2f1-43ce-b82f-8a11378d046c/block -d '{"blocker_type": "qa_failure", ...}'
+  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-005c -d '{"status": "qa_failed"}'
 
 ═══════════════════════════════════════════════════════════════
 REMEMBER: If you didn't EXECUTE it, you didn't TEST it.

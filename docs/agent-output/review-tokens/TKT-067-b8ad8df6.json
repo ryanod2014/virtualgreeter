@@ -1,0 +1,11 @@
+{
+  "token": "b8ad8df6f6ebbc8993332a446455e4d10fe1cbe4ba2811c0a3d1d8384a47a4f0",
+  "ticket_id": "TKT-067",
+  "user_email": "qa-admin-tkt067-20251211083536@greetnow.test",
+  "user_password": "QATest-TKT-067!",
+  "redirect_path": "/admin",
+  "preview_base_url": "http://localhost:3000",
+  "created_at": "2025-12-11T08:35:37.165Z",
+  "expires_at": "2025-12-18T08:35:37.165Z",
+  "used_count": 0
+}

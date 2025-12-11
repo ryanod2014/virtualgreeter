@@ -1,0 +1,60 @@
+{
+  "ticket_id": "TKT-067",
+  "title": "Add Exponential Backoff to Widget Verification Polling",
+  "type": "infrastructure_blocker",
+  "status": "blocked",
+  "created_at": "2025-12-11T08:58:00Z",
+  "message": "QA BLOCKED: Main branch has unresolved merge conflicts preventing dashboard from compiling. Feature code inspection shows correct implementation, but browser testing cannot proceed.",
+  "branch": "agent/tkt-067",
+  "severity": "high",
+  "blocks_testing": true,
+  "blocker_details": {
+    "type": "infrastructure",
+    "summary": "7 files contain git merge conflict markers (<<<<<<< HEAD), preventing dashboard compilation",
+    "affected_files": [
+      "apps/dashboard/src/features/surveys/ellis-survey-modal.tsx",
+      "apps/dashboard/src/app/(app)/platform/feedback/page.tsx",
+      "apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx",
+      "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx",
+      "apps/server/src/features/signaling/socket-handlers.ts",
+      "apps/server/src/features/signaling/socket-handlers.test.ts",
+      "apps/server/src/lib/geolocation.ts"
+    ],
+    "impact": "All UI ticket QA blocked until resolved"
+  },
+  "code_inspection_results": {
+    "status": "✅ Correctly Implemented",
+    "file": "apps/dashboard/src/app/(app)/admin/sites/verification-status.tsx",
+    "all_ac_verified": true,
+    "acceptance_criteria": [
+      "✅ AC1: Polling starts at 5s intervals (line 109)",
+      "✅ AC2: After 1 min, increases to 10s (line 111)",
+      "✅ AC3: After 3 min, increases to 30s (line 113)",
+      "✅ AC4: After 5 min, increases to 60s (line 115)",
+      "✅ AC5: After 10 min, polling stops and shows button (line 118, lines 158-183)",
+      "✅ AC6: Button click triggers check and resumes polling (lines 75-86)"
+    ]
+  },
+  "qa_report": "docs/agent-output/qa-results/QA-TKT-067-BLOCKED-20251211085800.md",
+  "blocker_file": "docs/agent-output/blocked/QA-TKT-067-INFRASTRUCTURE-20251211085800.json",
+  "test_user": {
+    "email": "qa-admin-tkt067-20251211085500@greetnow.test",
+    "password": "QATest-TKT067",
+    "user_id": "3c3aa352-e84e-4a19-b038-6f148a186b7d",
+    "status": "Created but could not log in"
+  },
+  "required_action": {
+    "who": "Human developer/PM",
+    "what": "Resolve merge conflicts in main branch",
+    "why": "Dashboard won't compile, preventing all browser-based QA testing",
+    "steps": [
+      "1. Review and resolve conflicts in 7 files listed above",
+      "2. Remove all <<<<<<< HEAD, =======, >>>>>>> markers",
+      "3. Commit resolved conflicts to main",
+      "4. Verify 'pnpm dev' works in apps/dashboard",
+      "5. Re-queue TKT-067 for QA testing"
+    ]
+  },
+  "requeue_after": "Merge conflicts resolved and dashboard compiles successfully",
+  "pm_note": "Feature implementation looks correct based on code inspection. This is purely an infrastructure blocker preventing final verification via browser testing. Once conflicts are resolved, QA can complete quickly."
+}

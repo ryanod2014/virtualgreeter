@@ -153,11 +153,13 @@ export const tickets = {
   },
   
   /**
-   * Get a single ticket by ID
+   * Get a single ticket by ID (case-insensitive)
    */
   get(id) {
     const db = getDB();
-    const row = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+    // Normalize ID to uppercase for consistent lookups
+    const normalizedId = id?.toUpperCase();
+    const row = db.prepare('SELECT * FROM tickets WHERE id = ? COLLATE NOCASE').get(normalizedId);
     return transformTicket(row);
   },
   
@@ -166,7 +168,8 @@ export const tickets = {
    */
   create(data) {
     const db = getDB();
-    const id = data.id || `TKT-${Date.now()}`;
+    // Normalize ID to uppercase for consistency
+    const id = (data.id || `TKT-${Date.now()}`).toUpperCase();
     
     const stmt = db.prepare(`
       INSERT INTO tickets (
@@ -222,8 +225,10 @@ export const tickets = {
    */
   update(id, data) {
     const db = getDB();
-    const existing = this.get(id);
-    if (!existing) throw new Error(`Ticket ${id} not found`);
+    // Normalize ID to uppercase for consistency
+    const normalizedId = id?.toUpperCase();
+    const existing = this.get(normalizedId);
+    if (!existing) throw new Error(`Ticket ${normalizedId} not found`);
     
     const fields = [];
     const params = [];
@@ -257,19 +262,19 @@ export const tickets = {
     
     fields.push('updated_at = ?');
     params.push(now());
-    params.push(id);
+    params.push(normalizedId);
     
-    db.prepare(`UPDATE tickets SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+    db.prepare(`UPDATE tickets SET ${fields.join(', ')} WHERE id = ? COLLATE NOCASE`).run(...params);
     
     // Log status change event
     if (data.status && data.status !== existing.status) {
-      logEvent('ticket_status_changed', 'system', 'ticket', id, {
+      logEvent('ticket_status_changed', 'system', 'ticket', normalizedId, {
         from: existing.status,
         to: data.status
       });
     }
     
-    return this.get(id);
+    return this.get(normalizedId);
   },
   
   /**
@@ -277,7 +282,8 @@ export const tickets = {
    */
   delete(id) {
     const db = getDB();
-    db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
+    const normalizedId = id?.toUpperCase();
+    db.prepare('DELETE FROM tickets WHERE id = ? COLLATE NOCASE').run(normalizedId);
   },
   
   /**

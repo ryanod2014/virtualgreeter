@@ -282,22 +282,70 @@ function getFindingsFromDB() {
 }
 
 // =============================================================================
-// BLOCKER FILE WATCHER
-// Automatically detects new blocker files and triggers dispatch
+// BLOCKER FILE WATCHER (using fs.watch for reliability)
+// Automatically detects new blocker/QA files and triggers processing
 // =============================================================================
-let blockerWatcherInterval = null;
+let blockerWatchers = [];
 let lastBlockerCheck = new Map();  // Track file mtimes
+let scanDebounceTimer = null;
 
 function startBlockerWatcher() {
-  if (blockerWatcherInterval) return;
+  if (blockerWatchers.length > 0) return;
   
-  console.log('👁️ Blocker watcher started (checking every 30s)');
+  const blockedDir = path.join(__dirname, '../..', 'docs/agent-output/blocked');
+  const qaResultsDir = path.join(__dirname, '../..', 'docs/agent-output/qa-results');
   
-  // Check every 30 seconds
-  blockerWatcherInterval = setInterval(scanForNewBlockers, 30000);
+  // Ensure directories exist
+  [blockedDir, qaResultsDir].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
   
-  // Initial scan after 5 seconds
-  setTimeout(scanForNewBlockers, 5000);
+  console.log('👁️ File watcher started (using fs.watch for instant detection)');
+  
+  // Watch blocked directory
+  try {
+    const blockerWatcher = fs.watch(blockedDir, { persistent: false }, (eventType, filename) => {
+      if (filename && (filename.endsWith('.json') || filename.endsWith('.md'))) {
+        console.log(`📄 Detected change in blocked/: ${filename}`);
+        debouncedScan();
+      }
+    });
+    blockerWatchers.push(blockerWatcher);
+  } catch (e) {
+    console.error('Could not watch blocked directory:', e.message);
+  }
+  
+  // Watch QA results directory
+  try {
+    const qaWatcher = fs.watch(qaResultsDir, { persistent: false }, (eventType, filename) => {
+      if (filename && filename.endsWith('.md')) {
+        console.log(`📄 Detected change in qa-results/: ${filename}`);
+        debouncedScan();
+      }
+    });
+    blockerWatchers.push(qaWatcher);
+  } catch (e) {
+    console.error('Could not watch qa-results directory:', e.message);
+  }
+  
+  // Fallback: also poll every 60s in case fs.watch misses something
+  setInterval(scanForNewBlockers, 60000);
+  
+  // Initial scan after 3 seconds
+  setTimeout(scanForNewBlockers, 3000);
+}
+
+// Debounce rapid file changes (wait 1s after last change before scanning)
+function debouncedScan() {
+  if (scanDebounceTimer) {
+    clearTimeout(scanDebounceTimer);
+  }
+  scanDebounceTimer = setTimeout(() => {
+    scanForNewBlockers();
+    scanDebounceTimer = null;
+  }, 1000);
 }
 
 function scanForNewBlockers() {
@@ -402,23 +450,16 @@ function scanForNewBlockers() {
                                   ticket.branch;  // Must have a branch to merge
               
               if (shouldMerge) {
-                console.log(`✅ QA PASS detected for ${ticketId} - triggering merge`);
+                console.log(`✅ QA PASS detected for ${ticketId} - advancing to qa_approved`);
                 
-                // Merge the branch
-                const mergeResult = mergeBranchToMain(ticketId, ticket.branch);
+                // Set to qa_approved - this triggers Test+Doc agents via handleTicketStatusChange
+                // For UI tickets: goes to inbox first, then Test+Doc, then merge
+                // For non-UI tickets: goes directly to finalizing, then Test+Doc, then merge
+                const oldStatus = ticket.status;
+                dbModule.tickets.update(ticketId, { status: 'qa_approved' });
+                handleTicketStatusChange(ticketId, oldStatus, 'qa_approved', ticket);
                 
-                if (mergeResult.success) {
-                  dbModule.tickets.update(ticketId, { status: 'merged' });
-                  
-                  // Release any locks held by sessions for this ticket
-                  const sessions = dbModule.sessions.list({ ticket_id: ticketId });
-                  for (const session of sessions) {
-                    dbModule.locks.release(session.id);
-                  }
-                  console.log(`🎉 ${ticketId} merged to main! (locks released)`);
-                } else {
-                  console.error(`❌ Merge failed for ${ticketId}: ${mergeResult.error}`);
-                }
+                console.log(`📋 ${ticketId} → qa_approved (Test+Doc agents will run before merge)`);
               }
             }
           } catch (e) {
@@ -628,18 +669,46 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
   }
   
   // =========================================================================
-  // STEP 4: Continuation ready → Queue dev agent launch
+  // STEP 4: Continuation ready → Queue dev agent launch (with max iteration check)
   // =========================================================================
+  const MAX_ITERATIONS = 5;  // Prevent infinite loops
+  
   if (newStatus === 'continuation_ready') {
-    console.log(`🛠️ Queueing dev agent for continuation ${ticketId}`);
-    dbModule.jobs.create({
-      job_type: 'dev_launch',
-      ticket_id: ticketId,
-      branch: ticket.branch,
-      priority: 3,
-      payload: { triggered_by: 'continuation_created' }
-    });
-    startJobWorker();
+    const currentIteration = ticket.iteration || 1;
+    
+    if (currentIteration >= MAX_ITERATIONS) {
+      console.log(`🚫 ${ticketId} has reached max iterations (${currentIteration}/${MAX_ITERATIONS}) - blocking instead of continuing`);
+      dbModule.tickets.update(ticketId, { status: 'blocked' });
+      
+      // Create a blocker file explaining the situation
+      const blockerDir = path.join(PROJECT_ROOT, 'docs/agent-output/blocked');
+      if (!fs.existsSync(blockerDir)) fs.mkdirSync(blockerDir, { recursive: true });
+      const blockerFile = path.join(blockerDir, `MAX-ITERATIONS-${ticketId}-${Date.now()}.json`);
+      fs.writeFileSync(blockerFile, JSON.stringify({
+        ticket_id: ticketId,
+        blocker_type: 'max_iterations_reached',
+        iteration: currentIteration,
+        max_iterations: MAX_ITERATIONS,
+        blocked_at: new Date().toISOString(),
+        summary: `Ticket has failed QA ${currentIteration} times and reached the maximum iteration limit. Requires human intervention.`,
+        dispatch_action: 'escalate_to_human'
+      }, null, 2));
+      console.log(`📄 Created max-iterations blocker for ${ticketId}`);
+    } else {
+      // Increment iteration counter in the ticket
+      const newIteration = currentIteration + 1;
+      dbModule.tickets.update(ticketId, { iteration: newIteration });
+      
+      console.log(`🛠️ Queueing dev agent for continuation ${ticketId} (iteration ${newIteration}/${MAX_ITERATIONS})`);
+      dbModule.jobs.create({
+        job_type: 'dev_launch',
+        ticket_id: ticketId,
+        branch: ticket.branch,
+        priority: 3,
+        payload: { triggered_by: 'continuation_created', iteration: newIteration }
+      });
+      startJobWorker();
+    }
   }
   
   // =========================================================================
@@ -976,15 +1045,24 @@ function checkForNewContinuationTickets() {
           // Check ticket status - only queue if it needs work
           const ticket = dbModule.tickets?.get(ticketId);
           if (ticket && ['ready', 'blocked', 'qa_failed', 'continuation_ready'].includes(ticket.status)) {
-            console.log(`📋 Found continuation ticket: ${file}, queueing dev agent`);
-            dbModule.jobs.create({
-              job_type: 'dev_launch',
-              ticket_id: ticketId,
-              branch: ticket.branch,
-              priority: 3,
-              payload: { triggered_by: 'continuation_detected', prompt_file: file }
-            });
-            startJobWorker();
+            // Check max iterations to prevent infinite loops
+            const MAX_ITERATIONS = 5;
+            const currentIteration = ticket.iteration || 1;
+            
+            if (currentIteration >= MAX_ITERATIONS) {
+              console.log(`🚫 ${ticketId} at max iterations (${currentIteration}/${MAX_ITERATIONS}) - skipping auto-queue`);
+              // Don't auto-queue, let it stay blocked for human review
+            } else {
+              console.log(`📋 Found continuation ticket: ${file}, queueing dev agent (iteration ${currentIteration}/${MAX_ITERATIONS})`);
+              dbModule.jobs.create({
+                job_type: 'dev_launch',
+                ticket_id: ticketId,
+                branch: ticket.branch,
+                priority: 3,
+                payload: { triggered_by: 'continuation_detected', prompt_file: file }
+              });
+              startJobWorker();
+            }
           }
         }
       }
@@ -1034,10 +1112,57 @@ function mergeBranchToMain(ticketId, branch) {
     
     // Merge the branch (no-ff to keep history clear)
     const commitMsg = `Merge ${branch} - ${ticketId} QA approved`;
-    execSync(`git merge origin/${branch} --no-ff -m "${commitMsg}"`, { 
-      cwd: PROJECT_ROOT, 
-      encoding: 'utf8' 
-    });
+    
+    try {
+      execSync(`git merge origin/${branch} --no-ff -m "${commitMsg}"`, { 
+        cwd: PROJECT_ROOT, 
+        encoding: 'utf8' 
+      });
+    } catch (mergeError) {
+      // Check if it's a conflict in metadata files we can auto-resolve
+      const conflictOutput = mergeError.message || '';
+      const metadataFiles = [
+        'docs/data/dev-status.json',
+        'docs/data/decisions.json',
+        'docs/data/findings.json'
+      ];
+      
+      console.log('⚠️ Merge conflict detected, checking if auto-resolvable...');
+      
+      // Check which files have conflicts
+      let conflictInfo;
+      try {
+        conflictInfo = execSync('git diff --name-only --diff-filter=U', { 
+          cwd: PROJECT_ROOT, 
+          encoding: 'utf8' 
+        }).trim();
+      } catch (e) {
+        conflictInfo = '';
+      }
+      
+      const conflictFiles = conflictInfo.split('\n').filter(f => f.trim());
+      const allResolvable = conflictFiles.every(f => metadataFiles.includes(f));
+      
+      if (allResolvable && conflictFiles.length > 0) {
+        console.log(`🔧 Auto-resolving conflicts in metadata files: ${conflictFiles.join(', ')}`);
+        
+        // Keep main's version of metadata files (DB is source of truth)
+        for (const file of conflictFiles) {
+          execSync(`git checkout --ours "${file}"`, { cwd: PROJECT_ROOT, encoding: 'utf8' });
+          execSync(`git add "${file}"`, { cwd: PROJECT_ROOT, encoding: 'utf8' });
+        }
+        
+        // Complete the merge
+        execSync(`git commit -m "${commitMsg} (auto-resolved metadata conflicts)"`, {
+          cwd: PROJECT_ROOT,
+          encoding: 'utf8'
+        });
+        console.log('✅ Auto-resolved metadata conflicts and completed merge');
+      } else {
+        // Real conflict in application code - can't auto-resolve
+        throw mergeError;
+      }
+    }
     
     // Push to origin
     execSync('git push origin main', { cwd: PROJECT_ROOT, encoding: 'utf8' });
@@ -4252,10 +4377,9 @@ function handleAPI(req, res, body) {
           newStatus = status === 'completed' ? 'dev_complete' : 'blocked';
         } else if (agent_type === 'qa') {
           if (status === 'passed') {
-            // QA passed - merge branch to main!
-            console.log(`🔀 QA passed for ${ticket_id} - merging branch ${branch} to main`);
-            const mergeResult = mergeBranchToMain(ticket_id, branch);
-            newStatus = mergeResult.success ? 'merged' : 'qa_failed';
+            // QA passed - advance to qa_approved (Test+Doc agents run before merge)
+            console.log(`✅ QA passed for ${ticket_id} - advancing to qa_approved`);
+            newStatus = 'qa_approved';
           } else {
             newStatus = 'qa_failed';
           }
@@ -4268,8 +4392,10 @@ function handleAPI(req, res, body) {
         if (newStatus && ticket_id) {
           const ticket = dbModule.tickets.get(ticket_id.toUpperCase());
           if (ticket) {
+            const oldStatus = ticket.status;
             dbModule.tickets.update(ticket_id.toUpperCase(), { status: newStatus });
-            // This triggers handleTicketStatusChange which queues next job
+            // Trigger handleTicketStatusChange to queue next step (Test+Doc for qa_approved)
+            handleTicketStatusChange(ticket_id.toUpperCase(), oldStatus, newStatus, ticket);
           }
         }
       }
@@ -4480,8 +4606,13 @@ function handleAPI(req, res, body) {
       dbModule.locks.release(sessionId);
       
       // Update ticket status if applicable
-      if (session.ticket_id) {
-        dbModule.tickets.update(session.ticket_id, { status: 'dev_complete' });
+      // ONLY for dev agents, and NEVER downgrade from terminal/advanced states
+      if (session.ticket_id && session.agent_type === 'dev') {
+        const ticket = dbModule.tickets.get(session.ticket_id);
+        const protectedStates = ['merged', 'cancelled', 'qa_approved', 'finalizing', 'in_review'];
+        if (ticket && !protectedStates.includes(ticket.status)) {
+          dbModule.tickets.update(session.ticket_id, { status: 'dev_complete' });
+        }
       }
       
       res.writeHead(200, { 'Content-Type': 'application/json' });

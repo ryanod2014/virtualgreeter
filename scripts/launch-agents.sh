@@ -196,17 +196,50 @@ launch_agent() {
         return 1
     fi
     
-    # Register session in database (v2 API)
+    # Register session in database (v2 API) with health check and retry
     local DB_SESSION_ID=""
-    local REGISTER_RESULT=$(curl -s -X POST "http://localhost:3456/api/v2/agents/start" \
-        -H "Content-Type: application/json" \
-        -d "{\"ticket_id\": \"$TICKET_ID\", \"agent_type\": \"dev\", \"tmux_session\": \"$SESSION_NAME\", \"worktree_path\": \"$WORKTREE_DIR\"}" 2>/dev/null)
+    local DASHBOARD_URL="http://localhost:3456"
+    local MAX_RETRIES=3
+    local RETRY_DELAY=2
     
-    if echo "$REGISTER_RESULT" | grep -q '"id"'; then
-        DB_SESSION_ID=$(echo "$REGISTER_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
-        print_success "Registered session: $DB_SESSION_ID"
+    # Health check - verify server is running
+    local SERVER_HEALTHY=false
+    for i in $(seq 1 $MAX_RETRIES); do
+        if curl -s --max-time 5 "$DASHBOARD_URL/api/v2/tickets" > /dev/null 2>&1; then
+            SERVER_HEALTHY=true
+            break
+        fi
+        if [ $i -lt $MAX_RETRIES ]; then
+            echo -e "${YELLOW}Server not responding, retrying in ${RETRY_DELAY}s... ($i/$MAX_RETRIES)${NC}"
+            sleep $RETRY_DELAY
+        fi
+    done
+    
+    if [ "$SERVER_HEALTHY" = true ]; then
+        # Try to register session with retry
+        for i in $(seq 1 $MAX_RETRIES); do
+            local REGISTER_RESULT=$(curl -s --max-time 10 -X POST "$DASHBOARD_URL/api/v2/agents/start" \
+                -H "Content-Type: application/json" \
+                -d "{\"ticket_id\": \"$TICKET_ID\", \"agent_type\": \"dev\", \"tmux_session\": \"$SESSION_NAME\", \"worktree_path\": \"$WORKTREE_DIR\"}" 2>/dev/null)
+            
+            if echo "$REGISTER_RESULT" | grep -q '"id"'; then
+                DB_SESSION_ID=$(echo "$REGISTER_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+                print_success "Registered session: $DB_SESSION_ID"
+                break
+            fi
+            
+            if [ $i -lt $MAX_RETRIES ]; then
+                echo -e "${YELLOW}Session registration failed, retrying... ($i/$MAX_RETRIES)${NC}"
+                sleep $RETRY_DELAY
+            fi
+        done
+        
+        if [ -z "$DB_SESSION_ID" ]; then
+            print_warning "Could not register session after $MAX_RETRIES attempts (continuing without session ID)"
+        fi
     else
-        print_warning "Could not register session in database (v2 API may not be available)"
+        print_warning "PM Dashboard server not running - session will not be tracked"
+        echo -e "${YELLOW}  Start the server with: cd docs/pm-dashboard-ui && node server.js${NC}"
     fi
     
     # Find prompt file (check in worktree since it has the docs)

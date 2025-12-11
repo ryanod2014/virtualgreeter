@@ -1,0 +1,32 @@
+{
+  "ticket_id": "TKT-050",
+  "blocker_type": "qa_failure",
+  "summary": "Unit test not updated - expects old behavior (default to 'active') instead of new behavior (default to 'cancelled')",
+  "failures": [
+    {
+      "test": "stripe-webhook-handler.test.ts:341 - defaults unknown status to 'active' with console warning",
+      "expected": "Test expects: unknown status maps to 'active', warning message 'Unknown Stripe status: some_unknown_status'",
+      "actual": "Implementation returns 'cancelled' (correct per ticket), warning message '[StripeWebhook] ⚠️ UNKNOWN STRIPE STATUS: \"some_unknown_status\" - Defaulting to 'cancelled' (fail-safe)...'",
+      "evidence": "Test output: '1 failed | 29 passed (30)' - AssertionError on warning message string match"
+    }
+  ],
+  "root_cause": "Dev agent updated production code (stripe-webhook-handler.ts) but failed to update corresponding unit test",
+  "files_affected": [
+    "apps/server/src/features/billing/stripe-webhook-handler.test.ts (NOT updated, should have been)"
+  ],
+  "fix_required": [
+    "Update test name on line 341: 'defaults unknown status to 'cancelled'' (not 'active')",
+    "Update expected warning message on line 369 to match new format",
+    "Add assertion to verify DB status is 'cancelled' after webhook",
+    "Run pnpm test to verify 30/30 tests pass"
+  ],
+  "severity": "medium",
+  "impact": "Test suite is broken. Blocks CI/CD. Implementation is functionally correct but untested.",
+  "dispatch_action": "create_continuation_ticket",
+  "continuation_ticket_title": "TKT-050-FIX: Update unit test to match fail-safe default behavior",
+  "verification_command": "cd apps/server && pnpm test -- stripe-webhook-handler.test.ts",
+  "qa_agent": "Claude Sonnet 4.5",
+  "qa_session_id": "85214183-2253-4853-b207-efef1ffe607a",
+  "timestamp": "2025-12-11T00:21:00Z",
+  "worktree": "/Users/ryanodonnell/projects/agent-worktrees/qa-TKT-050"
+}

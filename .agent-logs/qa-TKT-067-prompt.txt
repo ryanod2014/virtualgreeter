@@ -27,20 +27,20 @@ Read: docs/workflow/UI_TICKET_QA_WORKFLOW.md
 GENERAL: docs/workflow/QA_REVIEW_AGENT_SOP.md
 
 SESSION INFO:
-  TICKET: TKT-003 | BRANCH: agent/TKT-003-cancel-copy | TYPE: ui
+  TICKET: TKT-067 | BRANCH: agent/tkt-067 | TYPE: ui
   HAS_UI: true | HAS_API: false
-  SESSION_ID: 9b86a920-c552-4e78-837b-380497b39d83
-  WORKTREE: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-003
+  SESSION_ID: 62400fe7-e9a6-4bc5-976d-4798081aa33c
+  WORKTREE: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-067
   
-  ⚠️  YOUR DASHBOARD PORT: 3103
+  ⚠️  YOUR DASHBOARD PORT: 3167
   This port is unique to your ticket - use it for all testing!
   Other QA agents may be running on different ports simultaneously.
   
   🌐 TUNNEL URL: 
   Use this URL for magic links! PM can access from anywhere.
-  (If tunnel unavailable, falls back to localhost:3103)
+  (If tunnel unavailable, falls back to localhost:3167)
   
-Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/9b86a920-c552-4e78-837b-380497b39d83/heartbeat
+Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/62400fe7-e9a6-4bc5-976d-4798081aa33c/heartbeat
 
 ═══════════════════════════════════════════════════════════════
 PHASE 1: CREATE YOUR TEST PLAN (BEFORE any testing!)
@@ -49,7 +49,7 @@ PHASE 1: CREATE YOUR TEST PLAN (BEFORE any testing!)
 Write this FIRST:
 
 ```markdown
-## Test Plan for TKT-003
+## Test Plan for TKT-067
 ## TICKET TYPE: ui
 
 
@@ -89,16 +89,16 @@ New errors = FAIL ticket.
 PHASE 3: EXECUTE TESTS (One at a time, with evidence)
 ═══════════════════════════════════════════════════════════════
 
-⚠️  START DASHBOARD ON YOUR ASSIGNED PORT (3103):
+⚠️  START DASHBOARD ON YOUR ASSIGNED PORT (3167):
 
 cd apps/dashboard
-PORT=3103 pnpm dev &
+PORT=3167 pnpm dev &
 sleep 10
 
 # Verify it's running on YOUR port
-curl -s http://localhost:3103 | head -1
+curl -s http://localhost:3167 | head -1
 
-# ALL your testing should use http://localhost:3103
+# ALL your testing should use http://localhost:3167
 # (NOT port 3000 - other agents may be using that!)
 
 
@@ -110,7 +110,7 @@ UI TICKETS - For EACH role:
   5. Test feature at http://localhost:$AGENT_PORT, take screenshot
   6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
        -H \"Content-Type: application/json\" \\
-       -d "\""ticket_id":"TKT-003"\""
+       -d "\""ticket_id":"TKT-067"\""
   7. REPEAT for next role
   
   🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
@@ -166,7 +166,7 @@ If PASS:
   ═══════════════════════════════════════════════════════════════
   
   1. Write QA Report:
-     /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-003-PASSED-$(date +%Y%m%dT%H%M).md
+     /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-067-PASSED-$(date +%Y%m%dT%H%M).md
      
      Include: Test plan, all test results, evidence, self-audit
   
@@ -174,18 +174,18 @@ If PASS:
   FOR UI TICKETS: Create inbox with magic_links (PLURAL!)
   ─────────────────────────────────────────────────────────────
   
-  Write: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/inbox/TKT-003.json
+  Write: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/inbox/TKT-067.json
   
   {
-    "ticket_id": "TKT-003",
+    "ticket_id": "TKT-067",
     "title": "[title]",
     "type": "ui_review",
     "status": "pending",
     "created_at": "[ISO timestamp]",
     "message": "QA verified ALL roles. PM please confirm each.",
-    "branch": "agent/TKT-003-cancel-copy",
+    "branch": "agent/tkt-067",
     "tunnel_url": "",
-    "qa_report": "docs/agent-output/qa-results/QA-TKT-003-PASSED-[timestamp].md",
+    "qa_report": "docs/agent-output/qa-results/QA-TKT-067-PASSED-[timestamp].md",
     "screenshots": [
       {"name": "Admin View", "path": "..."},
       {"name": "Agent View", "path": "..."}
@@ -201,7 +201,7 @@ If PASS:
   🌐 Magic links use TUNNEL_URL () - PM can click from anywhere!
   
   Update ticket:
-  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-003 -d '{"status": "qa_approved"}'
+  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-067 -d '{"status": "qa_approved"}'
   
   ─────────────────────────────────────────────────────────────
   FOR NON-UI TICKETS: Auto-merge flow
@@ -214,33 +214,33 @@ If PASS:
   - State verification evidence
   
   Update ticket:
-  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-003 -d '{"status": "merged"}'
+  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-067 -d '{"status": "merged"}'
   
   Selective merge:
     cd /Users/ryanodonnell/projects/Digital_greeter
     git checkout main && git pull origin main
-    git checkout agent/TKT-003-cancel-copy -- apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx
-    git add apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx
-    git commit -m 'Merge TKT-003: [title] - QA Passed'
+    git checkout agent/tkt-067 -- apps/dashboard/src/app/(app)/admin/sites/[siteId]/verification-status.tsx
+    git add apps/dashboard/src/app/(app)/admin/sites/[siteId]/verification-status.tsx
+    git commit -m 'Merge TKT-067: [title] - QA Passed'
     git push origin main
   
   ─────────────────────────────────────────────────────────────
   BOTH: Mark session complete
   ─────────────────────────────────────────────────────────────
   
-  curl -X POST http://localhost:3456/api/v2/agents/9b86a920-c552-4e78-837b-380497b39d83/complete \
-    -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-003-PASSED.md"}'
+  curl -X POST http://localhost:3456/api/v2/agents/62400fe7-e9a6-4bc5-976d-4798081aa33c/complete \
+    -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-067-PASSED.md"}'
 
 If FAIL:
   ═══════════════════════════════════════════════════════════════
   
   Write BOTH files:
-  1. /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-003-FAILED-$(date +%Y%m%dT%H%M).json
-  2. /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-003-FAILED-$(date +%Y%m%dT%H%M).md
+  1. /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-067-FAILED-$(date +%Y%m%dT%H%M).json
+  2. /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-067-FAILED-$(date +%Y%m%dT%H%M).md
   
   JSON format:
   {
-    "ticket_id": "TKT-003",
+    "ticket_id": "TKT-067",
     "blocker_type": "qa_failure",
     "summary": "[one-line summary]",
     "failures": [{"test": "...", "expected": "...", "actual": "..."}],
@@ -248,8 +248,8 @@ If FAIL:
   }
   
   Update status:
-  curl -X POST http://localhost:3456/api/v2/agents/9b86a920-c552-4e78-837b-380497b39d83/block -d '{"blocker_type": "qa_failure", ...}'
-  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-003 -d '{"status": "qa_failed"}'
+  curl -X POST http://localhost:3456/api/v2/agents/62400fe7-e9a6-4bc5-976d-4798081aa33c/block -d '{"blocker_type": "qa_failure", ...}'
+  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-067 -d '{"status": "qa_failed"}'
 
 ═══════════════════════════════════════════════════════════════
 REMEMBER: If you didn't EXECUTE it, you didn't TEST it.
