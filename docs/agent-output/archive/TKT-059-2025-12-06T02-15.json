@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TKT-059",
+  "branch": "agent/tkt-059",
+  "started_at": "2025-12-06T02:15:00Z",
+  "files_locking": [
+    "apps/server/src/lib/call-logger.ts"
+  ]
+}
