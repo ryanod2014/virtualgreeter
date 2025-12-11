@@ -29,15 +29,83 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and name are required" }, { status: 400 });
     }
 
-    // Check if user already exists in this org (including deactivated)
+    // Check if user already exists in this org
     const { data: existingUser } = await supabase
       .from("users")
-      .select("id")
+      .select("id, role")
       .eq("email", email)
       .eq("organization_id", profile.organization_id)
       .single();
 
     if (existingUser) {
+      // Check if they have an inactive agent_profile (for agent role invites)
+      if (role === "agent") {
+        const { data: agentProfile } = await supabase
+          .from("agent_profiles")
+          .select("id, is_active, display_name")
+          .eq("user_id", existingUser.id)
+          .eq("organization_id", profile.organization_id)
+          .single();
+
+        // If they have an inactive agent profile, allow reactivation
+        if (agentProfile && !agentProfile.is_active) {
+          // Reactivate the agent profile
+          const { error: reactivateError } = await supabase
+            .from("agent_profiles")
+            .update({
+              is_active: true,
+              deactivated_at: null,
+              deactivated_by: null,
+              status: "offline",
+            })
+            .eq("id", agentProfile.id);
+
+          if (reactivateError) {
+            console.error("Failed to reactivate agent:", reactivateError);
+            return NextResponse.json({ error: "Failed to reactivate agent" }, { status: 500 });
+          }
+
+          // Add billing seat for reactivation
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+          const seatResponse = await fetch(`${baseUrl}/api/billing/seats`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Cookie": request.headers.get("cookie") || "",
+            },
+            body: JSON.stringify({ action: "add", quantity: 1 }),
+          });
+
+          if (!seatResponse.ok) {
+            // Rollback: Deactivate the agent again
+            await supabase
+              .from("agent_profiles")
+              .update({ is_active: false })
+              .eq("id", agentProfile.id);
+
+            const seatError = await seatResponse.json();
+            return NextResponse.json(
+              { error: seatError.error || "Failed to add billing seat" },
+              { status: 400 }
+            );
+          }
+
+          // Send reactivation notification email
+          const org = Array.isArray(profile.organization) ? profile.organization[0] : profile.organization;
+          const orgName = (org as { name: string })?.name || "GreetNow";
+
+          // TODO: Create sendReactivationEmail function
+          // For now, we'll skip the email or reuse sendInviteEmail
+          // The user can just log in with their existing credentials
+
+          return NextResponse.json({
+            success: true,
+            reactivated: true,
+            agentProfile: { id: agentProfile.id, display_name: agentProfile.display_name },
+          });
+        }
+      }
+
       return NextResponse.json({ error: "User already exists in this organization" }, { status: 400 });
     }
 
