@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TKT-041",
+  "branch": "agent/tkt-041",
+  "started_at": "2025-12-06T09:01:00Z",
+  "files_locking": [
+    "apps/dashboard/src/app/(auth)/reset-password/page.tsx"
+  ]
+}

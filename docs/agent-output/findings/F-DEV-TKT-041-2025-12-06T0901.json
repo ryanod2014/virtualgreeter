@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-041-1",
+  "source": "dev-agent-TKT-041",
+  "title": "Pre-existing type error in workbench-client.tsx blocks build",
+  "category": "bug",
+  "severity": "high",
+  "file": "apps/dashboard/src/features/workbench/workbench-client.tsx",
+  "line": 38,
+  "issue": "The useState initialization for RecordingSettings is missing required properties 'rna_timeout_seconds' and 'max_call_duration_minutes'. This causes the build to fail with a TypeScript error. This is a pre-existing issue not introduced by TKT-041.",
+  "suggestion": "Add the missing required properties to the initial state object: rna_timeout_seconds (likely 30 or similar default) and max_call_duration_minutes (likely 60 or similar default). Check the RecordingSettings type definition to see what the appropriate default values should be.",
+  "status": "pending",
+  "found_at": "2025-12-06T09:01:00Z"
+}

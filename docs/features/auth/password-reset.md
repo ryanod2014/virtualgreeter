@@ -168,6 +168,10 @@ PASSWORD SUBMISSION
     │
     ├─► Supabase: updates password in auth.users table
     │
+    ├─► Client: supabase.auth.signOut({ scope: 'others' })
+    │   └─► Invalidates all other sessions (except current) for security
+    │       Note: Access tokens remain valid until expiry (typically minutes)
+    │
     ├─► Client: fetch user role from users table
     │   └─► const isAdmin = profile?.role === "admin"
     │
@@ -261,6 +265,7 @@ PASSWORD SUBMISSION
 | Brute force protection | Handled by Supabase rate limiting |
 | Password strength | 8 character minimum enforced client-side |
 | Session hijacking | Supabase handles secure session management |
+| Attacker sessions after compromise | `signOut({ scope: 'others' })` invalidates all other sessions on password reset |
 | XSS in email | Supabase controls email template |
 
 ### Reliability
@@ -320,7 +325,7 @@ PASSWORD SUBMISSION
 
 1. **What is the exact token expiration time?** - Supabase default is 1 hour, but this may be configurable in Supabase dashboard. Not exposed in code.
 
-2. **Are existing sessions invalidated on password reset?** - Code does not explicitly invalidate other sessions. Supabase may handle this, but behavior is not verified.
+2. **Are existing sessions invalidated on password reset?** - Yes. The reset flow explicitly calls `supabase.auth.signOut({ scope: 'others' })` after password update to invalidate all other sessions. This ensures that if a password is reset due to account compromise, any attacker sessions on other devices are logged out. Note: Existing JWT access tokens remain valid until their expiration time (typically a few minutes), but refresh tokens are immediately revoked so users cannot obtain new access tokens.
 
 3. **Is there rate limiting on forgot-password requests?** - Supabase has built-in rate limiting, but the specific limits are not documented in this codebase.
 
