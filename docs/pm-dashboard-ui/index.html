@@ -3,7 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>PM Dashboard • Digital Greeter</title>
+  <script>
+    // Force clear all stale data - version 20251210
+    (function() {
+      var v = '20251211a';
+      if (localStorage.getItem('pm-force-version') !== v) {
+        console.log('🔄 Force clearing all PM dashboard caches...');
+        localStorage.clear();
+        sessionStorage.clear();
+        localStorage.setItem('pm-force-version', v);
+        if (window.caches) {
+          caches.keys().then(function(names) {
+            names.forEach(function(name) { caches.delete(name); });
+          });
+        }
+      }
+    })();
+  </script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -1505,416 +1525,210 @@ pnpm build`}
       
       return (
         <div className="fade-in">
-          {/* UI Reviews Section */}
-          {uiReviews.length > 0 && (
-            <div style={{ marginBottom: '32px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px' }}>🖼️</span> UI Changes Awaiting Review
-                <span style={{ 
-                  background: 'var(--accent)', 
-                  color: 'white', 
-                  padding: '2px 8px', 
-                  borderRadius: '12px', 
-                  fontSize: '12px' 
-                }}>{uiReviews.length}</span>
-              </h2>
-              
-              {uiReviews.map(review => (
-                <div key={review.id} className="card" style={{ marginBottom: '16px', padding: '20px' }}>
-                  {/* Header */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                    <div>
-                      <span style={{ 
-                        fontWeight: 700, 
-                        fontSize: '16px',
-                        color: 'var(--accent)'
-                      }}>{review.ticket_id}</span>
-                      <span style={{ 
-                        marginLeft: '8px',
-                        background: 'rgba(139, 92, 246, 0.1)',
-                        color: 'rgb(139, 92, 246)',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '12px'
-                      }}>UI Review</span>
-                      {review.branch && (
-                        <a 
-                          href={`https://github.com/AidanZealworkers/Digital_greeter/tree/${review.branch}`}
-                          target="_blank"
-                          style={{ marginLeft: '12px', color: 'var(--text-muted)', fontSize: '13px' }}
-                        >
-                          {review.branch}
-                        </a>
-                      )}
-                    </div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-                      {new Date(review.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                  
-                  {/* Message */}
-                  <div style={{ marginBottom: '16px', color: 'var(--text-secondary)' }}>
-                    {review.message}
-                  </div>
-                  
-                  {/* Screenshots */}
-                  {review.screenshots && review.screenshots.length > 0 ? (
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Screenshots:</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                        {review.screenshots.map((screenshot, idx) => (
-                          <a 
-                            key={idx} 
-                            href={screenshot.path} 
-                            target="_blank"
-                            style={{ 
-                              display: 'block',
-                              border: '1px solid var(--border)',
-                              borderRadius: '8px',
-                              overflow: 'hidden',
-                              width: '200px'
-                            }}
-                          >
-                            <img 
-                              src={screenshot.path} 
-                              alt={screenshot.name}
-                              style={{ width: '100%', height: '120px', objectFit: 'cover' }}
-                            />
-                            <div style={{ 
-                              padding: '8px', 
-                              fontSize: '12px', 
-                              color: 'var(--text-muted)',
-                              background: 'var(--bg-elevated)',
-                              textAlign: 'center'
-                            }}>
-                              {screenshot.name || screenshot.filename}
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ 
-                      padding: '20px', 
-                      background: 'rgba(239, 68, 68, 0.1)', 
-                      borderRadius: '8px', 
-                      marginBottom: '16px',
-                      border: '1px solid rgba(239, 68, 68, 0.3)',
-                      textAlign: 'center'
-                    }}>
-                      <span style={{ fontSize: '24px' }}>⚠️</span>
-                      <div style={{ fontWeight: 600, color: 'var(--critical)', marginTop: '8px' }}>
-                        Screenshots Missing
-                      </div>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        This should have been auto-rejected. If you see this, contact engineering.
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Files Changed */}
-                  {review.files && review.files.length > 0 && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Files Changed:</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {review.files.map((file, idx) => (
-                          <span key={idx} style={{ 
-                            background: 'var(--bg-elevated)', 
-                            padding: '4px 8px', 
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            fontFamily: 'monospace'
-                          }}>
-                            {file.split('/').pop()}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+          {/* Findings Triage Section - now includes UI reviews */}
+          <TriageContent 
+            serverMode={serverMode} 
+            onSave={onSave} 
+            findingsData={findingsData} 
+            serverDecisions={serverDecisions} 
+            onDecisionsChange={onDecisionsChange} 
+            agentOutputs={agentOutputs} 
+            staging={staging}
+            uiReviews={uiReviews}
+            onApproveReview={handleApprove}
+            onRejectReview={handleReject}
+          />
+        </div>
+      );
+    }
 
-                  {/* Magic Links (Multi-Role) - New format with role descriptions */}
-                  {review.magic_links && review.magic_links.length > 0 && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ fontWeight: 600, marginBottom: '12px', fontSize: '14px' }}>🚀 Try It Live (Auto-Login):</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {review.magic_links.map((link, idx) => (
-                          <div key={idx} style={{
-                            padding: '16px',
-                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05))',
-                            border: '1px solid rgba(16, 185, 129, 0.3)',
-                            borderRadius: '10px'
-                          }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                              <span style={{
-                                background: link.role === 'admin' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                                color: 'white',
-                                padding: '4px 10px',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                textTransform: 'uppercase'
-                              }}>
-                                {link.role}
-                              </span>
-                              <a 
-                                href={link.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  padding: '10px 20px',
-                                  background: 'linear-gradient(135deg, #10b981, #059669)',
-                                  color: 'white',
-                                  borderRadius: '8px',
-                                  textDecoration: 'none',
-                                  fontWeight: 600,
-                                  fontSize: '14px',
-                                  boxShadow: '0 2px 10px rgba(16, 185, 129, 0.3)',
-                                  transition: 'all 0.2s'
-                                }}
-                                onMouseOver={(e) => {
-                                  e.currentTarget.style.transform = 'translateY(-2px)';
-                                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(16, 185, 129, 0.4)';
-                                }}
-                                onMouseOut={(e) => {
-                                  e.currentTarget.style.transform = 'translateY(0)';
-                                  e.currentTarget.style.boxShadow = '0 2px 10px rgba(16, 185, 129, 0.3)';
-                                }}
-                              >
-                                Open as {link.role}
-                                <span style={{ fontSize: '12px', opacity: 0.8 }}>↗</span>
-                              </a>
-                            </div>
-                            {link.what_pm_sees && (
-                              <div style={{ 
-                                fontSize: '13px', 
-                                color: 'var(--text-secondary)',
-                                marginTop: '8px',
-                                paddingLeft: '4px'
-                              }}>
-                                <span style={{ fontWeight: 500 }}>What you'll see:</span> {link.what_pm_sees}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ 
-                        marginTop: '10px', 
-                        fontSize: '12px', 
-                        color: 'var(--text-muted)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <span style={{ color: '#10b981' }}>✓</span>
-                        One click per role - no login required
-                      </div>
-                    </div>
-                  )}
+    // ================= UI REVIEW CARD =================
+    // Card for UI reviews, styled like FindingCard but with approve/reject/comment actions
+    
+    function UIReviewCard({ review, onApprove, onReject }) {
+      const [comment, setComment] = useState('');
+      const [showComment, setShowComment] = useState(false);
+      
+      return (
+        <div className="card slide-up" style={{ marginBottom: '16px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+          {/* Header */}
+          <div className="card-header">
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <code style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '13px' }}>{review.ticket_id}</code>
+                {review.branch && (
+                  <a 
+                    href={`https://github.com/AidanZealworkers/Digital_greeter/tree/${review.branch}`}
+                    target="_blank"
+                    style={{ fontSize: '11px', color: 'var(--accent-bright)', background: 'rgba(99,102,241,0.1)', padding: '2px 8px', borderRadius: '4px', textDecoration: 'none' }}
+                  >
+                    {review.branch}
+                  </a>
+                )}
+              </div>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, marginTop: '6px' }}>{review.title || 'UI Review'}</h3>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                {new Date(review.created_at).toLocaleString()}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+              <Badge type="high"><span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>🖼️ UI REVIEW</span></Badge>
+              <Badge type="pending"><span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icons.circle /> Pending</span></Badge>
+            </div>
+          </div>
 
-                  {/* Legacy Magic URL (Single link) - for backwards compatibility */}
-                  {review.magic_url && !review.magic_links && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Try It Live:</div>
-                      <a 
-                        href={review.magic_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '14px 24px',
-                          background: 'linear-gradient(135deg, #10b981, #059669)',
-                          color: 'white',
-                          borderRadius: '10px',
-                          textDecoration: 'none',
-                          fontWeight: 700,
-                          fontSize: '16px',
-                          boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseOver={(e) => {
-                          e.currentTarget.style.transform = 'translateY(-2px)';
-                          e.currentTarget.style.boxShadow = '0 6px 20px rgba(16, 185, 129, 0.5)';
-                        }}
-                        onMouseOut={(e) => {
-                          e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.boxShadow = '0 4px 14px rgba(16, 185, 129, 0.4)';
-                        }}
-                      >
-                        <span style={{ fontSize: '20px' }}>🚀</span>
-                        Try It Live (Auto-Login)
-                        <span style={{ fontSize: '14px', opacity: 0.8 }}>↗</span>
-                      </a>
-                      <div style={{ 
-                        marginTop: '10px', 
-                        fontSize: '13px', 
-                        color: 'var(--text-muted)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <span style={{ color: '#10b981' }}>✓</span>
-                        One click to see the feature - no login required
-                      </div>
-                      {review.redirect_path && (
-                        <div style={{ 
-                          marginTop: '6px', 
-                          fontSize: '12px', 
-                          color: 'var(--text-muted)',
-                          fontFamily: 'monospace'
-                        }}>
-                          Landing page: {review.redirect_path}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Legacy Preview URL (Manual Login) */}
-                  {!review.magic_url && review.preview_url && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Live Preview:</div>
-                      <a 
-                        href={review.preview_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '10px 16px',
-                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                          color: 'white',
-                          borderRadius: '8px',
-                          textDecoration: 'none',
-                          fontWeight: 600,
-                          fontSize: '14px',
-                          boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)'
-                        }}
-                      >
-                        <span style={{ fontSize: '16px' }}>🔗</span>
-                        Open Preview
-                        <span style={{ fontSize: '12px', opacity: 0.8 }}>↗</span>
-                      </a>
-                      <div style={{ 
-                        marginTop: '8px', 
-                        fontSize: '12px', 
-                        color: 'var(--text-muted)',
-                        fontFamily: 'monospace',
-                        wordBreak: 'break-all'
-                      }}>
-                        {review.preview_url}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Test Account Credentials (only shown for legacy preview_url without magic_url) */}
-                  {!review.magic_url && review.test_account && (
-                    <div style={{ 
-                      marginBottom: '16px',
-                      padding: '16px',
-                      background: 'rgba(251, 191, 36, 0.1)',
-                      border: '1px solid rgba(251, 191, 36, 0.3)',
-                      borderRadius: '8px'
-                    }}>
-                      <div style={{ 
-                        fontWeight: 600, 
-                        marginBottom: '12px', 
-                        fontSize: '14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        color: '#f59e0b'
-                      }}>
-                        <span>🔐</span>
-                        Test Account Credentials
-                      </div>
-                      <div style={{ display: 'grid', gap: '8px' }}>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', width: '70px' }}>Email:</span>
-                          <code style={{ 
-                            background: 'var(--bg-elevated)', 
-                            padding: '4px 8px', 
-                            borderRadius: '4px',
-                            fontSize: '13px',
-                            fontFamily: 'monospace'
-                          }}>
-                            {review.test_account.email}
-                          </code>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', width: '70px' }}>Password:</span>
-                          <code style={{ 
-                            background: 'var(--bg-elevated)', 
-                            padding: '4px 8px', 
-                            borderRadius: '4px',
-                            fontSize: '13px',
-                            fontFamily: 'monospace'
-                          }}>
-                            {review.test_account.password}
-                          </code>
-                        </div>
-                        {review.test_account.setup_notes && (
-                          <div style={{ 
-                            marginTop: '8px',
-                            padding: '8px 12px',
-                            background: 'var(--bg-elevated)',
-                            borderRadius: '6px',
-                            fontSize: '13px',
-                            color: 'var(--text-secondary)'
-                          }}>
-                            <strong>Setup:</strong> {review.test_account.setup_notes}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Actions */}
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                    <button
-                      onClick={() => handleApprove(review.ticket_id)}
-                      disabled={!review.screenshots || review.screenshots.length === 0}
-                      style={{
-                        padding: '10px 20px',
-                        background: review.screenshots?.length > 0 ? '#22c55e' : 'var(--bg-elevated)',
-                        color: review.screenshots?.length > 0 ? 'white' : 'var(--text-muted)',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontWeight: 600,
-                        cursor: review.screenshots?.length > 0 ? 'pointer' : 'not-allowed'
-                      }}
-                    >
-                      ✓ Approve & Merge
-                    </button>
-                    <button
-                      onClick={() => {
-                        const reason = prompt('Rejection reason (will be sent to dev):');
-                        if (reason) handleReject(review.ticket_id, reason);
-                      }}
-                      style={{
-                        padding: '10px 20px',
-                        background: 'transparent',
-                        color: 'var(--critical)',
-                        border: '1px solid var(--critical)',
-                        borderRadius: '6px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ✗ Reject
-                    </button>
-                  </div>
+          {/* Message */}
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.6' }}>
+            {review.message}
+          </p>
+          
+          {/* Magic Links */}
+          {review.magic_links && review.magic_links.length > 0 && (
+            <div style={{ marginBottom: '16px', padding: '16px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(5, 150, 105, 0.03))', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+              <div style={{ fontWeight: 600, marginBottom: '12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>🚀</span> Try It Live (Auto-Login):
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                {review.magic_links.map((link, idx) => (
+                  <a 
+                    key={idx}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      background: link.role === 'admin' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      color: 'white',
+                      borderRadius: '6px',
+                      textDecoration: 'none',
+                      fontWeight: 600,
+                      fontSize: '13px'
+                    }}
+                  >
+                    Open as {link.role} ↗
+                  </a>
+                ))}
+              </div>
+              {review.magic_links[0]?.what_pm_sees && (
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '10px' }}>
+                  <strong>Admin sees:</strong> {review.magic_links.find(l => l.role === 'admin')?.what_pm_sees}
                 </div>
-              ))}
+              )}
             </div>
           )}
           
-          {/* Findings Triage Section */}
-          <TriageContent serverMode={serverMode} onSave={onSave} findingsData={findingsData} serverDecisions={serverDecisions} onDecisionsChange={onDecisionsChange} agentOutputs={agentOutputs} staging={staging} />
+          {/* Screenshots */}
+          {review.screenshots && review.screenshots.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '13px' }}>Screenshots:</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {review.screenshots.slice(0, 4).map((screenshot, idx) => (
+                  <a 
+                    key={idx} 
+                    href={screenshot.path} 
+                    target="_blank"
+                    style={{ 
+                      display: 'block',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      overflow: 'hidden',
+                      width: '140px'
+                    }}
+                  >
+                    <div style={{ 
+                      padding: '6px', 
+                      fontSize: '11px', 
+                      color: 'var(--text-muted)',
+                      background: 'var(--bg-elevated)',
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {screenshot.name || 'Screenshot'}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Comment Input */}
+          {showComment && (
+            <div style={{ marginBottom: '12px' }}>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Add feedback for the dev team..."
+                style={{
+                  width: '100%',
+                  minHeight: '80px',
+                  padding: '12px',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  background: 'var(--bg-elevated)',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => onApprove(review.ticket_id)}
+              style={{
+                padding: '10px 20px',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '13px'
+              }}
+            >
+              ✓ Approve & Merge
+            </button>
+            <button
+              onClick={() => setShowComment(!showComment)}
+              style={{
+                padding: '10px 20px',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                fontSize: '13px'
+              }}
+            >
+              💬 {showComment ? 'Hide Comment' : 'Add Comment'}
+            </button>
+            <button
+              onClick={() => {
+                const reason = comment.trim() || prompt('Rejection reason:');
+                if (reason) onReject(review.ticket_id, reason);
+              }}
+              style={{
+                padding: '10px 20px',
+                background: 'transparent',
+                color: 'var(--critical)',
+                border: '1px solid var(--critical)',
+                borderRadius: '6px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                fontSize: '13px'
+              }}
+            >
+              ✗ Request Changes
+            </button>
+          </div>
         </div>
       );
     }
@@ -1922,7 +1736,7 @@ pnpm build`}
     // ================= TRIAGE CONTENT =================
     // Renamed from TriageView to be embedded in InboxView
 
-    function TriageContent({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs, staging }) {
+    function TriageContent({ serverMode, onSave, findingsData, serverDecisions, onDecisionsChange, agentOutputs, staging, uiReviews = [], onApproveReview, onRejectReview }) {
       const [severityFilter, setSeverityFilter] = useState('all');
       const [copyStatus, setCopyStatus] = useState(null);
       
@@ -2008,6 +1822,23 @@ pnpm build`}
       const findings = allFindings;
 
       const [decisions, setDecisions] = useState(() => {
+        // TEMPORARY: Always clear localStorage to fix stale data issue
+        // TODO: Remove this once data sync is stable
+        const cacheVersion = 'v4'; // Increment to force clear
+        if (localStorage.getItem('pm-cache-version') !== cacheVersion) {
+          localStorage.removeItem('pm-decisions-v3');
+          localStorage.setItem('pm-cache-version', cacheVersion);
+          console.log('🔄 Cleared stale decisions cache (version upgrade)');
+          return { threads: [] };
+        }
+        // Allow ?reset=1 to clear stale localStorage
+        if (window.location.search.includes('reset=1')) {
+          localStorage.removeItem('pm-decisions-v3');
+          console.log('🔄 Cleared stale decisions cache');
+          // Remove reset param from URL
+          window.history.replaceState({}, '', window.location.pathname);
+          return { threads: [] };
+        }
         const saved = localStorage.getItem('pm-decisions-v3');
         if (saved) return JSON.parse(saved);
         return { threads: [] };
@@ -2283,12 +2114,13 @@ pnpm build`}
         const done = ticketed + skipped + resolved;
         const totalPending = Object.values(bySeverity).reduce((sum, n) => sum + n, 0);
         
-        // Count open conversations using decisions (merged state that works for rendering)
+        // Count open conversations using serverDecisions (source of truth from DB)
         let openConvos = 0;
-        if (decisions?.threads) {
+        const threadsToCheck = serverDecisions?.threads || decisions?.threads || [];
+        if (threadsToCheck.length > 0) {
           findings.forEach(f => {
             if (f.type === 'blocker' || f.status === 'ticketed' || f.status === 'skipped') return;
-            const thread = decisions.threads.find(t => t.finding_id === f.id);
+            const thread = threadsToCheck.find(t => t.finding_id === f.id);
             if (!thread) return;
             
             const isEffResolved = thread.status === 'resolved' || 
@@ -2701,7 +2533,7 @@ pnpm build`}
                 </div>
               </div>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : filtered.length === 0 && uiReviews.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
               <div style={{ marginBottom: '12px', color: 'var(--success)' }}><Icons.checkCircle /></div>
               <div style={{ color: 'var(--text-muted)' }}>
@@ -2710,10 +2542,39 @@ pnpm build`}
             </div>
           ) : (
             <>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter === 'done' ? 'completed' : severityFilter === 'answered' ? 'answered' : severityFilter === 'all' ? '' : severityFilter} findings
-                {severityFilter === 'all' && stats.openConvos > 0 && page === 0 && ' (open conversations first)'}
-              </div>
+              {/* UI Reviews Section - shown at top */}
+              {uiReviews.length > 0 && severityFilter === 'all' && page === 0 && (
+                <>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'rgb(139, 92, 246)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🖼️</span> UI Reviews Awaiting Approval
+                    <span style={{ 
+                      background: 'rgb(139, 92, 246)', 
+                      color: 'white', 
+                      padding: '2px 8px', 
+                      borderRadius: '10px', 
+                      fontSize: '11px' 
+                    }}>{uiReviews.length}</span>
+                  </div>
+                  {uiReviews.map(review => (
+                    <UIReviewCard 
+                      key={review.ticket_id} 
+                      review={review} 
+                      onApprove={onApproveReview}
+                      onReject={onRejectReview}
+                    />
+                  ))}
+                  {filtered.length > 0 && (
+                    <div style={{ height: '24px' }} />
+                  )}
+                </>
+              )}
+              
+              {filtered.length > 0 && (
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                  Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} {severityFilter === 'done' ? 'completed' : severityFilter === 'answered' ? 'answered' : severityFilter === 'all' ? '' : severityFilter} findings
+                  {severityFilter === 'all' && stats.openConvos > 0 && page === 0 && ' (open conversations first)'}
+                </div>
+              )}
               {paginated.map((f, idx) => {
                 // Check if this is an open convo item (using getThread which uses decisions state)
                 const thread = getThread(f.id);

@@ -1,0 +1,67 @@
+{
+  "ticket_id": "TKT-005b",
+  "title": "Create Payment Failure Blocking Modal",
+  "type": "ui_review",
+  "status": "merged",
+  "created_at": "2025-12-10T06:58:00Z",
+  "message": "QA verified ALL roles (admin and agent). PM please confirm UI for each role using magic links below.",
+  "branch": "agent/tkt-005b",
+  "tunnel_url": "https://adopted-accuracy-seats-athletic.trycloudflare.com",
+  "preview_port": 3105,
+  "qa_report": "docs/agent-output/qa-results/QA-TKT-005b-PASSED-20251210T065800.md",
+  "screenshots": [
+    {
+      "name": "Admin View - Past Due Modal",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-005b/01-admin-past-due-modal.png",
+      "description": "Admin sees full-screen blocking modal with 'Update Payment Method' button"
+    },
+    {
+      "name": "Agent View - Past Due Modal",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-005b/02-agent-past-due-modal.png",
+      "description": "Agent sees full-screen blocking modal with contact admin message (no button)"
+    },
+    {
+      "name": "Mobile View - 375px",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-005b/03-agent-mobile-375px.png",
+      "description": "Modal is responsive and usable on mobile viewports"
+    },
+    {
+      "name": "Active Status - No Modal",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-005b/04-agent-active-no-modal.png",
+      "description": "When org status is 'active', no modal appears - dashboard fully accessible"
+    }
+  ],
+  "magic_links": [
+    {
+      "role": "admin",
+      "url": "https://adopted-accuracy-seats-athletic.trycloudflare.com/api/review-login?token=ca862947e82348c7686ebb4c10e06de0a000ca677a829c201ff7f81d01982036",
+      "redirect_path": "/admin",
+      "what_pm_sees": "Full-screen modal with 'Payment Required' heading and 'Update Payment Method' button. Clicking button navigates to /admin/settings/billing. Modal cannot be dismissed with ESC or backdrop clicks.",
+      "user_email": "qa-admin-tkt005b-20251210210834@greetnow.test"
+    },
+    {
+      "role": "agent",
+      "url": "https://adopted-accuracy-seats-athletic.trycloudflare.com/api/review-login?token=20fa37cc82408ed84869d33c21a41b2c07f19128f7efc0a1cb66d78cd437bab9",
+      "redirect_path": "/dashboard",
+      "what_pm_sees": "Full-screen modal with 'Payment Required' heading and message directing agents to contact their admin. NO 'Update Payment Method' button. Modal cannot be dismissed with ESC or backdrop clicks.",
+      "user_email": "qa-agent-tkt005b-20251210210834@greetnow.test"
+    }
+  ],
+  "test_setup": "Both test users belong to the same organization (QA Org TKT-005b 20251210210834) with subscription_status set to 'past_due' to trigger the PaymentBlocker modal. Organization ID: 69c3a11d-3a12-4e20-b5a2-8dcbae490bc3",
+  "test_password": "QATest-TKT-005b!",
+  "acceptance_criteria": [
+    "Full-screen modal appears when org status is 'past_due' - VERIFIED for both roles",
+    "Admins see 'Update Payment Method' button - VERIFIED in browser",
+    "Agents see read-only message directing them to contact admin - VERIFIED in browser",
+    "Modal cannot be dismissed without resolving payment - VERIFIED (ESC key and backdrop clicks blocked)"
+  ],
+  "edge_cases_tested": [
+    "ESC key dismissal - Modal remained visible (PASS)",
+    "Backdrop click blocking - All clicks intercepted by overlay (PASS)",
+    "Mobile viewport 375px - Modal responsive and usable (PASS)",
+    "Active subscription status - Modal correctly hidden (PASS)"
+  ],
+  "pm_instructions": "Click each magic link below to review the modal for each role. The links will automatically log you in and show the PaymentBlocker modal. Test that:\n1. Admin sees a button to update payment\n2. Agent sees a message to contact admin (no button)\n3. Modal blocks all dashboard interactions\n4. Modal cannot be dismissed with ESC key or clicking outside",
+  "approved_at": "2025-12-10T21:53:21.126Z",
+  "merged_at": "2025-12-10T21:53:35.381Z"
+}

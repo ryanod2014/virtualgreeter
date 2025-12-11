@@ -1,6 +1,6 @@
 {
   "meta": {
-    "last_updated": "2025-12-06",
+    "last_updated": "2025-12-11",
     "total_findings": 137,
     "format_version": "3.0",
     "synced_from": "REVIEW_FINDINGS.md",
@@ -11,8 +11,8 @@
     "high": 0,
     "medium": 29,
     "low": 3,
-    "pending": 33,
-    "ticketed": 87,
+    "pending": 28,
+    "ticketed": 92,
     "skipped": 17
   },
   "findings": [
@@ -70,7 +70,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-082",
       "options": [
         {
           "id": "implement_fix",
@@ -217,7 +217,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-083",
       "options": [
         {
           "id": "implement_fix",
@@ -280,7 +280,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": "TKT-052",
+      "ticket_id": "TKT-084",
       "options": [
         {
           "id": "implement_fix",
@@ -301,7 +301,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-085",
       "options": [
         {
           "id": "implement_fix",
@@ -322,7 +322,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": "TKT-034",
+      "ticket_id": "TKT-086",
       "options": [
         {
           "id": "implement_fix",
@@ -363,7 +363,7 @@
       "suggested_fix": "Define and implement a data retention policy with configurable retention periods per organization.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -469,7 +469,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-088",
       "options": [
         {
           "id": "implement_fix",
@@ -553,7 +553,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-089",
       "options": [
         {
           "id": "implement_fix",
@@ -595,7 +595,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-090",
       "options": [
         {
           "id": "implement_fix",
@@ -616,7 +616,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": "TKT-034",
+      "ticket_id": "TKT-091",
       "options": [
         {
           "id": "implement_fix",
@@ -637,7 +637,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": "TKT-064",
+      "ticket_id": "TKT-092",
       "options": [
         {
           "id": "implement_fix",
@@ -784,7 +784,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-093",
       "options": [
         {
           "id": "implement_fix",
@@ -805,7 +805,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-094",
       "options": [
         {
           "id": "implement_fix",
@@ -826,7 +826,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-095",
       "options": [
         {
           "id": "implement_fix",
@@ -847,7 +847,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": "TKT-034",
+      "ticket_id": "TKT-096",
       "options": [
         {
           "id": "implement_fix",
@@ -867,7 +867,7 @@
       "suggested_fix": "Define and implement data retention policy with configurable periods.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "ticketed",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -889,7 +889,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-098",
       "options": [
         {
           "id": "implement_fix",
@@ -910,7 +910,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": "TKT-017",
+      "ticket_id": "TKT-101",
       "options": [
         {
           "id": "implement_fix",
@@ -1183,7 +1183,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-099",
       "options": [
         {
           "id": "implement_fix",
@@ -1267,7 +1267,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-100",
       "options": [
         {
           "id": "implement_fix",
@@ -1288,7 +1288,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": "TKT-004",
+      "ticket_id": "TKT-102",
       "options": [
         {
           "id": "implement_fix",
@@ -1309,7 +1309,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": "TKT-004",
+      "ticket_id": "TKT-103",
       "options": [
         {
           "id": "implement_fix",
@@ -1330,7 +1330,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": "TKT-004",
+      "ticket_id": "TKT-104",
       "options": [
         {
           "id": "implement_fix",
@@ -1351,7 +1351,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-105",
       "options": [
         {
           "id": "implement_fix",
@@ -1708,7 +1708,7 @@
       "agent_options": [],
       "agent_recommendation": "",
       "status": "ticketed",
-      "ticket_id": null,
+      "ticket_id": "TKT-083",
       "options": [
         {
           "id": "implement_fix",
@@ -2271,7 +2271,7 @@
       "suggested_fix": "Add monitoring for cache hit rate and DB query frequency. Document expected query volumes at different traffic levels to inform TTL selection. Consider making TTL configurable per-environment.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2292,7 +2292,7 @@
       "suggested_fix": "Implement merge strategy where pool settings can specify only the fields to override, with unspecified fields falling back to org defaults. Use null or undefined for \"inherit from org\" semantics.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -2313,8 +2313,8 @@
       "suggested_fix": "Implement credential validation on save, periodic health checks, and admin notifications when FB API calls start failing.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-066",
       "options": [
         {
           "id": "implement_fix",
@@ -2334,7 +2334,7 @@
       "suggested_fix": "Update documentation to reflect actual response format - change all references of `\"status\": \"ok\"` to `\"status\": \"healthy\"` and update monitor configuration to validate for \"healthy\"",
       "agent_options": [],
       "agent_recommendation": "Option 1 - Documentation must match actual behavior. The monitor validation should check for `$.status = \"healthy\"` or simply validate HTTP 200 response.",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "cleanup_notes": "Promoted from staging - critical documentation error that would cause false positive alerts"
     },
@@ -2349,7 +2349,7 @@
       "suggested_fix": "Add tabindex and keyboard handlers to table rows, or implement a proper data grid component with ARIA grid roles.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "cleanup_notes": "Promoted from staging - accessibility compliance issue"
     },
@@ -2364,7 +2364,7 @@
       "suggested_fix": "Add visible indicator to agent UI when pool memberships failed to load: \"Pool routing unavailable - please reconnect.\" Consider retry mechanism with exponential backoff.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "cleanup_notes": "Promoted from staging - silent failure causes missed leads"
     },
@@ -2379,7 +2379,7 @@
       "suggested_fix": "Add optional `allowed_origins` setting in organization settings. When configured, server validates `pageUrl` origin against whitelist before allowing connection.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "cleanup_notes": "Promoted from staging - security concern allowing resource abuse"
     },
@@ -2394,8 +2394,8 @@
       "suggested_fix": "Implement exponential backoff after 5 minutes (5s → 10s → 30s → 60s), then stop polling and show \"Click to check again\" button.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-067",
       "cleanup_notes": "Promoted from staging - unnecessary resource consumption"
     },
     {
@@ -2409,8 +2409,8 @@
       "suggested_fix": "Allow pageview recording without agent_id (make it nullable) OR track \"unassigned pageviews\" separately for accurate install verification.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-068",
       "cleanup_notes": "Promoted from staging - inaccurate analytics for most orgs"
     },
     {
@@ -2424,7 +2424,7 @@
       "suggested_fix": "Add validation to embed code generation: if dashboard is on HTTPS, ensure serverUrl also uses HTTPS. Display warning if mismatch detected.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "cleanup_notes": "Promoted from staging - silent widget failure with no user feedback"
     },
@@ -2439,7 +2439,7 @@
       "suggested_fix": "Document this limitation prominently in the setup instructions. Consider adding FAQ entry about ad blockers. Optionally track \"widget load attempts\" server-side to identify discrepancies.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "cleanup_notes": "Promoted from staging - documentation/awareness issue"
     },
@@ -2454,7 +2454,7 @@
       "suggested_fix": "Add drag-and-drop reorder in UI as documented in Section 7.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "cleanup_notes": "Promoted from staging - critical UX gap for routing configuration"
     },
@@ -2469,7 +2469,7 @@
       "suggested_fix": "Add option for strict pool enforcement (no fallback) as documented. Show \"no agents available\" if strict mode is enabled and pool is empty.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "cleanup_notes": "Promoted from staging - routing logic defeats admin intent"
     },
@@ -2484,7 +2484,7 @@
       "suggested_fix": "Implement periodic chunk upload to storage (as suggested in doc) or use browser's beforeunload event to warn agents during active recording.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2507,7 +2507,7 @@
       "suggested_fix": "Consider chunked upload during call (every N minutes) or background service worker to queue uploads. At minimum, document the risk for agents handling sensitive calls.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2530,7 +2530,7 @@
       "suggested_fix": "Implement data subject access request (DSAR) workflow, or at minimum document how admins can manually fulfill recording export requests.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2553,7 +2553,7 @@
       "suggested_fix": "Configure Supabase Auth password policy to enforce minimum 8 characters server-side to match client-side validation. Alternatively, add server-side validation in a server action before calling Supabase.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2576,7 +2576,7 @@
       "suggested_fix": "Define clear timeline for paywall re-enablement. Consider adding this to sprint backlog with specific acceptance criteria for when billing integration is complete.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2599,7 +2599,7 @@
       "suggested_fix": "Add a configuration option to enable/disable trusting proxy headers based on deployment environment. When disabled, fall back to socket.address only. Document the security implications of each setting.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -2622,7 +2622,7 @@
       "suggested_fix": "Document this limitation prominently, or implement URL change listener in widget that triggers re-routing when pathname changes.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2645,7 +2645,7 @@
       "suggested_fix": "Consider adding visitor-side toggle to disable screen sharing, or at minimum document that cobrowse is mandatory and ensure terms of service reflect this.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2668,7 +2668,7 @@
       "suggested_fix": "Either implement a queue/retry mechanism as suggested, or add a background job that identifies calls with recordings but no transcription status after X minutes.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2691,7 +2691,7 @@
       "suggested_fix": "Add explicit logging when webhook arrives before API response completes. Consider adding a small delay in webhook processing or using a state lock to prevent race conditions.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2714,7 +2714,7 @@
       "suggested_fix": "Document expected behavior when Deepgram rate limits are hit. Consider adding rate limiting on our side or queuing for high-volume orgs.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2737,7 +2737,7 @@
       "suggested_fix": "Add cursor-based pagination as already suggested in the documentation.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2760,7 +2760,7 @@
       "suggested_fix": "Implement a shared cache using Redis or similar for production deployments with multiple server instances. Keep in-memory cache for single-instance deployments.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -2783,7 +2783,7 @@
       "suggested_fix": "Add periodic validation of FB credentials (on settings page load), and display warning if token is expired/invalid. Consider email notification when FB events start failing.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2806,7 +2806,7 @@
       "suggested_fix": "Either (a) implement disposition value reporting in call analytics, or (b) remove the value field if not planned for use, to avoid confusing admins.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -2829,7 +2829,7 @@
       "suggested_fix": "Enhance warning modal with explicit pricing comparison: \"You currently pay $X/month. After switching to annual, you'll pay $Y/month. This promotional rate cannot be recovered if you switch.\"",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {
@@ -2852,7 +2852,7 @@
       "suggested_fix": "Add cache invalidation endpoint that can be called on save, or implement pub/sub pattern where server listens for settings changes. At minimum, add UI feedback: \"Changes saved. May take up to 5 minutes to apply to all visitors.\"",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2875,7 +2875,7 @@
       "suggested_fix": "Add defensive check that recreates catch-all pool if missing, or return explicit error state that triggers clear user messaging.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2898,7 +2898,7 @@
       "suggested_fix": "As doc suggests, implement SharedWorker or localStorage sync to coordinate activity across tabs. Alternatively, document this limitation prominently in agent onboarding.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "ticketed",
       "ticket_id": null,
       "options": [
         {
@@ -2921,7 +2921,7 @@
       "suggested_fix": "Document mobile limitations clearly for agents. Consider implementing Service Worker or Push Notification based idle detection for mobile. Accept 2-min detection delay on mobile as known limitation.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
+      "status": "skipped",
       "ticket_id": null,
       "options": [
         {

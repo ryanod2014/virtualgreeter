@@ -1,0 +1,91 @@
+# Dev Agent: TKT-087 - Define and Implement Data Retention Policy for Call Logs
+
+> **One-liner to launch:**
+> `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-TKT-087-v1.md`
+
+---
+
+You are a Dev Agent. Your job is to implement **TKT-087: Define and Implement Data Retention Policy for Call Logs**.
+
+**First, read the Dev Agent SOP:** `docs/workflow/DEV_AGENT_SOP.md`
+
+---
+
+## Your Assignment
+
+**Ticket:** TKT-087
+**Priority:** Medium
+**Difficulty:** Medium
+**Branch:** `agent/tkt-087-define-and-implement-data-rete`
+**Version:** v1
+
+---
+
+## The Problem
+
+No issue description provided.
+
+---
+
+## Files to Modify
+
+| File | What to Change |
+|------|----------------|
+| `apps/server/src/app/api/calls/route.ts` | Implement required changes |
+| `packages/database/src/schema.ts` | Implement required changes |
+| `apps/dashboard/src/app/(app)/admin/settings/data-retention/page.tsx` | Implement required changes |
+
+---
+
+## What to Implement
+
+1. Define default data retention policy (e.g., 90 days, 1 year)
+2. Add retention_days configuration to organization settings
+3. Implement scheduled job to delete calls older than retention period
+4. Add admin UI to configure retention period per organization
+5. Add warnings before deleting old data
+
+---
+
+## Acceptance Criteria
+
+- [ ] Organizations can configure call log retention period
+- [ ] Old call logs are automatically cleaned up based on policy
+- [ ] Admins receive notifications before bulk deletions
+- [ ] F-023 is resolved
+
+---
+
+## Out of Scope
+
+- (No explicit out-of-scope items listed)
+
+---
+
+## Risks to Avoid
+
+| Risk | How to Avoid |
+|------|--------------|
+| (Low risk) | Follow existing patterns |
+
+---
+
+## Dev Checks
+
+```bash
+pnpm typecheck  # Must pass
+pnpm build      # Must pass
+```
+
+---
+
+## ⚠️ REQUIRED: Follow Dev Agent SOP
+
+**All reporting is handled per the SOP:**
+- **Start:** Write to `docs/agent-output/started/TKT-087-[TIMESTAMP].json`
+- **Complete:** Write to `docs/agent-output/completions/TKT-087-[TIMESTAMP].md`
+- **Update:** Add to `docs/data/dev-status.json` completed array
+- **Blocked:** Write to `docs/agent-output/blocked/BLOCKED-TKT-087-[TIMESTAMP].json`
+- **Findings:** Write to `docs/agent-output/findings/F-DEV-TKT-087-[TIMESTAMP].json`
+
+See `docs/workflow/DEV_AGENT_SOP.md` for exact formats.

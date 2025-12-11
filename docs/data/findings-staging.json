@@ -1075,8 +1075,8 @@
       "suggested_fix": "Catch this specific error and display user-friendly message: \"Routing rules cannot be added to the catch-all pool. This pool automatically receives all visitors not matched by other rules.\"",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-077",
       "options": [
         {
           "id": "implement_fix",
@@ -1096,8 +1096,8 @@
       "suggested_fix": "Log malformed URL occurrences for debugging. Consider adding URL validation warning in dashboard if pageUrl patterns in call logs frequently show malformed values.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-078",
       "options": [
         {
           "id": "implement_fix",
@@ -1369,8 +1369,8 @@
       "suggested_fix": "Consider adding maximum recording duration (e.g., 4 hours) or file size warning, especially for organizations with high call volumes.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-079",
       "options": [
         {
           "id": "implement_fix",
@@ -2062,8 +2062,8 @@
       "suggested_fix": "All reassignment paths should consistently respect pool routing. Unify the routing logic so visitors get consistent treatment regardless of trigger type.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-080",
       "options": [
         {
           "id": "implement_fix",
@@ -2293,8 +2293,8 @@
       "suggested_fix": "Implement pagination to allow agents to access all their calls. Alternatively, provide a stats-only endpoint that calculates stats across ALL calls (not just the limited 500) so at least the statistics are accurate.",
       "agent_options": [],
       "agent_recommendation": "",
-      "status": "pending",
-      "ticket_id": null,
+      "status": "ticketed",
+      "ticket_id": "TKT-081",
       "options": [
         {
           "id": "implement_fix",
@@ -14117,5 +14117,3 @@
     }
   ]
 }
-
-

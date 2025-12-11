@@ -29,10 +29,18 @@ GENERAL: docs/workflow/QA_REVIEW_AGENT_SOP.md
 SESSION INFO:
   TICKET: TKT-005b | BRANCH: agent/tkt-005b | TYPE: ui
   HAS_UI: true | HAS_API: false
-  SESSION_ID: 2006f7a5-0ad9-4c80-9d6e-4aa410e1ac29
+  SESSION_ID: ae8d81a8-4214-48a3-b470-61618699f2b7
   WORKTREE: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-005b
   
-Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/2006f7a5-0ad9-4c80-9d6e-4aa410e1ac29/heartbeat
+  ⚠️  YOUR DASHBOARD PORT: 3105
+  This port is unique to your ticket - use it for all testing!
+  Other QA agents may be running on different ports simultaneously.
+  
+  🌐 TUNNEL URL: 
+  Use this URL for magic links! PM can access from anywhere.
+  (If tunnel unavailable, falls back to localhost:3105)
+  
+Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/ae8d81a8-4214-48a3-b470-61618699f2b7/heartbeat
 
 ═══════════════════════════════════════════════════════════════
 PHASE 1: CREATE YOUR TEST PLAN (BEFORE any testing!)
@@ -81,17 +89,57 @@ New errors = FAIL ticket.
 PHASE 3: EXECUTE TESTS (One at a time, with evidence)
 ═══════════════════════════════════════════════════════════════
 
-Start: pnpm dev
+⚠️  START DASHBOARD ON YOUR ASSIGNED PORT (3105):
+
+cd apps/dashboard
+PORT=3105 pnpm dev &
+sleep 10
+
+# Verify it's running on YOUR port
+curl -s http://localhost:3105 | head -1
+
+# ALL your testing should use http://localhost:3105
+# (NOT port 3000 - other agents may be using that!)
 
 
 UI TICKETS - For EACH role:
   1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
-  2. Login via Playwright (creates org!)
+  2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
   3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
   4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
-  5. Test feature, take screenshot
-  6. Generate magic link: curl -X POST http://localhost:3456/api/v2/review-tokens
+  5. Test feature at http://localhost:$AGENT_PORT, take screenshot
+  6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
+       -H \"Content-Type: application/json\" \\
+       -d "\""ticket_id":"TKT-005b"\""
   7. REPEAT for next role
+  
+  🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
+ 
+UI TICKETS - For EACH role:
+  1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
+  2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
+  3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
+  4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
+  5. Test feature at http://localhost:$AGENT_PORT, take screenshot
+  6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
+       -H \"Content-Type: application/json\" \\
+       -d "\""user_email":"..."\""
+  7. REPEAT for next role
+  
+  🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
+ 
+UI TICKETS - For EACH role:
+  1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
+  2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
+  3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
+  4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
+  5. Test feature at http://localhost:$AGENT_PORT, take screenshot
+  6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
+       -H \"Content-Type: application/json\" \\
+       -d "\""preview_base_url":""\""
+  7. REPEAT for next role
+  
+  🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
 
 ═══════════════════════════════════════════════════════════════
 PHASE 4: SELF-AUDIT (Before marking complete)
@@ -136,18 +184,21 @@ If PASS:
     "created_at": "[ISO timestamp]",
     "message": "QA verified ALL roles. PM please confirm each.",
     "branch": "agent/tkt-005b",
+    "tunnel_url": "",
     "qa_report": "docs/agent-output/qa-results/QA-TKT-005b-PASSED-[timestamp].md",
     "screenshots": [
       {"name": "Admin View", "path": "..."},
       {"name": "Agent View", "path": "..."}
     ],
     "magic_links": [
-      {"role": "admin", "url": "http://...", "what_pm_sees": "..."},
-      {"role": "agent", "url": "http://...", "what_pm_sees": "..."}
+      {"role": "admin", "url": "/login?token=...", "what_pm_sees": "..."},
+      {"role": "agent", "url": "/login?token=...", "what_pm_sees": "..."}
     ],
     "test_setup": "[how test accounts are configured]",
     "acceptance_criteria": ["list from ticket"]
   }
+  
+  🌐 Magic links use TUNNEL_URL () - PM can click from anywhere!
   
   Update ticket:
   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-005b -d '{"status": "qa_approved"}'
@@ -177,7 +228,7 @@ If PASS:
   BOTH: Mark session complete
   ─────────────────────────────────────────────────────────────
   
-  curl -X POST http://localhost:3456/api/v2/agents/2006f7a5-0ad9-4c80-9d6e-4aa410e1ac29/complete \
+  curl -X POST http://localhost:3456/api/v2/agents/ae8d81a8-4214-48a3-b470-61618699f2b7/complete \
     -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-005b-PASSED.md"}'
 
 If FAIL:
@@ -197,7 +248,7 @@ If FAIL:
   }
   
   Update status:
-  curl -X POST http://localhost:3456/api/v2/agents/2006f7a5-0ad9-4c80-9d6e-4aa410e1ac29/block -d '{"blocker_type": "qa_failure", ...}'
+  curl -X POST http://localhost:3456/api/v2/agents/ae8d81a8-4214-48a3-b470-61618699f2b7/block -d '{"blocker_type": "qa_failure", ...}'
   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-005b -d '{"status": "qa_failed"}'
 
 ═══════════════════════════════════════════════════════════════

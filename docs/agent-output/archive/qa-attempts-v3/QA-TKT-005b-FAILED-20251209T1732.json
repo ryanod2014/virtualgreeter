@@ -1,0 +1,51 @@
+{
+  "ticket_id": "TKT-005b",
+  "ticket_title": "Create Payment Failure Blocking Modal",
+  "branch": "agent/tkt-005b",
+  "blocked_at": "2025-12-09T17:32:00Z",
+  "blocker_type": "technical_infrastructure",
+  "summary": "Playwright MCP not connecting - cannot complete mandatory browser testing for UI ticket",
+  "failures": [
+    {
+      "category": "infrastructure",
+      "criterion": "Browser testing required for UI tickets",
+      "expected": "Playwright MCP connects and allows browser automation for login and testing",
+      "actual": "Playwright MCP returns 'Not connected' error - cannot navigate to pages",
+      "evidence": "Error: Not connected (when calling mcp__playwright__browser_navigate)"
+    },
+    {
+      "category": "test_setup",
+      "criterion": "Organizations must exist with past_due status to test PaymentBlocker modal",
+      "expected": "Test users log in via browser to create organizations, then set status to past_due",
+      "actual": "Cannot log in users without Playwright - orgs not created - cannot set past_due status",
+      "evidence": "API error: 'User not found: qa-admin-TKT-005b@greetnow.test. Make sure user has logged in at least once.'"
+    }
+  ],
+  "what_was_verified": [
+    "Dev server successfully running on port 3000",
+    "Test users created: qa-admin-TKT-005b@greetnow.test and qa-agent-TKT-005b@greetnow.test",
+    "Magic links generated for both users",
+    "Code inspection: PaymentBlocker component exists and is correctly integrated into dashboard layout",
+    "Code inspection: Modal shows different content for admins vs agents as required",
+    "Code inspection: Modal checks organization.subscription_status === 'past_due'",
+    "Code inspection: Backdrop and ESC key dismissal correctly disabled (no onClick, no close button)"
+  ],
+  "recommendation": "Human QA needed: Manual browser testing required since Playwright MCP infrastructure is not functioning. Alternative: Fix Playwright MCP connection and retry automated QA.",
+  "dispatch_action": "require_human_qa",
+  "magic_links_available": true,
+  "magic_links": [
+    {
+      "role": "admin",
+      "email": "qa-admin-TKT-005b@greetnow.test",
+      "url": "http://localhost:3000/api/review-login?token=8e007b16db260dd0780e679b0c0158c4f76fc5f578f39ef5599b57f316b7368e",
+      "note": "Org will be created on first login, but status will be 'active' not 'past_due' - need manual DB update to test"
+    },
+    {
+      "role": "agent",
+      "email": "qa-agent-TKT-005b@greetnow.test",
+      "url": "http://localhost:3000/api/review-login?token=a1ed05a82c38469a554629fe9362b28a6de4ab25b40d2d6d1edf51e0a58460b6",
+      "note": "Org will be created on first login, but status will be 'active' not 'past_due' - need manual DB update to test"
+    }
+  ],
+  "manual_test_instructions": "1. Click admin magic link to create org\n2. Use Supabase Studio or SQL to set organizations.subscription_status = 'past_due'\n3. Refresh page - PaymentBlocker modal should appear with 'Update Payment Method' button\n4. Click agent magic link\n5. Set agent's org to past_due\n6. Refresh page - PaymentBlocker modal should appear with 'Contact your admin' message\n7. Try ESC key and backdrop click - modal should NOT dismiss\n8. Change org status to 'active' - modal should disappear"
+}

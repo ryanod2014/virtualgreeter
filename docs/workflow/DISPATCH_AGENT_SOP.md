@@ -86,13 +86,55 @@ You are the **central orchestrator** of the PM workflow. You:
 
 ## Quick Reference
 
-| File | Purpose |
-|------|---------|
+| Resource | Purpose |
+|----------|---------|
 | `docs/agent-output/blocked/` | Blocker files from dev agents + CI |
-| `docs/data/tickets.json` | All tickets (source of truth) |
-| `docs/data/findings.json` | Findings inbox (human reviews) |
-| `docs/data/decisions.json` | Human decisions on findings |
 | `docs/prompts/active/` | Active agent prompts |
+| **SQLite Database** | Source of truth for threads, findings, tickets |
+| **PM Dashboard API** | `http://localhost:3456/api/v2/` |
+
+---
+
+## 🔌 DATABASE API (REQUIRED)
+
+**IMPORTANT:** The UI uses a SQLite database, NOT JSON files. You MUST use the API to read/write decision threads.
+
+### Key API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/v2/decisions` | GET | List all decision threads |
+| `/api/v2/decisions/:threadId` | GET | Get thread with messages |
+| `/api/v2/decisions/:threadId/messages` | POST | Add message to thread |
+| `/api/v2/findings` | GET | List all findings |
+| `/api/v2/findings/:id` | GET | Get single finding |
+| `/api/v2/tickets` | GET/POST | List or create tickets |
+
+### Example: Get Pending Threads
+
+```bash
+curl -s "http://localhost:3456/api/v2/decisions" | jq '.threads[] | select(.status == "pending") | {id, finding_id}'
+```
+
+### Example: Check Thread Messages
+
+```bash
+curl -s "http://localhost:3456/api/v2/decisions/THREAD_ID" | jq '.messages'
+```
+
+### Example: Add System Response
+
+```bash
+curl -X POST "http://localhost:3456/api/v2/decisions/THREAD_ID/messages" \
+  -H "Content-Type: application/json" \
+  -d '{"role": "system", "content": "Your response here"}'
+```
+
+### Example: Get Finding Details
+
+```bash
+curl -s "http://localhost:3456/api/v2/findings" | jq '.findings[] | select(.id == "F-XXX")'
+```
 
 ---
 
@@ -743,35 +785,68 @@ These ALWAYS need human intervention. Agent needs third-party service set up (ac
 
 ## Task 2: RESPOND TO QUESTIONS
 
+**⚠️ USE THE API - Do NOT edit JSON files directly!**
+
 ### Step 2.1: Find Threads Needing Response
 
-Look for threads where:
-- `decision.option_id === "custom"` AND
-- Last message has `role: "human"`
+Get threads from the database that need a response:
 
-### Step 2.2: Respond to Each
-
-1. Read the human's question
-2. Read the finding context (issue, options, suggested_fix)
-3. Add your response:
-
-```json
-{
-  "role": "system",
-  "text": "[your answer - concise and actionable]",
-  "timestamp": "[now ISO format]"
-}
+```bash
+# Get all pending threads
+curl -s "http://localhost:3456/api/v2/decisions" | jq '.threads[] | select(.status == "pending") | {id, finding_id}'
 ```
 
-**Response Guidelines:**
-- Keep answers concise (2-3 sentences max)
-- Provide clear options when applicable
-- Reference specific code/files when relevant
-- If you need more context, ask a clarifying question
+For each thread, check if it has messages and if the last message is from human:
+
+```bash
+# Check thread messages
+curl -s "http://localhost:3456/api/v2/decisions/THREAD_ID" | jq '{
+  id: .id,
+  finding_id: .finding_id,
+  msg_count: (.messages | length),
+  last_role: (if .messages and (.messages | length > 0) then .messages[-1].role else "none" end)
+}'
+```
+
+Threads needing response:
+- Threads with NO messages (need initial response)
+- Threads where last message has `role: "human"` (need follow-up response)
+
+### Step 2.2: Get Finding Context
+
+```bash
+curl -s "http://localhost:3456/api/v2/findings" | jq '.findings[] | select(.id == "F-XXX") | {id, title, issue, severity, options}'
+```
+
+### Step 2.3: Add Your Response via API
+
+```bash
+curl -X POST "http://localhost:3456/api/v2/decisions/THREAD_ID/messages" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "role": "system",
+    "content": "## Finding: [Title]\n\n**Severity:** [severity]\n**Issue:** [issue summary]\n\n### Options:\n1. Option A - [description]\n2. Option B - [description]\n3. ✅ Recommended: Option C\n\n**What would you like to do?**"
+  }'
+```
+
+### Response Guidelines:
+- Summarize the issue clearly
+- Present all options with pros/cons
+- Highlight recommended option with ✅
+- End with "What would you like to do?"
+- Keep responses actionable and decision-focused
 
 ---
 
 ## Task 3: CREATE TICKETS & RESOLVE THREADS
+
+### ⚠️ REQUIRED READING FIRST
+
+**Before creating ANY ticket, read:** `docs/prompts/ticket-creation-template.md`
+
+This template defines the A+ quality standard. Every ticket MUST meet this standard.
+
+---
 
 ### Step 3.1: Find Threads to Process
 
@@ -779,7 +854,39 @@ Look for threads where:
 - `decision != null` AND
 - `status !== "resolved"`
 
-### Step 3.2: Check for Duplicates FIRST
+---
+
+### Step 3.2: ⛔ CHECK BLOCKERS - Do NOT Create Ticket If...
+
+**Human asked a QUESTION (not a decision):**
+```
+❌ "explain this to me"
+❌ "whats best practice?"
+❌ "can we know if its working?"
+❌ "not sure what you're referring to"
+❌ Any message ending in "?"
+```
+→ **Action:** Reply to the human with an explanation. Wait for actual decision.
+
+**Human said skip/won't fix/already exists:**
+```
+❌ "already have this in admin settings"
+❌ "skip this"
+❌ "I think we already have a ticket for this"
+❌ "current behavior is fine"
+```
+→ **Action:** Mark finding as "skipped". Do NOT create ticket.
+
+**Human selected option without context:**
+```
+❌ "option 1" (without explaining what option 1 is)
+❌ "yes" (without context of what they're approving)
+```
+→ **Action:** Look up what the option was. Include FULL option text in ticket.
+
+---
+
+### Step 3.3: Check for Duplicates
 
 **BEFORE creating any ticket:**
 
@@ -798,36 +905,96 @@ Look for threads where:
 - Keep status as `"in_discussion"`
 - STOP - wait for human response in next cycle
 
-### Step 3.3: Skip or Create
+---
 
-**SKIP these (don't create tickets):**
-- `custom_note` contains: "skip", "dont need", "already have ticket", "already covered"
-- Questions ending in "?"
-- `decision.option_id` is "skip" or "wont_fix"
+### Step 3.4: Create A+ Quality Ticket
 
-**CREATE tickets for:**
-- Clear "implement" decisions with NO existing coverage
-- Set `finding.status = "ticketed"`
-- Set `finding.ticket_id = "TKT-XXX"`
-- Set `thread.status = "resolved"`
-
-### Step 3.4: Create Ticket
-
-Use the ticket schema from `docs/workflow/templates/ticket-schema.json`:
+**Every ticket MUST have these fields properly filled (not empty, not boilerplate):**
 
 ```json
 {
   "id": "TKT-XXX",
-  "title": "[from finding title]",
-  "feature": "[from finding feature]",
-  "priority": "[from finding severity]",
+  "title": "Verb + specific change",
+  "priority": "critical|high|medium|low",
+  "feature": "Feature area",
+  "difficulty": "easy|medium|hard",
   "status": "ready",
-  "files_to_modify": ["[from finding location]"],
-  "acceptance_criteria": ["[from suggested_fix]"],
-  "source_finding": "F-XXX",
-  "created_at": "[now]"
+  "source": "Finding F-XXX",
+  
+  "issue": "**PM Decision:** [ACTUAL decision quote - NOT a question, NOT 'option 1']\n\n**Background:** [Technical context of the problem]\n\n**Implementation:** [Specific guidance if provided]",
+  
+  "feature_docs": ["docs/features/relevant.md"],
+  "similar_code": ["path/to/pattern.ts - why it's relevant"],
+  "files_to_modify": ["NEVER EMPTY for code changes"],
+  "files_to_read": ["context/files.ts"],
+  
+  "out_of_scope": [
+    "Do NOT change X (that's TKT-YYY)",
+    "Do NOT refactor Y"
+  ],
+  
+  "fix_required": [
+    "Step 1: Specific action (NOT 'Custom response')",
+    "Step 2: Another specific action",
+    "Step 3: Add test coverage"
+  ],
+  
+  "acceptance_criteria": [
+    "Specific testable criterion (NOT generic boilerplate)",
+    "Another specific criterion"
+  ],
+  
+  "risks": ["Potential issues to watch for"],
+  
+  "dev_checks": [
+    "pnpm typecheck passes",
+    "pnpm build passes", 
+    "specific grep or test command"
+  ],
+  
+  "qa_notes": "How to test this. Edge cases to verify.",
+  
+  "finding_ids": ["F-XXX"],
+  "parent_ticket_id": null,
+  "iteration": 1,
+  "branch": null,
+  "worktree_path": null,
+  "created_at": "[ISO timestamp]",
+  "updated_at": "[ISO timestamp]"
 }
 ```
+
+---
+
+### Step 3.5: Validation Checklist (MUST pass ALL)
+
+Before saving the ticket, verify:
+
+```
+□ PM gave an actual DECISION (not a question)
+□ Decision is NOT skip/won't fix/already exists
+□ issue field has PM Decision + Background
+□ PM Decision includes ACTUAL decision text (not "option 1")
+□ files_to_modify is NOT empty (for code changes)
+□ out_of_scope is NOT empty
+□ fix_required has ACTIONABLE steps (not "Custom response")
+□ dev_checks has SPECIFIC commands
+□ acceptance_criteria are TESTABLE (not generic boilerplate)
+□ risks are identified
+```
+
+**If ANY checkbox fails:**
+1. Do NOT create the ticket
+2. Either go back to PM for clarification, OR
+3. Fill in the missing technical details yourself by reading the codebase
+
+---
+
+### Step 3.6: After Creating Ticket
+
+- Set `finding.status = "ticketed"`
+- Set `finding.ticket_id = "TKT-XXX"`
+- Set `thread.status = "resolved"`
 
 ---
 
@@ -1069,11 +1236,11 @@ echo '{"entries": []}' > docs/data/requeue.json
 - [ ] CI blockers: continuation tickets created OR routed to inbox
 - [ ] Clarification blockers: decision threads created (human needed)
 - [ ] Environment blockers: routed to inbox (human needed)
-- [ ] All questions in threads answered
+- [ ] All questions in threads answered (via API)
 - [ ] No duplicate tickets created
-- [ ] `decisions.json` threads marked resolved where appropriate
-- [ ] `findings.json` statuses updated (ticketed/skipped)
-- [ ] `tickets.json` updated with new tickets
+- [ ] Database threads marked resolved where appropriate (via API)
+- [ ] Finding statuses updated (ticketed/skipped)
+- [ ] Tickets created via API or CLI
 - [ ] `requeue.json` updated for any tooling blockers
 - [ ] Re-queue check: Any waiting entries where tooling is now merged?
 - [ ] Archived processed blockers to `docs/agent-output/archive/`

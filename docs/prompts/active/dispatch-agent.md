@@ -48,12 +48,25 @@ Add your response as a system message. Keep it concise and actionable.
 
 ### 3. Create Tickets
 
+**⚠️ REQUIRED:** Read `docs/prompts/ticket-creation-template.md` first!
+
 Find threads where:
 - `decision != null` AND `status != "resolved"`
 
-Before creating:
-- Check for duplicates against existing tickets
-- Skip if custom_note says "skip", "already covered", etc.
+**DO NOT CREATE if:**
+- Human asked a question (not a decision): "explain this to me", "whats best practice?"
+- Human said skip/already exists: "already have this", "skip"
+- Decision is just "option 1" without context
+
+**MUST include in every ticket:**
+- `issue`: PM Decision + Background (NOT a question, NOT "option 1")
+- `files_to_modify`: NEVER empty for code changes
+- `out_of_scope`: What NOT to touch
+- `fix_required`: Specific steps (NOT "Custom response")
+- `dev_checks`: Specific commands
+- `acceptance_criteria`: Testable criteria (NOT generic boilerplate)
+
+**Validation:** See full checklist in `docs/prompts/ticket-creation-template.md`
 
 After creating:
 - Set `finding.status = "ticketed"`

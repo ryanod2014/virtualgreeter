@@ -1,0 +1,11 @@
+{
+  "token": "bca3bbb5b5e4ab86ad7cb8f10805a0b7af98ec3b0041a9eaaeb3fc5106d501ad",
+  "ticket_id": "TKT-005b",
+  "user_email": "qa-admin-tkt005b-20251210060432@greetnow.test",
+  "user_password": "QATest-TKT-005b!",
+  "redirect_path": "/admin",
+  "preview_base_url": "https://fri-lucia-catalyst-reduced.trycloudflare.com",
+  "created_at": "2025-12-10T06:04:33.253Z",
+  "expires_at": "2025-12-17T06:04:33.253Z",
+  "used_count": 0
+}

@@ -1,0 +1,39 @@
+{
+  "ticket_id": "TKT-005b",
+  "ticket_title": "Create Payment Failure Blocking Modal",
+  "branch": "agent/tkt-005b",
+  "blocked_at": "2025-12-10T06:04:32Z",
+  "blocker_type": "qa_failure",
+  "summary": "PaymentBlocker modal does not appear when org status is past_due - server-side data caching issue",
+  "failures": [
+    {
+      "category": "acceptance",
+      "criterion": "AC1: Full-screen modal appears when org status is 'past_due'",
+      "expected": "PaymentBlocker modal should block entire dashboard when organization.subscription_status === 'past_due'",
+      "actual": "Modal does NOT appear. Dashboard is fully accessible despite org being past_due.",
+      "evidence": "Database confirmed past_due status. Component code is correct. Layout is not receiving fresh data from getCurrentUser()."
+    },
+    {
+      "category": "implementation",
+      "criterion": "Server-side data fetching",
+      "expected": "layout.tsx should fetch fresh organization data including subscription_status",
+      "actual": "getCurrentUser() returns stale/cached organization data with subscription_status='active' even when DB shows 'past_due'",
+      "evidence": "curl to QA API shows past_due. Browser receives active. Server-side caching bug."
+    }
+  ],
+  "root_cause": "The getCurrentUser() function in lib/auth/actions.ts does not fetch fresh organization data or has aggressive caching that doesn't invalidate when subscription_status changes. The layout receives stale organization object.",
+  "test_evidence": {
+    "database_status": "past_due (confirmed via QA API)",
+    "browser_receives": "active (stale data)",
+    "component_code": "Correct - checks isPastDue = organization.subscription_status === 'past_due'",
+    "layout_integration": "Correct - renders {isPastDue && <PaymentBlocker isAdmin={isAdmin} />}",
+    "screenshot": ".playwright-mcp/admin-no-modal-FAIL.png"
+  },
+  "recommendation": "Dev agent must fix getCurrentUser() to fetch fresh organization data without caching, or implement cache invalidation when subscription_status changes.",
+  "dispatch_action": "create_continuation_ticket",
+  "continuation_focus": [
+    "Fix getCurrentUser() in lib/auth/actions.ts to fetch fresh organization.subscription_status",
+    "Add cache revalidation for organization data when subscription_status changes",
+    "Test that changing subscription_status in DB immediately reflects in layout on next page load"
+  ]
+}

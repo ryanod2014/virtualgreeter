@@ -1,0 +1,11 @@
+{
+  "token": "2bf47a45f84adf5eea05fc88c9c8d110d0698f318cc868a750b9fc278a1b71d2",
+  "ticket_id": "TKT-FIX-TEST",
+  "user_email": "qa-agent-tktfixtest-20251210065108@greetnow.test",
+  "user_password": "QATest-TKT-FIX-TEST!",
+  "redirect_path": "/dashboard",
+  "preview_base_url": "https://test.trycloudflare.com",
+  "created_at": "2025-12-10T06:51:09.677Z",
+  "expires_at": "2025-12-17T06:51:09.677Z",
+  "used_count": 0
+}

@@ -1,0 +1,12 @@
+{
+  "token": "20fa37cc82408ed84869d33c21a41b2c07f19128f7efc0a1cb66d78cd437bab9",
+  "ticket_id": "TKT-005b",
+  "user_email": "qa-agent-tkt005b-20251210210834@greetnow.test",
+  "user_password": "QATest-TKT-005b!",
+  "redirect_path": "/dashboard",
+  "preview_base_url": "https://adopted-accuracy-seats-athletic.trycloudflare.com",
+  "created_at": "2025-12-10T21:08:35.358Z",
+  "expires_at": "2025-12-17T21:08:35.358Z",
+  "used_count": 2,
+  "last_used_at": "2025-12-10T21:12:17.067Z"
+}

@@ -108,6 +108,118 @@ async function loadDBModule() {
 loadDBModule();
 
 // =============================================================================
+// HELPER: Get decisions from database in UI format
+// Returns { threads: [...] } matching the decisions.json structure
+// =============================================================================
+function getDecisionsFromDB() {
+  if (!dbModule?.decisions) {
+    // Fall back to JSON if DB not available
+    return readJSON('decisions.json');
+  }
+  
+  try {
+    const threads = dbModule.decisions.list();
+    
+    // Format threads to match JSON structure expected by UI
+    // Note: list() doesn't include messages, so we need to fetch them per thread
+    const formattedThreads = threads.map(thread => {
+      // Get full thread with messages using get()
+      const fullThread = dbModule.decisions.get(thread.id);
+      
+      // Build decision object from DB fields (no longer using JSON)
+      const decision = thread.decision_type ? {
+        option_id: thread.decision_type,
+        option_label: thread.decision_summary || '',
+        timestamp: thread.resolved_at || thread.updated_at
+      } : null;
+      
+      return {
+        finding_id: thread.finding_id,
+        status: thread.status || 'pending',
+        messages: (fullThread?.messages || []).map(msg => ({
+          role: msg.role,
+          text: msg.content,
+          timestamp: msg.created_at
+        })),
+        decision
+      };
+    });
+    
+    return { threads: formattedThreads };
+  } catch (e) {
+    console.error('Error getting decisions from DB:', e.message);
+    // Fall back to JSON on error
+    return readJSON('decisions.json');
+  }
+}
+
+// =============================================================================
+// HELPER: Get tickets from database in UI format
+// Returns { tickets: [...], meta: {...} } matching the tickets.json structure
+// =============================================================================
+function getTicketsFromDB() {
+  if (!dbModule?.tickets) {
+    // Fall back to JSON if DB not available
+    return readJSON('tickets.json');
+  }
+  
+  try {
+    const tickets = dbModule.tickets.list();
+    
+    // Return ALL ticket fields from DB (don't strip them!)
+    const formattedTickets = tickets.map(t => {
+      // Parse JSON fields if needed
+      const parseJsonField = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        try { return JSON.parse(val); } catch { return []; }
+      };
+      
+      return {
+        id: t.id,
+        title: t.title,
+        issue: t.issue,
+        priority: t.priority,
+        feature: t.feature,
+        difficulty: t.difficulty,
+        status: t.status || 'ready',
+        source: t.source,
+        feature_docs: parseJsonField(t.feature_docs),
+        similar_code: parseJsonField(t.similar_code),
+        files_to_modify: parseJsonField(t.files_to_modify),
+        files_to_read: parseJsonField(t.files_to_read),
+        out_of_scope: parseJsonField(t.out_of_scope),
+        fix_required: parseJsonField(t.fix_required),
+        acceptance_criteria: parseJsonField(t.acceptance_criteria),
+        risks: parseJsonField(t.risks),
+        dev_checks: parseJsonField(t.dev_checks),
+        qa_notes: t.qa_notes,
+        finding_ids: parseJsonField(t.finding_ids),
+        parent_ticket_id: t.parent_ticket_id,
+        iteration: t.iteration,
+        branch: t.branch,
+        worktree_path: t.worktree_path,
+        created_at: t.created_at,
+        updated_at: t.updated_at
+      };
+    });
+    
+    return { 
+      tickets: formattedTickets, 
+      meta: { 
+        generated: new Date().toISOString(),
+        source: 'database',
+        source: 'database'
+      } 
+    };
+  } catch (e) {
+    console.error('Error getting tickets from DB:', e.message);
+    // Fall back to JSON on error
+    return readJSON('tickets.json');
+  }
+}
+
+// =============================================================================
 // BLOCKER FILE WATCHER
 // Automatically detects new blocker files and triggers dispatch
 // =============================================================================
@@ -2174,7 +2286,7 @@ function handleAPI(req, res, body) {
         
         const data = {
           findings: readJSON('findings.json'),
-          decisions: readJSON('decisions.json'),
+          decisions: getDecisionsFromDB(),  // Use database instead of JSON
           tickets: { tickets: dbTickets }, // Format expected by UI
           summary: readJSON('findings-summary.json'),
           devStatus: devStatus,
@@ -2216,8 +2328,8 @@ function handleAPI(req, res, body) {
     
     const data = {
       findings: readJSON('findings.json'),
-      decisions: readJSON('decisions.json'),
-      tickets: readJSON('tickets.json'),
+      decisions: getDecisionsFromDB(),  // Use database instead of JSON
+      tickets: getTicketsFromDB(),      // Use database instead of JSON
       summary: readJSON('findings-summary.json'),
       devStatus: devStatus,
       docStatus: readJSON('doc-status.json'),
@@ -2644,6 +2756,7 @@ function handleAPI(req, res, body) {
   }
   
   // POST /api/decisions - Save decisions (with PM response preservation)
+  // Also syncs custom_notes to database as human messages
   if (req.method === 'POST' && url === '/api/decisions') {
     try {
       const incomingDecisions = JSON.parse(body);
@@ -2677,6 +2790,53 @@ function handleAPI(req, res, body) {
             inThread.messages.sort((a, b) => 
               new Date(a.timestamp) - new Date(b.timestamp)
             );
+          }
+        }
+        
+        // SYNC TO DATABASE: Sync all messages and custom_notes
+        if (dbModule?.decisions) {
+          try {
+            // Find or create thread in DB
+            const dbThreads = dbModule.decisions.list({ finding_id: inThread.finding_id });
+            let dbThread = dbThreads[0];
+            
+            if (!dbThread) {
+              // Create thread in DB
+              dbThread = dbModule.decisions.create({
+                finding_id: inThread.finding_id,
+                status: inThread.status || 'pending'
+              });
+            }
+            
+            if (dbThread) {
+              // Get full thread with messages
+              const fullThread = dbModule.decisions.get(dbThread.id);
+              const existingMsgs = fullThread?.messages || [];
+              const existingMsgTexts = new Set(existingMsgs.map(m => m.content?.substring(0, 50)));
+              
+              // Sync all messages from incoming thread
+              for (const msg of (inThread.messages || [])) {
+                const msgText = msg.text || msg.content || '';
+                if (!msgText) continue;
+                
+                // Skip if message already exists
+                if (existingMsgTexts.has(msgText.substring(0, 50))) continue;
+                
+                // Add message to DB
+                dbModule.decisions.addMessage(dbThread.id, msg.role, msgText);
+              }
+              
+              // Also sync custom_note as human message if present
+              if (inThread.decision?.custom_note) {
+                const customNote = inThread.decision.custom_note.trim();
+                if (customNote && !existingMsgTexts.has(customNote.substring(0, 50))) {
+                  dbModule.decisions.addMessage(dbThread.id, 'human', customNote);
+                  console.log(`📝 Synced custom_note to DB: ${inThread.finding_id}`);
+                }
+              }
+            }
+          } catch (dbErr) {
+            console.error(`Error syncing to DB for ${inThread.finding_id}:`, dbErr.message);
           }
         }
       }
@@ -3845,50 +4005,88 @@ function handleAPI(req, res, body) {
     return true;
   }
 
-  // POST /api/v2/inbox/:ticketId/approve - Human approves UI review, proceed to finalizing
+  // POST /api/v2/inbox/:ticketId/approve - Human approves UI review, merge to main
   if (req.method === 'POST' && url.match(/\/api\/v2\/inbox\/[A-Z]+-\d+[a-zA-Z]?\/approve/i)) {
     try {
       const ticketId = url.split('/')[4].toUpperCase();
       console.log(`✅ Human approved UI review for ${ticketId}`);
       
-      // Find and update the inbox item
+      // Find and update the inbox item, and get branch info
       const inboxDir = path.join(__dirname, '../agent-output/inbox');
+      let inboxUpdated = false;
+      let inboxBranch = null;
+      let inboxContent = null;
+      
       if (fs.existsSync(inboxDir)) {
-        const files = fs.readdirSync(inboxDir).filter(f => f.includes(ticketId) && f.endsWith('.json'));
+        const files = fs.readdirSync(inboxDir).filter(f => f.toLowerCase().includes(ticketId.toLowerCase()) && f.endsWith('.json'));
         for (const file of files) {
           const filepath = path.join(inboxDir, file);
           try {
-            const content = JSON.parse(fs.readFileSync(filepath, 'utf8'));
-            content.status = 'approved';
-            content.approved_at = new Date().toISOString();
-            fs.writeFileSync(filepath, JSON.stringify(content, null, 2));
+            inboxContent = JSON.parse(fs.readFileSync(filepath, 'utf8'));
+            inboxBranch = inboxContent.branch;
+            inboxContent.status = 'approved';
+            inboxContent.approved_at = new Date().toISOString();
+            fs.writeFileSync(filepath, JSON.stringify(inboxContent, null, 2));
+            inboxUpdated = true;
           } catch (e) {
             // Skip invalid files
           }
         }
       }
       
-      // Get ticket and proceed to finalizing
-      if (!dbModule?.tickets) {
-        throw new Error('Database not available');
+      // Try to get branch from database if not in inbox
+      let ticketUpdated = false;
+      let branch = inboxBranch;
+      
+      if (dbModule?.tickets) {
+        const ticket = dbModule.tickets.get(ticketId);
+        if (ticket) {
+          branch = branch || ticket.branch;
+          // Update status to finalizing
+          dbModule.tickets.update(ticketId, { status: 'finalizing' });
+          // Trigger the finalizing handler to queue Test + Doc agents
+          handleTicketStatusChange(ticketId, 'qa_approved', 'finalizing', ticket);
+          ticketUpdated = true;
+        }
       }
       
-      const ticket = dbModule.tickets.get(ticketId);
-      if (!ticket) {
-        throw new Error(`Ticket ${ticketId} not found`);
+      // Merge the branch to main if we have branch info
+      let mergeResult = { success: false, error: 'No branch found' };
+      if (branch) {
+        console.log(`🔀 Merging branch ${branch} to main for ${ticketId}...`);
+        mergeResult = mergeBranchToMain(ticketId, branch);
+        
+        if (mergeResult.success) {
+          // Update inbox with merge info - use original filename (case-sensitive)
+          if (inboxContent && inboxDir) {
+            inboxContent.status = 'merged';
+            inboxContent.merged_at = new Date().toISOString();
+            // Find the actual file again (handles case sensitivity)
+            const inboxFiles = fs.readdirSync(inboxDir).filter(f => f.toLowerCase().includes(ticketId.toLowerCase()) && f.endsWith('.json'));
+            for (const file of inboxFiles) {
+              fs.writeFileSync(path.join(inboxDir, file), JSON.stringify(inboxContent, null, 2));
+            }
+          }
+          
+          // Update ticket status if in database
+          if (dbModule?.tickets) {
+            dbModule.tickets.update(ticketId, { status: 'merged' });
+          }
+        }
       }
-      
-      // Update status to finalizing
-      dbModule.tickets.update(ticketId, { status: 'finalizing' });
-      
-      // Trigger the finalizing handler to queue Test + Doc agents
-      handleTicketStatusChange(ticketId, 'qa_approved', 'finalizing', ticket);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ 
-        success: true, 
-        ticketId, 
-        message: 'UI approved - proceeding to finalizing stage (Test + Doc agents queued)' 
+        success: mergeResult.success, 
+        ticketId,
+        branch,
+        inbox_updated: inboxUpdated,
+        ticket_updated: ticketUpdated,
+        merged: mergeResult.success,
+        merge_error: mergeResult.error || null,
+        message: mergeResult.success 
+          ? `✅ Branch ${branch} merged to main successfully!` 
+          : `Approval recorded but merge failed: ${mergeResult.error}`
       }));
     } catch (e) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -4041,6 +4239,26 @@ function handleAPI(req, res, body) {
   // ---------------------------------------------------------------------------
   // DECISIONS v2
   // ---------------------------------------------------------------------------
+
+  // GET /api/v2/decisions/:id - Get single decision thread with messages
+  const decisionIdMatch = url.match(/\/api\/v2\/decisions\/([^/?]+)$/);
+  if (req.method === 'GET' && decisionIdMatch && !url.includes('/messages')) {
+    try {
+      const threadId = decisionIdMatch[1];
+      const thread = dbModule.decisions.get(threadId);
+      if (!thread) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Thread not found' }));
+        return true;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(thread));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
 
   // GET /api/v2/decisions - List decision threads
   if (req.method === 'GET' && url.startsWith('/api/v2/decisions')) {
@@ -4403,6 +4621,11 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Prevent caching for all responses
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   
   if (req.method === 'OPTIONS') {
     res.writeHead(200);

@@ -1,0 +1,87 @@
+# Dev Agent: TKT-073 - Document Paywall Timeline and Enable Path
+
+> **One-liner to launch:**
+> `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-TKT-073-v1.md`
+
+---
+
+You are a Dev Agent. Your job is to implement **TKT-073: Document Paywall Timeline and Enable Path**.
+
+**First, read the Dev Agent SOP:** `docs/workflow/DEV_AGENT_SOP.md`
+
+---
+
+## Your Assignment
+
+**Ticket:** TKT-073
+**Priority:** Medium
+**Difficulty:** Easy
+**Branch:** `agent/tkt-073-document-paywall-timeline-and`
+**Version:** v1
+
+---
+
+## The Problem
+
+No issue description provided.
+
+---
+
+## Files to Modify
+
+| File | What to Change |
+|------|----------------|
+| `docs/features/billing.md` | Implement required changes |
+| `DEPLOYMENT.md` | Implement required changes |
+
+---
+
+## What to Implement
+
+1. Document when paywall should be enabled (e.g., after beta)
+2. Add checklist for enabling paywall safely
+3. Document environment variables controlling paywall state
+
+---
+
+## Acceptance Criteria
+
+- [ ] Clear timeline for paywall activation documented
+- [ ] Enable/disable process documented
+- [ ] F-515 is resolved
+
+---
+
+## Out of Scope
+
+- (No explicit out-of-scope items listed)
+
+---
+
+## Risks to Avoid
+
+| Risk | How to Avoid |
+|------|--------------|
+| (Low risk) | Follow existing patterns |
+
+---
+
+## Dev Checks
+
+```bash
+pnpm typecheck  # Must pass
+pnpm build      # Must pass
+```
+
+---
+
+## ⚠️ REQUIRED: Follow Dev Agent SOP
+
+**All reporting is handled per the SOP:**
+- **Start:** Write to `docs/agent-output/started/TKT-073-[TIMESTAMP].json`
+- **Complete:** Write to `docs/agent-output/completions/TKT-073-[TIMESTAMP].md`
+- **Update:** Add to `docs/data/dev-status.json` completed array
+- **Blocked:** Write to `docs/agent-output/blocked/BLOCKED-TKT-073-[TIMESTAMP].json`
+- **Findings:** Write to `docs/agent-output/findings/F-DEV-TKT-073-[TIMESTAMP].json`
+
+See `docs/workflow/DEV_AGENT_SOP.md` for exact formats.

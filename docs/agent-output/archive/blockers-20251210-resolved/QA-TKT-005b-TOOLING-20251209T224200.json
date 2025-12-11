@@ -1,0 +1,47 @@
+{
+  "ticket_id": "TKT-005b",
+  "ticket_title": "Create Payment Failure Blocking Modal",
+  "branch": "agent/tkt-005b",
+  "blocked_at": "2025-12-09T22:42:00Z",
+  "blocker_type": "missing_tooling",
+  "agent_type": "qa",
+  "summary": "Cannot verify AC3 (agent-specific UI) - QA tooling creates separate orgs instead of shared org with agent role",
+  "blocked_criteria": ["AC3 - Agents see read-only message directing them to contact admin"],
+  "passed_criteria": ["AC1 - Modal appears when past_due", "AC2 - Admins see Update Payment button", "AC4 - Modal cannot be dismissed"],
+  "tooling_gap": {
+    "current_behavior": "/api/v2/qa/setup-multi-role-test creates separate organizations for each user. Agent becomes owner of their own org (isAdmin=true), making it impossible to test true agent (non-owner) experience.",
+    "needed_behavior": "Endpoint should create ONE shared organization with admin as owner and agent as member with agent role (isAdmin=false). This matches real-world multi-user org structure.",
+    "endpoint": "/api/v2/qa/setup-multi-role-test",
+    "file": "docs/pm-dashboard-ui/server.js",
+    "specific_issue": "When agent user logs in, they trigger org creation (onboarding flow), creating a second org instead of being added to admin's existing org"
+  },
+  "suggested_fix": {
+    "title": "Fix multi-role test setup to create shared organization",
+    "description": "Modify /api/v2/qa/setup-multi-role-test endpoint to: (1) Create admin user, (2) Admin login triggers org creation, (3) Add agent user to EXISTING admin org with agent role, (4) Prevent agent login from triggering org creation when org_id is provided",
+    "acceptance_criteria": [
+      "setup-multi-role-test creates ONE organization (not two)",
+      "Admin user is org owner (isAdmin=true)",
+      "Agent user is org member with agent role (isAdmin=false)",
+      "Both users share same org_id",
+      "Agent user has agent_profile record created",
+      "Setting org status affects both users equally"
+    ]
+  },
+  "dispatch_action": "create_tooling_ticket",
+  "partial_test_results": {
+    "tested_in_browser": ["AC1 - Modal appears", "AC2 - Admin button", "AC4 - Non-dismissible"],
+    "could_not_test": ["AC3 - Agent-specific UI (different message, no button)"],
+    "code_review_results": {
+      "PaymentBlocker_component": "✅ CORRECT - Has proper isAdmin conditional rendering",
+      "layout_integration": "✅ CORRECT - Passes isAdmin prop correctly",
+      "issue": "Test setup creates agent as org owner, so they correctly see admin UI. Need true agent (non-owner) to verify AC3."
+    },
+    "screenshots": [
+      "docs/agent-output/qa-results/screenshots/TKT-005b/02-admin-past-due-modal.png",
+      "docs/agent-output/qa-results/screenshots/TKT-005b/03-agent-WRONG-UI-FAILURE.png"
+    ],
+    "magic_links": []
+  },
+  "requeue_when": "Tooling ticket merged - QA should re-run with fixed endpoint to verify AC3",
+  "alternative_resolution": "PM can manually verify AC3 by creating true agent user (non-owner) in existing past_due org. If PM approves, ticket can proceed without tooling fix."
+}

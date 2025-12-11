@@ -1,0 +1,11 @@
+{
+  "token": "5c500932d66dd41cf8cbc68b8bcee4bdc2f8b91d486430ef96a43123fa064305",
+  "ticket_id": "TKT-005b",
+  "user_email": "qa-admin-tkt-005b-20251209222341@greetnow.test",
+  "user_password": "QATest-TKT-005b!",
+  "redirect_path": "/admin",
+  "preview_base_url": "https://yeah-technician-consultants-lawyer.trycloudflare.com",
+  "created_at": "2025-12-10T05:28:09.956Z",
+  "expires_at": "2025-12-17T05:28:09.956Z",
+  "used_count": 0
+}

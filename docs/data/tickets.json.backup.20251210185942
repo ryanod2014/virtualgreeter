@@ -1,0 +1,4427 @@
+{
+  "tickets": [
+    {
+      "id": "TKT-NaN",
+      "title": "Facebook Credential Expiration Not Handled",
+      "priority": "medium",
+      "feature": "Organization Settings",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-122",
+      "issue": "Quote: \"What happens to FB events if credentials become invalid? No visible error handling or notification to admins if their Facebook access token expires or is revoked.\" Facebook access tokens expire regularly. Events will silently fail, and admins tracking conversions won't know their data is incomplete.",
+      "feature_docs": [],
+      "similar_code": [],
+      "files_to_modify": [],
+      "files_to_read": [],
+      "out_of_scope": [],
+      "fix_required": [
+        "Add periodic validation of FB credentials (on settings page load), and display warning if token is expired/invalid. Consider email notification when FB events start failing."
+      ],
+      "acceptance_criteria": [
+        "Issue described in F-122 is resolved",
+        "Change is tested and verified"
+      ],
+      "risks": [],
+      "dev_checks": [],
+      "qa_notes": null,
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-10T22:13:28.216Z",
+      "updated_at": "2025-12-10T22:13:28.216Z"
+    },
+    {
+      "id": "TKT-065",
+      "title": "Geo-Failure Handling Toggle in Blocklist Settings",
+      "priority": "medium",
+      "feature": "Blocklist Settings",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-035",
+      "issue": "When geolocation fails, behavior differs by mode (blocklist=allow, allowlist=block). Admins have no control over this. Need a toggle to let admins choose what happens when location can't be determined, plus display geolocation failure rate so admins can make informed decisions.",
+      "feature_docs": [
+        "docs/features/admin/blocklist-settings.md"
+      ],
+      "similar_code": [],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(dashboard)/settings/blocklist/page.tsx",
+        "apps/server/src/features/blocklist/geoCheck.ts"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT change geolocation provider (that's TKT-062)",
+        "Do NOT modify other blocklist logic"
+      ],
+      "fix_required": [
+        "Add toggle to blocklist settings: 'When location cannot be determined: Allow / Block'",
+        "Store setting in org settings",
+        "Apply setting in geoCheck logic",
+        "Track and display geolocation failure rate percentage in UI"
+      ],
+      "acceptance_criteria": [
+        "Toggle appears in blocklist settings UI",
+        "Toggle default matches current behavior (blocklist=allow, allowlist=block)",
+        "Geolocation failures respect admin's toggle choice",
+        "Failure rate percentage displayed to help admin decide"
+      ],
+      "risks": [
+        "Changing default behavior could break existing orgs - default must match current behavior"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Toggle setting, verify visitor handling changes"
+      ],
+      "qa_notes": "Test with VPN/unknown IP to trigger geolocation failure. Verify toggle works in both modes.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.493Z",
+      "updated_at": "2025-12-08T00:06:47.697Z"
+    },
+    {
+      "id": "SEC-001",
+      "title": "API Authentication Enforcement",
+      "priority": "critical",
+      "feature": "Security, Signaling Server",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Security Audit",
+      "issue": "The signaling server has routes and socket handlers that need proper authentication verification. /metrics endpoint has optional API key protection. Socket handlers verify agent tokens but some code paths may skip verification.",
+      "feature_docs": [],
+      "similar_code": [
+        "apps/server/src/lib/auth.ts - existing auth helpers"
+      ],
+      "files_to_modify": [
+        "apps/server/src/index.ts",
+        "apps/server/src/lib/auth.ts",
+        "apps/server/src/features/signaling/socket-handlers.ts"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [],
+      "fix_required": [
+        "Audit all HTTP routes and enforce auth in production",
+        "Audit socket handlers for auth verification",
+        "Enforce METRICS_API_KEY in production with warning if missing",
+        "Add requireAgentAuth() helper for socket auth checks"
+      ],
+      "acceptance_criteria": [
+        "/metrics requires API key in production (401 without, 403 with wrong key)",
+        "Warning logged if METRICS_API_KEY not set in production",
+        "All agent socket operations verify socket.data.agentId is set",
+        "Security model documented in socket-handlers.ts",
+        "No breaking changes to existing functionality",
+        "Typecheck passes",
+        "Lint passes",
+        "Build passes"
+      ],
+      "risks": [
+        "Breaking existing auth flow",
+        "Locking out legitimate internal requests"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm lint passes",
+        "pnpm build passes"
+      ],
+      "qa_notes": null,
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.491Z",
+      "updated_at": "2025-12-07T23:09:48.995Z"
+    },
+    {
+      "id": "TKT-064",
+      "title": "URL Filter is Client-Side Only",
+      "priority": "medium",
+      "feature": "Call Logs",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-022",
+      "issue": "Documentation states \"URL filter is client-side | Can't search >500 calls by URL\". The URL filter only works on already-fetched data, meaning users cannot reliably search for calls by URL across their full history.",
+      "feature_docs": [],
+      "similar_code": [],
+      "files_to_modify": [],
+      "files_to_read": [],
+      "out_of_scope": [],
+      "fix_required": [
+        "Custom response",
+        "Note: explain this to me"
+      ],
+      "acceptance_criteria": [
+        "Issue described in F-022 is resolved",
+        "Change is tested and verified"
+      ],
+      "risks": [],
+      "dev_checks": [],
+      "qa_notes": null,
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.489Z",
+      "updated_at": "2025-12-07T23:09:48.994Z"
+    },
+    {
+      "id": "TKT-062",
+      "title": "ip-api.com Rate Limit Risk at Scale",
+      "priority": "high",
+      "feature": "Blocklist Settings",
+      "difficulty": "medium",
+      "status": "done",
+      "source": "Finding F-033",
+      "issue": "The geolocation service uses ip-api.com free tier which has a 45 requests/minute limit. Documentation flags this as a concern but no mitigation plan is documented. At scale (45+ unique visitors per minute), geolocation will fail and all visitors will be allowed through (fail-safe), bypassing blocklist entirely.",
+      "feature_docs": [],
+      "similar_code": [],
+      "files_to_modify": [],
+      "files_to_read": [],
+      "out_of_scope": [],
+      "fix_required": [
+        "Custom response",
+        "Note: lets use maxmind. but also make sure we are ONLY running IP checking on pages were widget is present (agent available) so we arent wasting money"
+      ],
+      "acceptance_criteria": [
+        "Issue described in F-033 is resolved",
+        "Change is tested and verified"
+      ],
+      "risks": [],
+      "dev_checks": [],
+      "qa_notes": null,
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": "agent/tkt-062-maxmind-geolocation",
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.481Z",
+      "updated_at": "2025-12-08T05:14:44.632Z"
+    },
+    {
+      "id": "TKT-061",
+      "title": "Missing Incident Response Runbook",
+      "priority": "high",
+      "feature": "External Uptime Monitoring Setup",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-647",
+      "issue": "The document covers how to set up monitoring and receive alerts, but provides no guidance on what to do when an alert fires. There is no incident response runbook linking to debugging steps, rollback procedures, or escalation paths beyond \"call this number\". When a 3 AM alert wakes someone up, they need actionable next steps.",
+      "feature_docs": [],
+      "similar_code": [],
+      "files_to_modify": [],
+      "files_to_read": [],
+      "out_of_scope": [],
+      "fix_required": [
+        "Custom response",
+        "Note: sure create a simple 1 pager"
+      ],
+      "acceptance_criteria": [
+        "Issue described in F-647 is resolved",
+        "Change is tested and verified"
+      ],
+      "risks": [],
+      "dev_checks": [],
+      "qa_notes": null,
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.478Z",
+      "updated_at": "2025-12-07T23:09:48.993Z"
+    },
+    {
+      "id": "TKT-060",
+      "title": "Platform Admin Route Protection Only \"Assumed\"",
+      "priority": "high",
+      "feature": "Funnel Analytics",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-368",
+      "issue": "The security section states \"Platform admin only (route protection assumed)\" without verification. This is a critical analytics dashboard containing sensitive conversion and revenue data. Route protection should be explicitly verified, not assumed.",
+      "feature_docs": [],
+      "similar_code": [],
+      "files_to_modify": [],
+      "files_to_read": [],
+      "out_of_scope": [],
+      "fix_required": [
+        "Custom response",
+        "Note: option 1"
+      ],
+      "acceptance_criteria": [
+        "Issue described in F-368 is resolved",
+        "Change is tested and verified"
+      ],
+      "risks": [],
+      "dev_checks": [],
+      "qa_notes": null,
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.476Z",
+      "updated_at": "2025-12-07T23:09:48.992Z"
+    },
+    {
+      "id": "TKT-059",
+      "title": "Cancelled Calls Have No Audit Trail",
+      "priority": "medium",
+      "feature": "Call Logs",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-025",
+      "issue": "When a visitor cancels during ring, the call record is deleted entirely. This prevents admins from understanding visitor behavior patterns (e.g., how often do visitors cancel while waiting?). The deletion leaves no audit trail for debugging or analytics.",
+      "feature_docs": [],
+      "similar_code": [],
+      "files_to_modify": [],
+      "files_to_read": [],
+      "out_of_scope": [],
+      "fix_required": [
+        "Custom response",
+        "Note: yah these call should still be logged but logged as \"canceled\""
+      ],
+      "acceptance_criteria": [
+        "Issue described in F-025 is resolved",
+        "Change is tested and verified"
+      ],
+      "risks": [],
+      "dev_checks": [],
+      "qa_notes": null,
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.474Z",
+      "updated_at": "2025-12-07T23:09:48.991Z"
+    },
+    {
+      "id": "TKT-054",
+      "title": "Move CSV Export to Web Worker",
+      "priority": "medium",
+      "feature": "Call Logs",
+      "difficulty": "medium",
+      "status": "done",
+      "source": "Finding F-029",
+      "issue": "CSV generation happens client-side and blocks the UI thread. Large exports (1000+ rows) may freeze the browser and show \"page unresponsive\" warnings.",
+      "feature_docs": [
+        "docs/features/admin/call-logs.md"
+      ],
+      "similar_code": [],
+      "files_to_modify": [
+        "apps/dashboard/src/features/call-logs/exportCSV.ts",
+        "apps/dashboard/src/features/call-logs/csvWorker.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/features/call-logs/CallLogsTable.tsx"
+      ],
+      "out_of_scope": [
+        "Do NOT change CSV format or columns",
+        "Do NOT modify call logs data fetching"
+      ],
+      "fix_required": [
+        "Create Web Worker for CSV generation",
+        "Move row formatting logic to worker",
+        "Show progress indicator during export",
+        "Handle worker errors gracefully"
+      ],
+      "acceptance_criteria": [
+        "Export button remains responsive during CSV generation",
+        "Progress indicator shows export status",
+        "Large exports (5000+ rows) complete without UI freeze",
+        "Error handling shows user-friendly message if export fails"
+      ],
+      "risks": [
+        "Worker bundling may require vite/webpack config changes",
+        "Progress tracking adds complexity"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Export 1000+ rows, verify no UI freeze"
+      ],
+      "qa_notes": "Test with org that has many call logs. Verify export completes and download starts.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.473Z",
+      "updated_at": "2025-12-07T06:39:55.473Z"
+    },
+    {
+      "id": "TKT-053",
+      "title": "Handle Iframe Content in Co-Browse",
+      "priority": "medium",
+      "feature": "Co-Browse Viewer",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-007",
+      "issue": "Embedded iframe content (payment forms, embedded apps, third-party widgets) appears as empty boxes in agent view. Cross-origin iframes cannot be captured, same-origin iframes are not being recursively captured.",
+      "feature_docs": [
+        "docs/features/agent/cobrowse-viewer.md",
+        "docs/features/visitor/cobrowse-sender.md"
+      ],
+      "similar_code": [
+        "apps/widget/src/features/cobrowse/domSerializer.ts - existing DOM capture logic"
+      ],
+      "files_to_modify": [
+        "apps/widget/src/features/cobrowse/domSerializer.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx"
+      ],
+      "out_of_scope": [
+        "Do NOT attempt to capture cross-origin iframe content (browser security prevents this)",
+        "Do NOT modify CobrowseViewer display logic"
+      ],
+      "fix_required": [
+        "For same-origin iframes, recursively capture iframe document content",
+        "For cross-origin iframes, show placeholder: \"Embedded content - not visible to agent\"",
+        "Add visual indicator styling for iframe placeholders"
+      ],
+      "acceptance_criteria": [
+        "Same-origin iframe content is visible in agent view",
+        "Cross-origin iframes show clear \"Embedded content - not visible\" placeholder",
+        "Placeholder is styled to be visible but non-intrusive",
+        "No errors when encountering iframes in DOM capture"
+      ],
+      "risks": [
+        "Recursive capture may increase payload size for iframe-heavy pages",
+        "Some same-origin iframes may still fail due to CSP restrictions"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Test with page containing same-origin iframe, verify content visible"
+      ],
+      "qa_notes": "Test with payment forms (cross-origin), embedded docs (same-origin), and YouTube embeds (cross-origin).",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.471Z",
+      "updated_at": "2025-12-07T23:09:48.991Z"
+    },
+    {
+      "id": "TKT-052",
+      "title": "Add Loading State for Co-Browse Viewer",
+      "priority": "low",
+      "feature": "Co-Browse Viewer",
+      "difficulty": "easy",
+      "status": "done",
+      "source": "Finding F-005",
+      "issue": "Agent sees blank or stale view with no indication that co-browse is initializing. Creates confusion about whether feature is working.",
+      "feature_docs": [
+        "docs/features/agent/cobrowse-viewer.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx - existing viewer component"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT modify snapshot transmission",
+        "Do NOT add reconnection logic"
+      ],
+      "fix_required": [
+        "Add 'Loading visitor's screen...' placeholder with spinner while waiting for first snapshot",
+        "Show 'Updating...' indicator during subsequent refreshes"
+      ],
+      "acceptance_criteria": [
+        "Loading spinner shows while waiting for first snapshot",
+        "Spinner includes 'Loading visitor's screen...' text",
+        "After first snapshot, subtle 'Updating...' indicator on refreshes",
+        "No flicker or blank states"
+      ],
+      "risks": [
+        "Simple UI change - low risk"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Start co-browse, verify loading state displays"
+      ],
+      "qa_notes": "Test on slow connections to verify loading state is visible.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.469Z",
+      "updated_at": "2025-12-07T06:39:55.469Z"
+    },
+    {
+      "id": "TKT-051",
+      "title": "Add Gzip Compression for Co-Browse DOM Snapshots",
+      "priority": "medium",
+      "feature": "Co-Browse Viewer",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-009",
+      "issue": "Large DOM snapshots (>1MB) are sent uncompressed over WebSocket, causing latency and lag in agent co-browse view on complex pages. Mobile/slow connections suffer most.",
+      "feature_docs": [
+        "docs/features/agent/cobrowse-viewer.md",
+        "docs/features/visitor/cobrowse-sender.md"
+      ],
+      "similar_code": [
+        "apps/widget/src/features/cobrowse/cobrowseSender.ts - existing snapshot transmission"
+      ],
+      "files_to_modify": [
+        "apps/widget/src/features/cobrowse/cobrowseSender.ts",
+        "apps/server/src/features/cobrowse/cobrowseHandler.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx"
+      ],
+      "out_of_scope": [
+        "Do NOT implement delta/diff encoding (separate ticket)",
+        "Do NOT modify canvas capture",
+        "Do NOT change snapshot frequency"
+      ],
+      "fix_required": [
+        "Add gzip compression to DOM snapshot before sending via WebSocket",
+        "Add decompression on server/viewer side",
+        "Add DOM size monitoring to log large payloads"
+      ],
+      "acceptance_criteria": [
+        "DOM snapshots are gzip compressed before transmission",
+        "Server correctly decompresses snapshots",
+        "Agent viewer displays decompressed content correctly",
+        "Payload size reduced by ~70% for typical pages",
+        "Large DOM (>500KB) logged for monitoring"
+      ],
+      "risks": [
+        "Compression adds CPU overhead - test on mobile devices",
+        "Browser compatibility for compression APIs",
+        "Ensure fallback for browsers without CompressionStream"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Load complex page, verify compressed payloads in Network tab"
+      ],
+      "qa_notes": "Test with data-heavy dashboards and chart-heavy pages. Compare payload sizes before/after.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.467Z",
+      "updated_at": "2025-12-07T23:09:48.990Z"
+    },
+    {
+      "id": "TKT-050",
+      "title": "Unknown Stripe Status Should Default to Cancelled (Fail-Safe)",
+      "priority": "high",
+      "feature": "Billing API",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-730",
+      "issue": "Unknown Stripe status defaults to 'active' - this grants access when status is uncertain. Should fail-safe to cancelled.",
+      "feature_docs": [
+        "docs/features/api/billing-api.md"
+      ],
+      "similar_code": [
+        "apps/server/src/features/webhooks/stripe.ts - status mapping"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/webhooks/stripe.ts"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT modify other webhook handlers",
+        "Do NOT add new status types"
+      ],
+      "fix_required": [
+        "Change default case from 'active' to 'cancelled'",
+        "Log warning when unknown status encountered",
+        "Alert ops team about unknown status"
+      ],
+      "acceptance_criteria": [
+        "Unknown Stripe status maps to 'cancelled'",
+        "Warning logged with full Stripe event for debugging",
+        "Known statuses work as before"
+      ],
+      "risks": [
+        "New Stripe statuses may incorrectly get cancelled - but that's safer than granting access",
+        "Monitor logs for unknown statuses and update mapping"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Send webhook with unknown status, verify cancelled result"
+      ],
+      "qa_notes": "Test with mock Stripe webhook containing unknown status.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.465Z",
+      "updated_at": "2025-12-07T06:39:55.465Z"
+    },
+    {
+      "id": "TKT-047",
+      "title": "Handle Missing User Profile Row",
+      "priority": "high",
+      "feature": "Login Flow",
+      "difficulty": "medium",
+      "status": "done",
+      "source": "Finding F-632",
+      "issue": "When user has auth.users record but no corresponding users table row, role query returns null and redirect logic fails. Users get stranded.",
+      "feature_docs": [
+        "docs/features/auth/login-flow.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/middleware.ts - role check logic"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/middleware.ts",
+        "apps/dashboard/src/lib/auth.ts"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT add user profile creation (that's signup flow)",
+        "Do NOT modify signup flow"
+      ],
+      "fix_required": [
+        "Add defensive check after role query",
+        "If no profile row, redirect to error page with 'Contact support' message",
+        "Log the orphaned auth user for debugging"
+      ],
+      "acceptance_criteria": [
+        "User with no profile row sees clear error message",
+        "Error suggests contacting support",
+        "Orphaned user is logged for admin investigation",
+        "Normal users unaffected"
+      ],
+      "risks": [
+        "This shouldn't happen normally - indicates data issue",
+        "Consider adding Supabase trigger to ensure profile creation"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Delete user profile row, try to log in, verify error handling"
+      ],
+      "qa_notes": "Test with intentionally orphaned user. Verify error experience is clear.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.462Z",
+      "updated_at": "2025-12-07T06:39:55.462Z"
+    },
+    {
+      "id": "TKT-045",
+      "title": "Exclude Dismissed Surveys from PMF Calculation",
+      "priority": "high",
+      "feature": "Ellis Survey",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-545",
+      "issue": "When user dismisses survey, code sets disappointment_level: 'not_disappointed' as default. This skews PMF data negatively - dismissed surveys inflate 'not disappointed' count.",
+      "feature_docs": [
+        "docs/features/feedback/ellis-survey.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/features/feedback/SurveyModal.tsx - survey component"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/features/feedback/SurveyModal.tsx",
+        "apps/dashboard/src/features/feedback/actions.ts"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT change survey questions",
+        "Do NOT modify survey trigger logic"
+      ],
+      "fix_required": [
+        "On dismiss, set disappointment_level to null instead of 'not_disappointed'",
+        "Exclude null responses from PMF calculations"
+      ],
+      "acceptance_criteria": [
+        "Dismissed surveys have null disappointment_level",
+        "PMF calculation excludes null responses",
+        "Submitted responses work as before"
+      ],
+      "risks": [
+        "Simple fix - low risk",
+        "Verify PMF calculation handles null correctly"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Dismiss survey, verify null is stored"
+      ],
+      "qa_notes": "Test survey dismissal. Verify PMF stats page handles correctly.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.459Z",
+      "updated_at": "2025-12-07T23:09:48.988Z"
+    },
+    {
+      "id": "TKT-043",
+      "title": "Add Save/Error Notifications for Pool Management",
+      "priority": "high",
+      "feature": "Pool Management",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-393",
+      "issue": "Database save failures, server sync failures, and RLS permission denied all fail silently. Admins have no feedback when operations fail.",
+      "feature_docs": [
+        "docs/features/admin/pool-management.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/components/ui/toast.tsx - if exists"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/features/pools/PoolCard.tsx",
+        "apps/dashboard/src/features/pools/actions.ts"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT add retry logic",
+        "Do NOT modify pool data structure"
+      ],
+      "fix_required": [
+        "Add toast notifications for save success",
+        "Add error toast for save failures with clear message",
+        "Ensure UI reverts to previous state on error"
+      ],
+      "acceptance_criteria": [
+        "Successful save shows success toast",
+        "Failed save shows error toast with message",
+        "UI reverts to previous state on failure",
+        "Network errors show 'Connection error' message"
+      ],
+      "risks": [
+        "Don't spam toasts - debounce if needed",
+        "Ensure error messages are user-friendly"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Save pool, verify success toast. Disconnect network, save, verify error toast."
+      ],
+      "qa_notes": "Test with network disconnection. Verify error handling.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.456Z",
+      "updated_at": "2025-12-07T23:09:48.987Z"
+    },
+    {
+      "id": "TKT-041",
+      "title": "Verify Session Invalidation on Password Reset",
+      "priority": "high",
+      "feature": "Password Reset",
+      "difficulty": "medium",
+      "status": "done",
+      "source": "Finding F-581",
+      "issue": "If user resets password due to account compromise, existing attacker sessions may remain valid. Supabase behavior not verified.",
+      "feature_docs": [
+        "docs/features/auth/password-reset.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(auth)/reset-password/page.tsx - reset flow"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(auth)/reset-password/page.tsx"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/lib/supabase.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify password requirements",
+        "Do NOT add 2FA"
+      ],
+      "fix_required": [
+        "Test Supabase session behavior on password change",
+        "If sessions persist, call supabase.auth.signOut({ scope: 'global' }) after password update",
+        "Document the behavior"
+      ],
+      "acceptance_criteria": [
+        "Password reset invalidates all other sessions",
+        "User is logged out of all devices after reset",
+        "Current session (doing the reset) remains valid",
+        "Behavior is documented"
+      ],
+      "risks": [
+        "May need to use Supabase admin API for global signout",
+        "Test thoroughly - security critical"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Log in on two devices, reset password on one, verify other is logged out"
+      ],
+      "qa_notes": "Test with multiple browser sessions. Verify all sessions except current are invalidated.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.455Z",
+      "updated_at": "2025-12-07T06:39:55.455Z"
+    },
+    {
+      "id": "TKT-038",
+      "title": "Add Delete Confirmation for Pools",
+      "priority": "high",
+      "feature": "Pool Management",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-391",
+      "issue": "Pools are deleted immediately without confirmation. Creates risk of accidental data loss - deletion cascades to all pool members and routing rules.",
+      "feature_docs": [
+        "docs/features/admin/pool-management.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx - confirmation pattern"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/features/pools/PoolCard.tsx",
+        "apps/dashboard/src/features/pools/DeletePoolModal.tsx"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT add soft delete",
+        "Do NOT modify pool creation"
+      ],
+      "fix_required": [
+        "Add confirmation modal before pool deletion",
+        "Modal shows pool name and count of affected items",
+        "Require typing pool name to confirm"
+      ],
+      "acceptance_criteria": [
+        "Delete button opens confirmation modal",
+        "Modal shows: pool name, X agents will be unassigned, Y routing rules will be deleted",
+        "User must type pool name to confirm",
+        "Cancel closes modal without deleting"
+      ],
+      "risks": [
+        "Ensure cascade counts are accurate",
+        "Don't allow bypassing confirmation"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Try to delete pool, verify confirmation required"
+      ],
+      "qa_notes": "Test with pool that has agents and routing rules. Verify counts are accurate.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.454Z",
+      "updated_at": "2025-12-07T23:09:48.986Z"
+    },
+    {
+      "id": "TKT-034",
+      "title": "Call Logs Pagination for Performance",
+      "priority": "high",
+      "feature": "Call Logs, Feedback Dashboard",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-356",
+      "issue": "All call logs/feedback fetched at once with no pagination. Orgs will have 10,000s of call logs - will cause increasing latency and memory pressure.",
+      "feature_docs": [
+        "docs/features/admin/call-logs.md",
+        "docs/features/superadmin/feedback-dashboard.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/features/agents/page.tsx - see if any existing pagination patterns"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/features/call-logs/CallLogsTable.tsx",
+        "apps/dashboard/src/app/api/call-logs/route.ts"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT add virtualization (separate enhancement)",
+        "Do NOT modify call log data structure"
+      ],
+      "fix_required": [
+        "Add server-side pagination with limit/offset",
+        "Default to 50 items per page",
+        "Add pagination controls to UI",
+        "Preserve filters across pagination"
+      ],
+      "acceptance_criteria": [
+        "API accepts page and limit parameters",
+        "Default page size is 50",
+        "UI shows pagination controls (prev/next, page numbers)",
+        "Filters work correctly with pagination"
+      ],
+      "risks": [
+        "Ensure filters are preserved across page changes",
+        "Consider cursor-based pagination for better performance"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Load call logs, verify pagination works"
+      ],
+      "qa_notes": "Test with org that has many call logs. Verify performance improvement.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.453Z",
+      "updated_at": "2025-12-07T23:09:48.985Z"
+    },
+    {
+      "id": "TKT-030",
+      "title": "No Grace Period Implementation",
+      "priority": "high",
+      "feature": "Cancel Subscription",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-317",
+      "issue": "The UI mentions 'access continues until end of billing period' but there is no implementation: no subscription_ends_at field tracked, no access gating based on billing period end, and immediate downgrade to 'free' plan occurs.",
+      "feature_docs": [
+        "docs/features/billing/cancel-subscription.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts - cancel flow"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "apps/server/src/features/webhooks/stripe.ts"
+      ],
+      "files_to_read": [
+        "packages/domain/src/database.types.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify cancel modal UI (TKT-003)",
+        "Do NOT add pause functionality (TKT-004)"
+      ],
+      "fix_required": [
+        "Store subscription_ends_at (current_period_end) from Stripe on cancel",
+        "Keep plan as 'active' until subscription_ends_at passes",
+        "Webhook for subscription.deleted triggers actual downgrade to 'free'"
+      ],
+      "acceptance_criteria": [
+        "subscription_ends_at is stored when user cancels",
+        "User retains access until subscription_ends_at",
+        "After period ends, webhook triggers downgrade to free",
+        "No immediate loss of access on cancel click"
+      ],
+      "risks": [
+        "This overlaps with TKT-002 - may need to combine or sequence",
+        "Ensure webhook handling is idempotent"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test with Stripe test mode - verify grace period works"
+      ],
+      "qa_notes": "Verify user can access dashboard after canceling until period ends.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.450Z",
+      "updated_at": "2025-12-07T06:39:55.450Z"
+    },
+    {
+      "id": "TKT-008",
+      "title": "Fix Uptime Monitoring Doc - Use Free Tier Settings",
+      "priority": "low",
+      "feature": "Uptime Monitoring",
+      "difficulty": "easy",
+      "status": "done",
+      "source": "Finding M-UPTIME_MONITORING #1 [F-643]",
+      "issue": "The uptime monitoring setup doc says to use Better Uptime's free tier (3-minute checks) but configures monitors with 1-minute checks (paid tier). Contradictory.",
+      "feature_docs": [
+        "docs/features/monitoring/UPTIME_MONITORING.md"
+      ],
+      "similar_code": [],
+      "files_to_modify": [
+        "docs/features/monitoring/UPTIME_MONITORING.md"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT modify actual monitor configurations",
+        "Do NOT change monitoring provider"
+      ],
+      "fix_required": [
+        "Update all monitor configurations to 3-minute check frequency",
+        "Add note that this is the free tier limit"
+      ],
+      "acceptance_criteria": [
+        "All monitor configs show 3-minute check frequency",
+        "Doc clearly states this is the free tier limit",
+        "No contradictions between tier description and config"
+      ],
+      "risks": [
+        "Documentation only - no production risk",
+        "3-minute checks still adequate for uptime monitoring"
+      ],
+      "dev_checks": [
+        "Read updated doc for consistency"
+      ],
+      "qa_notes": "N/A - documentation only.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.448Z",
+      "updated_at": "2025-12-07T06:39:55.448Z"
+    },
+    {
+      "id": "TKT-010",
+      "title": "Graceful Call End on Agent Removal",
+      "priority": "low",
+      "feature": "Agent Management",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding D4-agent-management #1 [F-413]",
+      "issue": "When admin removes an agent who's in an active call, the call continues. Creates confusing state - agent marked as 'removed' but still serving visitor.",
+      "feature_docs": [
+        "docs/features/admin/agent-management.md",
+        "docs/features/agent/agent-active-call.md"
+      ],
+      "similar_code": [
+        "apps/server/src/features/agents/removeAgent.ts - current removal logic"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(dashboard)/agents/actions.ts",
+        "apps/server/src/features/agents/removeAgent.ts"
+      ],
+      "files_to_read": [
+        "apps/widget/src/features/call/CallUI.tsx"
+      ],
+      "out_of_scope": [
+        "Do NOT add warning dialog (just handle gracefully)",
+        "Do NOT modify other agent actions"
+      ],
+      "fix_required": [
+        "Check if agent is in_call before removal",
+        "If in_call, emit call:end event before removing",
+        "Visitor sees graceful 'Agent has ended the call' message"
+      ],
+      "acceptance_criteria": [
+        "Removing in-call agent triggers graceful call end",
+        "Visitor sees 'Agent has ended the call' message",
+        "Call is properly logged/ended in database",
+        "If agent not in call, removal proceeds normally"
+      ],
+      "risks": [
+        "Visitor should see friendly message, not abrupt disconnect",
+        "Log the forced call end for audit"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Start call, remove agent via admin, verify graceful end"
+      ],
+      "qa_notes": "Test removal during active call. Verify visitor experience is smooth.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.446Z",
+      "updated_at": "2025-12-07T23:09:48.984Z"
+    },
+    {
+      "id": "TKT-020",
+      "title": "Price ID Missing Should Error Not Fallback",
+      "priority": "medium",
+      "feature": "Subscription Creation",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding B-subscription-creation #2 [F-241]",
+      "issue": "When annual or 6-month price IDs aren't configured in environment, system silently falls back to monthly pricing. User selects annual, gets charged monthly rates - billing dispute risk.",
+      "feature_docs": [
+        "docs/features/billing/subscription-creation.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/lib/stripe.ts - see price ID lookup"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(auth)/paywall/page.tsx",
+        "apps/dashboard/src/lib/stripe.ts"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT add new pricing tiers",
+        "Do NOT modify Stripe product configuration"
+      ],
+      "fix_required": [
+        "Check if selected price ID exists in environment",
+        "If missing, throw error and show user-friendly message",
+        "Don't show billing options that don't have configured price IDs"
+      ],
+      "acceptance_criteria": [
+        "Missing price ID throws visible error (not console warning)",
+        "Billing options not shown if price ID missing",
+        "Clear error message for admin to fix configuration"
+      ],
+      "risks": [
+        "This should never happen in production if deployment is correct",
+        "Consider startup-time validation of required env vars"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Remove annual price ID from env, verify error shown"
+      ],
+      "qa_notes": "Test with missing price IDs for each billing period option.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.443Z",
+      "updated_at": "2025-12-07T06:39:55.443Z"
+    },
+    {
+      "id": "TKT-007",
+      "title": "Fix Public Feedback Feature Documentation",
+      "priority": "medium",
+      "feature": "Public Feedback",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding V-public-feedback #1 [F-523]",
+      "issue": "The 'Public Feedback' feature documentation describes it as 'Post-call feedback for visitors' but the actual feature is a UserVoice-style feature request voting system for authenticated dashboard users.",
+      "feature_docs": [
+        "docs/features/visitor/public-feedback.md"
+      ],
+      "similar_code": [],
+      "files_to_modify": [
+        "docs/features/visitor/public-feedback.md"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT modify actual feature code",
+        "Do NOT change feature behavior"
+      ],
+      "fix_required": [
+        "Rename to 'Feature Request Voting & Bug Reporting'",
+        "Update description to explain it's for authenticated dashboard users",
+        "Clarify that 'public' means cross-organization visibility, not anonymous access"
+      ],
+      "acceptance_criteria": [
+        "Feature doc accurately describes the voting/feedback system",
+        "No mention of 'visitors' or 'post-call' in context of feedback",
+        "Clear that authentication is required"
+      ],
+      "risks": [
+        "Documentation only - no production risk"
+      ],
+      "dev_checks": [
+        "Read updated doc for accuracy",
+        "Verify no broken links"
+      ],
+      "qa_notes": "N/A - documentation only.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.441Z",
+      "updated_at": "2025-12-07T23:09:48.983Z"
+    },
+    {
+      "id": "TKT-024",
+      "title": "Visitor Call Reconnection Window",
+      "priority": "high",
+      "feature": "Visitor Call, Call Lifecycle",
+      "difficulty": "hard",
+      "status": "done",
+      "source": "Finding P-visitor-reassignment #2 [F-172]",
+      "issue": "If visitor disconnects mid-call (browser crash, accidental close), call ends permanently. No way to rejoin. Different from TKT-016 (WebRTC) which handles network blips.",
+      "feature_docs": [
+        "docs/features/visitor/visitor-call.md",
+        "docs/features/platform/call-lifecycle.md",
+        "docs/features/visitor/call-reconnection.md"
+      ],
+      "similar_code": [
+        "apps/widget/src/features/call/useCallSession.ts - call state management"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/calls/callLifecycle.ts",
+        "apps/widget/src/features/call/useCallSession.ts",
+        "apps/widget/src/features/call/RejoinPrompt.tsx",
+        "apps/server/src/features/signaling/handleRejoin.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/features/call/useActiveCall.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify WebRTC ICE restart (TKT-016 handles that)",
+        "Do NOT add call history feature"
+      ],
+      "fix_required": [
+        "Store session token in localStorage on call start",
+        "Add 60-second reconnection window on disconnect",
+        "Show RejoinPrompt when returning with valid session",
+        "Agent sees 'Visitor disconnected - waiting for reconnection' status"
+      ],
+      "acceptance_criteria": [
+        "Visitor who crashes browser can rejoin within 60 seconds",
+        "Session token persists in localStorage",
+        "Agent sees 'Visitor disconnected - waiting' status",
+        "After 60 seconds, call truly ends",
+        "Rejoin continues from same call state (not new call)"
+      ],
+      "risks": [
+        "Session token security - ensure it's unique and expires",
+        "Handle agent ending call during reconnection window",
+        "Clear localStorage token after call ends"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Start call, close browser, reopen within 60s, verify rejoin"
+      ],
+      "qa_notes": "Test actual browser crash/close scenarios. Test timeout behavior at exactly 60 seconds.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.433Z",
+      "updated_at": "2025-12-07T06:39:55.433Z"
+    },
+    {
+      "id": "TKT-023",
+      "title": "Atomic Stripe-DB Updates for Seat Changes",
+      "priority": "high",
+      "feature": "Seat Management",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding B-seat-management #2 [F-253]",
+      "issue": "Stripe is updated before DB for seat changes. If DB update fails after Stripe succeeds, customer is charged for seats not reflected in app. Inconsistent state.",
+      "feature_docs": [
+        "docs/features/billing/seat-management.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/lib/stripe.ts - Stripe helper functions"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/api/billing/seats/route.ts",
+        "apps/dashboard/src/lib/stripe.ts"
+      ],
+      "files_to_read": [
+        "apps/server/src/lib/monitoring.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify seat limit validation (TKT-022)",
+        "Do NOT add distributed transactions (overkill)"
+      ],
+      "fix_required": [
+        "Update DB first (optimistic)",
+        "If Stripe fails, rollback DB change",
+        "If Stripe succeeds but anything fails after, log for manual review",
+        "Add monitoring/alerting for rollback failures"
+      ],
+      "acceptance_criteria": [
+        "DB failure prevents Stripe call",
+        "Stripe failure triggers DB rollback",
+        "Rollback failures are logged and alerted",
+        "Successful flow unchanged"
+      ],
+      "risks": [
+        "Rollback window is small - Stripe change is immediate",
+        "Log all operations for audit trail"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Simulate DB failure after Stripe success, verify rollback"
+      ],
+      "qa_notes": "Test failure scenarios. Verify logs capture all seat change attempts.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.431Z",
+      "updated_at": "2025-12-07T06:39:55.431Z"
+    },
+    {
+      "id": "TKT-022",
+      "title": "Enforce Seat Limit in API",
+      "priority": "high",
+      "feature": "Seat Management",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding B-seat-management #1 [F-252]",
+      "issue": "UI caps seats at 50, but API has no validation. Direct API calls could set arbitrarily high seat counts, causing billing issues or system strain.",
+      "feature_docs": [
+        "docs/features/billing/seat-management.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/api/billing/seats/route.ts - existing API route"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/api/billing/seats/route.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/app/api/billing/update-settings/route.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify UI seat selection",
+        "Do NOT add plan-specific limits (future feature)",
+        "Do NOT change Stripe integration"
+      ],
+      "fix_required": [
+        "Add validation: if seats > 50, return 400 error",
+        "Clear error message: 'Maximum seat limit is 50'",
+        "Ensure existing orgs over limit aren't broken (grandfathered)"
+      ],
+      "acceptance_criteria": [
+        "API rejects seat count > 50 with clear error",
+        "Error response includes message explaining limit",
+        "Existing orgs over 50 seats continue working"
+      ],
+      "risks": [
+        "Don't break existing orgs with more seats",
+        "Consider future enterprise plans with higher limits"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Call API with seats=100, verify 400 error"
+      ],
+      "qa_notes": "Test API directly with curl. Verify error message is clear.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.430Z",
+      "updated_at": "2025-12-07T23:09:48.982Z"
+    },
+    {
+      "id": "TKT-019",
+      "title": "Sync Incoming Call Countdown with RNA Timeout",
+      "priority": "high",
+      "feature": "Incoming Call",
+      "difficulty": "easy",
+      "status": "done",
+      "source": "Finding A-incoming-call #1 [F-219, F-356]",
+      "issue": "Incoming call modal shows hardcoded 30-second countdown, but RNA timeout fires at 15 seconds (org-configured). Agents think they have more time and get unexpectedly marked away.",
+      "feature_docs": [
+        "docs/features/agent/incoming-call.md",
+        "docs/features/agent/rna-timeout.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/features/incoming-call/incoming-call-modal.tsx - current modal"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/features/incoming-call/incoming-call-modal.tsx"
+      ],
+      "files_to_read": [
+        "apps/server/src/features/calls/callRequest.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify RNA timeout logic on server",
+        "Do NOT change org settings for timeout",
+        "Do NOT add countdown customization UI"
+      ],
+      "fix_required": [
+        "Fetch org's RNA timeout value when call comes in",
+        "Use org timeout value for countdown display instead of hardcoded 30s"
+      ],
+      "acceptance_criteria": [
+        "Countdown matches org's RNA timeout setting",
+        "Countdown and RNA timeout fire at the same moment",
+        "Works correctly for different org configurations (15s, 25s, 30s)"
+      ],
+      "risks": [
+        "Simple fix - just syncing UI with existing server value",
+        "Ensure countdown starts at correct value"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Set org timeout to 15s, verify countdown shows 15s"
+      ],
+      "qa_notes": "Test with various org timeout settings (15s, 20s, 30s). Verify countdown accuracy.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.429Z",
+      "updated_at": "2025-12-07T06:39:55.429Z"
+    },
+    {
+      "id": "TKT-018",
+      "title": "Transcription Auto-Retry with Manual Fallback",
+      "priority": "high",
+      "feature": "Transcription Service",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding P-transcription-service #2 [F-196, F-317]",
+      "issue": "When transcription fails (Deepgram error, timeout), there's no retry mechanism and no UI to manually retry. Failed transcriptions are stuck permanently.",
+      "feature_docs": [
+        "docs/features/platform/transcription-service.md"
+      ],
+      "similar_code": [
+        "apps/server/src/features/transcription/processTranscription.ts - existing transcription logic"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/transcription/processTranscription.ts",
+        "apps/dashboard/src/features/call-logs/CallLogRow.tsx",
+        "apps/dashboard/src/app/api/transcription/retry/route.ts"
+      ],
+      "files_to_read": [
+        "apps/server/src/lib/queue.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify Deepgram integration beyond retry",
+        "Do NOT change transcription storage format",
+        "Do NOT add real-time transcription"
+      ],
+      "fix_required": [
+        "Add retry logic with exponential backoff (1s, 4s, 16s)",
+        "Mark transcription as 'failed' after 3 attempts",
+        "Add 'Retry Transcription' button in call logs UI",
+        "Create API endpoint for manual retry"
+      ],
+      "acceptance_criteria": [
+        "Failed transcription auto-retries up to 3 times",
+        "Exponential backoff: 1s, 4s, 16s delays",
+        "Retry button appears for permanently failed transcriptions",
+        "Retry attempts are logged with error details",
+        "Non-retriable errors (audio too short) skip retry logic"
+      ],
+      "risks": [
+        "Don't retry infinitely - max 3 attempts",
+        "Distinguish retriable vs non-retriable errors"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Simulate transcription failure, verify retry behavior"
+      ],
+      "qa_notes": "Test with intentionally failed transcription. Verify retry button and logging.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.428Z",
+      "updated_at": "2025-12-07T23:09:48.981Z"
+    },
+    {
+      "id": "TKT-016",
+      "title": "WebRTC ICE Restart on Connection Failure",
+      "priority": "high",
+      "feature": "Agent Active Call, WebRTC",
+      "difficulty": "hard",
+      "status": "ready",
+      "source": "Finding A-agent-active-call #2 [F-162]",
+      "issue": "When WebRTC connection fails mid-call (network glitch, NAT timeout), agent must manually end and start new call. Customer may be lost.",
+      "feature_docs": [
+        "docs/features/agent/agent-active-call.md",
+        "docs/features/platform/webrtc-signaling.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/features/call/useWebRTC.ts - existing WebRTC hook"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/features/call/useWebRTC.ts",
+        "apps/widget/src/features/call/useWebRTC.ts",
+        "apps/server/src/features/signaling/handleIceRestart.ts"
+      ],
+      "files_to_read": [
+        "docs/features/platform/webrtc-signaling.md"
+      ],
+      "out_of_scope": [
+        "Do NOT modify initial call setup",
+        "Do NOT change TURN server configuration",
+        "Do NOT add call quality metrics"
+      ],
+      "fix_required": [
+        "Detect ICE connection failure state",
+        "Attempt ICE restart up to 3 times before showing error",
+        "Show 'Reconnecting...' status during restart attempts",
+        "Log all reconnection attempts for debugging"
+      ],
+      "acceptance_criteria": [
+        "ICE failure triggers automatic restart attempt",
+        "Up to 3 restart attempts before showing error",
+        "User sees 'Reconnecting...' status during attempts",
+        "If all attempts fail, graceful error message shown",
+        "Reconnection events logged for debugging"
+      ],
+      "risks": [
+        "ICE restart has browser-specific quirks - test Chrome, Safari, Firefox",
+        "Set max retry attempts to avoid infinite loop",
+        "May need TURN server failover for some cases"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Simulate network disconnect during call, verify reconnection"
+      ],
+      "qa_notes": "Test with actual network disconnect (airplane mode on mobile). Test across browsers.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.422Z",
+      "updated_at": "2025-12-07T23:09:48.980Z"
+    },
+    {
+      "id": "TKT-015",
+      "title": "Secure Recording URLs with Signed Access",
+      "priority": "high",
+      "feature": "Recordings, Storage",
+      "difficulty": "hard",
+      "status": "ready",
+      "source": "Finding A-agent-active-call #1 [F-161]",
+      "issue": "Recording uploads go to public Supabase bucket with predictable URL patterns. Anyone who guesses the pattern can access recordings without auth. HIPAA/GDPR compliance risk.",
+      "feature_docs": [
+        "docs/features/agent/video-recordings.md"
+      ],
+      "similar_code": [
+        "apps/server/src/features/recordings/uploadRecording.ts - current upload logic"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/recordings/uploadRecording.ts",
+        "apps/server/src/features/recordings/getRecordingUrl.ts",
+        "apps/dashboard/src/features/recordings/RecordingPlayer.tsx"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/lib/supabase.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT migrate existing recordings (separate migration task)",
+        "Do NOT modify recording playback UI beyond URL handling"
+      ],
+      "fix_required": [
+        "Create new private Supabase bucket for recordings",
+        "Upload new recordings to private bucket with randomized UUIDs",
+        "Generate signed URLs with 1-hour expiration for playback",
+        "Add URL refresh mechanism for long viewing sessions"
+      ],
+      "acceptance_criteria": [
+        "New recordings go to private bucket",
+        "Recording URLs are signed with 1-hour expiration",
+        "URLs contain randomized UUIDs (not predictable org/call pattern)",
+        "Playback works with signed URLs",
+        "URL refreshes automatically if user watches longer than 1 hour"
+      ],
+      "risks": [
+        "Signed URLs must have reasonable expiration (not too short/long)",
+        "Handle URL refresh for long viewing sessions",
+        "Test download functionality still works"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Upload recording, verify URL is signed and expires"
+      ],
+      "qa_notes": "Test playback after URL expiration. Verify refresh mechanism works. Test download button.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.417Z",
+      "updated_at": "2025-12-07T23:09:48.979Z"
+    },
+    {
+      "id": "TKT-014",
+      "title": "Recording Consent Indicator for Visitors",
+      "priority": "high",
+      "feature": "Recording Settings, Widget",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding D-recording-settings #1 [F-128, F-669]",
+      "issue": "Visitors are recorded with NO indication. No 'This call may be recorded' message. Compliance risk for GDPR, CCPA, two-party consent states.",
+      "feature_docs": [
+        "docs/features/admin/recording-settings.md",
+        "docs/features/visitor/visitor-call.md"
+      ],
+      "similar_code": [
+        "apps/widget/src/features/call/CallUI.tsx - see Live badge implementation"
+      ],
+      "files_to_modify": [
+        "apps/widget/src/features/call/CallUI.tsx",
+        "apps/widget/src/features/call/RecordingBadge.tsx",
+        "apps/widget/src/styles.css"
+      ],
+      "files_to_read": [
+        "apps/server/src/features/calls/callStart.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT add consent dialog (just indicator)",
+        "Do NOT modify recording logic",
+        "Do NOT add org-level toggle (just use existing recording enabled setting)"
+      ],
+      "fix_required": [
+        "Create RecordingBadge.tsx component",
+        "Show badge in same location as 'Live' badge during video preview",
+        "Badge only appears after call connects AND org has recording enabled",
+        "Badge text: 'Recording' with red dot indicator"
+      ],
+      "acceptance_criteria": [
+        "'Recording' indicator appears after call connects",
+        "Indicator is in same location as 'Live' badge was",
+        "Only shows when org has recording enabled",
+        "Badge is visible but not intrusive"
+      ],
+      "risks": [
+        "Badge should be clearly visible for compliance",
+        "Don't show badge if recording is disabled for org"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Start call with recording enabled, verify badge shows"
+      ],
+      "qa_notes": "Test with recording enabled and disabled orgs. Verify badge visibility on mobile.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.414Z",
+      "updated_at": "2025-12-07T23:09:48.979Z"
+    },
+    {
+      "id": "TKT-013",
+      "title": "Retention Policy Retroactive Deletion Warning",
+      "priority": "high",
+      "feature": "Organization Settings, Recording Retention",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding D-organization-settings #3 [F-063]",
+      "issue": "When admin reduces retention from 90→30 days, behavior is unclear. Should be retroactive (delete old recordings) with clear warning.",
+      "feature_docs": [
+        "docs/features/admin/organization-settings.md",
+        "docs/features/admin/recording-settings.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx - confirmation modal pattern"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "apps/dashboard/src/app/(dashboard)/settings/RetentionWarningModal.tsx",
+        "apps/dashboard/src/app/(dashboard)/settings/page.tsx"
+      ],
+      "files_to_read": [
+        "apps/server/src/features/recordings/deleteOldRecordings.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT implement the actual deletion job (that runs server-side)",
+        "Do NOT modify other org settings",
+        "Do NOT change recording upload logic"
+      ],
+      "fix_required": [
+        "Count recordings that would be deleted when retention reduced",
+        "Show confirmation modal with exact count",
+        "Require user to type 'DELETE' to confirm",
+        "Trigger deletion job on confirmation"
+      ],
+      "acceptance_criteria": [
+        "Reducing retention triggers confirmation modal",
+        "Modal shows exact count of recordings to be deleted",
+        "User must type 'DELETE' to confirm",
+        "Deletion is logged for audit",
+        "Recordings older than new retention are deleted"
+      ],
+      "risks": [
+        "Deletion is IRREVERSIBLE - confirmation must be very clear",
+        "Count affected recordings accurately before showing warning"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Reduce retention, verify modal shows correct count"
+      ],
+      "qa_notes": "Test with org that has recordings. Verify count is accurate. Verify deletion happens after confirmation.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.413Z",
+      "updated_at": "2025-12-07T06:39:55.413Z"
+    },
+    {
+      "id": "TKT-011",
+      "title": "Email Invite Retry Mechanism",
+      "priority": "high",
+      "feature": "Agent Management (Invites)",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding D4-agent-management #3 [F-024]",
+      "issue": "If Resend API fails to send invite email, invite is still created in DB. Admin has no visibility. Invitee waits for email that never arrives.",
+      "feature_docs": [
+        "docs/features/admin/agent-management.md",
+        "docs/features/api/invites-api.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/lib/email.ts - existing email functions"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(dashboard)/agents/actions.ts",
+        "apps/dashboard/src/lib/email.ts",
+        "apps/dashboard/src/app/(dashboard)/agents/page.tsx"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT modify invite creation logic beyond retry",
+        "Do NOT change invite acceptance flow",
+        "Do NOT modify seat billing logic"
+      ],
+      "fix_required": [
+        "Wrap email send in retry logic (up to 3 attempts)",
+        "Track email status on invite record (sent/pending/failed)",
+        "Add 'Resend Invite' button for failed invites",
+        "Show toast notification on failure"
+      ],
+      "acceptance_criteria": [
+        "Failed email triggers automatic retry (up to 3 attempts)",
+        "Admin sees status of invite (sent/pending/failed) in UI",
+        "After all retries fail, admin gets clear notification",
+        "'Resend Invite' button available for failed invites"
+      ],
+      "risks": [
+        "Don't retry infinitely - cap at 3 attempts",
+        "Clear error messaging so admin knows what to do"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Simulate email failure, verify retry and UI feedback"
+      ],
+      "qa_notes": "Test by temporarily breaking email config. Verify retry behavior and admin notifications.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.411Z",
+      "updated_at": "2025-12-07T23:09:48.978Z"
+    },
+    {
+      "id": "TKT-009",
+      "title": "Org-Level Co-Browse Disable Setting",
+      "priority": "high",
+      "feature": "Co-Browse, Organization Settings",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding A-cobrowse-viewer #3",
+      "issue": "Visitors have no control over screen sharing during calls. Co-browse is automatic with no opt-out. May violate privacy expectations or GDPR.",
+      "feature_docs": [
+        "docs/features/agent/cobrowse-viewer.md",
+        "docs/features/admin/organization-settings.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(dashboard)/settings/page.tsx - see existing toggle patterns"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(dashboard)/settings/page.tsx",
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "apps/widget/src/features/cobrowse/cobrowseSender.ts"
+      ],
+      "files_to_read": [
+        "apps/server/src/lib/organization.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT add per-visitor opt-out (different feature)",
+        "Do NOT modify sensitive data masking (TKT-001)",
+        "Do NOT create database migration - use existing org settings structure"
+      ],
+      "fix_required": [
+        "Add 'Enable Co-Browse' toggle to org settings page",
+        "Store setting in organization settings",
+        "Widget checks setting before initializing cobrowse sender"
+      ],
+      "acceptance_criteria": [
+        "Org settings shows 'Enable Co-Browse' toggle",
+        "When disabled, co-browse does not initialize for visitors",
+        "Existing orgs default to enabled (no breaking change)",
+        "Setting change takes effect on next call (not mid-call)"
+      ],
+      "risks": [
+        "Default must be enabled to maintain current behavior",
+        "Handle mid-call disable gracefully (complete current session)"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Toggle setting, verify widget behavior changes"
+      ],
+      "qa_notes": "Test with new org (should default enabled). Test toggle persistence across page refreshes.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.409Z",
+      "updated_at": "2025-12-07T06:39:55.409Z"
+    },
+    {
+      "id": "TKT-017",
+      "title": "Enforce Pool Routing on Visitor Reassignment",
+      "priority": "critical",
+      "feature": "Visitor Reassignment",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding P-visitor-reassignment #1 [F-171]",
+      "issue": "When a visitor is reassigned, findBestAgent() is called WITHOUT the pool ID. A visitor from 'Sales Pool' could be reassigned to 'Support Pool' agent. This defeats pool-based routing.",
+      "feature_docs": [
+        "docs/features/platform/visitor-reassignment.md",
+        "docs/features/admin/pool-management.md"
+      ],
+      "similar_code": [
+        "apps/server/src/lib/agentSelection.ts - see findBestAgent function signature"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/reassignment/reassignVisitors.ts",
+        "apps/server/src/lib/agentSelection.ts"
+      ],
+      "files_to_read": [
+        "apps/server/src/features/calls/callRequest.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify initial call routing logic",
+        "Do NOT change pool management UI",
+        "Do NOT add new pool features"
+      ],
+      "fix_required": [
+        "Pass pool_id to findBestAgent() during reassignment",
+        "Modify findBestAgent to accept optional pool_id parameter",
+        "Filter agents by pool when pool_id is provided"
+      ],
+      "acceptance_criteria": [
+        "Reassigned visitor stays in original pool",
+        "findBestAgent accepts pool_id parameter",
+        "If no agents in pool, logs warning and returns null (no cross-pool assignment)",
+        "Unit tests cover pool-aware reassignment"
+      ],
+      "risks": [
+        "If pool has no available agents, need clear fallback behavior",
+        "Race condition possible if agent goes unavailable mid-reassignment"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Unit tests pass for agentSelection.ts"
+      ],
+      "qa_notes": "Test with multi-pool organization. Create Sales and Support pools, verify reassignment respects pools.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.408Z",
+      "updated_at": "2025-12-07T23:09:48.977Z"
+    },
+    {
+      "id": "TKT-006",
+      "title": "Fix Middleware Redirect for Unauthenticated Users",
+      "priority": "critical",
+      "feature": "Login Flow / Authentication",
+      "difficulty": "easy",
+      "status": "done",
+      "source": "Finding AUTH-login-flow #1 [F-631]",
+      "issue": "Middleware code for protected routes has 'if (isProtectedPath && !user) { return }' but no redirect to login page. Unauthenticated users get blank/error page.",
+      "feature_docs": [
+        "docs/features/auth/login-flow.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/middleware.ts - see existing path matching logic around line 15-30"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/middleware.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/lib/supabase.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify auth callback handling",
+        "Do NOT add new protected paths",
+        "Do NOT change session/cookie logic"
+      ],
+      "fix_required": [
+        "Change 'return' to 'return NextResponse.redirect(new URL('/login', request.url))'",
+        "Preserve original URL as ?next= parameter for post-login redirect"
+      ],
+      "acceptance_criteria": [
+        "Visiting /dashboard while logged out redirects to /login",
+        "Redirect URL includes ?next=/dashboard parameter",
+        "Logged-in users can access protected paths normally",
+        "No redirect loops occur"
+      ],
+      "risks": [
+        "Infinite redirect loop if /login is misconfigured as protected",
+        "Breaking existing callback URL handling"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Log out, visit /dashboard, verify redirect to /login?next=/dashboard"
+      ],
+      "qa_notes": "Test various protected paths. Verify ?next= parameter works for deep links like /dashboard/settings.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.407Z",
+      "updated_at": "2025-12-07 23:32:17"
+    },
+    {
+      "id": "TKT-005e",
+      "title": "Force Agents Offline on Payment Failure",
+      "priority": "high",
+      "feature": "Payment Failure",
+      "difficulty": "medium",
+      "status": "done",
+      "source": "Finding B-payment-failure #2 (split from TKT-005)",
+      "issue": "Agents remain available when org has payment failure - widget shows them as options.",
+      "feature_docs": [
+        "docs/features/agent/bullpen-states.md"
+      ],
+      "similar_code": [
+        "apps/server/src/features/agents/agentStatus.ts - agent state management"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/agents/agentStatus.ts",
+        "apps/widget/src/Widget.tsx"
+      ],
+      "files_to_read": [
+        "apps/server/src/lib/organization.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify payment blocker UI",
+        "Do NOT modify webhook handlers",
+        "Do NOT modify email logic"
+      ],
+      "fix_required": [
+        "Force all agents to 'offline' when org becomes past_due",
+        "Prevent agents from going 'available' while past_due",
+        "Widget shows no available agents for past_due orgs"
+      ],
+      "acceptance_criteria": [
+        "All agents forced offline when org status becomes past_due",
+        "Agents cannot toggle to 'available' while past_due",
+        "Widget shows 'no agents available' for past_due orgs",
+        "When payment resolved, agents can go available again"
+      ],
+      "risks": [
+        "Don't break in-progress calls - let them complete",
+        "Clear messaging for agents about why they can't go available"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Set org to past_due, verify agents forced offline"
+      ],
+      "qa_notes": "Test agent availability toggle. Verify widget behavior on customer site.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.406Z",
+      "updated_at": "2025-12-07 23:32:17"
+    },
+    {
+      "id": "TKT-005d",
+      "title": "Send Email on Payment Failure",
+      "priority": "high",
+      "feature": "Payment Failure",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding B-payment-failure #2 (split from TKT-005)",
+      "issue": "Admins receive no email when payment fails - may not notice until service is blocked.",
+      "feature_docs": [
+        "docs/features/billing/payment-failure.md"
+      ],
+      "similar_code": [
+        "apps/server/src/lib/email.ts - existing email functions"
+      ],
+      "files_to_modify": [
+        "apps/server/src/lib/email.ts",
+        "apps/server/src/features/webhooks/stripe.ts"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT modify payment blocker UI",
+        "Do NOT modify webhook logic beyond calling email function"
+      ],
+      "fix_required": [
+        "Add sendPaymentFailedEmail() function to email.ts",
+        "Call from payment_failed webhook handler",
+        "Email includes link to update payment method"
+      ],
+      "acceptance_criteria": [
+        "Admin receives email when payment fails",
+        "Email includes clear subject line about payment issue",
+        "Email includes link/button to update payment method",
+        "Only org admin receives email, not all agents"
+      ],
+      "risks": [
+        "Don't spam - only send once per failure event",
+        "Ensure email doesn't look like spam/phishing"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Trigger webhook, verify email sent (check Resend dashboard)"
+      ],
+      "qa_notes": "Use Resend test mode. Verify email formatting and links work.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.405Z",
+      "updated_at": "2025-12-07T06:39:55.405Z"
+    },
+    {
+      "id": "TKT-005c",
+      "title": "Handle Payment Failed Webhook",
+      "priority": "critical",
+      "feature": "Payment Failure",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding B-payment-failure #2 (split from TKT-005)",
+      "issue": "No webhook handler for invoice.payment_failed - system doesn't know when payments fail.",
+      "feature_docs": [
+        "docs/features/billing/payment-failure.md",
+        "docs/features/api/billing-api.md"
+      ],
+      "similar_code": [
+        "apps/server/src/features/webhooks/stripe.ts - existing webhook handlers"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/webhooks/stripe.ts"
+      ],
+      "files_to_read": [
+        "packages/domain/src/database.types.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify payment blocker UI (TKT-005b)",
+        "Do NOT send email notifications (TKT-005d)",
+        "Do NOT modify agent status (TKT-005e)"
+      ],
+      "fix_required": [
+        "Add handler for invoice.payment_failed webhook",
+        "Update org status to 'past_due' in database",
+        "Add handler for invoice.paid to clear past_due status"
+      ],
+      "acceptance_criteria": [
+        "invoice.payment_failed sets org to 'past_due'",
+        "invoice.paid clears 'past_due' and sets to 'active'",
+        "Webhook signature verification works",
+        "Idempotent handling of duplicate webhooks"
+      ],
+      "risks": [
+        "Webhook signature must be verified",
+        "Handle multiple failure events gracefully"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test with Stripe CLI: stripe trigger invoice.payment_failed"
+      ],
+      "qa_notes": "Use Stripe CLI to forward webhooks. Verify DB state changes correctly.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.404Z",
+      "updated_at": "2025-12-07T06:39:55.404Z"
+    },
+    {
+      "id": "TKT-005b",
+      "title": "Create Payment Failure Blocking Modal",
+      "priority": "critical",
+      "feature": "Payment Failure",
+      "difficulty": "medium",
+      "status": "dev_complete",
+      "source": "Finding B-payment-failure #2 (split from TKT-005)",
+      "issue": "No UI feedback when payment fails - users don't know their account has issues.",
+      "feature_docs": [
+        "docs/features/billing/payment-failure.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx - modal pattern",
+        "apps/dashboard/src/app/(dashboard)/layout.tsx - layout wrapper pattern"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/components/PaymentBlocker.tsx",
+        "apps/dashboard/src/app/(dashboard)/layout.tsx"
+      ],
+      "files_to_read": [
+        "packages/domain/src/database.types.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT implement webhook handlers (TKT-005c)",
+        "Do NOT implement email notifications (TKT-005d)",
+        "Do NOT modify agent status logic (TKT-005e)"
+      ],
+      "fix_required": [
+        "Create PaymentBlocker component - full-screen modal that blocks dashboard",
+        "Show 'Update Payment Method' button for admins",
+        "Show 'Contact your admin' message for agents",
+        "Layout checks org status and renders blocker if past_due"
+      ],
+      "acceptance_criteria": [
+        "Full-screen modal appears when org status is 'past_due'",
+        "Admins see 'Update Payment Method' button",
+        "Agents see read-only message directing them to contact admin",
+        "Modal cannot be dismissed without resolving payment"
+      ],
+      "risks": [
+        "Don't block access too aggressively for temporary issues",
+        "Ensure modal is accessible and clear"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Set org to past_due, verify modal appears"
+      ],
+      "qa_notes": "Test as admin and as agent. Verify different UI for each role. Test mobile viewport.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": "agent/tkt-005b",
+      "worktree_path": "/Users/ryanodonnell/projects/agent-worktrees/TKT-005b",
+      "created_at": "2025-12-07T06:39:55.401Z",
+      "updated_at": "2025-12-10T07:02:24.933Z"
+    },
+    {
+      "id": "TKT-005a",
+      "title": "Add past_due Status to TypeScript Types",
+      "priority": "critical",
+      "feature": "Payment Failure",
+      "difficulty": "easy",
+      "status": "done",
+      "source": "Finding B-payment-failure #2 (split from TKT-005)",
+      "issue": "TypeScript type SubscriptionStatus missing 'past_due' - needed for payment failure handling.",
+      "feature_docs": [
+        "docs/features/billing/payment-failure.md"
+      ],
+      "similar_code": [
+        "packages/domain/src/database.types.ts - see existing SubscriptionStatus type"
+      ],
+      "files_to_modify": [
+        "packages/domain/src/database.types.ts"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT modify other types in this file",
+        "Do NOT implement payment failure UI (TKT-005b)",
+        "Do NOT add webhook handlers (TKT-005c)"
+      ],
+      "fix_required": [
+        "Add 'past_due' to SubscriptionStatus type union"
+      ],
+      "acceptance_criteria": [
+        "SubscriptionStatus includes 'past_due'",
+        "Type is: 'active' | 'paused' | 'cancelled' | 'trialing' | 'past_due'",
+        "pnpm typecheck passes across all packages"
+      ],
+      "risks": [
+        "Simple type addition - low risk",
+        "Verify no existing code breaks with new type"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes in packages/domain"
+      ],
+      "qa_notes": "N/A - type-only change, no runtime behavior.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.399Z",
+      "updated_at": "2025-12-07T06:39:55.399Z"
+    },
+    {
+      "id": "TKT-004d",
+      "title": "Widget and Agent Status for Paused Orgs",
+      "priority": "high",
+      "feature": "Pause Subscription",
+      "difficulty": "medium",
+      "status": "done",
+      "source": "Finding B-pause-subscription (split from TKT-004)",
+      "issue": "Widget and agents remain active when org is paused - should be disabled.",
+      "feature_docs": [
+        "docs/features/visitor/widget-lifecycle.md",
+        "docs/features/agent/bullpen-states.md"
+      ],
+      "similar_code": [
+        "apps/widget/src/Widget.tsx - see org status checks",
+        "apps/server/src/features/agents/agentStatus.ts - agent state management"
+      ],
+      "files_to_modify": [
+        "apps/widget/src/Widget.tsx",
+        "apps/server/src/features/agents/agentStatus.ts",
+        "apps/server/src/lib/organization.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/features/agents/AgentBullpen.tsx"
+      ],
+      "out_of_scope": [
+        "Do NOT modify Stripe integration (TKT-004a/b/c)",
+        "Do NOT modify pause/resume UI"
+      ],
+      "fix_required": [
+        "Widget checks org status on load - shows 'temporarily unavailable' if paused",
+        "Force all agents to 'offline' status when org pauses",
+        "Prevent agents from going 'available' while org is paused"
+      ],
+      "acceptance_criteria": [
+        "Widget shows 'temporarily unavailable' message for paused orgs",
+        "All agents forced to 'offline' when org pauses",
+        "Agents cannot toggle to 'available' while paused",
+        "When org resumes, agents can go available again"
+      ],
+      "risks": [
+        "Don't break existing availability logic",
+        "Message should be user-friendly, not error-like"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Pause org, verify widget shows unavailable message"
+      ],
+      "qa_notes": "Test widget on customer site with paused org. Verify agent dashboard shows correct status.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.397Z",
+      "updated_at": "2025-12-07 23:32:17"
+    },
+    {
+      "id": "TKT-004c",
+      "title": "Handle Stripe Pause/Resume Webhooks",
+      "priority": "critical",
+      "feature": "Pause Subscription",
+      "difficulty": "medium",
+      "status": "done",
+      "source": "Finding B-pause-subscription (split from TKT-004)",
+      "issue": "No webhook handlers for Stripe pause/resume events - DB may get out of sync.",
+      "feature_docs": [
+        "docs/features/api/billing-api.md"
+      ],
+      "similar_code": [
+        "apps/server/src/features/webhooks/stripe.ts - existing webhook handlers"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/webhooks/stripe.ts"
+      ],
+      "files_to_read": [
+        "packages/domain/src/database.types.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify Stripe API calls (TKT-004a)",
+        "Do NOT modify scheduler (TKT-004b)",
+        "Do NOT modify widget/agent status (TKT-004d)"
+      ],
+      "fix_required": [
+        "Add handler for customer.subscription.paused webhook",
+        "Add handler for customer.subscription.resumed webhook",
+        "Update org status in DB based on webhook events"
+      ],
+      "acceptance_criteria": [
+        "customer.subscription.paused webhook updates org to 'paused'",
+        "customer.subscription.resumed webhook updates org to 'active'",
+        "Webhook signature verification works correctly",
+        "Idempotent - duplicate webhooks don't cause issues"
+      ],
+      "risks": [
+        "Webhook signature must be verified to prevent spoofing",
+        "Handle out-of-order webhooks gracefully"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test with Stripe CLI: stripe trigger customer.subscription.paused"
+      ],
+      "qa_notes": "Use Stripe CLI to forward webhooks: stripe listen --forward-to localhost:3001/webhooks/stripe",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.395Z",
+      "updated_at": "2025-12-07T06:39:55.395Z"
+    },
+    {
+      "id": "TKT-004b",
+      "title": "Add Auto-Resume Scheduler for Paused Subscriptions",
+      "priority": "critical",
+      "feature": "Pause Subscription",
+      "difficulty": "hard",
+      "status": "ready",
+      "source": "Finding B-pause-subscription #2 (split from TKT-004)",
+      "issue": "No auto-resume when pause_ends_at is reached - subscriptions stay paused forever.",
+      "feature_docs": [
+        "docs/features/billing/cancel-subscription.md"
+      ],
+      "similar_code": [
+        "apps/server/src/features/transcription/processTranscription.ts - see queue-based job pattern"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/scheduler/resumePausedOrgs.ts",
+        "apps/server/src/index.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/lib/stripe.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify Stripe API calls (TKT-004a handles this)",
+        "Do NOT add webhook handlers (TKT-004c)",
+        "Do NOT modify widget/agent status"
+      ],
+      "fix_required": [
+        "Create scheduled job that runs every hour",
+        "Query organizations where pause_ends_at <= now AND status = 'paused'",
+        "Call resumeSubscription() for each matching org",
+        "Update org status to 'active' in database"
+      ],
+      "acceptance_criteria": [
+        "Scheduler runs every hour (configurable)",
+        "Orgs with expired pause_ends_at are automatically resumed",
+        "Stripe billing restarts on auto-resume",
+        "Logs capture all auto-resume events for debugging"
+      ],
+      "risks": [
+        "Missed resume job = extended pause (use reliable scheduler)",
+        "Race condition if user manually resumes while job runs",
+        "Handle payment failure on resume gracefully"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Set pause_ends_at to past, run scheduler, verify resume happens"
+      ],
+      "qa_notes": "Test with org paused for 1 minute. Verify auto-resume triggers correctly. Check logs for job execution.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.393Z",
+      "updated_at": "2025-12-07T23:09:48.973Z"
+    },
+    {
+      "id": "TKT-004a",
+      "title": "Implement Stripe Pause API Integration",
+      "priority": "critical",
+      "feature": "Pause Subscription",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding B-pause-subscription #1 (split from TKT-004)",
+      "issue": "pauseAccount() updates DB but does NOT pause billing in Stripe - customers still charged while paused.",
+      "feature_docs": [
+        "docs/features/billing/cancel-subscription.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/lib/stripe.ts - see cancelSubscription for similar Stripe API pattern"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "apps/dashboard/src/lib/stripe.ts"
+      ],
+      "files_to_read": [
+        "docs/features/admin/organization-settings.md"
+      ],
+      "out_of_scope": [
+        "Do NOT implement auto-resume scheduler (TKT-004b)",
+        "Do NOT implement webhooks (TKT-004c)",
+        "Do NOT modify widget/agent status (TKT-004d)"
+      ],
+      "fix_required": [
+        "Add pauseSubscription() function to stripe.ts that calls stripe.subscriptions.update with pause_collection",
+        "Add resumeSubscription() function to stripe.ts",
+        "Update pauseAccount action to call Stripe API before DB update"
+      ],
+      "acceptance_criteria": [
+        "Clicking 'Pause' calls Stripe API with pause_collection",
+        "Stripe dashboard shows subscription as paused",
+        "Clicking 'Resume' restarts Stripe billing",
+        "Stripe dashboard shows subscription as active after resume"
+      ],
+      "risks": [
+        "Stripe pause behavior varies by plan type - test thoroughly",
+        "If Stripe call fails but DB updates → inconsistent state"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test with Stripe test mode: pause/resume subscription, verify Stripe dashboard state"
+      ],
+      "qa_notes": "Use Stripe test mode. Verify pause/resume round-trip works. Check billing portal shows correct status.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.392Z",
+      "updated_at": "2025-12-07T06:39:55.392Z"
+    },
+    {
+      "id": "TKT-003",
+      "title": "Update Cancellation Data Deletion Copy",
+      "priority": "critical",
+      "feature": "Cancel Subscription",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding B-cancel-subscription #2 [F-316]",
+      "issue": "Cancel modal warns that data will be 'permanently deleted' but actual behavior just downgrades to free - no data is deleted. This is misleading.",
+      "feature_docs": [
+        "docs/features/billing/cancel-subscription.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(dashboard)/settings/page.tsx - see other modal implementations"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx"
+      ],
+      "files_to_read": [],
+      "out_of_scope": [
+        "Do NOT change cancel flow logic (handled by TKT-002)",
+        "Do NOT add actual data deletion functionality",
+        "Do NOT modify other settings page components"
+      ],
+      "fix_required": [
+        "Update modal copy to: 'Your data will be retained for 30 days after cancellation, then may be permanently deleted.'"
+      ],
+      "acceptance_criteria": [
+        "Cancel modal shows updated retention language",
+        "No mention of 'immediate' or 'permanent' deletion",
+        "Modal text matches exact copy provided in fix_required"
+      ],
+      "risks": [
+        "Copy change only - low risk",
+        "Ensure copy matches terms of service language"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Visual: Open cancel modal, verify new copy displays"
+      ],
+      "qa_notes": "Verify modal displays correctly on desktop and mobile viewports.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.391Z",
+      "updated_at": "2025-12-07T23:09:48.964Z"
+    },
+    {
+      "id": "TKT-002",
+      "title": "Complete Stripe Subscription Cancellation",
+      "priority": "critical",
+      "feature": "Organization Settings, Cancel Subscription",
+      "difficulty": "medium",
+      "status": "done",
+      "source": "Findings D-organization-settings #1, #2; B-cancel-subscription #1 [F-061, F-062, F-117, F-118, F-315]",
+      "issue": "When users cancel their subscription: 1) Code only sets plan='free' in Supabase, 2) Does NOT call Stripe API to cancel, 3) UI says 'access until end of billing period' but access is removed immediately. Customers may continue being charged by Stripe.",
+      "feature_docs": [
+        "docs/features/billing/cancel-subscription.md",
+        "docs/features/admin/organization-settings.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/lib/stripe.ts - existing Stripe helper functions",
+        "apps/server/src/features/webhooks/stripe.ts - existing webhook handlers"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(dashboard)/settings/actions.ts",
+        "apps/dashboard/src/lib/stripe.ts",
+        "apps/server/src/features/webhooks/stripe.ts"
+      ],
+      "files_to_read": [
+        "packages/domain/src/database.types.ts",
+        "docs/features/billing/cancel-subscription.md"
+      ],
+      "out_of_scope": [
+        "Do NOT modify the cancel modal UI (TKT-003 handles copy)",
+        "Do NOT add pause functionality (separate ticket TKT-004)",
+        "Do NOT change database schema"
+      ],
+      "fix_required": [
+        "Call stripe.subscriptions.update({ cancel_at_period_end: true }) when user cancels",
+        "Store current_period_end from Stripe response in database",
+        "Add webhook handler for customer.subscription.deleted to finalize downgrade"
+      ],
+      "acceptance_criteria": [
+        "Clicking 'Cancel' calls Stripe API with cancel_at_period_end: true",
+        "User retains access until their paid period ends (stored in DB)",
+        "After period ends, plan automatically becomes 'free' via webhook",
+        "Stripe dashboard shows subscription as 'canceling'",
+        "Webhook properly handles the final cancellation event"
+      ],
+      "risks": [
+        "If Stripe call fails but DB updates → subscription cancelled locally but still billed",
+        "Need idempotency → user might click cancel multiple times",
+        "Webhook must be verified to prevent spoofing"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test with Stripe test mode: cancel subscription, verify Stripe dashboard shows 'canceling'"
+      ],
+      "qa_notes": "Use Stripe test mode. Verify webhook fires correctly using Stripe CLI: stripe listen --forward-to localhost:3001/webhooks/stripe",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.389Z",
+      "updated_at": "2025-12-07T06:39:55.389Z"
+    },
+    {
+      "id": "TKT-001",
+      "title": "Co-Browse Sensitive Data Sanitization",
+      "priority": "critical",
+      "feature": "Co-Browse (Viewer + Sender)",
+      "difficulty": "medium",
+      "status": "done",
+      "source": "Findings A-cobrowse-viewer #1, #2; V-cobrowse-sender #1 [F-227, F-003, F-228, F-655, F-745]",
+      "issue": "Password fields, credit card numbers, and other sensitive data are captured in DOM snapshots and transmitted to agents during co-browse sessions. This exposes plaintext passwords, violates PCI compliance, and creates privacy risks.",
+      "feature_docs": [
+        "docs/features/agent/cobrowse-viewer.md",
+        "docs/features/visitor/cobrowse-sender.md"
+      ],
+      "similar_code": [
+        "apps/widget/src/features/cobrowse/domSerializer.ts - existing DOM serialization logic to extend"
+      ],
+      "files_to_modify": [
+        "apps/widget/src/features/cobrowse/domSerializer.ts"
+      ],
+      "files_to_read": [
+        "apps/widget/src/features/cobrowse/cobrowseSender.ts",
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx"
+      ],
+      "out_of_scope": [
+        "Do NOT modify CobrowseViewer.tsx display logic",
+        "Do NOT add org-level toggle for masking (separate ticket TKT-009)",
+        "Do NOT change the snapshot transmission mechanism"
+      ],
+      "fix_required": [
+        "Add maskSensitiveFields() function to domSerializer.ts",
+        "Mask password fields with ••••••••",
+        "Mask credit card inputs (input[autocomplete='cc-number'], input[type='tel'])",
+        "Mask elements with data-sensitive='true' attribute"
+      ],
+      "acceptance_criteria": [
+        "Password input values show as •••••••• in agent viewer",
+        "Credit card fields (autocomplete='cc-number') show as masked",
+        "Elements with data-sensitive='true' attribute are masked",
+        "Regular form fields display normally (not masked)",
+        "New unit test file: domSerializer.test.ts covers masking logic"
+      ],
+      "risks": [
+        "If sanitization regex too aggressive → masks non-sensitive content",
+        "If sanitization is bypassed → sensitive data leaks to agents",
+        "Different form structures (React forms, vanilla HTML) may behave differently"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Create test.html with password field, type 'secret', verify serialized output shows ••••••••"
+      ],
+      "qa_notes": "Test with React form libraries (react-hook-form), vanilla HTML forms, and dynamic forms. Verify masked fields display correctly in agent's CobrowseViewer.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-07T06:39:55.381Z",
+      "updated_at": "2025-12-07T06:39:55.384Z"
+    },
+    {
+      "id": "TKT-066",
+      "title": "Facebook Events Silent Failure on Invalid Credentials",
+      "priority": "medium",
+      "feature": "Organization Settings",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-065",
+      "issue": "There is no error handling or admin notification when Facebook access tokens expire or are revoked. Admins may think their conversion tracking is working when events are silently failing, leading to incorrect analytics and wasted ad spend.",
+      "feature_docs": [
+        "docs/features/admin/organization-settings.md"
+      ],
+      "similar_code": [],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/admin/settings/organization/page.tsx",
+        "apps/server/src/features/facebook-events/send.ts"
+      ],
+      "files_to_read": [
+        "apps/server/src/features/facebook-events/send.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT change Facebook API integration logic",
+        "Do NOT add retry mechanisms - focus on notification only"
+      ],
+      "fix_required": [
+        "Add credential validation when admin saves FB settings",
+        "Track FB API call failures in database (add failed_at timestamp)",
+        "Display warning in organization settings UI when credentials are invalid",
+        "Add email notification when FB events start failing (after 3 consecutive failures)"
+      ],
+      "acceptance_criteria": [
+        "When admin saves invalid FB credentials, show immediate error",
+        "When FB API calls fail, track failures in database",
+        "Organization settings page shows warning banner if FB credentials are failing",
+        "Admin receives email notification after 3 consecutive FB event failures",
+        "Test with expired/invalid token to verify all alerts work"
+      ],
+      "risks": [
+        "Don't over-notify - only alert after multiple failures to avoid false alarms"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Save invalid FB token, verify immediate validation error",
+        "Manual: Trigger FB failures, verify email notification"
+      ],
+      "qa_notes": "Test with expired FB token. Verify validation on save and email notification after failures.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-10T23:00:00.000Z",
+      "updated_at": "2025-12-10T23:00:00.000Z"
+    },
+    {
+      "id": "TKT-067",
+      "title": "Add Exponential Backoff to Widget Verification Polling",
+      "priority": "medium",
+      "feature": "Sites Setup",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-095",
+      "issue": "Dashboard polls every 5 seconds indefinitely until widget is verified, causing unnecessary load. Quote: 'Polls forever until verified' with ⚠️ flag. This wastes server resources and creates unnecessary database queries for installations that take hours or days to complete.",
+      "feature_docs": [
+        "docs/features/admin/sites-setup.md"
+      ],
+      "similar_code": [],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/admin/sites/[siteId]/verification-status.tsx"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/app/(app)/admin/sites/[siteId]/page.tsx",
+        "apps/dashboard/src/app/(app)/admin/sites/[siteId]/verification-status.tsx"
+      ],
+      "out_of_scope": [
+        "Do NOT change the verification endpoint logic",
+        "Do NOT modify how widget installation works"
+      ],
+      "fix_required": [
+        "Implement exponential backoff: Start at 5s, then 10s, 30s, 60s",
+        "After 5 minutes of polling, stop automatic polling",
+        "Show 'Click to check again' button after polling stops",
+        "Preserve current behavior for first 5 minutes (fast feedback)"
+      ],
+      "acceptance_criteria": [
+        "Polling starts at 5 second intervals",
+        "After 1 minute, increases to 10s intervals",
+        "After 3 minutes, increases to 30s intervals",
+        "After 5 minutes, increases to 60s intervals",
+        "After 10 minutes, polling stops and shows manual check button",
+        "Button click triggers immediate check and resumes polling"
+      ],
+      "risks": [
+        "Don't break fast verification UX for quick installations"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Test polling intervals increase as expected",
+        "Manual: Verify button appears after timeout"
+      ],
+      "qa_notes": "Leave widget unverified and monitor polling intervals. Verify button appears and works after timeout.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-10T23:00:00.000Z",
+      "updated_at": "2025-12-10T23:00:00.000Z"
+    },
+    {
+      "id": "TKT-068",
+      "title": "Allow Pageview Tracking Without Agent Online",
+      "priority": "medium",
+      "feature": "Sites Setup",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-096",
+      "issue": "Pageviews are only tracked when an agent is online (agent_id is required). This means organizations without 24/7 agent coverage have inaccurate pageview counts, making install verification unreliable and analytics misleading.",
+      "feature_docs": [
+        "docs/features/admin/sites-setup.md"
+      ],
+      "similar_code": [],
+      "files_to_modify": [
+        "apps/server/src/features/pageviews/track.ts",
+        "database/migrations/XXXX-make-agent-id-nullable.sql"
+      ],
+      "files_to_read": [
+        "apps/server/src/features/pageviews/track.ts",
+        "apps/widget/src/features/pageview/track.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT change missed_opportunity tracking logic",
+        "Do NOT modify agent assignment logic"
+      ],
+      "fix_required": [
+        "Make agent_id nullable in pageviews table",
+        "Update pageview tracking to allow null agent_id",
+        "Track unassigned pageviews separately for analytics",
+        "Update dashboard stats to include both assigned and unassigned pageviews",
+        "Update verification logic to count all pageviews (not just assigned ones)"
+      ],
+      "acceptance_criteria": [
+        "Pageviews are recorded even when no agents are online",
+        "agent_id field is null when no agent available",
+        "Dashboard shows total pageviews (assigned + unassigned)",
+        "Verification succeeds based on any pageview, not just assigned ones",
+        "Existing pageview tracking still works for assigned pageviews"
+      ],
+      "risks": [
+        "Database migration must be backwards compatible",
+        "Ensure analytics queries handle null agent_id correctly"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Set all agents offline, load widget, verify pageview tracked",
+        "Manual: Check dashboard stats show correct total pageviews"
+      ],
+      "qa_notes": "Test with all agents offline. Load widget and verify pageview is tracked. Check dashboard analytics.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-10T23:00:00.000Z",
+      "updated_at": "2025-12-10T23:00:00.000Z"
+    },
+    {
+      "id": "TKT-069",
+      "title": "Add Drag-and-Drop Rule Priority Reordering",
+      "priority": "medium",
+      "feature": "Routing Rules",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-105",
+      "issue": "Admins cannot reorder routing rules through the UI despite priority being critical for rule matching. Documentation states: 'Admin reorders rules | Not supported | ❌ | Priority is set but manual reorder isn't exposed'. Admins must manually edit priority numbers which is error-prone.",
+      "feature_docs": [
+        "docs/features/admin/routing-rules.md"
+      ],
+      "similar_code": [
+        "Look for drag-and-drop implementations in the codebase (use @dnd-kit or similar)"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/admin/routing/rules-list.tsx",
+        "apps/dashboard/src/features/routing/update-rule-priority.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/app/(app)/admin/routing/page.tsx"
+      ],
+      "out_of_scope": [
+        "Do NOT change rule matching logic",
+        "Do NOT modify how priority numbers work - just expose reordering"
+      ],
+      "fix_required": [
+        "Add drag-and-drop UI for rule list using @dnd-kit or similar library",
+        "On drop, recalculate all rule priorities to maintain order",
+        "Add API endpoint to bulk update rule priorities",
+        "Show visual feedback during drag (highlight drop zones)",
+        "Maintain current manual priority number editing as fallback"
+      ],
+      "acceptance_criteria": [
+        "Admin can drag rules to reorder them",
+        "Priority numbers update automatically after drag-and-drop",
+        "Rule order persists after page refresh",
+        "Visual feedback shows where rule will be dropped",
+        "Manual priority editing still works as before",
+        "All rules maintain unique priority numbers"
+      ],
+      "risks": [
+        "Concurrent rule edits could cause priority conflicts",
+        "Ensure drag-and-drop works on mobile/tablet"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Drag rules to reorder, verify priority updates",
+        "Manual: Test with 10+ rules to ensure performance"
+      ],
+      "qa_notes": "Create multiple routing rules. Drag to reorder and verify priorities update correctly. Test on mobile.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-10T23:00:00.000Z",
+      "updated_at": "2025-12-10T23:00:00.000Z"
+    },
+    {
+      "id": "TKT-070",
+      "title": "Add Configuration for Trusted Proxy Headers",
+      "priority": "high",
+      "feature": "Geolocation Service",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-437 (🚨 GO-LIVE BLOCKER)",
+      "issue": "The server trusts x-forwarded-for header without validation, allowing IP spoofing to bypass geo-blocking if not behind a trusted proxy. Security section notes: 'Trusts x-forwarded-for (assumes trusted proxy)'. If the server receives direct connections, attackers can spoof headers to bypass geo-restrictions.",
+      "feature_docs": [
+        "docs/features/platform/geolocation-service.md"
+      ],
+      "similar_code": [],
+      "files_to_modify": [
+        "apps/server/src/features/geolocation/get-client-ip.ts",
+        "apps/server/src/config/environment.ts",
+        ".env.example"
+      ],
+      "files_to_read": [
+        "apps/server/src/features/geolocation/get-client-ip.ts",
+        "apps/server/src/features/blocklist/check.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT change geolocation API integration",
+        "Do NOT modify blocklist logic - only IP extraction"
+      ],
+      "fix_required": [
+        "Add TRUST_PROXY environment variable (default: 'true' for backwards compatibility)",
+        "When TRUST_PROXY=false, use socket.remoteAddress only (ignore all headers)",
+        "When TRUST_PROXY=true, use current x-forwarded-for logic",
+        "Add deployment documentation explaining security implications",
+        "Log warning on startup if TRUST_PROXY=true to remind admins"
+      ],
+      "acceptance_criteria": [
+        "TRUST_PROXY env var controls header trust behavior",
+        "When false, x-forwarded-for header is ignored",
+        "When true, current behavior is preserved",
+        "Default is true (no breaking changes)",
+        "Documentation explains when to use each setting",
+        "Warning logged at startup when TRUST_PROXY=true"
+      ],
+      "risks": [
+        "Breaking change if default is wrong - must default to true",
+        "Need clear documentation for deployment scenarios"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual: Test with TRUST_PROXY=false and spoofed header",
+        "Manual: Test with TRUST_PROXY=true to ensure current behavior works"
+      ],
+      "qa_notes": "Test both settings with spoofed x-forwarded-for header. With false, it should be ignored. With true, it should be honored.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-10T23:00:00.000Z",
+      "updated_at": "2025-12-10T23:00:00.000Z"
+    },
+    {
+      "id": "TKT-071",
+      "title": "Make Cache TTL Configurable with Monitoring",
+      "priority": "low",
+      "feature": "Caching Infrastructure",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-001",
+      "description": "Add cache hit rate monitoring and make the 5-minute TTL configurable per environment",
+      "finding_ids": [
+        "F-001"
+      ],
+      "files_to_modify": [
+        "apps/server/src/lib/cache.ts",
+        "apps/server/src/config/env.ts"
+      ],
+      "fix_required": [
+        "Add CACHE_TTL_SECONDS environment variable",
+        "Add cache hit rate metrics (log or expose via /metrics)",
+        "Document TTL tuning guidelines"
+      ],
+      "acceptance_criteria": [
+        "Cache TTL is configurable via environment variable",
+        "Cache hit rate is logged or exposed",
+        "F-001 is resolved"
+      ],
+      "created_at": "2025-12-11T01:07:48.234Z",
+      "updated_at": "2025-12-11T01:07:48.234Z",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "issue": "Cache TTL is hardcoded to 5 minutes with no monitoring. Cannot tune cache performance per environment. No visibility into cache effectiveness (hit rate).",
+      "feature_docs": [
+        "docs/features/caching-infrastructure.md"
+      ],
+      "similar_code": [],
+      "files_to_read": [
+        "apps/server/src/lib/cache.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT change cache invalidation logic",
+        "Do NOT add distributed cache (Redis) - that's TKT-075",
+        "Do NOT modify what gets cached - only TTL configuration"
+      ],
+      "risks": [
+        "Setting TTL too high can cause stale data issues",
+        "Setting TTL too low can increase database load"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "grep -r 'CACHE_TTL_SECONDS' apps/server/src - verify env var is used",
+        "node -e \"console.log(require('./apps/server/src/config/env').CACHE_TTL_SECONDS || 300)\" - verify default",
+        "pnpm test -- cache - run cache-related tests"
+      ],
+      "qa_notes": "Set CACHE_TTL_SECONDS to different values and verify cache behavior. Check logs for hit rate metrics."
+    },
+    {
+      "id": "TKT-072",
+      "title": "Fix Health Endpoint Documentation Mismatch",
+      "priority": "critical",
+      "feature": "External Uptime Monitoring",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-655",
+      "description": "Documentation says status=\"ok\" but actual response is status=\"healthy\". Fix documentation to prevent false alerts.",
+      "finding_ids": [
+        "F-655"
+      ],
+      "files_to_modify": [
+        "docs/features/external-uptime-monitoring.md"
+      ],
+      "fix_required": [
+        "Change all references from \"status\": \"ok\" to \"status\": \"healthy\"",
+        "Update monitor configuration example to check for \"healthy\"",
+        "Verify other status values match (unhealthy, degraded)"
+      ],
+      "acceptance_criteria": [
+        "Documentation matches actual /health endpoint response",
+        "Monitor configuration examples are correct",
+        "F-655 is resolved"
+      ],
+      "created_at": "2025-12-11T01:07:48.234Z",
+      "updated_at": "2025-12-11T01:07:48.234Z",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "issue": "Documentation claims health endpoint returns {\"status\":\"ok\"} but actual implementation returns {\"status\":\"healthy\"}. This mismatch causes integrators to configure monitors incorrectly, leading to false alerts.",
+      "feature_docs": [
+        "docs/features/external-uptime-monitoring.md"
+      ],
+      "similar_code": [],
+      "files_to_read": [
+        "apps/server/src/routes/health.ts",
+        "docs/features/external-uptime-monitoring.md"
+      ],
+      "out_of_scope": [
+        "Do NOT change the actual health endpoint implementation",
+        "Do NOT add new health check logic",
+        "Do NOT modify the response format - only fix documentation"
+      ],
+      "risks": [
+        "Very low risk - documentation-only change"
+      ],
+      "dev_checks": [
+        "grep -r '\"status\": \"ok\"' docs/ - verify no references to old format",
+        "grep -r '\"healthy\"' docs/features/external-uptime-monitoring.md - verify updated",
+        "curl http://localhost:3456/health | jq .status - verify matches docs (requires server running)"
+      ],
+      "qa_notes": "N/A - documentation-only change. Verify docs match actual /health endpoint response format."
+    },
+    {
+      "id": "TKT-073",
+      "title": "Document Paywall Timeline and Enable Path",
+      "priority": "medium",
+      "feature": "Billing",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-515",
+      "description": "Paywall is disabled but there is no clear timeline or process for enabling it.",
+      "finding_ids": [
+        "F-515"
+      ],
+      "files_to_modify": [
+        "docs/features/billing.md",
+        "DEPLOYMENT.md"
+      ],
+      "fix_required": [
+        "Document when paywall should be enabled (e.g., after beta)",
+        "Add checklist for enabling paywall safely",
+        "Document environment variables controlling paywall state"
+      ],
+      "acceptance_criteria": [
+        "Clear timeline for paywall activation documented",
+        "Enable/disable process documented",
+        "F-515 is resolved"
+      ],
+      "created_at": "2025-12-11T01:07:48.234Z",
+      "updated_at": "2025-12-11T01:07:48.234Z",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "issue": "Paywall is currently disabled in production but there is no documented plan or process for enabling it. This creates risk of enabling it incorrectly, potential for billing bugs in production, and unclear timeline for go-live.",
+      "feature_docs": [
+        "docs/features/billing.md"
+      ],
+      "similar_code": [],
+      "files_to_read": [
+        "docs/features/billing.md",
+        "apps/server/src/features/billing/paywall.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT implement paywall logic - it already exists",
+        "Do NOT change billing code",
+        "Do NOT enable the paywall - only document the process"
+      ],
+      "risks": [
+        "Very low risk - documentation-only change"
+      ],
+      "dev_checks": [
+        "grep -r 'PAYWALL_ENABLED' docs/ - verify documented",
+        "grep -r 'paywall' docs/features/billing.md - verify enable process exists",
+        "test -f DEPLOYMENT.md && grep -i paywall DEPLOYMENT.md - verify deployment docs updated"
+      ],
+      "qa_notes": "N/A - documentation-only change. Review documentation for clarity and completeness."
+    },
+    {
+      "id": "TKT-074",
+      "title": "Add Error Handling for Fire-and-Forget Events",
+      "priority": "medium",
+      "feature": "Event Tracking",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-197",
+      "description": "Fire-and-forget pattern silently loses failures. Add error logging/retry for critical events.",
+      "finding_ids": [
+        "F-197"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/events/eventEmitter.ts"
+      ],
+      "fix_required": [
+        "Add error logging for failed fire-and-forget events",
+        "Consider retry queue for critical events",
+        "Add metrics for event failure rate"
+      ],
+      "acceptance_criteria": [
+        "Failed events are logged with context",
+        "Event failure metrics available",
+        "F-197 is resolved"
+      ],
+      "created_at": "2025-12-11T01:07:48.234Z",
+      "updated_at": "2025-12-11T01:07:48.234Z",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "issue": "Fire-and-forget event pattern silently drops failures with no logging or monitoring. Critical business events (conversions, billing, etc.) may be lost without anyone knowing. No retry mechanism exists for transient failures.",
+      "feature_docs": [
+        "docs/features/event-tracking.md"
+      ],
+      "similar_code": [],
+      "files_to_read": [
+        "apps/server/src/features/events/eventEmitter.ts",
+        "apps/server/src/features/events/handlers/*.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT change event emitter API",
+        "Do NOT add distributed event queue (Kafka, RabbitMQ)",
+        "Do NOT change how events are emitted - only add failure handling"
+      ],
+      "risks": [
+        "Adding retry logic could cause duplicate events",
+        "Too much logging could overwhelm logs for high-volume events"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "grep -A 5 'eventEmitter.on' apps/server/src/features/events/eventEmitter.ts - verify error handling",
+        "pnpm test -- eventEmitter - run event emitter tests",
+        "Manual: Trigger event with failing handler, verify error logged"
+      ],
+      "qa_notes": "Create a failing event handler. Trigger event and verify error is logged with context. Check metrics dashboard for failure rate."
+    },
+    {
+      "id": "TKT-075",
+      "title": "Add Redis for Shared Cache Across Instances",
+      "priority": "medium",
+      "feature": "Caching Infrastructure",
+      "difficulty": "hard",
+      "status": "ready",
+      "source": "Finding F-438",
+      "description": "In-memory cache is not shared across server instances, causing inconsistent state in multi-instance deployments.",
+      "finding_ids": [
+        "F-438"
+      ],
+      "files_to_modify": [
+        "apps/server/src/lib/cache.ts",
+        "apps/server/package.json"
+      ],
+      "fix_required": [
+        "Add Redis client with fallback to in-memory",
+        "Make cache storage backend configurable via CACHE_DRIVER env var",
+        "Add Redis connection to health check"
+      ],
+      "acceptance_criteria": [
+        "Cache can use Redis when REDIS_URL is set",
+        "Falls back to in-memory when Redis unavailable",
+        "F-438 is resolved"
+      ],
+      "created_at": "2025-12-11T01:07:48.234Z",
+      "updated_at": "2025-12-11T01:07:48.234Z",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "issue": "In-memory cache is not shared across server instances. In multi-instance deployments, each instance has its own cache leading to: cache stampedes when all instances miss, inconsistent state across instances, wasted memory per instance, and poor cache hit rates.",
+      "feature_docs": [
+        "docs/features/caching-infrastructure.md"
+      ],
+      "similar_code": [],
+      "files_to_read": [
+        "apps/server/src/lib/cache.ts",
+        "apps/server/src/config/env.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT change what data is cached",
+        "Do NOT modify cache invalidation logic",
+        "Do NOT add other cache backends (Memcached, etc.) - Redis only"
+      ],
+      "risks": [
+        "Redis dependency adds operational complexity",
+        "Redis unavailability could cause outage if no fallback",
+        "Need to handle Redis connection failures gracefully"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "grep -r 'REDIS_URL' apps/server/src - verify env var used",
+        "grep -r 'CACHE_DRIVER' apps/server/src - verify fallback logic",
+        "pnpm test -- cache - run cache tests with both backends",
+        "Manual: Start without Redis, verify in-memory fallback works",
+        "Manual: Start with Redis, verify Redis is used"
+      ],
+      "qa_notes": "Test with REDIS_URL set and verify cache is shared across instances. Test without REDIS_URL and verify fallback to in-memory. Kill Redis and verify graceful degradation."
+    },
+    {
+      "id": "TKT-076",
+      "title": "Handle No Catch-All Pool Gracefully",
+      "priority": "medium",
+      "feature": "Agent Pools",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-110",
+      "finding_ids": [
+        "F-110"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/pools/poolMatcher.ts"
+      ],
+      "fix_required": [
+        "Return meaningful error or default pool when no match found",
+        "Log warning when no catch-all pool exists",
+        "Add validation in pool configuration UI"
+      ],
+      "acceptance_criteria": [
+        "No crashes when catch-all pool missing",
+        "Clear error message for admins",
+        "F-110 is resolved"
+      ],
+      "created_at": "2025-12-11T01:07:48.234Z",
+      "updated_at": "2025-12-11T01:07:48.234Z",
+      "issue": "When no catch-all pool exists, null is returned causing potential crashes. Add graceful handling.",
+      "out_of_scope": [
+        "Do NOT create new pools or modify pool creation logic",
+        "Do NOT change pool priority or matching algorithm",
+        "Do NOT modify pool configuration UI beyond validation"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "grep -r 'getCatchAllPool' apps/server/src/features/pools/",
+        "pnpm test poolMatcher"
+      ],
+      "risks": [
+        "Breaking existing pool matching logic",
+        "Affecting routing for other pool types",
+        "Edge cases with pool configuration changes"
+      ],
+      "feature_docs": [
+        "docs/features/pools/agent-pools.md"
+      ],
+      "files_to_read": [
+        "apps/server/src/features/pools/poolService.ts",
+        "apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx"
+      ],
+      "qa_notes": "Test scenarios: 1) No catch-all pool exists, 2) Catch-all pool exists but inactive, 3) Multiple pools with one catch-all. Verify error messages are clear and no crashes occur.",
+      "similar_code": [
+        "apps/server/src/features/routing/routingService.ts - see error handling patterns"
+      ],
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null
+    },
+    {
+      "id": "TKT-077",
+      "title": "Improve Error Message for Catch-All Pool Routing Rules",
+      "priority": "medium",
+      "feature": "Routing Rules",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-108",
+      "finding_ids": [
+        "F-108"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/admin/pools/routing-rules-client.tsx"
+      ],
+      "fix_required": [
+        "Catch database trigger error when adding rule to catch-all pool",
+        "Display user-friendly message: 'Routing rules cannot be added to the catch-all pool. This pool automatically receives all visitors not matched by other rules.'",
+        "Consider disabling 'Add Rule' button for catch-all pools"
+      ],
+      "acceptance_criteria": [
+        "Error message is clear and actionable",
+        "User understands why operation failed",
+        "F-108 is resolved"
+      ],
+      "created_at": "2025-12-10T23:00:00.000Z",
+      "updated_at": "2025-12-10T23:00:00.000Z",
+      "issue": "When admin tries to add a routing rule to a catch-all pool, the database error message is unclear. Need user-friendly error message explaining why rules cannot be added to catch-all pools.",
+      "out_of_scope": [
+        "Do NOT modify database triggers or constraints",
+        "Do NOT change pool creation or deletion logic",
+        "Do NOT alter routing rule execution behavior"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build apps/dashboard",
+        "Test adding rule to catch-all pool shows friendly error"
+      ],
+      "risks": [
+        "Breaking error handling for other pool operations",
+        "Missing other database constraint violations",
+        "UI state issues after error display"
+      ],
+      "feature_docs": [
+        "docs/features/pools/routing-rules.md"
+      ],
+      "files_to_read": [
+        "packages/domain/src/database.types.ts",
+        "apps/server/src/features/pools/routingRules.ts"
+      ],
+      "qa_notes": "Test: 1) Try adding routing rule to catch-all pool, 2) Verify error message is user-friendly, 3) Check that rule creation still works for non-catch-all pools, 4) Test that existing rules on catch-all pools (if any) are handled gracefully.",
+      "similar_code": [
+        "apps/dashboard/src/app/(app)/admin/pools/routing-rules-client.tsx - see other error handling"
+      ],
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null
+    },
+    {
+      "id": "TKT-078",
+      "title": "Add Logging for Malformed URL Routing Fallback",
+      "priority": "medium",
+      "feature": "Routing Rules",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-109",
+      "finding_ids": [
+        "F-109"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/routing/parseUrlContext.ts",
+        "apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx"
+      ],
+      "fix_required": [
+        "Log malformed URL occurrences with context (visitor ID, URL string)",
+        "Add URL validation warning in dashboard when pageUrl patterns show malformed values",
+        "Consider adding URL validation metrics to admin stats"
+      ],
+      "acceptance_criteria": [
+        "Malformed URLs are logged for debugging",
+        "Dashboard shows warning for unusual URL patterns",
+        "F-109 is resolved"
+      ],
+      "created_at": "2025-12-10T23:00:00.000Z",
+      "updated_at": "2025-12-10T23:00:00.000Z",
+      "issue": "Invalid/malformed URLs are silently treated as paths in routing logic, which could cause unexpected routing behavior. Add logging and dashboard warnings for debugging.",
+      "out_of_scope": [
+        "Do NOT change URL parsing behavior or validation logic",
+        "Do NOT block or reject malformed URLs",
+        "Do NOT modify routing rule matching algorithm"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "grep -r 'parseUrlContext' apps/server/src/",
+        "Verify logging appears in console/logs with test malformed URL"
+      ],
+      "risks": [
+        "Performance impact from excessive logging",
+        "Potential PII exposure in logs (sanitize URLs)",
+        "Log volume could be high if malformed URLs are common"
+      ],
+      "feature_docs": [
+        "docs/features/routing/url-routing.md"
+      ],
+      "files_to_read": [
+        "apps/server/src/lib/logger.ts",
+        "apps/server/src/features/routing/routingService.ts"
+      ],
+      "qa_notes": "Test with various malformed URLs: 1) Invalid protocol, 2) Missing domain, 3) Special characters, 4) Very long URLs. Verify: logging appears with context, dashboard shows warnings, no crashes occur, PII is sanitized.",
+      "similar_code": [
+        "apps/server/src/features/calls/callLogger.ts - see logging patterns"
+      ],
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null
+    },
+    {
+      "id": "TKT-079",
+      "title": "Add Maximum Recording Duration and File Size Limits",
+      "priority": "medium",
+      "feature": "Recording Settings",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-130",
+      "finding_ids": [
+        "F-130"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/features/webrtc/use-call-recording.ts",
+        "apps/server/src/features/recordings/recordingManager.ts",
+        "apps/dashboard/src/app/(app)/admin/settings/recordings/recording-settings-client.tsx"
+      ],
+      "fix_required": [
+        "Add configurable maximum recording duration (default 4 hours)",
+        "Display warning when approaching duration limit during active call",
+        "Add file size monitoring and warnings in recording settings",
+        "Consider auto-stop or chunking for very long calls"
+      ],
+      "acceptance_criteria": [
+        "Recording duration limits are configurable per org",
+        "Users see warnings before hitting limits",
+        "Storage exhaustion risk is mitigated",
+        "F-130 is resolved"
+      ],
+      "created_at": "2025-12-10T23:00:00.000Z",
+      "updated_at": "2025-12-10T23:00:00.000Z",
+      "issue": "No safeguards against extremely large recording files from very long calls (2+ hours). Calls at 2.5Mbps bitrate produce ~300MB/hour, so 4+ hour calls could exceed 1GB with no warnings or limits.",
+      "out_of_scope": [
+        "Do NOT modify recording quality or bitrate settings",
+        "Do NOT change storage backend or upload logic",
+        "Do NOT alter billing/pricing for recordings"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm test use-call-recording",
+        "pnpm test recordingManager",
+        "Verify duration limit configuration in UI"
+      ],
+      "risks": [
+        "Breaking active recordings mid-call",
+        "Storage backend compatibility issues",
+        "Edge case: recording near limit when limit changes",
+        "Performance impact from file size monitoring"
+      ],
+      "feature_docs": [
+        "docs/features/recording/call-recording.md"
+      ],
+      "files_to_read": [
+        "apps/server/src/features/calls/callService.ts",
+        "packages/domain/src/database.types.ts"
+      ],
+      "qa_notes": "Test: 1) Start recording and let it approach limit (use dev tools to simulate time), 2) Verify warning appears before limit, 3) Test auto-stop at limit, 4) Test admin can configure limit, 5) Test limit applies per-org, 6) Verify existing recordings not affected.",
+      "similar_code": [
+        "apps/dashboard/src/features/webrtc/use-call-recording.ts - see existing recording logic"
+      ],
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null
+    },
+    {
+      "id": "TKT-080",
+      "title": "Unify Pool Routing Logic Across All Reassignment Triggers",
+      "priority": "medium",
+      "feature": "Visitor Reassignment",
+      "difficulty": "hard",
+      "status": "ready",
+      "source": "Finding F-173",
+      "finding_ids": [
+        "F-173"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/reassignment/reassignmentManager.ts",
+        "apps/server/src/features/pools/poolMatcher.ts"
+      ],
+      "fix_required": [
+        "Audit all reassignment trigger paths",
+        "Ensure all triggers consistently respect pool routing rules",
+        "Add integration tests for each trigger type with pool routing",
+        "Document unified routing behavior"
+      ],
+      "acceptance_criteria": [
+        "All reassignment triggers respect pool routing consistently",
+        "Integration tests verify behavior for all trigger types",
+        "Documentation updated with unified behavior",
+        "F-173 is resolved"
+      ],
+      "created_at": "2025-12-10T23:00:00.000Z",
+      "updated_at": "2025-12-10T23:00:00.000Z",
+      "issue": "Pool routing behavior is inconsistent - CALL_REJECT and RNA Timeout respect pool routing, but 5 other triggers (Agent Away, Agent Offline, Agent Disconnect, Agent Accepts Call, Heartbeat Stale) do NOT. This creates unpredictable visitor experiences.",
+      "out_of_scope": [
+        "Do NOT change pool creation or deletion logic",
+        "Do NOT modify pool matching algorithm internals",
+        "Do NOT alter reassignment trigger conditions or timing"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm test reassignmentManager",
+        "pnpm test poolMatcher",
+        "grep -r 'reassignVisitor' apps/server/src/ | wc -l"
+      ],
+      "risks": [
+        "Breaking existing reassignment behavior users rely on",
+        "Performance impact from pool routing on all triggers",
+        "Complex interaction between multiple reassignment paths",
+        "Potential for routing loops in edge cases"
+      ],
+      "feature_docs": [
+        "docs/features/pools/agent-pools.md",
+        "docs/features/reassignment/visitor-reassignment.md"
+      ],
+      "files_to_read": [
+        "apps/server/src/features/agents/agentService.ts",
+        "apps/server/src/features/routing/routingService.ts",
+        "apps/server/src/features/calls/callService.ts"
+      ],
+      "qa_notes": "Test each trigger: 1) Agent Away, 2) Agent Offline, 3) Agent Disconnect, 4) Agent Accepts Call, 5) Heartbeat Stale. For each, verify: pool routing rules are respected, visitor routed to correct pool, no routing loops, behavior matches CALL_REJECT and RNA Timeout. Integration tests critical.",
+      "similar_code": [
+        "apps/server/src/features/reassignment/reassignmentManager.ts - see CALL_REJECT and RNA Timeout implementations"
+      ],
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null
+    },
+    {
+      "id": "TKT-081",
+      "title": "Add Pagination to Agent Stats Call List",
+      "priority": "medium",
+      "feature": "Agent Stats Dashboard",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-184",
+      "finding_ids": [
+        "F-184"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/dashboard/stats/page.tsx",
+        "apps/dashboard/src/lib/stats/agent-stats.ts",
+        "apps/server/src/app/api/agents/stats/route.ts"
+      ],
+      "fix_required": [
+        "Implement pagination for call list (50-100 calls per page)",
+        "Add separate stats-only endpoint that calculates across ALL calls (not limited to 500)",
+        "Update UI to show accurate stats even when call list is paginated",
+        "Remove or clarify '(limit reached)' message with pagination"
+      ],
+      "acceptance_criteria": [
+        "Agents can access all their calls via pagination",
+        "Statistics are accurate across all calls regardless of pagination",
+        "UI clearly indicates pagination state",
+        "F-184 is resolved"
+      ],
+      "created_at": "2025-12-10T23:00:00.000Z",
+      "updated_at": "2025-12-10T23:00:00.000Z",
+      "issue": "500 call limit causes data loss for high-volume agents. When agents select longer date ranges, they can't access all their calls and statistics may be incomplete. Need pagination or accurate stats calculation across all calls.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "out_of_scope": [
+        "Do NOT implement infinite scroll or virtual scrolling",
+        "Do NOT modify statistics calculation beyond ensuring it queries all calls",
+        "Do NOT change the overall dashboard layout"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test with agent account that has >500 calls",
+        "Verify stats accuracy across paginated results"
+      ],
+      "risks": [
+        "Performance impact if loading all calls for stats calculation",
+        "Need to ensure stats query is optimized with proper indexes",
+        "Large date ranges could cause slow stats calculation"
+      ],
+      "feature_docs": [
+        "docs/features/dashboard/agent-stats.md"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/app/(app)/dashboard/stats/page.tsx - current implementation",
+        "apps/dashboard/src/lib/stats/agent-stats.ts - stats calculation logic"
+      ],
+      "qa_notes": "Test with agent account having >500 calls. Verify pagination controls work and stats match all calls, not just displayed page.",
+      "similar_code": [
+        "apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx - similar call list with filters"
+      ]
+    },
+    {
+      "id": "TKT-083",
+      "title": "Enable Re-invitation of Previously Removed Users",
+      "priority": "medium",
+      "feature": "Agent Management",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-414",
+      "finding_ids": [
+        "F-414"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/api/agents/invite/route.ts",
+        "apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx",
+        "apps/dashboard/src/features/admin/components/InviteAgentModal.tsx"
+      ],
+      "fix_required": [
+        "Modify invite logic to check is_active status before rejecting existing users",
+        "Add \"Reactivate\" button for inactive agents in agents list UI",
+        "Handle billing seat addition during reactivation",
+        "Send reactivation email instead of new invite email for returning users"
+      ],
+      "acceptance_criteria": [
+        "Admins can re-invite users with inactive agent_profile records",
+        "UI shows reactivation option for inactive agents",
+        "Billing seats are correctly updated on reactivation",
+        "F-414 is resolved"
+      ],
+      "created_at": "2025-12-10T23:20:00.000Z",
+      "updated_at": "2025-12-10T23:20:00.000Z",
+      "issue": "The system blocks re-inviting email addresses that belong to users with inactive agent_profile records. Error shown is \"User already exists in this organization.\" This prevents admins from bringing back former team members through the normal invite flow.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "out_of_scope": [
+        "Do NOT modify removal flow or logic",
+        "Do NOT change email templates beyond reactivation case",
+        "Do NOT implement bulk reactivation"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test invite with email of inactive agent",
+        "Verify billing seat addition on reactivation",
+        "Test email notification is sent"
+      ],
+      "risks": [
+        "Race condition if user tries to sign up while being reactivated",
+        "Billing seat addition must be atomic with reactivation",
+        "Need to preserve user's historical data during reactivation"
+      ],
+      "feature_docs": [
+        "docs/features/agents/invite-flow.md",
+        "docs/features/agents/removal-reactivation.md"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/app/api/agents/invite/route.ts - current invite logic",
+        "apps/dashboard/src/app/api/agents/remove/route.ts - removal logic to understand is_active flag"
+      ],
+      "qa_notes": "Create inactive agent, then invite same email. Verify reactivation succeeds and user can login. Check billing seats updated.",
+      "similar_code": [
+        "apps/dashboard/src/app/api/agents/invite/route.ts - existing invite validation"
+      ]
+    },
+    {
+      "id": "TKT-084",
+      "title": "Add Reactivation Flow for Non-Admin Users",
+      "priority": "medium",
+      "feature": "Agent Management",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-016",
+      "finding_ids": [
+        "F-016"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx",
+        "apps/dashboard/src/features/admin/components/ReactivateAgentModal.tsx",
+        "apps/dashboard/src/app/api/agents/reactivate/route.ts"
+      ],
+      "fix_required": [
+        "Add \"Reactivate\" button for inactive agents in agents list",
+        "Create ReactivateAgentModal component",
+        "Implement reactivation API endpoint that handles billing seat addition",
+        "Add audit logging for reactivation events"
+      ],
+      "acceptance_criteria": [
+        "Admins can reactivate any inactive agent via UI",
+        "Reactivation flow properly handles billing seats",
+        "Reactivated agents can immediately log in and work",
+        "F-016 is resolved"
+      ],
+      "created_at": "2025-12-10T23:20:00.000Z",
+      "updated_at": "2025-12-10T23:20:00.000Z",
+      "issue": "The \"Add Myself (reactivate)\" flow documents how an admin can reactivate their own agent profile after removal. However, there's no documented flow for an admin to reactivate a DIFFERENT user who was previously removed. Combined with F-414, this means there's no complete way to bring back former agents.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "out_of_scope": [
+        "Do NOT implement self-service reactivation for non-admins",
+        "Do NOT add automatic reactivation on login attempt",
+        "Do NOT modify admin self-reactivation flow (already exists)"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test reactivating inactive agent as admin",
+        "Verify billing seat addition",
+        "Check audit log entry created"
+      ],
+      "risks": [
+        "Billing integration failure could block reactivation",
+        "Need to handle case where user no longer has valid auth",
+        "Must preserve agent's call history and stats"
+      ],
+      "feature_docs": [
+        "docs/features/agents/removal-reactivation.md"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx - agents list UI",
+        "apps/dashboard/src/app/api/agents/remove/route.ts - removal logic",
+        "apps/dashboard/src/features/admin/components/InviteAgentModal.tsx - similar modal pattern"
+      ],
+      "qa_notes": "Remove agent, then use Reactivate button to restore. Verify agent can login and access previous call history.",
+      "similar_code": [
+        "apps/dashboard/src/features/admin/components/InviteAgentModal.tsx - modal pattern to follow",
+        "apps/dashboard/src/app/api/agents/remove/route.ts - inverse operation"
+      ]
+    },
+    {
+      "id": "TKT-085",
+      "title": "Add Retry Mechanism for Stripe Billing Updates",
+      "priority": "medium",
+      "feature": "Agent Management",
+      "difficulty": "hard",
+      "status": "ready",
+      "source": "Finding F-017",
+      "finding_ids": [
+        "F-017"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/api/agents/invite/route.ts",
+        "apps/server/src/lib/billing/stripe-queue.ts",
+        "packages/database/src/schema.ts"
+      ],
+      "fix_required": [
+        "Create billing update queue system for retry logic",
+        "Add \"billing_pending\" flag to agent_invites table",
+        "Allow invite creation with pending billing status",
+        "Implement background job to sync pending billing updates when Stripe recovers",
+        "Add admin notifications for billing sync failures"
+      ],
+      "acceptance_criteria": [
+        "Agent invites succeed even when Stripe is temporarily unavailable",
+        "Billing updates are queued and retried automatically",
+        "Admins are notified of billing sync issues",
+        "F-017 is resolved"
+      ],
+      "created_at": "2025-12-10T23:20:00.000Z",
+      "updated_at": "2025-12-10T23:20:00.000Z",
+      "issue": "If Stripe is unavailable during invite creation, the invite fails and is rolled back. No retry mechanism exists. During Stripe outages, all agent invitations would fail even though the core invite functionality doesn't depend on Stripe. Need resilience for billing service disruptions.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "out_of_scope": [
+        "Do NOT implement full job queue system (use simple retry logic)",
+        "Do NOT add Stripe webhook handling for sync confirmation",
+        "Do NOT modify other billing operations beyond invite flow"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test invite creation with Stripe API mocked to fail",
+        "Verify invite succeeds with billing_pending flag",
+        "Test retry job successfully syncs when Stripe available",
+        "Check admin notification sent on sync failure"
+      ],
+      "risks": [
+        "High complexity - involves queueing system, retry logic, and failure notifications",
+        "Database schema change needed for billing_pending flag",
+        "Need careful error handling to avoid billing/agent mismatch",
+        "Retry logic must be idempotent"
+      ],
+      "feature_docs": [
+        "docs/features/agents/invite-flow.md",
+        "docs/features/billing/resilience.md"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/app/api/agents/invite/route.ts - invite endpoint with Stripe call",
+        "apps/dashboard/src/app/api/billing/seats/route.ts - billing seat management"
+      ],
+      "qa_notes": "Mock Stripe failure during invite. Verify invite succeeds with pending status. Mock Stripe recovery and verify background sync works.",
+      "similar_code": [
+        "apps/server/src/features/webhooks/stripe-webhook-handler.ts - async Stripe handling pattern"
+      ]
+    },
+    {
+      "id": "TKT-086",
+      "title": "Implement Server-Side Pagination for Call Logs",
+      "priority": "medium",
+      "feature": "Call Logs",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-021",
+      "issue": "No server-side pagination exists - 500 record limit cuts off data. Users cannot access historical data beyond the most recent 500 calls in any date range, which is a significant limitation for organizations with high call volumes. Documentation explicitly states this issue.",
+      "feature_docs": [
+        "docs/features/call-logs.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/lib/hooks/useAgents.ts - example of React hooks for data fetching",
+        "apps/server/src/app/api/agents/route.ts - example API endpoint structure"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx",
+        "apps/server/src/app/api/calls/route.ts",
+        "apps/dashboard/src/lib/hooks/useCalls.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/lib/components/call-log-filter-conditions.tsx",
+        "packages/domain/src/database.types.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT change the call log filtering logic",
+        "Do NOT modify call recording or transcription features",
+        "Do NOT implement real-time updates for call logs"
+      ],
+      "fix_required": [
+        "Implement cursor-based pagination on server API endpoint",
+        "Update client to handle paginated call data",
+        "Add \"Load More\" or infinite scroll UI",
+        "Remove arbitrary 500 record limit",
+        "Add pagination controls and status indicators"
+      ],
+      "acceptance_criteria": [
+        "Users can access all historical calls via pagination",
+        "No arbitrary record limit prevents data access",
+        "Pagination is performant with large datasets",
+        "F-021 is resolved"
+      ],
+      "risks": [
+        "Large datasets may cause performance issues if not properly indexed",
+        "Client state management complexity increases with pagination",
+        "Need to handle concurrent updates during pagination"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "grep -r '500' apps/server/src/app/api/calls/route.ts should not find arbitrary limit",
+        "Test with >1000 calls to verify pagination works"
+      ],
+      "qa_notes": "Test with high-volume call data (>500 records). Verify all calls are accessible via pagination. Check performance with date range filters active.",
+      "finding_ids": [
+        "F-021"
+      ],
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-10T23:20:00.000Z",
+      "updated_at": "2025-12-10T23:20:00.000Z"
+    },
+    {
+      "id": "TKT-087",
+      "title": "Define and Implement Data Retention Policy for Call Logs",
+      "priority": "medium",
+      "feature": "Call Logs",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-023",
+      "issue": "Documentation asks \"No explicit retention period found in code. Call logs appear to be kept indefinitely. Should there be automatic cleanup for older records?\" This represents both a storage cost concern and potential GDPR/privacy compliance gap.",
+      "feature_docs": [
+        "docs/features/call-logs.md",
+        "docs/features/compliance.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(app)/admin/settings/organization/organization-settings-client.tsx - example settings UI pattern",
+        "packages/database/src/schema.ts - organization table for reference"
+      ],
+      "files_to_modify": [
+        "apps/server/src/app/api/calls/route.ts",
+        "packages/database/src/schema.ts",
+        "apps/dashboard/src/app/(app)/admin/settings/data-retention/page.tsx"
+      ],
+      "files_to_read": [
+        "packages/domain/src/database.types.ts",
+        "apps/server/src/lib/cron-jobs.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT implement retention for other data types (users, organizations, etc.)",
+        "Do NOT implement data export/backup features",
+        "Do NOT modify call recording storage separately from call logs"
+      ],
+      "fix_required": [
+        "Define default data retention policy (e.g., 90 days, 1 year)",
+        "Add retention_days configuration to organization settings",
+        "Implement scheduled job to delete calls older than retention period",
+        "Add admin UI to configure retention period per organization",
+        "Add warnings before deleting old data"
+      ],
+      "acceptance_criteria": [
+        "Organizations can configure call log retention period",
+        "Old call logs are automatically cleaned up based on policy",
+        "Admins receive notifications before bulk deletions",
+        "F-023 is resolved"
+      ],
+      "risks": [
+        "Accidental data deletion if retention policy is misconfigured",
+        "GDPR compliance requires careful handling of deletion notifications",
+        "Scheduled job must be reliable and idempotent",
+        "Must handle associated call recordings properly"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "grep -r 'retention_days' packages/database/src/schema.ts finds new field",
+        "Verify scheduled job runs without errors in dev environment"
+      ],
+      "qa_notes": "Test retention policy configuration UI. Verify scheduled job deletes old records correctly. Test with different retention periods. Ensure notifications are sent before deletion.",
+      "finding_ids": [
+        "F-023"
+      ],
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z"
+    },
+    {
+      "id": "TKT-088",
+      "title": "Add Warning for Empty Allowlist Mode",
+      "priority": "medium",
+      "feature": "Blocklist Settings",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-034",
+      "issue": "Empty allowlist allows all visitors (lenient default), but admin might intuitively expect empty allowlist = \"allow nobody\" (block everyone). Open Question #6 already flags this as potentially confusing.",
+      "feature_docs": [
+        "docs/features/blocklist.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(app)/admin/settings/billing/billing-settings-client.tsx - example of alert/warning UI components",
+        "apps/dashboard/src/lib/components/Alert.tsx - alert component if it exists"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx"
+      ],
+      "files_to_read": [
+        "packages/domain/src/types.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT change the allowlist behavior logic itself",
+        "Do NOT modify blocklist mode functionality",
+        "Do NOT implement country selection UI changes"
+      ],
+      "fix_required": [
+        "Add explicit warning banner when allowlist mode is active but list is empty",
+        "Warning text: \"Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access.\"",
+        "Use warning/alert styling to make it prominent",
+        "Show warning only in ALLOWLIST mode when country list is empty"
+      ],
+      "acceptance_criteria": [
+        "Warning appears when allowlist is empty",
+        "Warning disappears when countries are added or mode is changed",
+        "Warning text clearly explains the current behavior",
+        "F-034 is resolved"
+      ],
+      "risks": [
+        "Low risk - UI-only change",
+        "Must ensure warning doesn't show in blocklist mode"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "Verify warning shows only in allowlist mode with empty list",
+        "Test that warning hides when countries added"
+      ],
+      "qa_notes": "Test in browser: 1) Switch to allowlist mode with empty list - warning should appear. 2) Add a country - warning should disappear. 3) Switch to blocklist mode - warning should not appear.",
+      "finding_ids": [
+        "F-034"
+      ],
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z"
+    },
+    {
+      "id": "TKT-089",
+      "title": "Add Confirmation Dialog for Blocklist Mode Changes",
+      "priority": "medium",
+      "feature": "Blocklist Settings",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-038",
+      "issue": "Switching between Blocklist and Allowlist modes clears the entire country list. While there's a \"clear warning in UI\" mentioned, if an admin accidentally clicks the wrong mode, they lose their entire list of selected countries. There's no confirmation dialog or undo functionality.",
+      "feature_docs": [
+        "docs/features/blocklist.md"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(app)/admin/pools/DeletePoolModal.tsx - example confirmation modal",
+        "apps/dashboard/src/features/workbench/post-call-disposition-modal.tsx - another modal example"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx",
+        "apps/dashboard/src/features/blocklist/ModeChangeConfirmationModal.tsx"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/lib/components/Modal.tsx",
+        "packages/domain/src/types.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT implement undo functionality",
+        "Do NOT change the mode switching logic beyond adding confirmation",
+        "Do NOT implement backup/restore of country lists"
+      ],
+      "fix_required": [
+        "Create confirmation modal component",
+        "Show modal when switching modes if current country list is non-empty",
+        "Modal message: \"Switching modes will clear your current list of X countries. Continue?\"",
+        "Include Cancel and Confirm buttons",
+        "Only clear list after explicit confirmation"
+      ],
+      "acceptance_criteria": [
+        "Confirmation dialog appears when switching modes with non-empty list",
+        "Dialog shows count of countries that will be lost",
+        "Canceling preserves current mode and list",
+        "Confirming switches mode and clears list",
+        "F-038 is resolved"
+      ],
+      "risks": [
+        "Low risk - adds protection against accidental data loss",
+        "Modal must properly prevent mode change if user cancels"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "Test modal appears only when list is non-empty",
+        "Test cancel button preserves state"
+      ],
+      "qa_notes": "Test in browser: 1) Add countries to blocklist. 2) Switch to allowlist mode - confirmation modal should appear. 3) Click Cancel - mode and list should stay unchanged. 4) Switch again and click Confirm - mode changes and list clears.",
+      "finding_ids": [
+        "F-038"
+      ],
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z"
+    },
+    {
+      "id": "TKT-090",
+      "title": "Consolidate DEFAULT_WIDGET_SETTINGS to Single Source of Truth",
+      "priority": "medium",
+      "feature": "Widget Settings",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-043",
+      "issue": "The DEFAULT_WIDGET_SETTINGS constant is defined in multiple files rather than having a single source of truth. This creates risk of divergence if one file is updated and others are not, leading to inconsistent fallback behavior between server and widget.",
+      "feature_docs": [
+        "docs/features/widget-settings.md"
+      ],
+      "similar_code": [
+        "packages/domain/src/types.ts - see how other shared constants are defined",
+        "packages/domain/src/database.types.ts - example of centralized type definitions"
+      ],
+      "files_to_modify": [
+        "packages/domain/src/types.ts",
+        "apps/server/src/lib/widget-settings.ts",
+        "apps/widget/src/lib/default-settings.ts"
+      ],
+      "files_to_read": [
+        "packages/domain/package.json",
+        "apps/server/package.json",
+        "apps/widget/package.json"
+      ],
+      "out_of_scope": [
+        "Do NOT change the default values themselves",
+        "Do NOT modify the WidgetSettings type structure",
+        "Do NOT add new widget settings fields"
+      ],
+      "fix_required": [
+        "Define DEFAULT_WIDGET_SETTINGS once in packages/domain/src/types.ts",
+        "Export as const alongside WidgetSettings type",
+        "Update all other files to import from domain package",
+        "Remove duplicate definitions",
+        "Add comment warning against recreating this constant elsewhere"
+      ],
+      "acceptance_criteria": [
+        "DEFAULT_WIDGET_SETTINGS exists in only one location",
+        "All imports reference the domain package",
+        "No duplicate definitions exist",
+        "All existing functionality works unchanged",
+        "F-043 is resolved"
+      ],
+      "risks": [
+        "Import paths must be correct across packages",
+        "Build order dependencies may need verification",
+        "Widget and server must both correctly import from domain"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm test passes",
+        "pnpm build passes in all packages",
+        "grep -r 'DEFAULT_WIDGET_SETTINGS' apps/server apps/widget should only show imports, not definitions"
+      ],
+      "qa_notes": "Verify widget loads with correct default settings. Test server API returns expected defaults. No visible behavior change expected - this is refactoring only.",
+      "finding_ids": [
+        "F-043"
+      ],
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null,
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z"
+    },
+    {
+      "id": "TKT-093",
+      "title": "Fix Timezone Display for Pause End Date",
+      "priority": "medium",
+      "feature": "Organization Settings",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-064",
+      "finding_ids": [
+        "F-064"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/admin/settings/billing/billing-settings-client.tsx",
+        "apps/dashboard/src/app/(app)/admin/settings/billing/pause-account-modal.tsx",
+        "apps/server/src/app/api/billing/update-settings/route.ts"
+      ],
+      "fix_required": [
+        "Display dates with explicit timezone in UI (e.g., \"Dec 15, 2025 at 12:00 AM UTC\")",
+        "OR convert and display dates in user's local timezone with clear indication",
+        "Ensure date picker behavior matches displayed timezone",
+        "Add tooltip or help text explaining timezone handling"
+      ],
+      "acceptance_criteria": [
+        "Users can clearly see what timezone the pause end date uses",
+        "No confusion about when account will actually resume",
+        "Date display is consistent across all billing UI",
+        "F-064 is resolved"
+      ],
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z",
+      "issue": "The pause_ends_at date is calculated server-side using JavaScript Date which uses UTC. When displayed to the user, this may not align with their local timezone, causing confusion about when the pause actually ends (e.g., \"Your account resumes on Dec 15\" might resume on Dec 14 or Dec 16 depending on timezone).",
+      "feature_docs": [
+        "docs/features/billing/"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/lib/utils/date-formatting.ts"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/lib/utils/date-formatting.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT change the server-side pause calculation logic",
+        "Do NOT modify the database schema for pause_ends_at",
+        "Do NOT add timezone selection features"
+      ],
+      "risks": [
+        "Date formatting changes may affect other date displays",
+        "Timezone conversion could introduce off-by-one errors"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Manual test: pause account and verify date display",
+        "Check date display in different timezones"
+      ],
+      "qa_notes": "Test pause end date display in multiple timezones. Verify tooltip/help text is clear.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null
+    },
+    {
+      "id": "TKT-094",
+      "title": "Add Disposition Value Aggregation and Reporting",
+      "priority": "medium",
+      "feature": "Organization Settings",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-066",
+      "finding_ids": [
+        "F-066"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/admin/stats/page.tsx",
+        "apps/server/src/app/api/stats/dispositions/route.ts",
+        "apps/dashboard/src/features/stats/DispositionValueReport.tsx"
+      ],
+      "fix_required": [
+        "Create API endpoint to aggregate disposition values",
+        "Add reporting view showing total conversion value by time period",
+        "Group values by agent and disposition type",
+        "Calculate and display ROI metrics",
+        "Add date range filtering for value reports"
+      ],
+      "acceptance_criteria": [
+        "Admins can view total conversion value across all calls",
+        "Values can be filtered by time period, agent, and disposition",
+        "ROI metrics are calculated and displayed",
+        "Report updates when disposition values change",
+        "F-066 is resolved"
+      ],
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z",
+      "issue": "Dispositions have a value field for conversion tracking, but the aggregation/reporting of these values is not implemented in the current codebase. Admins can set monetary values but cannot see total conversion value or ROI metrics anywhere.",
+      "feature_docs": [
+        "docs/features/dispositions/"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(app)/admin/stats/page.tsx - existing stats aggregation",
+        "apps/server/src/lib/stats/agent-stats.ts - stats calculation patterns"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/app/(app)/admin/stats/page.tsx",
+        "apps/server/src/lib/stats/agent-stats.ts",
+        "packages/domain/src/database.types.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify disposition CRUD operations",
+        "Do NOT change disposition value field structure",
+        "Do NOT add export/CSV functionality"
+      ],
+      "risks": [
+        "Large call volumes may impact aggregation performance",
+        "Currency handling for different locales not specified"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test with sample disposition values",
+        "Verify aggregation math is correct",
+        "Check performance with large datasets"
+      ],
+      "qa_notes": "Test with various disposition values. Verify totals, grouping by agent/type, and date filtering.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null
+    },
+    {
+      "id": "TKT-095",
+      "title": "Add Validation for Facebook Pixel Settings",
+      "priority": "medium",
+      "feature": "Organization Settings",
+      "difficulty": "easy",
+      "status": "ready",
+      "source": "Finding F-067",
+      "finding_ids": [
+        "F-067"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/app/(app)/admin/settings/organization/organization-settings-client.tsx",
+        "apps/server/src/app/api/organization/update-settings/route.ts"
+      ],
+      "fix_required": [
+        "Add validation requiring Pixel ID when Facebook events are configured",
+        "Show error message if trying to save mappings without Pixel ID",
+        "OR display warning banner indicating events won't fire without Pixel ID",
+        "Add helpful message explaining Pixel ID is required for event tracking"
+      ],
+      "acceptance_criteria": [
+        "Cannot save Facebook event mappings without Pixel ID",
+        "Clear error/warning message explains the requirement",
+        "Existing configs without Pixel ID show warning in UI",
+        "F-067 is resolved"
+      ],
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z",
+      "issue": "Admins can save Facebook event mappings without providing a Pixel ID. This allows configuration that will never work, with no feedback that the setup is incomplete. Edge case #15 notes: \"Save FB settings without pixel ID - Leave pixel ID empty - Can save but events won't fire - No validation error shown\".",
+      "feature_docs": [
+        "docs/features/organization-settings/"
+      ],
+      "similar_code": [
+        "apps/dashboard/src/app/(app)/admin/settings/organization/organization-settings-client.tsx - existing validation patterns"
+      ],
+      "files_to_read": [
+        "apps/dashboard/src/app/(app)/admin/settings/organization/organization-settings-client.tsx",
+        "apps/server/src/app/api/organization/update-settings/route.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT implement Facebook Pixel integration",
+        "Do NOT validate Pixel ID format with Facebook API",
+        "Do NOT add event testing functionality"
+      ],
+      "risks": [
+        "Simple validation - low risk",
+        "Should handle existing configs without Pixel ID gracefully"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test saving with/without Pixel ID",
+        "Test saving events with/without Pixel ID",
+        "Verify error message displays correctly"
+      ],
+      "qa_notes": "Test edge case: save FB event mappings without Pixel ID - should show validation error.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null
+    },
+    {
+      "id": "TKT-097",
+      "title": "Define and Implement Data Retention Policy",
+      "priority": "medium",
+      "feature": "Agent Call Logs",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-072",
+      "finding_ids": [
+        "F-072"
+      ],
+      "files_to_modify": [
+        "apps/server/src/lib/data-retention.ts",
+        "apps/dashboard/src/app/api/calls/route.ts",
+        "apps/dashboard/src/app/(app)/admin/settings/data-retention/page.tsx"
+      ],
+      "fix_required": [
+        "Define data retention policy with configurable periods",
+        "Implement automatic archival/deletion of old call logs",
+        "Add admin UI for retention period configuration",
+        "Add database migrations for retention metadata",
+        "Document retention policy in admin settings"
+      ],
+      "acceptance_criteria": [
+        "Admin can configure call log retention period",
+        "Old calls are automatically archived/deleted per policy",
+        "Retention policy is documented and accessible",
+        "Retention complies with GDPR requirements",
+        "F-072 is resolved"
+      ],
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z",
+      "issue": "Call logs appear to be kept indefinitely with no explicit retention period. This represents potential storage cost concerns and possible GDPR/privacy compliance gaps. Should there be limits for agent view?",
+      "feature_docs": [
+        "docs/features/data-retention/",
+        "docs/features/compliance/"
+      ],
+      "similar_code": [],
+      "files_to_read": [
+        "apps/dashboard/src/app/api/calls/route.ts",
+        "packages/domain/src/database.types.ts",
+        "apps/server/src/lib/",
+        "supabase/migrations/"
+      ],
+      "out_of_scope": [
+        "Do NOT implement backup/export before deletion",
+        "Do NOT add data restoration features",
+        "Do NOT modify active call handling"
+      ],
+      "risks": [
+        "Data deletion is irreversible - requires careful testing",
+        "GDPR compliance requires legal review",
+        "Performance impact on large datasets"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "Test retention policy configuration",
+        "Verify deletion logic with test data",
+        "Check database migration runs successfully"
+      ],
+      "qa_notes": "CRITICAL: Test data deletion carefully. Verify retention period configuration. Check GDPR compliance documentation.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null
+    },
+    {
+      "id": "TKT-098",
+      "title": "Fix Tiered Routing to Prefer Idle Agents Over Least-Connections",
+      "priority": "medium",
+      "feature": "Tiered Agent Assignment",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-088",
+      "finding_ids": [
+        "F-088"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/routing/tieredAssignment.ts"
+      ],
+      "fix_required": [
+        "Modify findBestAgentInTier() to prefer idle agents",
+        "Only use least-connections when no idle agents exist",
+        "Add hasIdleCandidate flag or similar tracking",
+        "Add unit tests for idle vs busy agent selection",
+        "Update algorithm documentation"
+      ],
+      "acceptance_criteria": [
+        "Idle agents are always selected before busy agents in same tier",
+        "Least-connections only activates when no idle agents available",
+        "All existing tests still pass",
+        "New tests verify idle agent preference",
+        "F-088 is resolved"
+      ],
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z",
+      "issue": "The current algorithm may select a busy agent (with 2 calls) over an idle agent (with 0 calls) when both exist in the same tier. The least-connections logic activates even when idle agents are available, potentially degrading customer experience.",
+      "feature_docs": [
+        "docs/features/tiered-routing/"
+      ],
+      "similar_code": [
+        "apps/server/src/features/routing/tieredAssignment.ts - existing routing logic"
+      ],
+      "files_to_read": [
+        "apps/server/src/features/routing/tieredAssignment.ts",
+        "apps/server/src/features/routing/tieredAssignment.test.ts"
+      ],
+      "out_of_scope": [
+        "Do NOT modify tier priority logic",
+        "Do NOT change max concurrent calls limits",
+        "Do NOT add new routing strategies"
+      ],
+      "risks": [
+        "Changes to routing logic could affect live call distribution",
+        "Need thorough testing to avoid breaking existing behavior"
+      ],
+      "dev_checks": [
+        "pnpm typecheck passes",
+        "pnpm test passes (especially routing tests)",
+        "Add new unit tests for idle agent preference",
+        "Manual test with multiple agents in same tier"
+      ],
+      "qa_notes": "Test with scenario: 2 agents in same tier, one idle (0 calls), one busy (2 calls). Verify idle agent is selected.",
+      "parent_ticket_id": null,
+      "iteration": 1,
+      "branch": null,
+      "worktree_path": null
+    },
+    {
+      "id": "TKT-102",
+      "title": "No Stripe Integration - Billing Continues During Pause",
+      "priority": "critical",
+      "feature": "Pause Subscription",
+      "difficulty": "high",
+      "status": "ready",
+      "source": "Finding F-283",
+      "description": "The pauseAccount() and resumeAccount() actions update the database but DO NOT interact with Stripe. Documentation explicitly states \"Impact: 🔴 High - Customers will still be billed during 'pause'\". Code comments at actions.ts:127-131 indicate this is TODO. This defeats the core purpose of the pause feature.",
+      "finding_ids": [
+        "F-283"
+      ],
+      "files_to_modify": [
+        "apps/dashboard/src/features/billing/actions.ts",
+        "apps/dashboard/src/lib/stripe/subscriptionManagement.ts"
+      ],
+      "fix_required": [
+        "Implement Stripe subscription.pause_collection with behavior: void",
+        "Add error handling for Stripe API failures",
+        "Update resumeAccount to unpause Stripe subscription",
+        "Add tests for Stripe integration"
+      ],
+      "acceptance_criteria": [
+        "Pausing account pauses Stripe subscription",
+        "Resuming account resumes Stripe subscription",
+        "Stripe errors are handled gracefully",
+        "F-283 is resolved"
+      ],
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z"
+    },
+    {
+      "id": "TKT-103",
+      "title": "No Auto-Resume Functionality for Paused Subscriptions",
+      "priority": "critical",
+      "feature": "Pause Subscription",
+      "difficulty": "high",
+      "status": "ready",
+      "source": "Finding F-284",
+      "description": "There is no cron job, scheduled task, or webhook to automatically resume subscriptions when pause_ends_at is reached. State diagram explicitly marks auto-resume as \"(NOT YET IMPLEMENTED)\". The database has an index (idx_organizations_pause_ends_at) ready for this query, but no scheduler exists. Subscriptions will stay paused indefinitely.",
+      "finding_ids": [
+        "F-284"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/billing/autoResume.ts",
+        "apps/server/src/lib/scheduler/pauseScheduler.ts"
+      ],
+      "fix_required": [
+        "Implement scheduled task using Supabase Edge Function, Railway cron, or Vercel cron",
+        "Query organizations where pause_ends_at <= NOW()",
+        "Call resumeAccount for each expired pause",
+        "Add logging and error handling",
+        "Add monitoring/alerting for failed resumes"
+      ],
+      "acceptance_criteria": [
+        "Scheduler runs periodically to check for expired pauses",
+        "Accounts are automatically resumed when pause_ends_at is reached",
+        "Failed resumes are logged and alerted",
+        "F-284 is resolved"
+      ],
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z"
+    },
+    {
+      "id": "TKT-104",
+      "title": "Widget Not Disabled During Pause",
+      "priority": "high",
+      "feature": "Pause Subscription",
+      "difficulty": "medium",
+      "status": "ready",
+      "source": "Finding F-285",
+      "description": "Edge case #16 explicitly states \"Widget visibility during pause | Visitor loads site | **Widget still shows** - server doesn't check pause status | ❌ | TODO in code comments\". The VISITOR_JOIN handler in socket-handlers.ts:97-209 does not check subscription_status before assigning agents. Paused organizations can still receive calls, negating the purpose of pausing.",
+      "finding_ids": [
+        "F-285"
+      ],
+      "files_to_modify": [
+        "apps/server/src/features/socket/socket-handlers.ts",
+        "apps/widget/src/features/webrtc/LiveCallView.tsx"
+      ],
+      "fix_required": [
+        "Add subscription_status check in VISITOR_JOIN handler",
+        "Reject widget initialization for paused organizations",
+        "Return appropriate error message to widget",
+        "Add test coverage for paused organization widget behavior"
+      ],
+      "acceptance_criteria": [
+        "Widget does not show for paused organizations",
+        "VISITOR_JOIN handler checks subscription_status",
+        "Appropriate error message shown to visitors",
+        "F-285 is resolved"
+      ],
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z"
+    },
+    {
+      "id": "TKT-105",
+      "title": "TypeScript Type Missing past_due Status",
+      "priority": "high",
+      "feature": "Payment Failure",
+      "difficulty": "low",
+      "status": "ready",
+      "source": "Finding F-296",
+      "description": "Documentation explicitly identifies that packages/domain/src/database.types.ts line 39 is missing past_due in the SubscriptionStatus type. The database migration adds past_due to the constraint, but the TypeScript type hasn't been updated. This will cause type errors when handling payment failures and could lead to runtime issues.",
+      "finding_ids": [
+        "F-296"
+      ],
+      "files_to_modify": [
+        "packages/domain/src/database.types.ts"
+      ],
+      "fix_required": [
+        "Update SubscriptionStatus type to include past_due",
+        "Verify all code handling subscription_status accounts for past_due",
+        "Update any type guards or switch statements",
+        "Run type checking to ensure no breaking changes"
+      ],
+      "acceptance_criteria": [
+        "SubscriptionStatus type includes past_due",
+        "TypeScript compilation succeeds",
+        "No type errors related to subscription_status",
+        "F-296 is resolved"
+      ],
+      "created_at": "2025-12-10T23:30:00.000Z",
+      "updated_at": "2025-12-10T23:30:00.000Z"
+    }
+  ]
+}
