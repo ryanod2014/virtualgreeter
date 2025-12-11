@@ -1,0 +1,65 @@
+{
+  "id": "BLOCKED-TKT-074-2",
+  "type": "blocker",
+  "source": "dev-agent-TKT-074",
+  "severity": "critical",
+  "title": "Previous blocker unresolved: Missing scope clarification",
+  "feature": "Event Tracking",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-11T22:28:11Z",
+
+  "issue": "This ticket was previously blocked by another agent with blocker BLOCKED-TKT-074-1 on the same scope issue. The ticket asks to modify 'apps/server/src/features/events/eventEmitter.ts' but this file does not exist. The ticket does NOT include a 'Blocker Resolution' section, indicating the previous blocker was never addressed. I cannot proceed without clarification on whether to: (1) create a new generic event emitter infrastructure, or (2) fix the specific transcription fire-and-forget issue directly.",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Create generic event emitter infrastructure — Build new EventEmitter in apps/server/src/features/events/ with error logging, retry queue, and metrics. Architectural change requiring new directory structure.",
+      "recommended": false
+    },
+    {
+      "id": 2,
+      "label": "Fix transcription fire-and-forget directly — Add error handling to the specific transcription flow in use-call-recording.ts. Simpler, targeted fix that solves F-197 immediately without new infrastructure.",
+      "recommended": true
+    },
+    {
+      "id": 3,
+      "label": "Update ticket to v2 with clear scope — Human PM reviews F-197 and decides on approach, then creates TKT-074-v2 with explicit instructions.",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 2 (or Option 3 if PM wants to reconsider) because the finding F-197 is specifically about transcription failures. Creating generic infrastructure without knowing if other fire-and-forget patterns exist would be speculative. Recommend PM clarify if other fire-and-forget issues exist beyond transcription.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-074",
+    "ticket_version": 1,
+    "branch": "agent/tkt-074",
+    "progress": {
+      "commits": [
+        "e4d1231 - WIP TKT-074: Blocked on scope clarification - BLOCKED"
+      ],
+      "done": [
+        "Read SOP and ticket instructions",
+        "Reviewed previous blocker (BLOCKED-TKT-074-1)",
+        "Confirmed file apps/server/src/features/events/eventEmitter.ts still does not exist",
+        "Verified no blocker resolution was added to ticket",
+        "Sent heartbeat to PM Dashboard"
+      ],
+      "remaining": [
+        "Await blocker resolution ← YOU ARE HERE",
+        "Implement solution based on PM decision",
+        "Add error logging",
+        "Add retry mechanism (if applicable)",
+        "Add metrics",
+        "Testing and verification"
+      ],
+      "stopped_at": {
+        "file": null,
+        "line": null,
+        "context": "Cannot start implementation without knowing if I'm creating new infrastructure or fixing existing code"
+      },
+      "notes_for_next_agent": "Previous agent identified the issue is in apps/dashboard/src/features/webrtc/use-call-recording.ts lines 283-295 (fire-and-forget fetch to /api/transcription/process). Transcription service has an API route that processes recordings. If PM chooses Option 2 (direct fix), the work should focus on that specific flow rather than creating generic event infrastructure. If PM chooses Option 1, need to create apps/server/src/features/events/ directory and build EventEmitter from scratch."
+    }
+  }
+}
