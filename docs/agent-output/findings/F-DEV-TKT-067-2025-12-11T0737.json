@@ -1,0 +1,19 @@
+{
+  "id": "F-DEV-TKT-067-1",
+  "source": "dev-agent-TKT-067",
+  "title": "Pre-existing merge conflicts prevent build completion",
+  "category": "bug",
+  "severity": "critical",
+  "file": "multiple",
+  "issue": "The codebase has unresolved merge conflicts in multiple files that prevent `pnpm typecheck` and `pnpm build` from completing successfully. These conflicts appear to be from merges of agent branches (tkt-045, tkt-052) that were not fully resolved.",
+  "affected_files": [
+    "apps/dashboard/src/app/(app)/platform/feedback/page.tsx",
+    "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx",
+    "apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx",
+    "apps/dashboard/src/features/surveys/ellis-survey-modal.tsx",
+    "apps/widget/src/features/webrtc/useWebRTC.test.ts"
+  ],
+  "suggestion": "Resolve all merge conflict markers (<<<<<<< HEAD, =======, >>>>>>>) in the affected files. Review the conflicting changes from agent/tkt-045 and agent/tkt-052 branches and determine which version should be kept or if they need to be merged.",
+  "status": "pending",
+  "found_at": "2025-12-11T07:37:09Z"
+}
