@@ -347,13 +347,79 @@ This will involve:
 
 ---
 
+---
+
+## Step 7: Enable Paywall (Before Public Launch)
+
+**⚠️ CRITICAL:** The paywall is currently disabled for beta testing. Before public launch, you MUST enable it to prevent revenue loss.
+
+### Pre-Requisites
+
+Before enabling the paywall, ensure:
+- All Stripe environment variables are set (see Step 3.2 above)
+- Webhook endpoint is configured and tested
+- Trial-to-paid conversion flow has been verified
+- Terms of Service and Privacy Policy are published
+
+### Enable Paywall Checklist
+
+- [ ] **Verify Stripe Configuration**
+  - [ ] `STRIPE_SECRET_KEY` uses live key (starts with `sk_live_`)
+  - [ ] `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` uses live key (starts with `pk_live_`)
+  - [ ] All three price IDs are configured (monthly, annual, 6-month)
+  - [ ] Webhook secret is set in server environment
+
+- [ ] **Test Payment Flow**
+  - [ ] Can create SetupIntent successfully
+  - [ ] Can enter card details using Stripe Elements
+  - [ ] Can create subscription with trial period
+  - [ ] Webhook delivers `invoice.paid` event correctly
+  - [ ] Subscription status updates to "active" after trial
+
+- [ ] **Update Code**
+  - [ ] Edit `apps/dashboard/src/app/(auth)/signup/page.tsx`
+  - [ ] Change line 63 from `window.location.href = "/admin";`
+  - [ ] To: `window.location.href = "/paywall";`
+  - [ ] Remove or update the TODO comment on line 62
+
+- [ ] **Deploy Changes**
+  - [ ] Commit: `git commit -m "Enable paywall for public launch"`
+  - [ ] Push: `git push origin main`
+  - [ ] Verify Vercel deployment completes successfully
+  - [ ] Test signup flow redirects to paywall
+
+- [ ] **Monitor Initial Signups**
+  - [ ] Watch Stripe dashboard for first payments
+  - [ ] Check webhook delivery logs
+  - [ ] Monitor error rates in application logs
+
+### Rollback Plan
+
+If issues occur after enabling:
+
+```bash
+# Quick rollback - revert the commit
+git revert HEAD
+git push origin main
+
+# Vercel will auto-deploy the rollback within 2-3 minutes
+```
+
+### Documentation
+
+For detailed paywall enablement instructions, see:
+- [Billing & Paywall System](./docs/features/billing.md)
+- [Billing API Documentation](./docs/features/api/billing-api.md)
+
+---
+
 ## Next Steps
 
 After deployment:
 
-1. Set up Stripe billing (create products/prices, add webhook)
+1. **Enable paywall before public launch** (see Step 7 above)
 2. Configure custom domain
 3. Set up error tracking (Sentry)
 4. Add uptime monitoring
-5. Create Terms of Service and Privacy Policy
+5. Publish Terms of Service and Privacy Policy
 
