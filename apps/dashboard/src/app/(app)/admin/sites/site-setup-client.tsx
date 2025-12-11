@@ -5,6 +5,7 @@ import { Copy, Check, Code, ExternalLink, Sparkles, Monitor, Smartphone, Layout,
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { WidgetSettings, WidgetSize, WidgetPosition, WidgetDevices, WidgetTheme } from "@ghost-greeter/domain/database.types";
+import { VerificationStatus } from "./verification-status";
 
 const DEFAULT_SETTINGS: WidgetSettings = {
   size: "medium",
@@ -45,50 +46,11 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
   const [verifiedDomain, setVerifiedDomain] = useState<string | null>(initialVerifiedDomain || (detectedSites.length > 0 ? detectedSites[0].domain : null));
   const supabase = createClient();
 
-  // Poll for verification status every 5 seconds until verified
-  // Also check for new pageviews as an alternative verification method
-  useEffect(() => {
-    if (isVerified) return;
-    
-    const checkVerification = async () => {
-      // Check both embed_verified_at flag AND pageviews
-      const [orgResult, pageviewsResult] = await Promise.all([
-        supabase
-          .from("organizations")
-          .select("embed_verified_at, embed_verified_domain")
-          .eq("id", organizationId)
-          .single(),
-        supabase
-          .from("widget_pageviews")
-          .select("page_url")
-          .eq("organization_id", organizationId)
-          .limit(1)
-      ]);
-      
-      // Verified if we have the flag OR any pageviews exist
-      if (orgResult.data?.embed_verified_at) {
-        setIsVerified(true);
-        setVerifiedDomain(orgResult.data.embed_verified_domain);
-      } else if (pageviewsResult.data && pageviewsResult.data.length > 0) {
-        // Extract domain from first pageview
-        try {
-          const url = new URL(pageviewsResult.data[0].page_url);
-          setIsVerified(true);
-          setVerifiedDomain(url.origin);
-        } catch {
-          setIsVerified(true);
-          setVerifiedDomain(null);
-        }
-      }
-    };
-    
-    // Check immediately
-    checkVerification();
-    
-    // Then poll every 5 seconds
-    const interval = setInterval(checkVerification, 5000);
-    return () => clearInterval(interval);
-  }, [isVerified, organizationId, supabase]);
+  // Handle verification status updates from the VerificationStatus component
+  const handleVerificationChange = (verified: boolean, domain: string | null) => {
+    setIsVerified(verified);
+    setVerifiedDomain(domain);
+  };
 
   const presetDelays = [
     { value: 0, label: "Instantly" },
@@ -286,19 +248,13 @@ export function SiteSetupClient({ organizationId, initialWidgetSettings, initial
         {/* Installation Status & Detected Sites - Integrated */}
         <div className="mt-8 pt-6 border-t border-border/50">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              {isVerified ? (
-                <>
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-sm font-medium text-green-600 dark:text-green-400">Installed</span>
-                </>
-              ) : (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />
-                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Waiting for installation</span>
-                </>
-              )}
-            </div>
+            <VerificationStatus
+              organizationId={organizationId}
+              initialVerified={initialEmbedVerified}
+              initialVerifiedDomain={initialVerifiedDomain}
+              initialDetectedSitesCount={detectedSites.length}
+              onVerificationChange={handleVerificationChange}
+            />
             {detectedSites.length > 0 && (
               <span className="text-xs text-muted-foreground">
                 {detectedSites.reduce((sum, s) => sum + s.pageCount, 0).toLocaleString()} total pageviews
