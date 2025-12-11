@@ -1,0 +1,60 @@
+{
+  "id": "BLOCKED-TKT-068-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-068",
+  "severity": "critical",
+  "title": "Feature appears to be already implemented - ticket references non-existent files",
+  "feature": "Sites Setup",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-11T20:51:05Z",
+
+  "issue": "The ticket specifies files to modify that don't exist: 'apps/server/src/features/pageviews/track.ts' and 'database/migrations/XXXX-make-agent-id-nullable.sql'. After thorough investigation, I found that the feature described in the ticket appears to be ALREADY FULLY IMPLEMENTED:\n\n1. Database schema already allows NULL agent_id (supabase/migrations/20251128400000_widget_pageviews.sql line 13)\n2. The pageview tracking code already handles null agent_id (apps/server/src/lib/pageview-logger.ts lines 12, 52)\n3. Missed opportunities are already tracked with null agent_id (apps/server/src/features/signaling/socket-handlers.ts line 280-289)\n4. Verification logic already counts ALL pageviews including null agent_id (apps/dashboard/src/app/(app)/admin/sites/page.tsx line 17-21)\n5. Dashboard stats already differentiate between covered (with agent) and missed (without agent) pageviews (apps/dashboard/src/app/(app)/admin/agents/page.tsx line 185-195)\n\nAll acceptance criteria appear to be met by the existing implementation.",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Close ticket as already implemented — Verify that all acceptance criteria are met by existing code and mark ticket as complete",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Update ticket with correct file paths — If there's additional work needed, update files_to_modify to reference actual files (apps/server/src/lib/pageview-logger.ts instead of track.ts)",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Clarify what's missing — Specify what functionality is NOT working that needs to be implemented",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 1 because all acceptance criteria are already met: (1) Pageviews ARE recorded when no agents online via WIDGET_MISSED_OPPORTUNITY event, (2) agent_id IS null for these entries, (3) Dashboard DOES show total pageviews using filters, (4) Verification DOES count all pageviews without filtering by agent_id, (5) Existing pageview tracking with agent_id still works.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-068",
+    "ticket_version": 1,
+    "branch": "agent/tkt-068",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Pre-flight validation completed",
+        "Thorough code investigation completed",
+        "Verified database schema allows NULL agent_id",
+        "Verified recordPageview() handles null agent_id",
+        "Verified missed opportunities tracked with null agent_id",
+        "Verified verification logic counts ALL pageviews",
+        "Verified dashboard stats differentiate covered vs missed"
+      ],
+      "remaining": [
+        "Waiting for PM clarification on what needs to be implemented"
+      ],
+      "stopped_at": {
+        "file": null,
+        "line": null,
+        "context": "Before writing any code - discovered feature already implemented"
+      },
+      "notes_for_next_agent": "The actual implementation is in apps/server/src/lib/pageview-logger.ts (not track.ts). The database migration already exists: supabase/migrations/20251128400000_widget_pageviews.sql. Missed opportunities are tracked via WIDGET_MISSED_OPPORTUNITY socket event in socket-handlers.ts line 280-289. All acceptance criteria appear to be met."
+    }
+  }
+}
