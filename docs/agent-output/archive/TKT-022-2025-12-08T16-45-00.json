@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TKT-022",
+  "branch": "agent/tkt-022-enforce-seat-limit-in-api",
+  "started_at": "2025-12-08T16:45:00Z",
+  "files_locking": [
+    "apps/dashboard/src/app/api/billing/seats/route.ts"
+  ]
+}

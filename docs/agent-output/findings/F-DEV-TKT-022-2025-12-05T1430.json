@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-022-1",
+  "source": "dev-agent-TKT-022",
+  "title": "Pre-existing build error: missing cobrowse-settings-client module",
+  "category": "bug",
+  "severity": "critical",
+  "file": "apps/dashboard/src/app/(app)/admin/settings/cobrowse/page.tsx",
+  "line": null,
+  "issue": "The build fails because the file './cobrowse-settings-client' does not exist but is imported in the cobrowse settings page. This is a pre-existing issue not related to TKT-022.",
+  "suggestion": "Create the missing cobrowse-settings-client.tsx file or remove the import if not needed. This appears to be a work-in-progress feature that was partially committed.",
+  "status": "pending",
+  "found_at": "2025-12-05T14:35:00Z"
+}
