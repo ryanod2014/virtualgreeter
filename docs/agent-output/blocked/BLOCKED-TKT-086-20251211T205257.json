@@ -1,0 +1,60 @@
+{
+  "id": "BLOCKED-TKT-086-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-086",
+  "severity": "critical",
+  "title": "Unclear architecture: API route vs Server Component approach",
+  "feature": "Call Logs Pagination",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-11T20:52:57Z",
+
+  "issue": "The ticket lists three files to modify: `apps/server/src/app/api/calls/route.ts`, `apps/dashboard/src/lib/hooks/useCalls.ts`, and `apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx`. However, the first two files don't exist. The current implementation uses Next.js Server Components (in `page.tsx`) that fetch data directly from Supabase with a hardcoded 500 record limit. Creating the specified API route and hook would require a fundamental architectural change from Server Components to client-side data fetching. The ticket doesn't specify whether to: (1) Keep Server Components and add pagination there, (2) Migrate to API routes + client hooks, or (3) Hybrid approach. Additionally, the ticket mentions 'cursor-based pagination' but doesn't specify what field to use as the cursor (id, created_at, etc.).",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Keep Server Components, add cursor params to page.tsx — Minimal change. Add ?cursor and ?pageSize params to the existing Server Component. Simplest approach but limits interactivity (requires full page reloads).",
+      "recommended": false
+    },
+    {
+      "id": 2,
+      "label": "Migrate to API route + client-side fetch — Create the API route and hook as specified. Most flexible for UX (infinite scroll, load more button). Requires refactoring from Server Component to Client Component with useEffect.",
+      "recommended": true
+    },
+    {
+      "id": 3,
+      "label": "Hybrid: Server Component for initial load, API for pagination — Keep current SSR for first page, add API route for subsequent pages. Best of both worlds but more complex.",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 2 because the ticket explicitly lists API route and hook files to create, suggesting client-side pagination is intended. This enables better UX with 'Load More' or infinite scroll without page reloads.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-086",
+    "ticket_version": 1,
+    "branch": "agent/tkt-086",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Read Dev Agent SOP",
+        "Read ticket specification",
+        "Analyzed current implementation in page.tsx and calls-client.tsx",
+        "Identified that specified files don't exist"
+      ],
+      "remaining": [
+        "Clarify architecture approach ← BLOCKED HERE",
+        "Implement pagination (approach depends on above)",
+        "Update UI for pagination controls",
+        "Test implementation"
+      ],
+      "stopped_at": {
+        "file": "N/A - no files modified yet",
+        "line": null,
+        "context": "Stopped before writing any code due to unclear requirements"
+      },
+      "notes_for_next_agent": "Current implementation: page.tsx (Server Component) fetches up to 500 calls directly from Supabase at line 120: `.limit(500)`. The calls-client.tsx receives this data as props and displays it. Line 892 shows a warning: 'Showing {filteredCalls.length} calls {filteredCalls.length === 500 && \" (limit reached)\"}'. To implement Option 2 (recommended), you'll need to: (1) Create apps/server/src/app/api/calls/route.ts with cursor-based pagination, (2) Create apps/dashboard/src/lib/hooks/useCalls.ts for client-side fetching, (3) Convert calls-client.tsx to use the hook instead of props, (4) Update page.tsx to either pass initial data or remove call fetching. Consider using `created_at` as the cursor field since data is already sorted by `order('created_at', { ascending: false })` at line 78."
+    }
+  }
+}
