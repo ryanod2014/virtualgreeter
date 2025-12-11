@@ -10,7 +10,7 @@
   <script>
     // Force clear all stale data - version 20251210
     (function() {
-      var v = '20251211a';
+      var v = '20251211d';
       if (localStorage.getItem('pm-force-version') !== v) {
         console.log('🔄 Force clearing all PM dashboard caches...');
         localStorage.clear();
@@ -3702,8 +3702,9 @@ pnpm build`}
         !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
-      // Pending tickets = NOT in progress (for All Tickets tab)
-      const pendingTickets = tickets.filter(t => 
+      // Pending tickets = status 'ready' AND not in progress
+      const pendingTickets = tickets.filter(t =>
+        t.status === 'ready' &&
         !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       

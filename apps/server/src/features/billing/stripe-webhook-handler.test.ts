@@ -857,6 +857,205 @@ describe("Stripe Webhook Handler", () => {
     });
   });
 
+  describe("customer.subscription.paused event", () => {
+    it("updates status to paused when subscription is paused", async () => {
+      const mockSubscription: Partial<Stripe.Subscription> = {
+        id: mockSubscriptionId,
+        object: "subscription",
+        status: "paused",
+      };
+
+      const mockEvent = createMockStripeEvent("customer.subscription.paused", {
+        object: mockSubscription as Stripe.Subscription,
+      });
+
+      (stripe!.webhooks.constructEvent as ReturnType<typeof vi.fn>).mockReturnValue(mockEvent);
+
+      const { mockUpdate } = setupSupabaseMock({
+        orgData: {
+          id: mockOrgId,
+          name: "Test Org",
+          subscription_status: "active",
+          stripe_customer_id: mockCustomerId,
+        },
+      });
+
+      await handleStripeWebhook(mockReq as Request, mockRes as Response);
+
+      expect(mockUpdate).toHaveBeenCalledWith({ subscription_status: "paused" });
+      expect(resJson).toHaveBeenCalledWith({ received: true });
+    });
+
+    it("is idempotent - skips update when org is already paused", async () => {
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      const mockSubscription: Partial<Stripe.Subscription> = {
+        id: mockSubscriptionId,
+        object: "subscription",
+        status: "paused",
+      };
+
+      const mockEvent = createMockStripeEvent("customer.subscription.paused", {
+        object: mockSubscription as Stripe.Subscription,
+      });
+
+      (stripe!.webhooks.constructEvent as ReturnType<typeof vi.fn>).mockReturnValue(mockEvent);
+
+      const { mockUpdate } = setupSupabaseMock({
+        orgData: {
+          id: mockOrgId,
+          name: "Test Org",
+          subscription_status: "paused", // Already paused
+          stripe_customer_id: mockCustomerId,
+        },
+      });
+
+      await handleStripeWebhook(mockReq as Request, mockRes as Response);
+
+      // Should NOT call update since status is already paused
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`Status already paused for org ${mockOrgId}`)
+      );
+      expect(resJson).toHaveBeenCalledWith({ received: true });
+    });
+
+    it("returns 500 when organization is not found", async () => {
+      const mockSubscription: Partial<Stripe.Subscription> = {
+        id: "sub_unknown",
+        object: "subscription",
+        status: "paused",
+      };
+
+      const mockEvent = createMockStripeEvent("customer.subscription.paused", {
+        object: mockSubscription as Stripe.Subscription,
+      });
+
+      (stripe!.webhooks.constructEvent as ReturnType<typeof vi.fn>).mockReturnValue(mockEvent);
+
+      setupSupabaseMock({ orgData: null }); // Org not found
+
+      await handleStripeWebhook(mockReq as Request, mockRes as Response);
+
+      expect(resStatus).toHaveBeenCalledWith(500);
+      expect(resJson).toHaveBeenCalledWith({ error: "Webhook handler failed" });
+    });
+  });
+
+  describe("customer.subscription.resumed event", () => {
+    it("updates status to active when subscription is resumed", async () => {
+      const mockSubscription: Partial<Stripe.Subscription> = {
+        id: mockSubscriptionId,
+        object: "subscription",
+        status: "active",
+      };
+
+      const mockEvent = createMockStripeEvent("customer.subscription.resumed", {
+        object: mockSubscription as Stripe.Subscription,
+      });
+
+      (stripe!.webhooks.constructEvent as ReturnType<typeof vi.fn>).mockReturnValue(mockEvent);
+
+      const { mockUpdate } = setupSupabaseMock({
+        orgData: {
+          id: mockOrgId,
+          name: "Test Org",
+          subscription_status: "paused",
+          stripe_customer_id: mockCustomerId,
+        },
+      });
+
+      await handleStripeWebhook(mockReq as Request, mockRes as Response);
+
+      expect(mockUpdate).toHaveBeenCalledWith({ subscription_status: "active" });
+      expect(resJson).toHaveBeenCalledWith({ received: true });
+    });
+
+    it("is idempotent - skips update when org is already active", async () => {
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      const mockSubscription: Partial<Stripe.Subscription> = {
+        id: mockSubscriptionId,
+        object: "subscription",
+        status: "active",
+      };
+
+      const mockEvent = createMockStripeEvent("customer.subscription.resumed", {
+        object: mockSubscription as Stripe.Subscription,
+      });
+
+      (stripe!.webhooks.constructEvent as ReturnType<typeof vi.fn>).mockReturnValue(mockEvent);
+
+      const { mockUpdate } = setupSupabaseMock({
+        orgData: {
+          id: mockOrgId,
+          name: "Test Org",
+          subscription_status: "active", // Already active
+          stripe_customer_id: mockCustomerId,
+        },
+      });
+
+      await handleStripeWebhook(mockReq as Request, mockRes as Response);
+
+      // Should NOT call update since status is already active
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`Status already active for org ${mockOrgId}`)
+      );
+      expect(resJson).toHaveBeenCalledWith({ received: true });
+    });
+
+    it("returns 500 when organization is not found", async () => {
+      const mockSubscription: Partial<Stripe.Subscription> = {
+        id: "sub_unknown",
+        object: "subscription",
+        status: "active",
+      };
+
+      const mockEvent = createMockStripeEvent("customer.subscription.resumed", {
+        object: mockSubscription as Stripe.Subscription,
+      });
+
+      (stripe!.webhooks.constructEvent as ReturnType<typeof vi.fn>).mockReturnValue(mockEvent);
+
+      setupSupabaseMock({ orgData: null }); // Org not found
+
+      await handleStripeWebhook(mockReq as Request, mockRes as Response);
+
+      expect(resStatus).toHaveBeenCalledWith(500);
+      expect(resJson).toHaveBeenCalledWith({ error: "Webhook handler failed" });
+    });
+
+    it("updates status from paused to active (full pause/resume cycle)", async () => {
+      const mockSubscription: Partial<Stripe.Subscription> = {
+        id: mockSubscriptionId,
+        object: "subscription",
+        status: "active",
+      };
+
+      const mockEvent = createMockStripeEvent("customer.subscription.resumed", {
+        object: mockSubscription as Stripe.Subscription,
+      });
+
+      (stripe!.webhooks.constructEvent as ReturnType<typeof vi.fn>).mockReturnValue(mockEvent);
+
+      const { mockUpdate } = setupSupabaseMock({
+        orgData: {
+          id: mockOrgId,
+          name: "Test Org",
+          subscription_status: "paused", // Was paused, now resuming
+          stripe_customer_id: mockCustomerId,
+        },
+      });
+
+      await handleStripeWebhook(mockReq as Request, mockRes as Response);
+
+      // Should update from paused to active
+      expect(mockUpdate).toHaveBeenCalledWith({ subscription_status: "active" });
+      expect(resJson).toHaveBeenCalledWith({ received: true });
+    });
+  });
+
   describe("Idempotency", () => {
     it("skips update if status is already the same (idempotent)", async () => {
       const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});

@@ -1,12 +1,14 @@
 /**
  * Stripe Webhook Handler
- * 
+ *
  * Handles critical Stripe webhook events for subscription lifecycle:
  * - invoice.paid: Update subscription status to active
  * - invoice.payment_failed: Log payment failure, potentially update status
  * - customer.subscription.updated: Sync subscription status changes
  * - customer.subscription.deleted: Handle cancellation
- * 
+ * - customer.subscription.paused: Handle subscription pause
+ * - customer.subscription.resumed: Handle subscription resume
+ *
  * All handlers are designed to be idempotent - safe to replay.
  */
 
@@ -261,6 +263,28 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 }
 
 /**
+ * Handle customer.subscription.paused event
+ * Updates status to paused when subscription is paused
+ */
+async function handleSubscriptionPaused(subscription: Stripe.Subscription): Promise<boolean> {
+  const org = await getOrgByStripeSubscriptionId(subscription.id);
+  if (!org) return false;
+
+  return updateOrgSubscriptionStatus(org.id, "paused", org.subscription_status, "customer.subscription.paused");
+}
+
+/**
+ * Handle customer.subscription.resumed event
+ * Updates status to active when subscription is resumed
+ */
+async function handleSubscriptionResumed(subscription: Stripe.Subscription): Promise<boolean> {
+  const org = await getOrgByStripeSubscriptionId(subscription.id);
+  if (!org) return false;
+
+  return updateOrgSubscriptionStatus(org.id, "active", org.subscription_status, "customer.subscription.resumed");
+}
+
+/**
  * Main webhook handler
  * Verifies signature and routes to appropriate handler
  */
@@ -318,6 +342,18 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
       case "customer.subscription.deleted":
         if (isSubscription(event.data.object)) {
           success = await handleSubscriptionDeleted(event.data.object);
+        }
+        break;
+
+      case "customer.subscription.paused":
+        if (isSubscription(event.data.object)) {
+          success = await handleSubscriptionPaused(event.data.object);
+        }
+        break;
+
+      case "customer.subscription.resumed":
+        if (isSubscription(event.data.object)) {
+          success = await handleSubscriptionResumed(event.data.object);
         }
         break;
 

@@ -220,6 +220,68 @@ function getTicketsFromDB() {
 }
 
 // =============================================================================
+// HELPER: Get findings from database in UI format
+// Returns { findings: [...] } matching the findings.json structure
+// Only returns TRIAGED findings (not staging) - staging findings are handled separately
+// =============================================================================
+function getFindingsFromDB() {
+  if (!dbModule?.findings) {
+    // Fall back to JSON if DB not available
+    return readJSON('findings.json');
+  }
+  
+  try {
+    const allFindings = dbModule.findings.list();
+    
+    // Filter out staging findings - only show triaged ones in the inbox
+    // Triaged = ticketed, skipped, inbox, pending, or any non-staging status
+    const findings = allFindings.filter(f => f.status !== 'staging');
+    
+    // Parse JSON fields and format for UI
+    const parseJsonField = (val) => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      try { return JSON.parse(val); } catch { return []; }
+    };
+    
+    const formattedFindings = findings.map(f => ({
+      id: f.id,
+      feature: f.feature,
+      category: f.category,
+      title: f.title,
+      severity: f.severity || 'medium',
+      location: f.location,
+      issue: f.issue,
+      suggested_fix: f.suggested_fix,
+      status: f.status || 'staging',
+      ticket_id: f.ticket_id,
+      merged_into: f.merged_into,
+      reject_reason: f.reject_reason,
+      options: parseJsonField(f.options),
+      agent_recommendation: f.agent_recommendation,
+      agent_options: parseJsonField(f.agent_options),
+      source_agent: f.source_agent,
+      created_at: f.created_at,
+      updated_at: f.updated_at
+    }));
+    
+    return { 
+      findings: formattedFindings,
+      meta: {
+        generated: new Date().toISOString(),
+        source: 'database',
+        total_in_db: allFindings.length,
+        staging_count: allFindings.length - findings.length
+      }
+    };
+  } catch (e) {
+    console.error('Error getting findings from DB:', e.message);
+    // Fall back to JSON on error
+    return readJSON('findings.json');
+  }
+}
+
+// =============================================================================
 // BLOCKER FILE WATCHER
 // Automatically detects new blocker files and triggers dispatch
 // =============================================================================
@@ -2285,8 +2347,8 @@ function handleAPI(req, res, body) {
         const activeLocks = dbModule.locks.getActive();
         
         const data = {
-          findings: readJSON('findings.json'),
-          decisions: getDecisionsFromDB(),  // Use database instead of JSON
+          findings: getFindingsFromDB(),   // Use database instead of JSON
+          decisions: getDecisionsFromDB(), // Use database instead of JSON
           tickets: { tickets: dbTickets }, // Format expected by UI
           summary: readJSON('findings-summary.json'),
           devStatus: devStatus,
@@ -2327,7 +2389,7 @@ function handleAPI(req, res, body) {
     }
     
     const data = {
-      findings: readJSON('findings.json'),
+      findings: getFindingsFromDB(),    // Use database instead of JSON
       decisions: getDecisionsFromDB(),  // Use database instead of JSON
       tickets: getTicketsFromDB(),      // Use database instead of JSON
       summary: readJSON('findings-summary.json'),
@@ -2732,22 +2794,39 @@ function handleAPI(req, res, body) {
   if (req.method === 'POST' && url === '/api/add-finding') {
     try {
       const finding = JSON.parse(body);
-      const findings = readJSON('findings.json') || { findings: [] };
       
-      // Add the new finding
-      findings.findings.push(finding);
-      
-      // Update summary counts
-      if (findings.summary) {
-        findings.summary[finding.severity] = (findings.summary[finding.severity] || 0) + 1;
-        findings.summary.pending = (findings.summary.pending || 0) + 1;
+      // Use DB if available, otherwise fall back to JSON
+      if (dbModule?.findings) {
+        const created = dbModule.findings.create({
+          id: finding.id,
+          feature: finding.feature,
+          category: finding.category,
+          title: finding.title,
+          severity: finding.severity || 'medium',
+          location: finding.location,
+          issue: finding.issue,
+          suggested_fix: finding.suggested_fix,
+          status: finding.status || 'staging',
+          options: finding.options || [],
+          agent_recommendation: finding.agent_recommendation,
+          source_agent: finding.source_agent
+        });
+        console.log(`🚨 Created regression finding in DB: ${finding.id}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, finding: created, source: 'database' }));
+      } else {
+        // Fallback to JSON
+        const findings = readJSON('findings.json') || { findings: [] };
+        findings.findings.push(finding);
+        if (findings.summary) {
+          findings.summary[finding.severity] = (findings.summary[finding.severity] || 0) + 1;
+          findings.summary.pending = (findings.summary.pending || 0) + 1;
+        }
+        writeJSON('findings.json', findings);
+        console.log(`🚨 Created regression finding in JSON: ${finding.id}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, finding, source: 'json' }));
       }
-      
-      writeJSON('findings.json', findings);
-      console.log(`🚨 Created regression finding: ${finding.id}`);
-      
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, finding }));
     } catch (e) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
