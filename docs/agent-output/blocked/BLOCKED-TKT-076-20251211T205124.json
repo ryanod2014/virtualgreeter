@@ -1,0 +1,66 @@
+{
+  "id": "BLOCKED-TKT-076-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-076",
+  "severity": "critical",
+  "title": "Scope conflict: file doesn't exist and UI validation contradiction",
+  "feature": "Agent Pools",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-11T20:51:24Z",
+
+  "issue": "The ticket has multiple scope issues: (1) The file to modify 'apps/server/src/features/pools/poolMatcher.ts' does not exist - needs to be created from scratch, but ticket says 'modify'. (2) The ticket requires 'Add validation in pool configuration UI' but pools-client.tsx is NOT in files_to_modify and out_of_scope says 'Do NOT modify pool configuration UI beyond validation'. (3) UI validation already exists at pools-client.tsx:1876 with 'if (pool?.is_catch_all) return; // Can't delete the All pool' but has no user-facing error message. (4) The PM's decision 'they shouldn't be able to delete catch all pool' is already implemented but silently fails.",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Server-side only approach — Create poolMatcher.ts with defensive null handling and logging when catch-all pool is missing. Skip UI changes since file not in scope. UI already prevents deletion but could be improved separately.",
+      "recommended": false
+    },
+    {
+      "id": 2,
+      "label": "Full implementation — Add pools-client.tsx to files_to_modify so I can add proper error toast when attempting to delete catch-all pool. Also create poolMatcher.ts with defensive handling. This completes the PM's intent.",
+      "recommended": true
+    },
+    {
+      "id": 3,
+      "label": "Database-only approach — Ticket is already solved by existing UI check (line 1876) and database migration (20251203100000_catch_all_pool_validation.sql). Just document this as completed and close F-110.",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 2 because the PM decision was 'they shouldn't be able to delete catch all pool' which requires both UI feedback (error message to user) and server-side safety. Current implementation silently fails with no feedback. Also poolMatcher.ts doesn't exist yet so this is actually a creation task.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-076",
+    "ticket_version": 1,
+    "branch": "agent/tkt-076",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Read ticket spec and identified scope conflicts",
+        "Found existing UI protection at pools-client.tsx:1876",
+        "Found database migration already exists",
+        "Verified poolMatcher.ts does not exist"
+      ],
+      "remaining": [
+        "Get clarification on scope ← BLOCKED HERE",
+        "Create or modify poolMatcher.ts",
+        "Add UI error message (if in scope)",
+        "Add server-side logging"
+      ],
+      "stopped_at": {
+        "file": "N/A - no code written yet",
+        "line": null,
+        "context": "About to write blocker before starting any implementation"
+      },
+      "notes_for_next_agent": "The file poolMatcher.ts doesn't exist in the codebase. Existing pool logic is in apps/server/src/features/routing/pool-manager.ts. UI already has silent check preventing deletion. Database has migration preventing routing rules on catch-all pools. The ticket seems to want both better UI feedback AND a new poolMatcher.ts file, but scope is unclear."
+    },
+    "discovered_facts": {
+      "existing_ui_check": "pools-client.tsx line 1876: if (pool?.is_catch_all) return; // Can't delete the All pool",
+      "existing_db_migration": "supabase/migrations/20251203100000_catch_all_pool_validation.sql",
+      "file_structure": "Pool logic currently in apps/server/src/features/routing/pool-manager.ts, not in apps/server/src/features/pools/",
+      "ui_issue": "Silent failure - no error message shown to user when trying to delete catch-all pool"
+    }
+  }
+}
