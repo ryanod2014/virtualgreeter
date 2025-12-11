@@ -112,6 +112,7 @@ interface StaffingMetrics {
 
 interface Props {
   agents: Agent[];
+  inactiveAgents: Agent[];
   pools: Pool[];
   agentStats: Record<string, AgentStats>;
   organizationId: string;
@@ -126,12 +127,13 @@ interface Props {
   staffingMetrics: StaffingMetrics;
 }
 
-export function AgentsClient({ 
-  agents: initialAgents, 
-  pools, 
-  agentStats, 
-  organizationId, 
-  pendingInvites: initialInvites = [], 
+export function AgentsClient({
+  agents: initialAgents,
+  inactiveAgents: initialInactiveAgents,
+  pools,
+  agentStats,
+  organizationId,
+  pendingInvites: initialInvites = [],
   currentUserId,
   currentUserName,
   isCurrentUserAgent: initialIsCurrentUserAgent,
@@ -143,8 +145,9 @@ export function AgentsClient({
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  
+
   const [agents, setAgents] = useState(initialAgents);
+  const [inactiveAgents, setInactiveAgents] = useState(initialInactiveAgents);
   const [pendingInvites, setPendingInvites] = useState(initialInvites);
   const [billingInfo, setBillingInfo] = useState(initialBillingInfo);
   const [isCurrentUserAgent, setIsCurrentUserAgent] = useState(initialIsCurrentUserAgent);
@@ -159,12 +162,17 @@ export function AgentsClient({
   const [inviteSuccess, setInviteSuccess] = useState(false);
   const [isAddingSelf, setIsAddingSelf] = useState(false);
   const [addSelfSuccess, setAddSelfSuccess] = useState(false);
-  
+
   // New state for confirmations
   const [showInviteConfirm, setShowInviteConfirm] = useState(false);
   const [agentToRemove, setAgentToRemove] = useState<Agent | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+
+  // State for reactivation
+  const [agentToReactivate, setAgentToReactivate] = useState<Agent | null>(null);
+  const [isReactivating, setIsReactivating] = useState(false);
+  const [reactivateError, setReactivateError] = useState<string | null>(null);
   
   // State for expanded pool videos
   const [expandedPoolId, setExpandedPoolId] = useState<string | null>(null);
@@ -503,7 +511,7 @@ export function AgentsClient({
   // Remove agent (soft delete)
   const handleRemoveAgent = async () => {
     if (!agentToRemove) return;
-    
+
     setIsRemoving(true);
     setRemoveError(null);
 
@@ -549,6 +557,61 @@ export function AgentsClient({
       setRemoveError("An unexpected error occurred");
     } finally {
       setIsRemoving(false);
+    }
+  };
+
+  // Reactivate agent
+  const handleReactivateAgent = async () => {
+    if (!agentToReactivate) return;
+
+    setIsReactivating(true);
+    setReactivateError(null);
+
+    try {
+      const response = await fetch("/api/agents/reactivate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentProfileId: agentToReactivate.id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setReactivateError(data.error || "Failed to reactivate agent");
+        setIsReactivating(false);
+        return;
+      }
+
+      // Move agent from inactive to active list
+      setInactiveAgents(inactiveAgents.filter(a => a.id !== agentToReactivate.id));
+      setAgents([...agents, { ...agentToReactivate, status: "offline" }]);
+
+      // Update billing info
+      const newUsedSeats = billingInfo.usedSeats + 1;
+      const billingExpanded = data.billingExpanded ?? false;
+      const newPurchasedSeats = billingExpanded ? billingInfo.purchasedSeats + 1 : billingInfo.purchasedSeats;
+
+      setBillingInfo({
+        ...billingInfo,
+        usedSeats: newUsedSeats,
+        purchasedSeats: newPurchasedSeats,
+        availableSeats: newPurchasedSeats - newUsedSeats,
+        activeAgents: billingInfo.activeAgents + 1,
+        monthlyCost: newPurchasedSeats * billingInfo.pricePerSeat,
+      });
+
+      // If reactivating yourself, update the flag
+      if (agentToReactivate.user_id === currentUserId) {
+        setIsCurrentUserAgent(true);
+      }
+
+      setAgentToReactivate(null);
+      router.refresh(); // Refresh to get updated data
+    } catch (error) {
+      console.error("Reactivate error:", error);
+      setReactivateError("An unexpected error occurred");
+    } finally {
+      setIsReactivating(false);
     }
   };
 
@@ -1226,6 +1289,90 @@ export function AgentsClient({
         </div>
       )}
 
+      {/* Reactivate Agent Confirmation Modal */}
+      {agentToReactivate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="glass rounded-2xl p-6 w-full max-w-md mx-4">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+                <RefreshCw className="w-8 h-8 text-green-500" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">
+                Reactivate Agent?
+              </h3>
+              <p className="text-muted-foreground">
+                {agentToReactivate.display_name} will be restored to your team and can take calls immediately.
+              </p>
+            </div>
+
+            {reactivateError && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm mb-4">
+                {reactivateError}
+              </div>
+            )}
+
+            <div className="p-4 rounded-xl bg-muted/30 mb-6 space-y-3">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <strong>Call history restored</strong>
+                  <p className="text-muted-foreground">All previous call logs and stats will be available.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CreditCard className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <strong>Billing seat used</strong>
+                  <p className="text-muted-foreground">
+                    {wouldExceedPurchased
+                      ? `This will increase your monthly cost by $${billingInfo.pricePerSeat}/month.`
+                      : `You'll use 1 of your ${billingInfo.purchasedSeats} available seats.`
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Shield className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <strong>Immediate access</strong>
+                  <p className="text-muted-foreground">Agent can log in and start taking calls right away.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleReactivateAgent}
+                disabled={isReactivating}
+                className="flex-1 px-6 py-3 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isReactivating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Reactivating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Reactivate Agent
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setAgentToReactivate(null);
+                  setReactivateError(null);
+                }}
+                disabled={isReactivating}
+                className="px-6 py-3 rounded-lg bg-muted hover:bg-muted/80 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6">
         {/* Agents List */}
         <div>
@@ -1631,6 +1778,67 @@ export function AgentsClient({
                           title="Revoke invite (credit refunded)"
                         >
                           <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* Inactive Agents */}
+              {inactiveAgents.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-muted/20 border-t border-border">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Inactive Agents ({inactiveAgents.length}) — Can be reactivated
+                    </span>
+                  </div>
+                  {inactiveAgents.map((agent) => (
+                    <div
+                      key={agent.id}
+                      className="grid grid-cols-12 gap-4 p-4 items-center bg-muted/5 border-t border-border opacity-60"
+                    >
+                      {/* Agent Info */}
+                      <div className="col-span-4 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          <Users className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{agent.display_name}</div>
+                          <div className="text-sm text-muted-foreground">{agent.user.email}</div>
+                        </div>
+                      </div>
+
+                      {/* Status */}
+                      <div className="col-span-2">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">
+                          <Circle className="w-3 h-3" />
+                          Inactive
+                        </span>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="col-span-3 text-sm text-muted-foreground">
+                        {(() => {
+                          const stats = getAgentStats(agent.id);
+                          return stats.totalCalls > 0
+                            ? `${stats.totalCalls} call${stats.totalCalls !== 1 ? 's' : ''} (previous)`
+                            : "No calls yet";
+                        })()}
+                      </div>
+
+                      {/* Empty */}
+                      <div className="col-span-2"></div>
+
+                      {/* Actions */}
+                      <div className="col-span-1 flex justify-end gap-2">
+                        <button
+                          onClick={() => setAgentToReactivate(agent)}
+                          className="px-3 py-2 rounded-lg border border-green-600/30 text-green-600 hover:bg-green-600/10 transition-colors text-sm flex items-center gap-2"
+                          title="Reactivate agent"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          Reactivate
                         </button>
                       </div>
                     </div>

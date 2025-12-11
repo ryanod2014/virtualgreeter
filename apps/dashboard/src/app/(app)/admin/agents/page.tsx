@@ -65,6 +65,34 @@ export default async function AgentsPage({ searchParams }: Props) {
     console.error("[AgentsPage] Query error:", agentsError.message);
   }
 
+  // Fetch INACTIVE agents for reactivation flow
+  const { data: inactiveAgents } = await supabase
+    .from("agent_profiles")
+    .select(`
+      id,
+      user_id,
+      display_name,
+      status,
+      wave_video_url,
+      intro_video_url,
+      loop_video_url,
+      max_simultaneous_simulations,
+      is_active,
+      deactivated_at,
+      user:users!agent_profiles_user_id_fkey(email, full_name),
+      agent_pool_members(
+        id,
+        priority_rank,
+        wave_video_url,
+        intro_video_url,
+        loop_video_url,
+        pool:agent_pools(id, name, is_catch_all)
+      )
+    `)
+    .eq("organization_id", auth!.organization.id)
+    .eq("is_active", false)
+    .order("deactivated_at", { ascending: false });
+
   // Fetch all pools for assignment dropdown
   const { data: pools } = await supabase
     .from("agent_pools")
@@ -255,8 +283,25 @@ export default async function AgentsPage({ searchParams }: Props) {
   const transformedAgents = (agents ?? []).map(agent => ({
     ...agent,
     user: Array.isArray(agent.user) ? agent.user[0] : agent.user,
-    agent_pool_members: (agent.agent_pool_members ?? []).map((m: { 
-      id: string; 
+    agent_pool_members: (agent.agent_pool_members ?? []).map((m: {
+      id: string;
+      pool: unknown;
+      priority_rank?: number;
+      wave_video_url: string | null;
+      intro_video_url: string | null;
+      loop_video_url: string | null;
+    }) => ({
+      ...m,
+      pool: Array.isArray(m.pool) ? m.pool[0] : m.pool,
+    })),
+  }));
+
+  // Transform inactive agents the same way
+  const transformedInactiveAgents = (inactiveAgents ?? []).map(agent => ({
+    ...agent,
+    user: Array.isArray(agent.user) ? agent.user[0] : agent.user,
+    agent_pool_members: (agent.agent_pool_members ?? []).map((m: {
+      id: string;
       pool: unknown;
       priority_rank?: number;
       wave_video_url: string | null;
@@ -274,6 +319,7 @@ export default async function AgentsPage({ searchParams }: Props) {
   return (
     <AgentsClient
       agents={transformedAgents as unknown as Parameters<typeof AgentsClient>[0]["agents"]}
+      inactiveAgents={transformedInactiveAgents as unknown as Parameters<typeof AgentsClient>[0]["agents"]}
       pools={pools ?? []}
       agentStats={agentStats}
       organizationId={auth!.organization.id}
