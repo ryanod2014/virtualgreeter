@@ -7,6 +7,7 @@
 
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 import type { WidgetSettings } from "@ghost-greeter/domain";
+import { CACHE_TTL_MS } from "../config/env.js";
 
 // Default widget settings (used if Supabase is not configured or fetch fails)
 const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
@@ -20,11 +21,10 @@ const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   cobrowse_enabled: true, // default to enabled for backward compatibility
 };
 
-// Cache for org default settings (expires after 10 seconds in dev, 5 minutes in prod)
+// Cache for org default settings
 const orgSettingsCache = new Map<string, { settings: WidgetSettings; expiresAt: number }>();
-const CACHE_TTL = process.env.NODE_ENV === 'production' ? 5 * 60 * 1000 : 10 * 1000; // 5 min prod, 10 sec dev
 
-// Cache for pool settings (expires after 5 minutes)
+// Cache for pool settings
 const poolSettingsCache = new Map<string, { settings: WidgetSettings | null; expiresAt: number }>();
 
 /**
@@ -94,7 +94,7 @@ async function getOrgDefaultSettings(orgId: string): Promise<WidgetSettings> {
   // Cache the result
   orgSettingsCache.set(orgId, {
     settings,
-    expiresAt: Date.now() + CACHE_TTL,
+    expiresAt: Date.now() + CACHE_TTL_MS,
   });
 
   return settings;
@@ -132,7 +132,7 @@ async function getPoolSettings(poolId: string): Promise<WidgetSettings | null> {
   // Cache the result
   poolSettingsCache.set(poolId, {
     settings,
-    expiresAt: Date.now() + CACHE_TTL,
+    expiresAt: Date.now() + CACHE_TTL_MS,
   });
 
   return settings;

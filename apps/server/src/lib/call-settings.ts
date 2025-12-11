@@ -7,6 +7,7 @@
 
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 import type { RecordingSettings } from "@ghost-greeter/domain";
+import { CACHE_TTL_MS } from "../config/env.js";
 
 // Default call settings (used if Supabase is not configured or fetch fails)
 const DEFAULT_CALL_SETTINGS = {
@@ -14,9 +15,8 @@ const DEFAULT_CALL_SETTINGS = {
   max_call_duration_minutes: 120, // 2 hours default
 };
 
-// Cache for org call settings (expires after 60 seconds in dev, 5 minutes in prod)
+// Cache for org call settings
 const callSettingsCache = new Map<string, { settings: typeof DEFAULT_CALL_SETTINGS; expiresAt: number }>();
-const CACHE_TTL = process.env.NODE_ENV === 'production' ? 5 * 60 * 1000 : 60 * 1000;
 
 export interface CallSettings {
   rna_timeout_seconds: number;
@@ -63,7 +63,7 @@ export async function getCallSettings(orgId: string): Promise<CallSettings> {
     // Cache the result
     callSettingsCache.set(orgId, {
       settings,
-      expiresAt: Date.now() + CACHE_TTL,
+      expiresAt: Date.now() + CACHE_TTL_MS,
     });
 
     console.log(`[CallSettings] Org ${orgId}: RNA timeout=${settings.rna_timeout_seconds}s, max duration=${settings.max_call_duration_minutes}min`);

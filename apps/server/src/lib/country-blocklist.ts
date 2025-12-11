@@ -8,6 +8,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from "./supabase.js";
+import { CACHE_TTL_MS } from "../config/env.js";
 
 type CountryListMode = "blocklist" | "allowlist";
 type GeoFailureHandling = "allow" | "block";
@@ -18,9 +19,8 @@ interface CountryListSettings {
   geoFailureHandling: GeoFailureHandling;
 }
 
-// Cache for country list settings (expires after 60 seconds in dev, 5 minutes in prod)
+// Cache for country list settings
 const countryListCache = new Map<string, { settings: CountryListSettings; expiresAt: number }>();
-const CACHE_TTL = process.env.NODE_ENV === 'production' ? 5 * 60 * 1000 : 60 * 1000;
 
 /**
  * Get the country list settings for an organization
@@ -61,7 +61,7 @@ export async function getCountryListSettings(orgId: string): Promise<CountryList
     // Cache the result
     countryListCache.set(orgId, {
       settings,
-      expiresAt: Date.now() + CACHE_TTL,
+      expiresAt: Date.now() + CACHE_TTL_MS,
     });
 
     const modeStr = settings.mode === "allowlist" ? "ONLY allowing" : "blocking";
