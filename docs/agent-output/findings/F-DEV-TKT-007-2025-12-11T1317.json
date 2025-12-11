@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-007-1",
+  "source": "dev-agent-TKT-007",
+  "title": "Type errors in test files after main merge",
+  "category": "bug",
+  "severity": "low",
+  "file": "apps/server/src/features/routing/pool-manager.test.ts",
+  "line": 1,
+  "issue": "TypeScript errors exist in test files: unused import 'afterEach' in pool-manager.test.ts and unused variables in socket-handlers.test.ts. These appear to be from recent baseline regression tests added to main.",
+  "suggestion": "Clean up unused imports in test files:\n1. Remove unused 'afterEach' import from pool-manager.test.ts:1\n2. Remove unused 'CallRequest' and 'ActiveCall' imports from socket-handlers.test.ts:437\n3. Remove unused 'TIMING' variable from socket-handlers.test.ts:438",
+  "status": "pending",
+  "found_at": "2025-12-11T20:17:00Z"
+}
