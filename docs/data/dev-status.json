@@ -81,10 +81,10 @@
     {
       "ticket_id": "TKT-064",
       "branch": "agent/tkt-064",
-      "completed_at": "2025-12-08T19:27:00.000Z",
-      "completion_file": "docs/agent-output/completions/TKT-064-2025-12-08T1927.md",
+      "completed_at": "2025-12-11T09:59:00.000Z",
+      "completion_file": "docs/agent-output/completions/TKT-064-2025-12-11T095900.md",
       "status": "blocked",
-      "note": "Fourth confirmation - ticket still missing implementation details - URGENT: Stop assigning agents to this ticket"
+      "note": "Fifth confirmation - CRITICAL PM BUG: routing logic ignores blocker files - IMMEDIATELY fix PM routing before further damage"
     }
   ],
   "retry_history": [],
