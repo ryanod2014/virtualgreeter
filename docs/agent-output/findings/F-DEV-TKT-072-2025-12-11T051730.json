@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-072-1",
+  "source": "dev-agent-TKT-072",
+  "title": "Pre-existing TypeScript and build errors in widget and server packages",
+  "category": "bug",
+  "severity": "high",
+  "file": "apps/widget/src/features/webrtc/useWebRTC.test.ts",
+  "line": 1067,
+  "issue": "Multiple pre-existing TypeScript errors prevent typecheck and build from passing: 1) apps/widget/src/features/webrtc/useWebRTC.test.ts:1067 - 'Declaration or statement expected' error, 2) apps/server/src/features/signaling/socket-handlers.test.ts and socket-handlers.ts - multiple 'Merge conflict marker encountered' errors (lines 438, 440, 441, 641-667), 3) apps/server/src/lib/organization.test.ts - 'Invalid character' at line 67 and 'Unterminated template literal' at line 412. These errors exist on the main branch and are not related to any recent changes.",
+  "suggestion": "1) Review and resolve merge conflicts in apps/server/src/features/signaling/socket-handlers.ts and socket-handlers.test.ts, 2) Fix syntax errors in apps/server/src/lib/organization.test.ts, 3) Investigate and fix the declaration error in apps/widget/src/features/webrtc/useWebRTC.test.ts line 1067 (file appears syntactically correct but TypeScript is reporting an error).",
+  "status": "pending",
+  "found_at": "2025-12-11T05:17:30Z"
+}
