@@ -23,6 +23,18 @@ export async function submitCancellationFeedback(
 ) {
   const supabase = await createClient();
 
+  // Get organization to retrieve Stripe subscription ID
+  const { data: org, error: orgError } = await supabase
+    .from("organizations")
+    .select("stripe_subscription_id")
+    .eq("id", params.organizationId)
+    .single();
+
+  if (orgError || !org) {
+    console.error("Failed to fetch organization:", orgError);
+    throw new Error("Failed to fetch organization");
+  }
+
   // Insert the cancellation feedback
   const { error: feedbackError } = await supabase
     .from("cancellation_feedback")
@@ -45,21 +57,50 @@ export async function submitCancellationFeedback(
     throw new Error("Failed to save cancellation feedback");
   }
 
-  // In production, you would also:
-  // 1. Call Stripe to cancel the subscription
-  // 2. Update the organization's plan to 'free' or mark as cancelled
-  // 3. Send a confirmation email
-  // 4. Schedule data retention/deletion
+  // Call Stripe to cancel the subscription at period end
+  if (org.stripe_subscription_id) {
+    try {
+      const { stripe } = await import("@/lib/stripe");
 
-  // For now, we'll just downgrade to free plan
-  const { error: updateError } = await supabase
-    .from("organizations")
-    .update({ plan: "free" })
-    .eq("id", params.organizationId);
+      if (!stripe) {
+        console.warn("Stripe not configured - skipping subscription cancellation");
+      } else {
+        // Cancel subscription at end of billing period
+        const subscription = await stripe.subscriptions.update(
+          org.stripe_subscription_id,
+          {
+            cancel_at_period_end: true,
+          }
+        );
 
-  if (updateError) {
-    console.error("Failed to update organization plan:", updateError);
-    // Don't throw - feedback is saved, that's the important part
+        // Get period end timestamp from subscription
+        // Note: Stripe SDK types are inconsistent, using type assertion
+        const periodEndTimestamp = (subscription as unknown as {current_period_end: number}).current_period_end;
+        const periodEndDate = new Date(periodEndTimestamp * 1000);
+        console.log(`Stripe subscription ${subscription.id} marked for cancellation at period end: ${periodEndDate.toISOString()}`);
+
+        // Store the period end date in the database so UI can show "Access until X"
+        // Using pause_ends_at field to store when subscription access ends
+        const { error: updateError } = await supabase
+          .from("organizations")
+          .update({
+            pause_ends_at: periodEndDate.toISOString(),
+          })
+          .eq("id", params.organizationId);
+
+        if (updateError) {
+          console.error("Failed to store period end date:", updateError);
+          // Don't throw - Stripe cancellation succeeded, which is critical
+        }
+      }
+    } catch (stripeError) {
+      console.error("Failed to cancel Stripe subscription:", stripeError);
+      // Throw error - we don't want to save feedback if Stripe call fails
+      // This ensures subscription is actually cancelled
+      throw new Error("Failed to cancel subscription with Stripe");
+    }
+  } else {
+    console.warn("No Stripe subscription ID found - skipping Stripe cancellation");
   }
 
   revalidatePath("/admin/settings/billing");
