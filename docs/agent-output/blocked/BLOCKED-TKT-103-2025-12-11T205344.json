@@ -1,0 +1,67 @@
+{
+  "id": "BLOCKED-TKT-103-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-103",
+  "severity": "critical",
+  "title": "Need to choose cron implementation platform and configure infrastructure",
+  "feature": "Pause Subscription",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-11T08:00:00Z",
+  
+  "issue": "The ticket specifies 'Implement scheduled task using Supabase Edge Function, Railway cron, or Vercel cron' but doesn't indicate which platform to use. Each requires different infrastructure setup and cannot be tested without actual deployment configuration. I found railway.json in apps/server/ suggesting Railway deployment, but Railway cron jobs require a separate service configuration that I cannot verify or test locally.",
+  
+  "options": [
+    {
+      "id": 1,
+      "label": "Railway Cron Job — Create separate Railway service with cron schedule that calls server HTTP endpoint. Requires Railway project configuration and environment variables. Most isolated approach but adds deployment complexity.",
+      "recommended": false
+    },
+    {
+      "id": 2,
+      "label": "In-Process Node.js Scheduler — Add setInterval to existing server code to check every hour. Simple, no external services, but loses schedule if server restarts. Not production-ready for critical billing operations.",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Supabase pg_cron — Use Supabase's built-in PostgreSQL cron extension to run SQL that calls a database function. Most reliable, runs at database level, but requires Supabase project configuration and SQL function deployment.",
+      "recommended": true
+    },
+    {
+      "id": 4,
+      "label": "HTTP Endpoint + External Cron — Create /api/cron/resume-paused endpoint on server, use external cron service (like cron-job.org or EasyCron) to call it. Flexible but requires securing endpoint with secret token.",
+      "recommended": false
+    }
+  ],
+  
+  "recommendation": "Option 3 (Supabase pg_cron) because: (1) The project uses Supabase as primary database, (2) pg_cron is built into Supabase and highly reliable, (3) Runs at database level so no dependency on server uptime, (4) Perfect for database operations like this. However, this requires human to enable pg_cron extension in Supabase project and verify I can create database functions.",
+  
+  "blocker_context": {
+    "ticket_id": "TKT-103",
+    "ticket_version": 1,
+    "branch": "agent/tkt-103-no-auto-resume-functionality-f",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Read feature documentation (pause-subscription.md)",
+        "Read resumeAccount function in actions.ts",
+        "Confirmed database schema has pause_ends_at with index",
+        "Confirmed no existing scheduler patterns in codebase",
+        "Identified Railway as deployment platform"
+      ],
+      "remaining": [
+        "Choose and configure cron platform ← BLOCKED HERE",
+        "Implement scheduler logic to query expired pauses",
+        "Implement resumeAccount calls for each expired org",
+        "Add error handling and logging",
+        "Add monitoring/alerting"
+      ],
+      "stopped_at": {
+        "file": "apps/server/src/features/billing/autoResume.ts",
+        "line": 0,
+        "context": "Haven't created file yet - need to know which platform approach before writing code"
+      },
+      "notes_for_next_agent": "I've confirmed the database schema is ready with the idx_organizations_pause_ends_at index. The resumeAccount function exists in apps/dashboard/src/app/(app)/admin/settings/billing/actions.ts but it's a Next.js server action, not a standalone function. We may need to refactor the resume logic into a shared function that can be called from both the UI action and the cron job."
+    }
+  }
+}

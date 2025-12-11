@@ -1,0 +1,9 @@
+{
+  "ticket_id": "TKT-103",
+  "branch": "agent/tkt-103-no-auto-resume-functionality-f",
+  "started_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "files_locking": [
+    "apps/server/src/features/billing/autoResume.ts",
+    "apps/server/src/lib/scheduler/pauseScheduler.ts"
+  ]
+}
