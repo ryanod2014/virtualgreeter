@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-062-1",
+  "source": "dev-agent-TKT-062",
+  "title": "Pre-existing TypeScript errors in dashboard billing tests",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/dashboard/src/app/api/billing/*/route.test.ts",
+  "line": null,
+  "issue": "Multiple TypeScript errors in dashboard billing test files where 'stripe' is possibly 'null'. Also, workbench-client.tsx has type error with RecordingSettings missing required properties (rna_timeout_seconds, max_call_duration_minutes). These errors prevent 'pnpm typecheck' from passing at the monorepo level, though individual package typechecks may pass.",
+  "suggestion": "Add null checks or type guards for stripe in test files. Update RecordingSettings interface usage in workbench-client.tsx to include the missing required properties. Consider running typecheck in CI to catch these issues earlier.",
+  "status": "pending",
+  "found_at": "2025-12-07T21:38:13Z"
+}

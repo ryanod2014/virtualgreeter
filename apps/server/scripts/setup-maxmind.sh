@@ -17,6 +17,7 @@ echo ""
 # Determine script directory and project root
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SERVER_DIR="$(dirname "$SCRIPT_DIR")"
+<<<<<<< HEAD
 DATA_DIR="$SERVER_DIR/data"
 
 # Find project root using git (works in main repo AND worktrees)
@@ -39,6 +40,11 @@ fi
 
 # Also check environment variable override
 PROJECT_ROOT="${MAIN_REPO_PATH:-$MAIN_REPO}"
+=======
+PROJECT_ROOT="$(dirname "$(dirname "$SERVER_DIR")")"
+DATA_DIR="$SERVER_DIR/data"
+CREDENTIALS_FILE="$PROJECT_ROOT/docs/data/.agent-credentials.json"
+>>>>>>> origin/agent/tkt-062-maxmind-geolocation
 
 echo "📂 Directories:"
 echo "   Project Root: $PROJECT_ROOT"
@@ -46,6 +52,7 @@ echo "   Server Dir:   $SERVER_DIR"
 echo "   Data Dir:     $DATA_DIR"
 echo ""
 
+<<<<<<< HEAD
 # Search for credentials in multiple locations (priority order)
 CREDENTIALS_LOCATIONS=(
     "${AGENT_CREDENTIALS_PATH:-}"                           # 1. Environment variable
@@ -78,6 +85,13 @@ if [ -z "$CREDENTIALS_FILE" ]; then
     echo "  2. Set AGENT_CREDENTIALS_PATH environment variable"
     echo ""
     echo "File structure:"
+=======
+# Check if credentials file exists
+if [ ! -f "$CREDENTIALS_FILE" ]; then
+    echo -e "${RED}❌ Error: Credentials file not found at: $CREDENTIALS_FILE${NC}"
+    echo ""
+    echo "Please ensure the credentials file exists with the following structure:"
+>>>>>>> origin/agent/tkt-062-maxmind-geolocation
     echo '{'
     echo '  "maxmind": {'
     echo '    "license_key": "your-license-key-here"'
@@ -86,8 +100,11 @@ if [ -z "$CREDENTIALS_FILE" ]; then
     exit 1
 fi
 
+<<<<<<< HEAD
 echo -e "${GREEN}✓ Found credentials: $CREDENTIALS_FILE${NC}"
 
+=======
+>>>>>>> origin/agent/tkt-062-maxmind-geolocation
 # Extract license key using jq if available, otherwise use grep/sed
 if command -v jq &> /dev/null; then
     LICENSE_KEY=$(jq -r '.maxmind.license_key' "$CREDENTIALS_FILE")

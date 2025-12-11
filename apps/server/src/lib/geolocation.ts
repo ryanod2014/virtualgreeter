@@ -13,12 +13,15 @@ let dbLoadAttempted = false;
 
 /**
  * Get the MaxMind database path from environment or default location
+<<<<<<< HEAD
  *
  * @returns Path to GeoLite2-City.mmdb file
  *
  * @example
  * // Default: apps/server/data/GeoLite2-City.mmdb
  * // Override: MAXMIND_DB_PATH=/custom/path/GeoLite2-City.mmdb
+=======
+>>>>>>> origin/agent/tkt-062-maxmind-geolocation
  */
 function getDbPath(): string {
   if (process.env.MAXMIND_DB_PATH) {
@@ -30,6 +33,7 @@ function getDbPath(): string {
 /**
  * Initialize the MaxMind database reader
  * Uses GeoLite2-City database for IP geolocation
+<<<<<<< HEAD
  *
  * Implements singleton pattern - database is loaded once and cached.
  * If database file is missing, logs warning and returns null.
@@ -40,6 +44,8 @@ function getDbPath(): string {
  * - Database file (~60MB) is loaded into memory once
  * - Subsequent calls return cached reader
  * - Failed load attempts are cached to avoid repeated filesystem checks
+=======
+>>>>>>> origin/agent/tkt-062-maxmind-geolocation
  */
 async function initReader(): Promise<ReaderModel | null> {
   if (dbLoadAttempted) {
@@ -67,6 +73,7 @@ async function initReader(): Promise<ReaderModel | null> {
 
 /**
  * Look up location from IP address using MaxMind GeoLite2 database
+<<<<<<< HEAD
  *
  * Resolves public IP addresses to geographic location data including city, region,
  * country name, and ISO country code. Results are cached for 1 hour to minimize
@@ -89,6 +96,8 @@ async function initReader(): Promise<ReaderModel | null> {
  * const privateIP = await getLocationFromIP("192.168.1.1");
  * // Returns: null (private IP, no lookup performed)
  * ```
+=======
+>>>>>>> origin/agent/tkt-062-maxmind-geolocation
  */
 export async function getLocationFromIP(ipAddress: string): Promise<VisitorLocation | null> {
   const cached = locationCache.get(ipAddress);

@@ -435,7 +435,10 @@ describe("Socket Handler - Country Blocking Integration", () => {
 
 import { PoolManager } from "../routing/pool-manager.js";
 import type { AgentProfile } from "@ghost-greeter/domain";
+<<<<<<< HEAD
 import { TIMING } from "@ghost-greeter/domain";
+=======
+>>>>>>> origin/agent/tkt-062-maxmind-geolocation
 
 // Helper to create mock agent profile
 function createTestAgentProfile(id: string, name: string, status: AgentProfile["status"] = "idle"): AgentProfile {
