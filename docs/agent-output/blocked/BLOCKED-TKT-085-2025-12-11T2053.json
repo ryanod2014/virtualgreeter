@@ -1,0 +1,63 @@
+{
+  "id": "BLOCKED-TKT-085-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-085",
+  "severity": "critical",
+  "title": "Ticket specifies incorrect file paths that don't exist",
+  "feature": "Agent Management",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-11T20:53:00Z",
+
+  "issue": "The ticket specifies 3 files to modify, but 2 of them don't exist in the codebase:\n\n1. `apps/dashboard/src/app/api/agents/invite/route.ts` - DOES NOT EXIST\n   - The actual invite endpoint is at: `apps/dashboard/src/app/api/invites/send/route.ts`\n   - Should I modify the existing `/invites/send` route or create a new `/agents/invite` route?\n\n2. `packages/database/src/schema.ts` - DOES NOT EXIST (no database package)\n   - The codebase uses Supabase for application data (tables like invites, organizations, users)\n   - There's also a SQLite workflow DB at `scripts/db/schema.sql` but that's for agent orchestration, not app data\n   - The ticket asks for \"billing_pending flag to agent_invites table\" but there is no agent_invites table\n   - Actual table name is: `invites` (in Supabase)\n   - Should I add the column to the Supabase `invites` table?\n\n3. `apps/server/src/lib/billing/stripe-queue.ts` - DOES NOT EXIST (needs to be created)\n   - This file needs to be created from scratch, which is fine\n   - But need clarity on the other two files first",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Modify existing /invites/send route and add billing_pending to Supabase invites table — This makes sense since the invite logic is already in /invites/send, and invites table is the actual Supabase table name. Would need to create Supabase migration for the new column.",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Create NEW /agents/invite route as specified — Would duplicate invite logic into a new endpoint. Unclear why this would be needed since /invites/send already handles agent invites.",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Create packages/database package with schema.ts — Would require setting up entirely new package structure and database layer, which seems out of scope for this ticket.",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 1 - The ticket likely has outdated file paths from planning. The actual implementation should modify the existing invite endpoint and add the billing_pending column to the Supabase invites table via a migration.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-085",
+    "ticket_version": 1,
+    "branch": "agent/tkt-085",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Read Dev Agent SOP",
+        "Read ticket specification",
+        "Read F-017 finding for context",
+        "Found and read existing invite endpoint at /invites/send",
+        "Found and read billing seats endpoint",
+        "Identified file path discrepancies"
+      ],
+      "remaining": [
+        "Get clarification on correct file paths ← BLOCKED HERE",
+        "Implement billing retry queue",
+        "Add billing_pending flag to database",
+        "Update invite flow to handle Stripe failures gracefully",
+        "Test with mocked Stripe failure"
+      ],
+      "stopped_at": {
+        "file": "None - blocked before writing any code",
+        "line": null,
+        "context": "About to start implementation but discovered ticket has wrong file paths"
+      },
+      "notes_for_next_agent": "The existing invite flow is in apps/dashboard/src/app/api/invites/send/route.ts (lines 80-109). It currently calls /api/billing/seats and rolls back the invite if billing fails. The fix requires allowing the invite to succeed even when Stripe is down, then queueing the billing update for retry. The invites table (Supabase) needs a billing_pending column, and we need to create the stripe-queue.ts retry mechanism."
+    }
+  }
+}
