@@ -1,0 +1,9 @@
+{
+  "ticket_id": "TKT-068",
+  "branch": "agent/tkt-068",
+  "started_at": "2025-12-11T20:41:05Z",
+  "files_locking": [
+    "apps/server/src/features/pageviews/track.ts",
+    "database/migrations/XXXX-make-agent-id-nullable.sql"
+  ]
+}
