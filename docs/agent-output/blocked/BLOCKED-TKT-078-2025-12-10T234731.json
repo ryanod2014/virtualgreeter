@@ -1,0 +1,64 @@
+{
+  "id": "BLOCKED-TKT-078-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-078",
+  "severity": "critical",
+  "title": "File lock conflict with TKT-086",
+  "feature": "Routing Rules",
+  "category": "environment",
+  "status": "pending",
+  "found_at": "2025-12-10T23:00:00Z",
+  
+  "issue": "Cannot proceed with TKT-078 because required file 'apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx' is currently locked by TKT-086. This file is required for implementing dashboard warnings for malformed URLs.",
+  
+  "blocker_context": {
+    "ticket_id": "TKT-078",
+    "ticket_version": 1,
+    "branch": "agent/tkt-078-add-logging-for-malformed-url",
+    "files_needed": [
+      "apps/server/src/features/routing/pool-manager.ts",
+      "apps/server/src/features/routing/redis-pool-manager.ts",
+      "apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx"
+    ],
+    "locked_files": [
+      {
+        "file": "apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx",
+        "locked_by": "TKT-086"
+      }
+    ],
+    "progress": {
+      "done": [
+        "Read SOP and ticket instructions",
+        "Located parseUrlContext methods in pool-manager.ts and redis-pool-manager.ts",
+        "Identified the catch block that silently handles malformed URLs (lines 220-236)"
+      ],
+      "blocked_on": "Cannot start work due to file lock conflict",
+      "remaining": [
+        "Add logging in pool-manager.ts parseUrlContext catch block",
+        "Add logging in redis-pool-manager.ts parseUrlContext catch block",
+        "Add dashboard warning in calls-client.tsx for malformed URLs"
+      ]
+    },
+    "notes_for_next_agent": "The parseUrlContext method in both pool-manager.ts and redis-pool-manager.ts has a try-catch block starting around line 211-237. The catch block (line 220) silently treats invalid URLs as paths without any logging. Need to add logger.warn() in those catch blocks with visitor context. For dashboard, need to add warning UI when pageUrl doesn't parse as valid URL."
+  },
+  
+  "resolution_options": [
+    {
+      "id": 1,
+      "label": "Wait for TKT-086 to complete, then retry TKT-078",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Remove calls-client.tsx from TKT-078 scope and only implement server-side logging",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Merge TKT-078 and TKT-086 into a single ticket if they're related",
+      "recommended": false
+    }
+  ],
+  
+  "recommendation": "Option 1 - Wait for TKT-086 to complete. The dashboard changes are part of the acceptance criteria so we need access to that file."
+}
