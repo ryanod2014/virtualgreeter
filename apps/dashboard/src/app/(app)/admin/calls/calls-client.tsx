@@ -56,6 +56,7 @@ import {
 import { formatLocationWithFlag } from "@/lib/utils/country-flag";
 import { getCountryByCode } from "@/lib/utils/countries";
 import { exportCallLogsToCSV } from "@/features/call-logs/exportCSV";
+import { DispositionValueReport } from "@/features/stats/DispositionValueReport";
 
 interface Agent {
   id: string;
@@ -783,6 +784,8 @@ export function CallsClient({
         </div>
       </div>
 
+      {/* Disposition Value Report */}
+      <DispositionValueReport dateRange={dateRange} />
 
       {/* Call Stats Grid - 2 rows of 5 cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
