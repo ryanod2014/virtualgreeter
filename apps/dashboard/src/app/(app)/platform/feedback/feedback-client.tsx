@@ -61,7 +61,7 @@ interface PmfSurvey {
   user_email: string;
   user_name: string;
   user_role: string;
-  disappointment_level: "very_disappointed" | "somewhat_disappointed" | "not_disappointed";
+  disappointment_level: "very_disappointed" | "somewhat_disappointed" | "not_disappointed" | null;
   follow_up_text: string | null;
   page_url: string | null;
   dismissed: boolean;

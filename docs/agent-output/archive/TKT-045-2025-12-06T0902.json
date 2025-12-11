@@ -1,0 +1,12 @@
+{
+  "ticket_id": "TKT-045",
+  "branch": "agent/tkt-045",
+  "started_at": "2025-12-06T03:15:00Z",
+  "files_locking": [
+    "apps/dashboard/src/features/surveys/ellis-survey-modal.tsx",
+    "apps/dashboard/src/app/(app)/platform/page.tsx",
+    "apps/dashboard/src/app/(app)/platform/feedback/feedback-client.tsx",
+    "packages/domain/src/database.types.ts",
+    "supabase/migrations/20251129300000_pmf_surveys.sql"
+  ]
+}
