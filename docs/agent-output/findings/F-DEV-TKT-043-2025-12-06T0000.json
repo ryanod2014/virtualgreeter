@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-043-1",
+  "source": "dev-agent-TKT-043",
+  "title": "Pre-existing TypeScript error in workbench-client.tsx blocks dashboard build",
+  "category": "bug",
+  "severity": "high",
+  "file": "apps/dashboard/src/features/workbench/workbench-client.tsx",
+  "line": 38,
+  "issue": "RecordingSettings type is missing required fields rna_timeout_seconds and max_call_duration_minutes in the initial state definition. This causes the dashboard build to fail with: Type '{ enabled: false; retention_days: number; transcription_enabled: false; ai_summary_enabled: false; ai_summary_prompt_format: null; }' is missing the following properties from type 'RecordingSettings': rna_timeout_seconds, max_call_duration_minutes",
+  "suggestion": "Add the missing fields to the initial RecordingSettings state: rna_timeout_seconds and max_call_duration_minutes with appropriate default values",
+  "status": "pending",
+  "found_at": "2025-12-06T00:00:00Z"
+}

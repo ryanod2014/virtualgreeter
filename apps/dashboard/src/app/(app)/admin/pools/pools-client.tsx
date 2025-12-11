@@ -833,9 +833,10 @@ interface PoolWidgetSettingsProps {
   pool: Pool;
   orgDefaults: WidgetSettings;
   onUpdate: (settings: WidgetSettings | null) => void;
+  showToast: (title: string, description?: string, type?: "success" | "error") => void;
 }
 
-function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsProps) {
+function PoolWidgetSettings({ pool, orgDefaults, onUpdate, showToast }: PoolWidgetSettingsProps) {
   const [useCustom, setUseCustom] = useState(pool.widget_settings !== null);
   const [settings, setSettings] = useState<WidgetSettings>(pool.widget_settings ?? orgDefaults);
   const [saving, setSaving] = useState(false);
@@ -890,26 +891,41 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsP
   const handleSaveCustomSettings = async () => {
     // Validate before saving
     const triggerError = validateNumber(settings.trigger_delay, "trigger_delay");
-    const hideError = settings.auto_hide_delay !== null 
+    const hideError = settings.auto_hide_delay !== null
       ? validateNumber(settings.auto_hide_delay, "auto_hide_delay")
       : null;
-    
+
     if (triggerError || hideError) {
       setTriggerDelayError(triggerError);
       setAutoHideError(hideError);
       return;
     }
-    
+
+    // Capture previous state for rollback
+    const previousSettings = pool.widget_settings;
+
     setSaving(true);
     const { error } = await supabase
       .from("agent_pools")
       .update({ widget_settings: settings })
       .eq("id", pool.id);
-    
-    if (!error) {
-      onUpdate(settings);
-      setIsExpanded(false); // Collapse after saving
+
+    if (error) {
+      console.error("[Pools] Error saving custom settings:", error);
+      // Revert to previous state
+      setSettings(previousSettings || orgDefaults);
+      if (error.message?.includes("network") || error.message?.includes("fetch")) {
+        showToast("Connection error", "Unable to save widget settings. Please check your connection and try again.", "error");
+      } else {
+        showToast("Failed to save settings", error.message || "An unexpected error occurred", "error");
+      }
+      setSaving(false);
+      return;
     }
+
+    onUpdate(settings);
+    setIsExpanded(false); // Collapse after saving
+    showToast("Settings saved", "Widget settings have been updated successfully");
     setSaving(false);
   };
   
@@ -1543,6 +1559,7 @@ export function PoolsClient({
 
   const supabase = createClient();
 
+<<<<<<< HEAD
   /**
    * Displays a toast notification to provide user feedback for pool operations.
    * Toasts automatically dismiss after 5 seconds.
@@ -1561,6 +1578,9 @@ export function PoolsClient({
    * - Error toasts show red alert icon
    * - Network errors specifically use "Connection error" as title
    */
+=======
+  // Show toast notification
+>>>>>>> origin/agent/tkt-043
   const showToast = useCallback((title: string, description?: string, type: "success" | "error" = "success") => {
     const id = Math.random().toString(36).substring(7);
     setToasts(prev => [...prev, { id, title, description, type }]);
@@ -2018,18 +2038,37 @@ export function PoolsClient({
   };
 
   const handleSaveScript = async (poolId: string) => {
+    // Capture previous state for rollback
+    const previousPools = pools;
+    const pool = pools.find(p => p.id === poolId);
+    const previousScript = pool?.intro_script || "";
+
+    // Optimistically update UI
+    setPools(pools.map(p =>
+      p.id === poolId ? { ...p, intro_script: editingScriptText } : p
+    ));
+
     const { error } = await supabase
       .from("agent_pools")
       .update({ intro_script: editingScriptText })
       .eq("id", poolId);
 
-    if (!error) {
-      setPools(pools.map(p => 
-        p.id === poolId ? { ...p, intro_script: editingScriptText } : p
-      ));
-      setEditingScriptPoolId(null);
-      setEditingScriptText("");
+    if (error) {
+      console.error("[Pools] Error saving intro script:", error);
+      // Revert to previous state
+      setPools(previousPools);
+      setEditingScriptText(previousScript);
+      if (error.message?.includes("network") || error.message?.includes("fetch")) {
+        showToast("Connection error", "Unable to save script. Please check your connection and try again.", "error");
+      } else {
+        showToast("Failed to save script", error.message || "An unexpected error occurred", "error");
+      }
+      return;
     }
+
+    setEditingScriptPoolId(null);
+    setEditingScriptText("");
+    showToast("Script saved", "Intro script has been updated successfully");
   };
 
   const handleCancelEditScript = () => {
@@ -2074,14 +2113,20 @@ export function PoolsClient({
       if (updateError) throw updateError;
 
       // Update local state
-      setPools(pools.map(p => 
-        p.id === poolId 
+      setPools(pools.map(p =>
+        p.id === poolId
           ? { ...p, [updateField]: videoUrl }
           : p
       ));
+      showToast("Video uploaded", "Example video has been uploaded successfully");
     } catch (error) {
       console.error("Failed to upload example video:", error);
-      alert("Failed to upload video. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+      if (errorMessage?.includes("network") || errorMessage?.includes("fetch")) {
+        showToast("Connection error", "Unable to upload video. Please check your connection and try again.", "error");
+      } else {
+        showToast("Failed to upload video", errorMessage || "Please try again.", "error");
+      }
     } finally {
       setUploadingVideo(null);
     }
@@ -2141,12 +2186,18 @@ export function PoolsClient({
 
       if (updateError) throw updateError;
 
-      setPools(pools.map(p => 
+      setPools(pools.map(p =>
         p.id === poolId ? { ...p, [updateField]: videoUrl } : p
       ));
+      showToast("Video saved", "Recorded video has been saved successfully");
     } catch (error) {
       console.error("Failed to save recorded video:", error);
-      alert("Failed to save video. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+      if (errorMessage?.includes("network") || errorMessage?.includes("fetch")) {
+        showToast("Connection error", "Unable to save video. Please check your connection and try again.", "error");
+      } else {
+        showToast("Failed to save video", errorMessage || "Please try again.", "error");
+      }
     } finally {
       setUploadingVideo(null);
       setRecordingVideo(null);
@@ -2718,8 +2769,9 @@ export function PoolsClient({
                   <PoolWidgetSettings
                     pool={pool}
                     orgDefaults={orgDefaultWidgetSettings}
+                    showToast={showToast}
                     onUpdate={(settings) => {
-                      setPools(pools.map(p => 
+                      setPools(pools.map(p =>
                         p.id === pool.id ? { ...p, widget_settings: settings } : p
                       ));
                     }}
