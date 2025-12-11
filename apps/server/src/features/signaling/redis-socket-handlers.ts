@@ -50,7 +50,7 @@ import {
   markCallReconnected,
   markCallReconnectFailed,
 } from "../../lib/call-logger.js";
-import { verifyAgentToken, fetchAgentPoolMemberships } from "../../lib/auth.js";
+import { verifyAgentToken, fetchAgentPoolMemberships, getAgentOrgId } from "../../lib/auth.js";
 import {
   startSession,
   endSession,
@@ -62,6 +62,7 @@ import { getWidgetSettings } from "../../lib/widget-settings.js";
 import { getClientIP, getLocationFromIP } from "../../lib/geolocation.js";
 import { isCountryBlocked } from "../../lib/country-blocklist.js";
 import { trackWidgetView, trackCallStarted } from "../../lib/greetnow-retargeting.js";
+import { isOrgPaused } from "../../lib/organization.js";
 import {
   startRNATimeout,
   clearRNATimeout,
@@ -114,6 +115,16 @@ export function setupRedisSocketHandlers(io: AppServer, poolManager: RedisPoolMa
       if (existingVisitor && existingVisitor.state === "in_call") {
         console.log(`[Socket] 👤 Visitor ${existingVisitor.visitorId} already in call, skipping VISITOR_JOIN registration`);
         // Just update the page URL in case it changed (would need separate method)
+        return;
+      }
+      
+      // Check if organization is paused - widget should show "temporarily unavailable"
+      const orgPaused = await isOrgPaused(data.orgId);
+      if (orgPaused) {
+        console.log(`[Socket] ⏸️ Organization ${data.orgId} is paused, sending ORG_PAUSED to widget`);
+        socket.emit(SOCKET_EVENTS.ORG_PAUSED, {
+          message: "We're temporarily unavailable. Please check back soon!",
+        });
         return;
       }
       
@@ -573,6 +584,17 @@ export function setupRedisSocketHandlers(io: AppServer, poolManager: RedisPoolMa
       }
 
       try {
+        // Check if agent's organization is paused - prevent going available
+        const agentOrgId = await getAgentOrgId(agent.agentId);
+        if (agentOrgId) {
+          const orgPaused = await isOrgPaused(agentOrgId);
+          if (orgPaused) {
+            console.log(`[Socket] ⏸️ Agent ${agent.agentId} cannot go active - org ${agentOrgId} is paused`);
+            ack?.({ success: false, status: "away", error: "Organization is paused. You cannot go active while paused." });
+            return;
+          }
+        }
+
         console.log(`[Socket] Agent ${agent.agentId} is back from away`);
         await poolManager.updateAgentStatus(agent.agentId, "idle");
         await recordStatusChange(agent.agentId, "idle", "back_from_away");

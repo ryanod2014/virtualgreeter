@@ -139,6 +139,7 @@ export interface ServerToWidgetEvents {
   "agent:assigned": (data: AgentAssignedPayload) => void;
   "agent:reassigned": (data: AgentReassignedPayload) => void;
   "agent:unavailable": (data: AgentUnavailablePayload) => void;
+  "org:paused": (data: OrgPausedPayload) => void;
   "call:accepted": (data: CallAcceptedPayload) => void;
   "call:rejected": (data: CallRejectedPayload) => void;
   "call:ended": (data: CallEndedPayload) => void;
@@ -302,6 +303,10 @@ export interface AgentUnavailablePayload {
   poolId: string | null; // Pool ID if matched to one
   previousAgentName?: string; // Name of agent who became unavailable (for "got pulled away" message)
   reason?: "agent_away" | "agent_offline" | "rna_timeout" | "no_agents"; // Why the agent became unavailable
+}
+
+export interface OrgPausedPayload {
+  message: string; // User-friendly message to display in widget
 }
 
 export interface CallAcceptedPayload {

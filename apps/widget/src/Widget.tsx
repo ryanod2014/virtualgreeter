@@ -4,7 +4,7 @@ import { LiveCallView } from "./features/webrtc/LiveCallView";
 import { useSignaling, shouldSkipIntroForAgent, storeWidgetState, clearStoredWidgetState } from "./features/signaling/useSignaling";
 import { useWebRTC } from "./features/webrtc/useWebRTC";
 import { useCobrowse } from "./features/cobrowse/useCobrowse";
-import type { AgentAssignedPayload, AgentUnavailablePayload, WidgetSettings } from "@ghost-greeter/domain";
+import type { AgentAssignedPayload, AgentUnavailablePayload, OrgPausedPayload, WidgetSettings } from "@ghost-greeter/domain";
 import { ARIA_LABELS, ANIMATION_TIMING, ERROR_MESSAGES, CONNECTION_TIMING, SIZE_DIMENSIONS, IDLE_TIMING } from "./constants";
 
 /**
@@ -161,6 +161,9 @@ export function Widget({ config }: WidgetProps) {
   // When agent is unavailable, we wait for trigger_delay before recording as missed opportunity
   const [unavailableData, setUnavailableData] = useState<AgentUnavailablePayload | null>(null);
   const missedOpportunityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Track org paused state - shows "temporarily unavailable" message
+  const [orgPausedMessage, setOrgPausedMessage] = useState<string | null>(null);
   
   // Track when visitor connected (from server) to calculate remaining trigger delay
   // This allows widget to reappear correctly when agent becomes available
@@ -371,6 +374,13 @@ export function Widget({ config }: WidgetProps) {
         setAgent(null);
         setState("hidden");
       }
+    },
+    onOrgPaused: (data: OrgPausedPayload) => {
+      console.log("[Widget] ⏸️ Organization is paused:", data.message);
+      setOrgPausedMessage(data.message);
+      // Clear any active state
+      setAgent(null);
+      setState("hidden");
     },
     onCallAccepted: () => setState("in_call"),
     onCallRejected: () => {
@@ -1173,6 +1183,28 @@ export function Widget({ config }: WidgetProps) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
+
+  // Show org paused message if organization is paused
+  if (orgPausedMessage) {
+    return (
+      <div
+        ref={widgetRef}
+        className="gg-widget bottom-right gg-theme-dark gg-org-paused"
+        role="status"
+        aria-label="Service temporarily unavailable"
+      >
+        <div className="gg-org-paused-container">
+          <div className="gg-org-paused-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </svg>
+          </div>
+          <p className="gg-org-paused-message">{orgPausedMessage}</p>
+        </div>
+      </div>
+    );
+  }
 
   // Don't render if hidden or if device should be hidden
   if (state === "hidden" || shouldHideForDevice) return null;

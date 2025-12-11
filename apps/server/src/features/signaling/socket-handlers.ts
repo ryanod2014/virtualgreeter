@@ -39,7 +39,7 @@ import {
   markCallReconnected,
   markCallReconnectFailed,
 } from "../../lib/call-logger.js";
-import { verifyAgentToken, fetchAgentPoolMemberships } from "../../lib/auth.js";
+import { verifyAgentToken, fetchAgentPoolMemberships, getAgentOrgId } from "../../lib/auth.js";
 import {
   startSession,
   endSession,
@@ -52,6 +52,7 @@ import { canAgentGoAvailable, getAgentOrgId } from "../agents/agentStatus.js";
 import { getClientIP, getLocationFromIP } from "../../lib/geolocation.js";
 import { isCountryBlocked } from "../../lib/country-blocklist.js";
 import { trackWidgetView, trackCallStarted } from "../../lib/greetnow-retargeting.js";
+import { isOrgPaused } from "../../lib/organization.js";
 
 // Track RNA (Ring-No-Answer) timeouts
 const rnaTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -105,6 +106,16 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
         console.log(`[Socket] 👤 Visitor ${existingVisitor.visitorId} already in call, skipping VISITOR_JOIN registration`);
         // Just update the page URL in case it changed
         existingVisitor.pageUrl = data.pageUrl;
+        return;
+      }
+      
+      // Check if organization is paused - widget should show "temporarily unavailable"
+      const orgPaused = await isOrgPaused(data.orgId);
+      if (orgPaused) {
+        console.log(`[Socket] ⏸️ Organization ${data.orgId} is paused, sending ORG_PAUSED to widget`);
+        socket.emit(SOCKET_EVENTS.ORG_PAUSED, {
+          message: "We're temporarily unavailable. Please check back soon!",
+        });
         return;
       }
       
@@ -627,6 +638,7 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       }
 
       try {
+<<<<<<< HEAD
         // Check if agent's organization allows them to go available
         const orgId = await getAgentOrgId(agent.agentId);
         if (orgId) {
@@ -638,6 +650,15 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
               status: agent.profile.status,
               error: availabilityCheck.message ?? "Unable to go available"
             });
+=======
+        // Check if agent's organization is paused - prevent going available
+        const agentOrgId = await getAgentOrgId(agent.agentId);
+        if (agentOrgId) {
+          const orgPaused = await isOrgPaused(agentOrgId);
+          if (orgPaused) {
+            console.log(`[Socket] ⏸️ Agent ${agent.agentId} cannot go active - org ${agentOrgId} is paused`);
+            ack?.({ success: false, status: "away", error: "Organization is paused. You cannot go active while paused." });
+>>>>>>> origin/agent/tkt-004d-paused-org-status
             return;
           }
         }

@@ -6,6 +6,7 @@ import type {
   AgentAssignedPayload,
   AgentReassignedPayload,
   AgentUnavailablePayload,
+  OrgPausedPayload,
   CallAcceptedPayload,
   CallRejectedPayload,
   CallReconnectedPayload,
@@ -177,6 +178,7 @@ interface UseSignalingOptions {
   onAgentAssigned: (data: AgentAssignedPayload) => void;
   onAgentReassigned: (data: AgentReassignedPayload) => void;
   onAgentUnavailable: (data: AgentUnavailablePayload) => void;
+  onOrgPaused?: (data: OrgPausedPayload) => void;
   onCallAccepted: (data: CallAcceptedPayload) => void;
   onCallRejected: (data: CallRejectedPayload) => void;
   onCallEnded: () => void;
@@ -401,6 +403,12 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
       currentRequestIdRef.current = null;
       
       optionsRef.current.onAgentUnavailable(data);
+    });
+
+    // Organization is paused - show temporarily unavailable message
+    socket.on(SOCKET_EVENTS.ORG_PAUSED, (data: OrgPausedPayload) => {
+      console.log("[Widget] ⏸️ Organization is paused:", data.message);
+      optionsRef.current.onOrgPaused?.(data);
     });
 
     // Call accepted

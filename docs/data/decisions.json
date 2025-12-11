@@ -617,11 +617,14 @@
           "role": "human",
           "text": "i believe we already d this in admin settings",
           "timestamp": "2025-12-05T01:20:05.496Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
           "text": "If retention policy is already in admin settings, this finding can be marked as 'implemented'. No ticket needed. Please confirm the setting exists and update finding status to 'implemented' with location reference.",
           "timestamp": "2025-12-10T22:13:07.775762Z"
+=======
+>>>>>>> origin/agent/tkt-004d-paused-org-status
         }
       ],
       "decision": {
@@ -651,11 +654,14 @@
           "role": "human",
           "text": "i believe we already d this in admin settings",
           "timestamp": "2025-12-05T01:20:05.496Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
           "text": "If retention policy is already in admin settings, this finding can be marked as 'implemented'. No ticket needed. Please confirm the setting exists and update finding status to 'implemented' with location reference.",
           "timestamp": "2025-12-10T22:13:07.775762Z"
+=======
+>>>>>>> origin/agent/tkt-004d-paused-org-status
         }
       ],
       "decision": {
@@ -794,6 +800,7 @@
     {
       "finding_id": "F-034",
       "status": "resolved",
+<<<<<<< HEAD
       "messages": [
         {
           "role": "system",
@@ -806,6 +813,9 @@
           "timestamp": "2025-12-10T23:52:20.634023Z"
         }
       ],
+=======
+      "messages": [],
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "decision": {
         "option_id": "implement_fix",
         "option_label": "Add explicit warning in UI when admin has empty allowlist: \"Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access.\"",
@@ -821,6 +831,7 @@
           "role": "human",
           "text": "this should be a setting they can choose in blocklist settings. it should be like a toggle, if cant determine lcocation block/allow. -- also we should somehow find what our faiilure rate is and disclose that in the ui so they can make a better deciisioni iff they want to toggle or not",
           "timestamp": "2025-12-05T02:10:41.839Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
@@ -841,6 +852,8 @@
           "role": "system",
           "text": "✅ **Implementing as setting in blocklist**\n\nAdding a toggle in Admin Settings > Blocklist that allows admins to:\n- Choose blocking behavior (soft block vs hard block)\n- Set custom block messages\n- Configure block duration\n\nThis gives admins full control over their blocklist behavior.",
           "timestamp": "2025-12-11T00:08:06.901313Z"
+=======
+>>>>>>> origin/agent/tkt-004d-paused-org-status
         }
       ],
       "decision": {
@@ -853,6 +866,7 @@
     {
       "finding_id": "F-036",
       "status": "resolved",
+<<<<<<< HEAD
       "messages": [
         {
           "role": "system",
@@ -865,6 +879,9 @@
           "timestamp": "2025-12-10T23:52:20.634058Z"
         }
       ],
+=======
+      "messages": [],
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "decision": {
         "option_id": "skip",
         "option_label": "Won't fix",
@@ -902,11 +919,14 @@
           "role": "human",
           "text": "when switching modes it shuld save their data from the other moode in case they switch back",
           "timestamp": "2025-12-05T02:11:56.761Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
           "text": "✅ Will persist form data when switching between modes. Creating ticket to implement state preservation across mode switches.",
           "timestamp": "2025-12-10T23:31:24.044020Z"
+=======
+>>>>>>> origin/agent/tkt-004d-paused-org-status
         }
       ],
       "decision": {
@@ -955,6 +975,7 @@
     {
       "finding_id": "F-042",
       "status": "resolved",
+<<<<<<< HEAD
       "messages": [
         {
           "role": "system",
@@ -967,6 +988,9 @@
           "timestamp": "2025-12-10T23:52:20.634116Z"
         }
       ],
+=======
+      "messages": [],
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "decision": {
         "option_id": "skip",
         "option_label": "Won't fix",
@@ -976,12 +1000,17 @@
     },
     {
       "finding_id": "F-043",
+<<<<<<< HEAD
       "status": "resolved",
+=======
+      "status": "in_discussion",
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "messages": [
         {
           "role": "human",
           "text": "explain this to me simpler - when would issues occur",
           "timestamp": "2025-12-05T02:12:42.649Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
@@ -997,6 +1026,8 @@
           "role": "system",
           "text": "✅ **Decision Confirmed**\n\nCustom response\n\nThis has been recorded. A ticket will be created if implementation is required.",
           "timestamp": "2025-12-10T23:52:20.634142Z"
+=======
+>>>>>>> origin/agent/tkt-004d-paused-org-status
         }
       ],
       "decision": {
@@ -1014,11 +1045,14 @@
           "role": "human",
           "text": "whats the current ux? i thought they switch to custom all the settings are their org default and they can start changing them one at a time",
           "timestamp": "2025-12-05T02:13:47.766Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
           "text": "You're correct - when admins switch to 'custom', they start with org defaults and can change settings one at a time. This is already working as desired. No ticket needed - mark finding as 'wont_fix' or 'working_as_intended'.",
           "timestamp": "2025-12-10T22:13:07.775762Z"
+=======
+>>>>>>> origin/agent/tkt-004d-paused-org-status
         }
       ],
       "decision": {
@@ -1127,12 +1161,17 @@
     },
     {
       "finding_id": "F-051",
+<<<<<<< HEAD
       "status": "resolved",
+=======
+      "status": "in_discussion",
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "messages": [
         {
           "role": "human",
           "text": "i think we already have a ticket for this",
           "timestamp": "2025-12-05T02:14:07.150Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
@@ -1155,16 +1194,30 @@
         "option_label": "Won't fix",
         "recommended": false,
         "timestamp": "2025-12-06T21:04:20.597Z"
+=======
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "i think we already have a ticket for this",
+        "timestamp": "2025-12-05T02:14:07.150Z"
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       }
     },
     {
       "finding_id": "F-052",
+<<<<<<< HEAD
       "status": "resolved",
+=======
+      "status": "in_discussion",
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "messages": [
         {
           "role": "human",
           "text": "i think we already have a ticket for this",
           "timestamp": "2025-12-05T02:14:27.136Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
@@ -1187,6 +1240,15 @@
         "option_label": "Won't fix",
         "recommended": false,
         "timestamp": "2025-12-06T21:04:27.562Z"
+=======
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "i think we already have a ticket for this",
+        "timestamp": "2025-12-05T02:14:27.136Z"
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       }
     },
     {
@@ -1204,6 +1266,7 @@
     {
       "finding_id": "F-054",
       "status": "resolved",
+<<<<<<< HEAD
       "messages": [
         {
           "role": "system",
@@ -1216,6 +1279,9 @@
           "timestamp": "2025-12-10T23:52:20.634222Z"
         }
       ],
+=======
+      "messages": [],
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "decision": {
         "option_id": "skip",
         "option_label": "Won't fix",
@@ -1226,6 +1292,7 @@
     {
       "finding_id": "F-055",
       "status": "resolved",
+<<<<<<< HEAD
       "messages": [
         {
           "role": "system",
@@ -1238,6 +1305,9 @@
           "timestamp": "2025-12-10T23:52:20.634248Z"
         }
       ],
+=======
+      "messages": [],
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "decision": {
         "option_id": "skip",
         "option_label": "Won't fix",
@@ -1248,6 +1318,7 @@
     {
       "finding_id": "F-056",
       "status": "resolved",
+<<<<<<< HEAD
       "messages": [
         {
           "role": "system",
@@ -1260,6 +1331,9 @@
           "timestamp": "2025-12-10T23:52:20.634273Z"
         }
       ],
+=======
+      "messages": [],
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "decision": {
         "option_id": "skip",
         "option_label": "Won't fix",
@@ -1385,11 +1459,14 @@
           "role": "human",
           "text": "show UTC in ui",
           "timestamp": "2025-12-05T02:15:53.603Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
           "text": "✅ Will display times in UTC in the UI. Creating ticket.",
           "timestamp": "2025-12-10T23:31:24.044044Z"
+=======
+>>>>>>> origin/agent/tkt-004d-paused-org-status
         }
       ],
       "decision": {
@@ -1401,12 +1478,17 @@
     },
     {
       "finding_id": "F-065",
+<<<<<<< HEAD
       "status": "resolved",
+=======
+      "status": "in_discussion",
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "messages": [
         {
           "role": "human",
           "text": "can we know on our end iiff iits working without looking inside facebook?",
           "timestamp": "2025-12-05T02:16:40.194Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
@@ -1422,6 +1504,8 @@
           "role": "system",
           "text": "✅ **Decision Confirmed**\n\nCustom response\n\nThis has been recorded. A ticket will be created if implementation is required.",
           "timestamp": "2025-12-10T23:52:20.634404Z"
+=======
+>>>>>>> origin/agent/tkt-004d-paused-org-status
         }
       ],
       "decision": {
@@ -1439,11 +1523,14 @@
           "role": "human",
           "text": "it should just be another stat card in admin call logs tab (where all the other stat cards are)",
           "timestamp": "2025-12-05T02:17:41.833Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
           "text": "✅ Adding as a new stat card in the admin call logs tab. Creating ticket.",
           "timestamp": "2025-12-10T23:31:24.044053Z"
+=======
+>>>>>>> origin/agent/tkt-004d-paused-org-status
         }
       ],
       "decision": {
@@ -1456,6 +1543,7 @@
     {
       "finding_id": "F-067",
       "status": "resolved",
+<<<<<<< HEAD
       "messages": [
         {
           "role": "system",
@@ -1468,6 +1556,9 @@
           "timestamp": "2025-12-10T23:52:20.634547Z"
         }
       ],
+=======
+      "messages": [],
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "decision": {
         "option_id": "implement_fix",
         "option_label": "Add validation that requires Pixel ID when any Facebook event mappings are configured, or show a warning banner indicating events won't fire without Pixel ID.",
@@ -1513,12 +1604,17 @@
     },
     {
       "finding_id": "F-071",
+<<<<<<< HEAD
       "status": "resolved",
+=======
+      "status": "in_discussion",
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "messages": [
         {
           "role": "human",
           "text": "already have a ticket i think",
           "timestamp": "2025-12-05T02:18:03.876Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
@@ -1541,6 +1637,15 @@
         "option_label": "Won't fix",
         "recommended": false,
         "timestamp": "2025-12-06T21:04:30.625Z"
+=======
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "already have a ticket i think",
+        "timestamp": "2025-12-05T02:18:03.876Z"
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       }
     },
     {
@@ -1551,6 +1656,7 @@
           "role": "human",
           "text": "already have this as a setting in admin settings",
           "timestamp": "2025-12-05T02:18:34.072Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
@@ -1571,6 +1677,8 @@
           "role": "system",
           "text": "This feature is already implemented in Admin Settings.\n\n**Current location:** Admin > Settings > [relevant section]\n\nI'll verify the exact location and mark this as resolved if it exists. If not, I'll create a ticket.",
           "timestamp": "2025-12-11T00:08:06.901367Z"
+=======
+>>>>>>> origin/agent/tkt-004d-paused-org-status
         }
       ],
       "decision": {
@@ -1583,6 +1691,7 @@
     {
       "finding_id": "F-141",
       "status": "resolved",
+<<<<<<< HEAD
       "messages": [
         {
           "role": "system",
@@ -1595,6 +1704,9 @@
           "timestamp": "2025-12-10T23:52:20.634850Z"
         }
       ],
+=======
+      "messages": [],
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "decision": {
         "option_id": "skip",
         "option_label": "Won't fix",
@@ -1773,6 +1885,7 @@
     {
       "finding_id": "F-088",
       "status": "resolved",
+<<<<<<< HEAD
       "messages": [
         {
           "role": "system",
@@ -1785,6 +1898,9 @@
           "timestamp": "2025-12-10T23:52:20.634659Z"
         }
       ],
+=======
+      "messages": [],
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "decision": {
         "option_id": "implement_fix",
         "option_label": "Prefer idle agents by only entering the least-connections path if no idle agents were found: `if (!bestAgent && load < lowestLoad)` or track `hasIdleCandidate` flag.",
@@ -1794,12 +1910,17 @@
     },
     {
       "finding_id": "F-089",
+<<<<<<< HEAD
       "status": "resolved",
+=======
+      "status": "in_discussion",
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "messages": [
         {
           "role": "human",
           "text": "visitors should not be able to get assigned to agents who were not ini the pool of a page they landed in",
           "timestamp": "2025-12-05T02:20:44.007Z"
+<<<<<<< HEAD
         },
         {
           "role": "system",
@@ -1822,6 +1943,15 @@
         "option_label": "Won't fix",
         "recommended": false,
         "timestamp": "2025-12-08T22:07:46.257Z"
+=======
+        }
+      ],
+      "decision": {
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "visitors should not be able to get assigned to agents who were not ini the pool of a page they landed in",
+        "timestamp": "2025-12-05T02:20:44.007Z"
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       }
     },
     {
@@ -2799,6 +2929,7 @@
     {
       "finding_id": "F-141",
       "status": "resolved",
+<<<<<<< HEAD
       "messages": [
         {
           "role": "system",
@@ -2811,6 +2942,9 @@
           "timestamp": "2025-12-10T23:52:20.634850Z"
         }
       ],
+=======
+      "messages": [],
+>>>>>>> origin/agent/tkt-004d-paused-org-status
       "decision": {
         "option_id": "skip",
         "option_label": "Won't fix",

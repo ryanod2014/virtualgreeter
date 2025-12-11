@@ -38,6 +38,7 @@ export const SOCKET_EVENTS = {
   AGENT_ASSIGNED: "agent:assigned",
   AGENT_REASSIGNED: "agent:reassigned",
   AGENT_UNAVAILABLE: "agent:unavailable", // No agent available, but sends widget settings for trigger_delay tracking
+  ORG_PAUSED: "org:paused", // Organization is paused - widget should show unavailable message
   CALL_ACCEPTED: "call:accepted",
   CALL_REJECTED: "call:rejected",
   CALL_ENDED: "call:ended",
