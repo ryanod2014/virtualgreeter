@@ -1,0 +1,63 @@
+{
+  "id": "BLOCKED-TKT-074-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-074",
+  "severity": "critical",
+  "title": "Unclear scope: Create generic event emitter vs. fix specific transcription issue?",
+  "feature": "Event Tracking",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-11T20:52:23Z",
+
+  "issue": "The ticket asks to modify 'apps/server/src/features/events/eventEmitter.ts' but this file does not exist. Finding F-197 identifies a specific fire-and-forget problem in the transcription service (use-call-recording.ts lines 283-295). The ticket scope is unclear: should I (1) create a NEW generic event emitter system for the entire server application, or (2) fix the SPECIFIC transcription fire-and-forget issue by adding error handling directly to that flow?",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Create generic event emitter infrastructure — Build a new EventEmitter class in apps/server/src/features/events/eventEmitter.ts with error logging, retry queue, and metrics. Then refactor transcription to use it. More comprehensive but requires architectural changes.",
+      "recommended": false
+    },
+    {
+      "id": 2,
+      "label": "Fix transcription fire-and-forget directly — Add error handling, logging, and retry logic directly to the transcription flow (improve the fetch call in use-call-recording.ts:283-295 and/or the API route). Simpler, targeted fix that solves F-197 immediately.",
+      "recommended": true
+    },
+    {
+      "id": 3,
+      "label": "Hybrid approach — Create lightweight event emitter for fire-and-forget patterns, use it for transcription trigger. Middle ground that provides reusable pattern but stays focused on current issue.",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 2 because F-197 is about transcription failures, and the simplest fix is to improve that specific fire-and-forget call. Creating a generic event emitter would be over-engineering unless there are other fire-and-forget patterns that need the same treatment.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-074",
+    "ticket_version": 1,
+    "branch": "agent/tkt-074-add-error-handling-for-fire-an",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Read SOP and ticket instructions",
+        "Located and analyzed F-197 finding",
+        "Found fire-and-forget pattern in use-call-recording.ts:283-295",
+        "Reviewed transcription service documentation",
+        "Confirmed target file eventEmitter.ts does not exist"
+      ],
+      "remaining": [
+        "Clarify scope: generic emitter vs specific fix ← BLOCKED HERE",
+        "Implement solution based on decision",
+        "Add error logging",
+        "Add retry mechanism",
+        "Add metrics",
+        "Testing and verification"
+      ],
+      "stopped_at": {
+        "file": null,
+        "line": null,
+        "context": "Need to understand if I should create new infrastructure or fix existing transcription code"
+      },
+      "notes_for_next_agent": "The fire-and-forget pattern is in apps/dashboard/src/features/webrtc/use-call-recording.ts lines 283-295. It calls /api/transcription/process with .then().catch() but doesn't properly handle failures. The transcription service docs confirm this is a known issue (Section 6). Consider whether a generic event emitter is needed for other fire-and-forget patterns in the codebase, or if this is a transcription-specific fix."
+    }
+  }
+}
