@@ -2,14 +2,60 @@ import type { VisitorLocation } from "@ghost-greeter/domain";
 import { Reader, ReaderModel } from "@maxmind/geoip2-node";
 import * as fs from "fs";
 import * as path from "path";
+import { CACHE_TTL_MS } from "../config/env.js";
 
 // Cache for IP lookups to avoid repeated database reads
 const locationCache = new Map<string, { location: VisitorLocation | null; expiresAt: number }>();
-const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour cache
+
+// Cache hit rate metrics
+let cacheHits = 0;
+let cacheMisses = 0;
+let lastMetricsLog = Date.now();
 
 // MaxMind database reader (singleton)
 let dbReader: ReaderModel | null = null;
 let dbLoadAttempted = false;
+
+/**
+ * Log cache hit rate metrics every 5 minutes
+ * Provides visibility into cache effectiveness for TTL tuning
+ */
+function logCacheMetrics(): void {
+  const now = Date.now();
+  const fiveMinutesMs = 5 * 60 * 1000;
+
+  if (now - lastMetricsLog >= fiveMinutesMs) {
+    const totalRequests = cacheHits + cacheMisses;
+    const hitRate = totalRequests > 0 ? ((cacheHits / totalRequests) * 100).toFixed(2) : "0.00";
+
+    console.log(
+      `[Geolocation Cache Metrics] ` +
+        `Hit rate: ${hitRate}% | ` +
+        `Hits: ${cacheHits} | ` +
+        `Misses: ${cacheMisses} | ` +
+        `Total: ${totalRequests} | ` +
+        `Cache size: ${locationCache.size}`
+    );
+
+    lastMetricsLog = now;
+  }
+}
+
+/**
+ * Get cache hit rate statistics
+ * @returns Object with cache metrics for monitoring/debugging
+ */
+export function getCacheMetrics(): { hits: number; misses: number; hitRate: number; cacheSize: number } {
+  const totalRequests = cacheHits + cacheMisses;
+  const hitRate = totalRequests > 0 ? (cacheHits / totalRequests) * 100 : 0;
+
+  return {
+    hits: cacheHits,
+    misses: cacheMisses,
+    hitRate: parseFloat(hitRate.toFixed(2)),
+    cacheSize: locationCache.size,
+  };
+}
 
 /**
  * Get the MaxMind database path from environment or default location
@@ -100,18 +146,26 @@ async function initReader(): Promise<ReaderModel | null> {
 >>>>>>> origin/agent/tkt-062-maxmind-geolocation
  */
 export async function getLocationFromIP(ipAddress: string): Promise<VisitorLocation | null> {
+  // Check cache first
   const cached = locationCache.get(ipAddress);
   if (cached && cached.expiresAt > Date.now()) {
+    cacheHits++;
+    logCacheMetrics();
     return cached.location;
   }
 
+  // Cache miss - need to query database
+  cacheMisses++;
+
   if (isPrivateIP(ipAddress)) {
     console.log("[Geolocation] Skipping private IP: " + ipAddress);
+    logCacheMetrics();
     return null;
   }
 
   const reader = await initReader();
   if (!reader) {
+    logCacheMetrics();
     return null;
   }
 
@@ -127,10 +181,12 @@ export async function getLocationFromIP(ipAddress: string): Promise<VisitorLocat
 
     locationCache.set(ipAddress, { location, expiresAt: Date.now() + CACHE_TTL_MS });
     console.log("[Geolocation] Resolved " + ipAddress + " -> " + location.city + ", " + location.region + ", " + location.countryCode);
+    logCacheMetrics();
     return location;
   } catch (error) {
     console.log("[Geolocation] IP not found in MaxMind database: " + ipAddress);
     locationCache.set(ipAddress, { location: null, expiresAt: Date.now() + CACHE_TTL_MS });
+    logCacheMetrics();
     return null;
   }
 }
