@@ -93,24 +93,29 @@ HTTP Method: GET
 Expected Status Code: 200
 
 # Response validation
-Expected Response Body Contains: "ok"
+Expected Response Body Contains: "healthy"
 
 # OR for JSON validation:
 JSON Path: $.status
-Expected Value: ok
+Expected Value: healthy
 ```
 
 > **Note**: 3-minute check frequency is the free tier limit.
 
-> **Note**: The health endpoint returns `status: "ok"` not `"healthy"`. The response includes:
+> **Note**: The health endpoint returns `status: "healthy"` when the service is operational. The response includes:
 > ```json
 > {
->   "status": "ok",
+>   "status": "healthy",
 >   "timestamp": 1701619200000,
 >   "redis": "connected",
 >   "mode": "redis"
 > }
 > ```
+>
+> **Possible status values:**
+> - `"healthy"` - Service is fully operational
+> - `"degraded"` - Service is running but with issues (e.g., Redis disconnected)
+> - `"unhealthy"` - Service is not functioning properly
 
 #### Monitor 3: Signaling Server WebSocket (Optional)
 
@@ -373,7 +378,8 @@ echo | openssl s_client -servername greetnow.com -connect greetnow.com:443 2>/de
 curl https://ghost-greeterserver-production.up.railway.app/health
 
 # 2. Look for expected response
-# Expected: {"status":"ok","timestamp":...,"redis":"connected","mode":"redis"}
+# Expected: {"status":"healthy","timestamp":...,"redis":"connected","mode":"redis"}
+# Note: Status can also be "degraded" or "unhealthy"
 ```
 
 **Resolution Steps:**
@@ -639,12 +645,17 @@ After resolving any incident:
 
 ```json
 {
-  "status": "ok",
+  "status": "healthy",
   "timestamp": 1701619200000,
   "redis": "connected",
   "mode": "redis"
 }
 ```
+
+**Possible status values:**
+- `"healthy"` - Service is fully operational
+- `"degraded"` - Service is running but with issues (e.g., Redis disconnected)
+- `"unhealthy"` - Service is not functioning properly
 
 ---
 
