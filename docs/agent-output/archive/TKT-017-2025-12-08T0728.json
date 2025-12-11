@@ -1,0 +1,9 @@
+{
+  "ticket_id": "TKT-017",
+  "branch": "agent/tkt-017-pool-routing-reassignment",
+  "started_at": "2025-12-08T07:28:53Z",
+  "files_locking": [
+    "apps/server/src/features/routing/pool-manager.ts",
+    "apps/server/src/features/routing/pool-manager.test.ts"
+  ]
+}

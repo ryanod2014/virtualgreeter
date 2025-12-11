@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-017-1",
+  "source": "dev-agent-TKT-017",
+  "title": "Pre-existing build errors in socket-handlers.test.ts",
+  "category": "bug",
+  "severity": "high",
+  "file": "apps/server/src/features/signaling/socket-handlers.test.ts",
+  "line": 437,
+  "issue": "TypeScript build is failing due to unused variables in socket-handlers.test.ts. Three errors: 'CallRequest' is declared but never used (line 437), 'ActiveCall' is declared but never used (line 437), and 'TIMING' is declared but its value is never read (line 438). This blocks the entire server build.",
+  "suggestion": "Remove or use the unused variables in socket-handlers.test.ts, or prefix them with underscore to indicate intentionally unused.",
+  "status": "pending",
+  "found_at": "2025-12-08T08:08:30Z"
+}

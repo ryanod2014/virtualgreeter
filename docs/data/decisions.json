@@ -23,11 +23,6 @@
           "role": "system",
           "text": "📋 Thread closed (duplicate/data mismatch). F-001 (cache TTL) not addressed by this decision.",
           "timestamp": "2025-12-04T23:30:00.000Z"
-        },
-        {
-          "role": "system",
-          "text": "🧹 Thread reset - previous decision was for wrong finding (sanitization vs cache TTL mismatch). Ready for fresh review.",
-          "timestamp": "2025-12-06T22:00:00.000Z"
         }
       ],
       "decision": {
@@ -60,11 +55,6 @@
           "role": "system",
           "text": "📋 Thread closed (duplicate/data mismatch). F-001 (cache TTL) not addressed by this decision.",
           "timestamp": "2025-12-04T23:30:00.000Z"
-        },
-        {
-          "role": "system",
-          "text": "🧹 Thread reset - previous decision was for wrong finding (sanitization vs cache TTL mismatch). Ready for fresh review.",
-          "timestamp": "2025-12-06T22:00:00.000Z"
         }
       ],
       "decision": {
@@ -565,11 +555,6 @@
           "role": "human",
           "text": "this should be a setting they can choose in blocklist settings. it should be like a toggle, if cant determine lcocation block/allow. -- also we should somehow find what our faiilure rate is and disclose that in the ui so they can make a better deciisioni iff they want to toggle or not",
           "timestamp": "2025-12-05T02:10:41.839Z"
-        },
-        {
-          "role": "system",
-          "text": "✅ Clear direction! Creating TKT-065: Geo-Failure Handling Toggle. Will add toggle to blocklist settings for 'if cant determine location: block/allow' + display geolocation failure rate in UI. Marking resolved.",
-          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
@@ -649,17 +634,12 @@
     },
     {
       "finding_id": "F-043",
-      "status": "resolved",
+      "status": "in_discussion",
       "messages": [
         {
           "role": "human",
           "text": "explain this to me simpler - when would issues occur",
           "timestamp": "2025-12-05T02:12:42.649Z"
-        },
-        {
-          "role": "system",
-          "text": "Simple example: Say the server has DEFAULT_WIDGET_SETTINGS.buttonColor = 'blue', but the widget code has it as 'green'. When a new org loads with no saved settings, the server sends 'blue' but the widget shows 'green' until the first save. User sees a flash/change. The fix is just moving the constant to one shared file so both always agree. Low priority but easy fix - want me to create a ticket?",
-          "timestamp": "2025-12-05T22:37:45.132Z"
         }
       ],
       "decision": {
@@ -688,20 +668,9 @@
     },
     {
       "finding_id": "F-045",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "changes should apply immeditately - whats best way to do that?",
-          "timestamp": "2025-12-09T22:54:18.885Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "changes should apply immeditately - whats best way to do that?",
-        "timestamp": "2025-12-09T22:54:18.885Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-046",
@@ -735,46 +704,36 @@
     },
     {
       "finding_id": "F-051",
-      "status": "resolved",
+      "status": "in_discussion",
       "messages": [
         {
           "role": "human",
           "text": "i think we already have a ticket for this",
           "timestamp": "2025-12-05T02:14:07.150Z"
-        },
-        {
-          "role": "system",
-          "text": "✅ Confirmed! F-051 (500 call limit pagination) is covered by TKT-034 (Call Logs Pagination for Performance). Linking and marking resolved.",
-          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
-        "option_id": "skip",
-        "option_label": "Won't fix",
-        "recommended": false,
-        "timestamp": "2025-12-06T21:04:20.597Z"
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "i think we already have a ticket for this",
+        "timestamp": "2025-12-05T02:14:07.150Z"
       }
     },
     {
       "finding_id": "F-052",
-      "status": "resolved",
+      "status": "in_discussion",
       "messages": [
         {
           "role": "human",
           "text": "i think we already have a ticket for this",
           "timestamp": "2025-12-05T02:14:27.136Z"
-        },
-        {
-          "role": "system",
-          "text": "✅ Confirmed! F-052 (URL filter client-side only) is covered by TKT-064 (URL Filter is Client-Side Only). Linking and marking resolved.",
-          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
-        "option_id": "skip",
-        "option_label": "Won't fix",
-        "recommended": false,
-        "timestamp": "2025-12-06T21:04:27.562Z"
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "i think we already have a ticket for this",
+        "timestamp": "2025-12-05T02:14:27.136Z"
       }
     },
     {
@@ -911,17 +870,12 @@
     },
     {
       "finding_id": "F-065",
-      "status": "resolved",
+      "status": "in_discussion",
       "messages": [
         {
           "role": "human",
           "text": "can we know on our end iiff iits working without looking inside facebook?",
           "timestamp": "2025-12-05T02:16:40.194Z"
-        },
-        {
-          "role": "system",
-          "text": "📖 Yes, we can! When we send events to Facebook's Conversions API, FB returns HTTP 200 OK if the event was received. We can: (1) Log success/failure for each event, (2) Show a 'Last successful event' timestamp in settings, (3) Show error banner if API calls start failing. This is part of the F-065 fix - implement credential validation on save + show last-success timestamp. Want me to create a ticket?",
-          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
@@ -979,24 +933,19 @@
     },
     {
       "finding_id": "F-071",
-      "status": "resolved",
+      "status": "in_discussion",
       "messages": [
         {
           "role": "human",
           "text": "already have a ticket i think",
           "timestamp": "2025-12-05T02:18:03.876Z"
-        },
-        {
-          "role": "system",
-          "text": "✅ Confirmed! F-071 (No server-side pagination - 500 limit) is covered by TKT-034 (Call Logs Pagination for Performance). Linking and marking resolved.",
-          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
-        "option_id": "skip",
-        "option_label": "Won't fix",
-        "recommended": false,
-        "timestamp": "2025-12-06T21:04:30.625Z"
+        "option_id": "custom",
+        "option_label": "Custom response",
+        "custom_note": "already have a ticket i think",
+        "timestamp": "2025-12-05T02:18:03.876Z"
       }
     },
     {
@@ -1007,11 +956,6 @@
           "role": "human",
           "text": "already have this as a setting in admin settings",
           "timestamp": "2025-12-05T02:18:34.072Z"
-        },
-        {
-          "role": "system",
-          "text": "📖 Confirmed - F-072 (Data retention policy) is handled by existing admin settings. Marking resolved (existing behavior acceptable).",
-          "timestamp": "2025-12-07T00:00:00.000Z"
         }
       ],
       "decision": {
@@ -1129,42 +1073,26 @@
     },
     {
       "finding_id": "F-089",
-      "status": "resolved",
+      "status": "in_discussion",
       "messages": [
         {
           "role": "human",
           "text": "visitors should not be able to get assigned to agents who were not ini the pool of a page they landed in",
           "timestamp": "2025-12-05T02:20:44.007Z"
-        },
-        {
-          "role": "system",
-          "text": "✅ This is covered by TKT-017 (Enforce Pool Routing on Visitor Reassignment). That ticket ensures pool_id is passed during reassignment and prevents cross-pool assignments. Linking F-089 → TKT-017.",
-          "timestamp": "2025-12-07T00:00:00.000Z"
-        }
-      ],
-      "decision": {
-        "option_id": "skip",
-        "option_label": "Won't fix",
-        "recommended": false,
-        "timestamp": "2025-12-08T22:07:46.257Z"
-      }
-    },
-    {
-      "finding_id": "F-090",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "it should NEVER connect agents without them being a pool - it shouldnt show them as active iff this is the case it should still be in the \"connecting\" state. is this what youre asking about",
-          "timestamp": "2025-12-08T22:10:02.989Z"
         }
       ],
       "decision": {
         "option_id": "custom",
         "option_label": "Custom response",
-        "custom_note": "it should NEVER connect agents without them being a pool - it shouldnt show them as active iff this is the case it should still be in the \"connecting\" state. is this what youre asking about",
-        "timestamp": "2025-12-08T22:10:02.989Z"
+        "custom_note": "visitors should not be able to get assigned to agents who were not ini the pool of a page they landed in",
+        "timestamp": "2025-12-05T02:20:44.007Z"
       }
+    },
+    {
+      "finding_id": "F-090",
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-091",
@@ -1186,82 +1114,33 @@
     },
     {
       "finding_id": "F-094",
-      "status": "resolved",
+      "status": "pending",
       "messages": [],
-      "decision": {
-        "option_id": "skip",
-        "option_label": "Won't fix",
-        "recommended": false,
-        "timestamp": "2025-12-08T21:36:55.653Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-095",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "whats best practice on this? because if its not infinite polling how does it detect new URLs?",
-          "timestamp": "2025-12-08T21:37:38.916Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "whats best practice on this? because if its not infinite polling how does it detect new URLs?",
-        "timestamp": "2025-12-08T21:37:38.916Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-096",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "yah we need to track pageviews when agents are available seperately from widget views. we use both of these stats in admin & agent call logs pages. does this make sesne?",
-          "timestamp": "2025-12-08T22:10:57.037Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "yah we need to track pageviews when agents are available seperately from widget views. we use both of these stats in admin & agent call logs pages. does this make sesne?",
-        "timestamp": "2025-12-08T22:10:57.037Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-097",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "i dont understandd - it should work no matter what",
-          "timestamp": "2025-12-08T22:11:34.246Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "i dont understandd - it should work no matter what",
-        "timestamp": "2025-12-08T22:11:34.246Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-098",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "ad blocker should never block our widdget. how do we make sure this doesnt happen",
-          "timestamp": "2025-12-08T22:12:10.160Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "ad blocker should never block our widdget. how do we make sure this doesnt happen",
-        "timestamp": "2025-12-08T22:12:10.160Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-099",
@@ -1301,99 +1180,39 @@
     },
     {
       "finding_id": "F-105",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "not sure what you're referring to",
-          "timestamp": "2025-12-08T22:12:35.301Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "not sure what you're referring to",
-        "timestamp": "2025-12-08T22:12:35.301Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-106",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "didnt we already talk about this in another ticket?",
-          "timestamp": "2025-12-08T22:12:52.954Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "didnt we already talk about this in another ticket?",
-        "timestamp": "2025-12-08T22:12:52.954Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-107",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "how does it behave when they are on a live call vs when they arent? because deisred behavior is dependent on that. i they are on a live call it shouldnt end the call because they changed urls. but if they change pages without accepting call the widget pool shoiuld change based on what page they go to and the agent there to help them waiting for them to unmute will change",
-          "timestamp": "2025-12-08T22:14:39.644Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "how does it behave when they are on a live call vs when they arent? because deisred behavior is dependent on that. i they are on a live call it shouldnt end the call because they changed urls. but if they change pages without accepting call the widget pool shoiuld change based on what page they go to and the agent there to help them waiting for them to unmute will change",
-        "timestamp": "2025-12-08T22:14:39.644Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-108",
-      "status": "resolved",
+      "status": "pending",
       "messages": [],
-      "decision": {
-        "option_id": "implement_fix",
-        "option_label": "Catch this specific error and display user-friendly message: \"Routing rules cannot be added to the catch-all pool. This pool automatically receives all visitors not matched by other rules.\"",
-        "recommended": true,
-        "timestamp": "2025-12-08T22:27:04.221Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-109",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "i dont unerstand - simplify explanation and make it real",
-          "timestamp": "2025-12-08T22:26:31.897Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "i dont unerstand - simplify explanation and make it real",
-        "timestamp": "2025-12-08T22:26:31.897Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-110",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "they shouldnt be able to delete catch all pool. thoughts?",
-          "timestamp": "2025-12-08T22:25:42.815Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "they shouldnt be able to delete catch all pool. thoughts?",
-        "timestamp": "2025-12-08T22:25:42.815Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-111",
@@ -1455,76 +1274,33 @@
     },
     {
       "finding_id": "F-119",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "i think we have a ticket for this already",
-          "timestamp": "2025-12-08T22:25:07.415Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "i think we have a ticket for this already",
-        "timestamp": "2025-12-08T22:25:07.415Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-120",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "do we already have a ticket for this? or did we already ffix this maybe?",
-          "timestamp": "2025-12-08T22:24:27.309Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "do we already have a ticket for this? or did we already ffix this maybe?",
-        "timestamp": "2025-12-08T22:24:27.309Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-121",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "we save it in DB right? we may create a feature based on it later",
-          "timestamp": "2025-12-08T22:23:59.080Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "we save it in DB right? we may create a feature based on it later",
-        "timestamp": "2025-12-08T22:23:59.080Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-122",
-      "status": "resolved",
+      "status": "pending",
       "messages": [],
-      "decision": {
-        "option_id": "implement_fix",
-        "option_label": "Add periodic validation of FB credentials (on settings page load), and display warning if token is expired/invalid. Consider email notification when FB events start failing.",
-        "recommended": true,
-        "timestamp": "2025-12-08T22:22:56.915Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-123",
-      "status": "resolved",
+      "status": "pending",
       "messages": [],
-      "decision": {
-        "option_id": "skip",
-        "option_label": "Won't fix",
-        "recommended": false,
-        "timestamp": "2025-12-08T22:22:41.500Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-124",
@@ -1546,14 +1322,9 @@
     },
     {
       "finding_id": "F-127",
-      "status": "resolved",
+      "status": "pending",
       "messages": [],
-      "decision": {
-        "option_id": "skip",
-        "option_label": "Won't fix",
-        "recommended": false,
-        "timestamp": "2025-12-09T22:54:36.681Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-128",
@@ -1569,48 +1340,21 @@
     },
     {
       "finding_id": "F-129",
-      "status": "resolved",
+      "status": "pending",
       "messages": [],
-      "decision": {
-        "option_id": "implement_fix",
-        "option_label": "Implement periodic chunk upload to storage (as suggested in doc) or use browser's beforeunload event to warn agents during active recording.",
-        "recommended": true,
-        "timestamp": "2025-12-08T22:21:00.816Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-130",
-      "status": "resolved",
-      "messages": [
-        {
-          "role": "human",
-          "text": "yah do 4 hoours as maximum",
-          "timestamp": "2025-12-08T22:16:22.954Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "yah do 4 hoours as maximum",
-        "timestamp": "2025-12-08T22:16:22.954Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-131",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "what would a (DSAR) workflow look like? how would it change ui etc?",
-          "timestamp": "2025-12-08T22:19:04.973Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "what would a (DSAR) workflow look like? how would it change ui etc?",
-        "timestamp": "2025-12-08T22:19:04.973Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-132",
@@ -1662,20 +1406,9 @@
     },
     {
       "finding_id": "F-140",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "I think we already have a ticket for this? check & if so discard this ",
-          "timestamp": "2025-12-09T22:53:09.803Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "I think we already have a ticket for this? check & if so discard this ",
-        "timestamp": "2025-12-09T22:53:09.803Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-141",
@@ -1750,37 +1483,15 @@
     },
     {
       "finding_id": "F-152",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "please explain this as simply as possible - i dont have enoough context to make a decision",
-          "timestamp": "2025-12-09T22:57:29.755Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "please explain this as simply as possible - i dont have enoough context to make a decision",
-        "timestamp": "2025-12-09T22:57:29.755Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-153",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "please explain this to me in simpler more real terms i will understand",
-          "timestamp": "2025-12-09T22:55:05.919Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "please explain this to me in simpler more real terms i will understand",
-        "timestamp": "2025-12-09T22:55:05.919Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-154",
@@ -1850,14 +1561,9 @@
     },
     {
       "finding_id": "F-163",
-      "status": "resolved",
+      "status": "pending",
       "messages": [],
-      "decision": {
-        "option_id": "implement_fix",
-        "option_label": "Consider chunked upload during call (every N minutes) or background service worker to queue uploads. At minimum, document the risk for agents handling sensitive calls.",
-        "recommended": true,
-        "timestamp": "2025-12-09T22:48:31.783Z"
-      }
+      "decision": null
     },
     {
       "finding_id": "F-164",
@@ -2077,20 +1783,9 @@
     },
     {
       "finding_id": "F-197",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "whats best practice?",
-          "timestamp": "2025-12-09T22:51:27.240Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "whats best practice?",
-        "timestamp": "2025-12-09T22:51:27.240Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-198",
@@ -2106,20 +1801,9 @@
     },
     {
       "finding_id": "F-200",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "what is best practice? also if you need to look at deepgram documentation then do so beore proposing what we should do",
-          "timestamp": "2025-12-09T22:52:51.819Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "what is best practice? also if you need to look at deepgram documentation then do so beore proposing what we should do",
-        "timestamp": "2025-12-09T22:52:51.819Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-201",
@@ -2306,11 +1990,6 @@
           "role": "system",
           "text": "📋 Thread closed (duplicate/data mismatch). F-001 (cache TTL) not addressed by this decision.",
           "timestamp": "2025-12-04T23:30:00.000Z"
-        },
-        {
-          "role": "system",
-          "text": "🧹 Thread reset - previous decision was for wrong finding (sanitization vs cache TTL mismatch). Ready for fresh review.",
-          "timestamp": "2025-12-06T22:00:00.000Z"
         }
       ],
       "decision": {
@@ -2357,20 +2036,9 @@
     },
     {
       "finding_id": "F-233",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "is it illegal? its the same as hotjar for example since we are only viewing what they see on our website not their full screen",
-          "timestamp": "2025-12-09T22:50:53.574Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "is it illegal? its the same as hotjar for example since we are only viewing what they see on our website not their full screen",
-        "timestamp": "2025-12-09T22:50:53.574Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-234",
@@ -2439,20 +2107,9 @@
     },
     {
       "finding_id": "F-243",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "what is the actualy outcome of this for the user? and whats best practice",
-          "timestamp": "2025-12-09T22:52:10.305Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "what is the actualy outcome of this for the user? and whats best practice",
-        "timestamp": "2025-12-09T22:52:10.305Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-244",
@@ -3895,37 +3552,15 @@
     },
     {
       "finding_id": "F-437",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "explain to me like im a 3rd grader im not following",
-          "timestamp": "2025-12-09T22:49:53.660Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "explain to me like im a 3rd grader im not following",
-        "timestamp": "2025-12-09T22:49:53.660Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-438",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "i have no context on what this is regarding - please make this more real and help me undserstand i we need to do it",
-          "timestamp": "2025-12-09T22:53:49.168Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "i have no context on what this is regarding - please make this more real and help me undserstand i we need to do it",
-        "timestamp": "2025-12-09T22:53:49.168Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-439",
@@ -4373,20 +4008,9 @@
     },
     {
       "finding_id": "F-513",
-      "status": "resolved",
-      "messages": [
-        {
-          "role": "human",
-          "text": "yah do minimum 8 like you said",
-          "timestamp": "2025-12-09T22:48:50.522Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "yah do minimum 8 like you said",
-        "timestamp": "2025-12-09T22:48:50.522Z"
-      }
+      "status": "pending",
+      "messages": [],
+      "decision": null
     },
     {
       "finding_id": "F-514",
@@ -6289,458 +5913,6 @@
     },
     {
       "finding_id": "F-778",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "BLOCKED-TKT-042-1",
-      "status": "in_discussion",
-      "messages": [
-        {
-          "role": "human",
-          "text": "what is industry best practice",
-          "timestamp": "2025-12-05T22:37:16.061Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "what is industry best practice",
-        "timestamp": "2025-12-05T22:37:16.064Z"
-      }
-    },
-    {
-      "finding_id": "BLOCKED-TKT-064-1",
-      "status": "resolved",
-      "messages": [],
-      "decision": {
-        "option_id": "skip",
-        "option_label": "Won't fix - acceptable risk",
-        "recommended": false,
-        "timestamp": "2025-12-06T10:47:54.555Z"
-      }
-    },
-    {
-      "finding_id": "BLOCKED-TKT-063-1",
-      "status": "resolved",
-      "messages": [],
-      "decision": {
-        "option_id": 3,
-        "option_label": "Document trade-offs only — Add analysis to widget-settings.md explaining the 5-minute choice, trade-offs, and when to reconsider. No code changes needed.",
-        "recommended": true,
-        "timestamp": "2025-12-06T10:45:42.123Z"
-      }
-    },
-    {
-      "finding_id": "CI-TKT-006",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-SEC-001-FAILED-20251206T211532",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-003-FAILED-20251206T211538",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-007-FAILED-20251206T211556",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-003-FAILED-20251207T011248",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-004B-FAILED-20251206T215253",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-004d-FAILED-20251207T011621",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-005B-FAILED-20251206T215313",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-005b-FAILED-20251207T011936",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-005e-FAILED-20251207T012214",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-010-FAILED-20251207T012516",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-011-FAILED-20251207T021500",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-014-FAILED-20251207T030000",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-015-FAILED-20251206T220115",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-016-FAILED-20251207T012942",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-017-FAILED-20251207T013500",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-018-FAILED-20251207T013008",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-022-FAILED-20251207T013228",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-034-FAILED-20251207T013812",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-038-FAILED-20251206T220245",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-043-FAILED-20251206T220923",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-043-FAILED-20251207T013938",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-045-FAILED-20251207T014050",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-051-FAILED-20251206T222002",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-053-FAILED-20251207T015119",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-059-FAILED-20251206T223702",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-059-FAILED-20251207T015456",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-060-FAILED-20251207T020312",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-061-FAILED-20251206T224059",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-063-FAILED-20251206T224523",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "QA-TKT-064-FAILED-20251206T224812",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "SEC-001",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-003",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-004B",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-004D",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-005B",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-005E",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-006",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-007",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-010",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-011",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-014",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-015",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-016",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-017",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-018",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-022",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-034",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-038",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-043",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-045",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-051",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-053",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-059",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-060",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "TKT-061",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "EXT-TKT-062",
-      "status": "awaiting_human",
-      "priority": "critical",
-      "type": "external_setup",
-      "messages": [
-        {
-          "role": "dispatch",
-          "text": "🚨 EXTERNAL SETUP REQUIRED: MaxMind GeoLite2\n\nTKT-062 needs human action. Please:\n\n1. Create account: https://dev.maxmind.com/geoip/geolite2-free-geolocation-data\n2. Accept EULA, generate license key\n3. Download GeoLite2-City.mmdb (~70MB)\n4. Place at: apps/server/data/GeoLite2-City.mmdb\n\nThen reply with:\n- Email: your-email\n- Password: your-password\n- License Key: your-key",
-          "timestamp": "2025-12-08T00:51:38.586Z"
-        }
-      ],
-      "decision": null,
-      "ticket_id": "TKT-062"
-    },
-    {
-      "finding_id": "TKT-062",
-      "status": "resolved",
-      "messages": [
-        {
-          "role": "human",
-          "text": "ryanod2014@gmail.com Maximind1213!* --- have the dev setup the credentials for it using the browser",
-          "timestamp": "2025-12-08T01:09:53.654Z"
-        }
-      ],
-      "decision": {
-        "option_id": "custom",
-        "option_label": "Custom response",
-        "custom_note": "ryanod2014@gmail.com Maximind1213!* --- have the dev setup the credentials for it using the browser",
-        "timestamp": "2025-12-08T01:09:53.655Z"
-      }
-    },
-    {
-      "finding_id": "ENV-REGRESSION-SCRIPT",
-      "status": "awaiting_human",
-      "messages": [
-        {
-          "role": "system",
-          "text": "🚨 ENVIRONMENT BLOCKER: Regression test script compatibility issue\n\nThe regression test script (scripts/run-regression-tests.sh) line 63 uses bash 4.0+ syntax that is incompatible with macOS default shell:\n\nError: agent/${TICKET_ID,,}: bad substitution\n\nThis is blocking ALL regression test runs and created false-positive blockers for:\n- TKT-007 (already QA-passed, needs regression verification)\n- TKT-010 (currently in QA-failed state)\n\nREQUIRED FIX:\nReplace line 63 in scripts/run-regression-tests.sh with portable syntax or ensure bash 4+ is used.\n\nACTIONS NEEDED:\n1. Fix the script syntax\n2. Test with: ./scripts/run-regression-tests.sh TKT-007\n3. Archive false-positive blockers in docs/agent-output/blocked/\n\nSee full analysis: docs/agent-output/dispatch-report-20251208T1908.md",
-          "timestamp": "2025-12-08T19:10:00.000Z"
-        }
-      ],
-      "decision": null
-    },
-    {
-      "finding_id": "INVALID-TKT-064",
-      "status": "awaiting_human",
-      "priority": "high",
-      "type": "invalid_ticket",
-      "messages": [
-        {
-          "role": "dispatch",
-          "text": "🚨 INVALID TICKET DETECTED: TKT-064\n\n**Issue:** TKT-064 was mistakenly created from finding F-022 where the human decision was 'explain this to me' (requesting explanation, NOT implementation).\n\n**Evidence:**\n- Finding F-022 decision thread shows human asked 'explain this to me'\n- System provided explanation and marked decision as 'resolved'\n- No implementation was requested or needed\n- Ticket has empty files array and generic acceptance criteria\n- Ticket fix_required contains 'Custom response: explain this to me'\n- THREE separate dev sessions blocked on this ticket (no work to do)\n- QA agent correctly identified this as invalid at pre-flight validation\n\n**Related Files:**\n- Blocker: docs/agent-output/blocked/QA-TKT-064-FAILED-20251208T1223.json\n- Decision thread: F-022 in decisions.json\n- Ticket: TKT-064 in tickets.json\n\n**ACTIONS REQUIRED:**\n\n**Option 1: Close as Invalid (Recommended)**\n1. Update TKT-064 status to 'closed' or 'invalid'\n2. Add closure note: 'Ticket was explanation request, not implementation request'\n3. Archive the QA blocker file\n\n**Option 2: Convert to Implementation Ticket**\nIf you DO want this implemented (make URL filter server-side):\n1. Create TKT-064-v2 with proper implementation spec:\n   - Specific files to modify (API routes, frontend filters)\n   - Clear implementation approach (add URL query param to API)\n   - Testable acceptance criteria\n2. Close original TKT-064\n3. Archive the QA blocker file\n\nWhich option do you prefer?",
-          "timestamp": "2025-12-08T20:30:00.000Z"
-        }
-      ],
-      "decision": null,
-      "ticket_id": "TKT-064"
-    },
-    {
-      "finding_id": "BLOCKED-TKT-030-1",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "ENV-TKT-045-1",
-      "status": "pending",
-      "messages": [],
-      "decision": null
-    },
-    {
-      "finding_id": "F-1765322377494",
       "status": "pending",
       "messages": [],
       "decision": null
