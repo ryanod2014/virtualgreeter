@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-104-1",
+  "source": "dev-agent-TKT-104",
+  "title": "TypeScript compilation error in useWebRTC.test.ts",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/widget/src/features/webrtc/useWebRTC.test.ts",
+  "line": 1067,
+  "issue": "TypeScript reports 'Declaration or statement expected' error at line 1067 (the file's closing `});`). This appears to be caused by an unclosed block or syntax error earlier in the file. The error prevents the widget typecheck from passing.",
+  "suggestion": "Review the file structure to find any unclosed blocks or syntax errors. Common causes: missing closing braces, unclosed template literals, or malformed test blocks.",
+  "status": "pending",
+  "found_at": "2025-12-12T04:45:00Z"
+}
