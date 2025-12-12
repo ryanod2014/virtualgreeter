@@ -64,7 +64,7 @@ describe("Organization Status Utilities", () => {
         clearAllOrgStatusCache();
         setupSupabaseMock({ data: { subscription_status: status } });
 
-        const result = await getOrgSubscriptionStatus(\`org-\${status}\`);
+        const result = await getOrgSubscriptionStatus(`org-${status}`);
 
         expect(result).toBe(status);
       }

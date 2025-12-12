@@ -638,10 +638,6 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
       }
 
       try {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> origin/agent/tkt-005e
         // Check if agent's organization allows them to go available
         const orgId = await getAgentOrgId(agent.agentId);
         if (orgId) {
@@ -653,18 +649,6 @@ export function setupSocketHandlers(io: AppServer, poolManager: PoolManager) {
               status: agent.profile.status,
               error: availabilityCheck.message ?? "Unable to go available"
             });
-<<<<<<< HEAD
-=======
-        // Check if agent's organization is paused - prevent going available
-        const agentOrgId = await getAgentOrgId(agent.agentId);
-        if (agentOrgId) {
-          const orgPaused = await isOrgPaused(agentOrgId);
-          if (orgPaused) {
-            console.log(`[Socket] ⏸️ Agent ${agent.agentId} cannot go active - org ${agentOrgId} is paused`);
-            ack?.({ success: false, status: "away", error: "Organization is paused. You cannot go active while paused." });
->>>>>>> origin/agent/tkt-004d-paused-org-status
-=======
->>>>>>> origin/agent/tkt-005e
             return;
           }
         }
