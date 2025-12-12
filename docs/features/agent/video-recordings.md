@@ -259,7 +259,10 @@ PLAYBACK
 | Cross-org access | Supabase RLS policies |
 | Privacy consent | Warning shown in admin settings |
 | API key exposure | Server-side only (Deepgram, OpenAI) |
-| Storage access | Supabase Storage with org-based paths |
+| Storage access | Private Supabase bucket with signed URLs |
+| Predictable URL patterns | Randomized UUID filenames, not sequential |
+| URL expiration | Signed URLs expire after 1 hour |
+| Direct file access | Private bucket requires authentication |
 
 ### Reliability
 | Concern | Mitigation |

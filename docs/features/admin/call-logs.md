@@ -163,7 +163,7 @@ stateDiagram-v2
 | `status` | enum | pending, accepted, rejected, completed, missed, cancelled |
 | `page_url` | string | URL where visitor initiated call |
 | `duration_seconds` | number | Call length (completed calls only) |
-| `recording_url` | string | S3 URL to recording file |
+| `recording_url` | string | Recording ID (UUID) for signed URL generation |
 | `created_at` | timestamp | When call request was made |
 | `ring_started_at` | timestamp | When ring began |
 | `answered_at` | timestamp | When agent answered |
