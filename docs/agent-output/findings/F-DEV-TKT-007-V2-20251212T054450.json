@@ -1,0 +1,14 @@
+{
+  "id": "F-DEV-TKT-007-V2-1",
+  "source": "dev-agent-TKT-007-V2",
+  "title": "Pre-existing merge conflicts in server code blocking builds",
+  "category": "bug",
+  "severity": "critical",
+  "file": "apps/server/src/features/signaling/socket-handlers.ts",
+  "line": 641,
+  "issue": "Multiple merge conflict markers found in apps/server/src preventing builds:\n- socket-handlers.ts (lines 641-667): conflicts between HEAD, origin/agent/tkt-005e, and origin/agent/tkt-004d-paused-org-status\n- socket-handlers.test.ts (line 438)\n- organization.test.ts (lines 67, 412)\n- geolocation.ts (multiple locations)\n\nThese conflicts appear to be from incomplete merges of branches tkt-005e and tkt-004d-paused-org-status. The conflicts prevent pnpm build from succeeding.",
+  "suggestion": "Human engineer needs to resolve merge conflicts by:\n1. Reviewing the conflicting changes from both branches\n2. Deciding which implementation to keep or how to merge them\n3. Removing all conflict markers (<<<<<<< HEAD, =======, >>>>>>>)\n4. Testing the resolved code\n5. Committing the resolution",
+  "status": "pending",
+  "found_at": "2025-12-12T05:44:50Z",
+  "additional_context": "This is NOT related to TKT-007-V2, which is a documentation-only change. The TKT-007-V2 work is complete and correct. These merge conflicts are pre-existing in the main branch and affect all builds."
+}
