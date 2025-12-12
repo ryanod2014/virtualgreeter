@@ -54,6 +54,13 @@
       "started_at": "2025-12-11T07:00:00Z",
       "completed_at": "2025-12-11T07:37:47Z",
       "completion_file": "docs/agent-output/completions/TKT-067-2025-12-11T0737.md"
+    },
+    {
+      "ticket_id": "TKT-098",
+      "branch": "agent/tkt-098-fix-tiered-routing-to-prefer-i",
+      "started_at": "2025-12-12T03:39:13Z",
+      "completed_at": "2025-12-12T03:42:33Z",
+      "completion_file": "docs/agent-output/completions/TKT-098-2025-12-12T0342.md"
     }
   ],
   "retry_history": []
