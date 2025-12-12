@@ -1543,7 +1543,7 @@ pnpm build`}
     }
 
     // ================= UI REVIEW CARD =================
-    // Card for UI reviews, styled like FindingCard but with approve/reject/comment actions
+    // Card for UI reviews - styled like FindingCard but with approve/reject/comment actions
     
     function UIReviewCard({ review, onApprove, onReject }) {
       const [comment, setComment] = useState('');
@@ -1761,7 +1761,9 @@ pnpm build`}
         if (!agentOutputs?.blocked) return [];
         return agentOutputs.blocked.map(b => {
           try {
-            const parsed = typeof b.content === 'string' ? JSON.parse(b.content) : b.content;
+            // JSON files are already parsed by fileScanner, data is at top level
+            // Only parse if b.content exists (legacy format)
+            const parsed = b.content ? (typeof b.content === 'string' ? JSON.parse(b.content) : b.content) : b;
             const fileName = b.fileName || '';
             
             // Determine if this blocker is auto-handleable (no human decision needed)
@@ -3795,13 +3797,42 @@ pnpm build`}
             // Regression = dev_complete + in_review
             const regressionCount = statusCounts.dev_complete + statusCounts.in_review;
             
-            // Post-QA work = test_lock_pending + docs_pending + qa_approved (waiting for both)
-            const postQaCount = statusCounts.test_lock_pending + statusCounts.docs_pending + statusCounts.qa_approved;
+            // UI Review = qa_approved + qa_passed (human review needed before tests+docs)
+            const uiReviewCount = statusCounts.qa_approved;
+            
+            // Post-QA work = test_lock_pending + docs_pending + finalizing (tests+docs running)
+            const postQaCount = statusCounts.test_lock_pending + statusCounts.docs_pending;
             
             // Ready to merge = finalizing + ready_to_merge
             const readyToMergeCount = statusCounts.finalizing + statusCounts.ready_to_merge;
             
             const needsAttention = statusCounts.blocked + statusCounts.qa_failed;
+            
+            // Calculate next batch - tickets that can run in parallel without conflicts
+            const unmergedStatuses = ['dev_complete', 'in_review', 'for_review', 'qa_pending', 'qa_approved', 'qa_passed', 'qa_failed', 'blocked', 'finalizing', 'ready_to_merge'];
+            const lockedFiles = new Set();
+            // Lock files from in-progress tickets
+            tickets.filter(t => activeInProgressItems.some(ip => ip.ticket_id?.toUpperCase() === t.id?.toUpperCase())).forEach(t => {
+              (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
+            });
+            // Lock files from all unmerged tickets
+            tickets.filter(t => unmergedStatuses.includes(t.status)).forEach(t => {
+              (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
+            });
+            // Calculate batch using greedy algorithm
+            const readyTickets = tickets.filter(t => t.status === 'ready' && !activeInProgressItems.some(ip => ip.ticket_id?.toUpperCase() === t.id?.toUpperCase()));
+            const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+            const sortedReady = [...readyTickets].sort((a, b) => (priorityOrder[a.priority] || 4) - (priorityOrder[b.priority] || 4));
+            const batchFiles = new Set(lockedFiles);
+            let nextBatchCount = 0;
+            for (const ticket of sortedReady) {
+              const ticketFiles = ticket.files_to_modify || [];
+              const hasConflict = ticketFiles.some(f => batchFiles.has(f));
+              if (!hasConflict) {
+                nextBatchCount++;
+                ticketFiles.forEach(f => batchFiles.add(f));
+              }
+            }
             
             return (
               <>
@@ -3811,7 +3842,7 @@ pnpm build`}
                     Pipeline Flow
                   </div>
                   <div style={{ display: 'flex', gap: '4px', alignItems: 'stretch', flexWrap: 'wrap' }}>
-                    {/* Ready */}
+                    {/* All Ready */}
                     <div 
                       className="card" 
                       onClick={() => setPipelineTab('all')}
@@ -3824,7 +3855,25 @@ pnpm build`}
                       }}
                     >
                       <div style={{ fontSize: '18px', fontWeight: 700, color: '#6366f1' }}>{statusCounts.ready}</div>
-                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ready</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>All</div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
+                    
+                    {/* Next Batch - Can run in parallel */}
+                    <div 
+                      className="card" 
+                      onClick={() => setPipelineTab('all')}
+                      style={{ 
+                        padding: '10px 14px', 
+                        cursor: 'pointer',
+                        borderLeft: nextBatchCount > 0 ? '3px solid #10b981' : '3px solid var(--border)',
+                        background: undefined,
+                        minWidth: '75px'
+                      }}
+                    >
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: nextBatchCount > 0 ? '#10b981' : 'var(--text-muted)' }}>{nextBatchCount}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Can Launch</div>
                     </div>
                     
                     <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
@@ -3879,6 +3928,24 @@ pnpm build`}
                     >
                       <div style={{ fontSize: '18px', fontWeight: 700, color: statusCounts.qa_pending > 0 ? '#ec4899' : 'var(--text-muted)' }}>{statusCounts.qa_pending}</div>
                       <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>QA</div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
+                    
+                    {/* UI Review (Human Approval Gate) */}
+                    <div 
+                      className="card" 
+                      onClick={() => setPipelineTab('uireview')}
+                      style={{ 
+                        padding: '10px 14px', 
+                        cursor: 'pointer',
+                        borderLeft: uiReviewCount > 0 ? '3px solid #f97316' : '3px solid var(--border)',
+                        background: pipelineTab === 'uireview' ? 'var(--bg-elevated)' : undefined,
+                        minWidth: '80px'
+                      }}
+                    >
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: uiReviewCount > 0 ? '#f97316' : 'var(--text-muted)' }}>{uiReviewCount}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>UI Review</div>
                     </div>
                     
                     <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
@@ -4006,11 +4073,12 @@ pnpm build`}
           <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0', flexWrap: 'wrap' }}>
             {[
               { id: 'inventory', label: 'Features', count: featuresList.length, color: 'var(--accent)' },
-              { id: 'all', label: 'Ready', count: tickets.filter(t => t.status === 'ready').length, color: '#6366f1' },
+              { id: 'all', label: 'All', count: tickets.filter(t => t.status === 'ready').length, color: '#6366f1' },
               { id: 'progress', label: 'Dev', count: activeInProgressItems.length, color: '#f59e0b' },
               { id: 'regression', label: 'Regress', count: tickets.filter(t => t.status === 'dev_complete' || t.status === 'in_review').length, color: '#8b5cf6' },
               { id: 'qa', label: 'QA', count: tickets.filter(t => t.status === 'qa_pending').length, color: '#ec4899' },
-              { id: 'postqa', label: 'Tests+Docs', count: tickets.filter(t => ['qa_approved', 'qa_passed', 'test_lock_pending', 'docs_pending'].includes(t.status)).length, color: '#06b6d4' },
+              { id: 'uireview', label: 'UI Review', count: tickets.filter(t => t.status === 'qa_approved' || t.status === 'qa_passed').length, color: '#f97316' },
+              { id: 'postqa', label: 'Tests+Docs', count: tickets.filter(t => ['test_lock_pending', 'docs_pending'].includes(t.status)).length, color: '#06b6d4' },
               { id: 'blocked', label: 'Blocked', count: tickets.filter(t => t.status === 'blocked' || t.status === 'qa_failed').length, color: '#ef4444' },
               { id: 'merge', label: 'Ready', count: tickets.filter(t => t.status === 'ready_to_merge' || t.status === 'finalizing').length, color: '#22c55e' },
               { id: 'merged', label: 'Done', count: (() => {
@@ -4946,13 +5014,151 @@ pnpm build`}
               })()}
             </div>
           )}
-          
+
+          {/* UI REVIEW TAB (Human Approval Gate) */}
+          {pipelineTab === 'uireview' && (
+            <div className="fade-in">
+              {(() => {
+                const uiReviewTickets = tickets.filter(t => 
+                  t.status === 'qa_approved' || t.status === 'qa_passed'
+                );
+                
+                // Get inbox items for these tickets
+                const inboxItems = (agentOutputs?.inbox || []).filter(item => 
+                  uiReviewTickets.some(t => t.id?.toUpperCase() === item.ticketId?.toUpperCase())
+                );
+                
+                if (uiReviewTickets.length === 0) {
+                  return (
+                    <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                      <div style={{ marginBottom: '16px', fontSize: '48px' }}>👀</div>
+                      <div style={{ fontSize: '18px', fontWeight: 500 }}>No tickets awaiting UI review</div>
+                      <div style={{ fontSize: '14px', marginTop: '8px' }}>
+                        After QA passes, tickets wait here for your approval before tests & docs run
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div>
+                    <div style={{ 
+                      padding: '16px 20px', 
+                      background: 'rgba(249,115,22,0.1)', 
+                      borderRadius: '12px', 
+                      marginBottom: '20px',
+                      border: '1px solid rgba(249,115,22,0.2)'
+                    }}>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        👀 {uiReviewTickets.length} ticket{uiReviewTickets.length > 1 ? 's' : ''} awaiting your review
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        These passed QA and need your approval • Use magic links to review UI changes
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {uiReviewTickets.map(ticket => {
+                        // Find inbox item with magic links for this ticket
+                        const inboxItem = inboxItems.find(item => 
+                          item.ticketId?.toUpperCase() === ticket.id?.toUpperCase()
+                        );
+                        
+                        return (
+                          <div 
+                            key={ticket.id} 
+                            className="card"
+                            style={{ 
+                              borderLeft: '4px solid #f97316',
+                              padding: '16px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                              <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{ticket.id}</code>
+                              <span className="badge" style={{ color: '#f97316', background: 'rgba(249,115,22,0.15)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
+                                👀 Needs Review
+                              </span>
+                              <span className={`badge badge-${ticket.priority}`}>{ticket.priority}</span>
+                            </div>
+                            <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '8px' }}>{ticket.title}</div>
+                            
+                            {inboxItem?.magic_links && inboxItem.magic_links.length > 0 && (
+                              <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
+                                <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                                  🔗 Magic Links (click to review)
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                  {inboxItem.magic_links.map((link, i) => (
+                                    <a 
+                                      key={i}
+                                      href={link.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        padding: '6px 12px',
+                                        background: 'var(--accent)',
+                                        color: 'white',
+                                        borderRadius: '6px',
+                                        fontSize: '12px',
+                                        textDecoration: 'none',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}
+                                    >
+                                      {link.role === 'admin' ? '👤' : '🧑‍💼'} {link.role}
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {inboxItem?.qa_report && (
+                              <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                                📋 <a href="#" onClick={(e) => { e.preventDefault(); /* TODO: open QA report */ }} style={{ color: 'var(--accent)' }}>
+                                  View QA Report
+                                </a>
+                              </div>
+                            )}
+                            
+                            <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                              <button
+                                className="btn btn-success"
+                                style={{ padding: '6px 16px', fontSize: '12px' }}
+                                onClick={() => {
+                                  // TODO: Approve and move to tests+docs
+                                  alert('Approve: Move to Tests+Docs phase');
+                                }}
+                              >
+                                ✅ Approve
+                              </button>
+                              <button
+                                className="btn"
+                                style={{ padding: '6px 16px', fontSize: '12px', background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                                onClick={() => {
+                                  // TODO: Request changes
+                                  alert('Request Changes: Send back to dev');
+                                }}
+                              >
+                                ↩️ Request Changes
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {/* POST-QA TAB (Test Lock + Docs in parallel) */}
           {pipelineTab === 'postqa' && (
             <div className="fade-in">
               {(() => {
-                const postQaTickets = tickets.filter(t => 
-                  ['qa_approved', 'qa_passed', 'test_lock_pending', 'docs_pending'].includes(t.status)
+                const postQaTickets = tickets.filter(t =>
+                  ['test_lock_pending', 'docs_pending'].includes(t.status)
                 );
                 
                 if (postQaTickets.length === 0) {
@@ -4997,7 +5203,7 @@ pnpm build`}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                             <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{ticket.id}</code>
                             <span className="badge" style={{ color: '#06b6d4', background: 'rgba(6,182,212,0.15)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
-                              ✅ QA Passed
+                              ✅ Approved
                             </span>
                             {ticket.status === 'test_lock_pending' && (
                               <span className="badge" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.15)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
@@ -5394,8 +5600,9 @@ pnpm build`}
         });
       }
       
-      // Add files from tickets in "for_review" status - they're not merged yet!
-      tickets.filter(t => t.status === 'for_review').forEach(t => {
+      // Add files from ALL unmerged tickets - they have branches that will conflict!
+      const unmergedStatuses = ['dev_complete', 'in_review', 'for_review', 'qa_pending', 'qa_approved', 'qa_passed', 'qa_failed', 'blocked', 'finalizing', 'ready_to_merge'];
+      tickets.filter(t => unmergedStatuses.includes(t.status)).forEach(t => {
         (t.files_to_modify || []).forEach(f => lockedFiles.add(f));
       });
       

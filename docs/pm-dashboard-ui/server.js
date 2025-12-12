@@ -4250,7 +4250,7 @@ function handleAPI(req, res, body) {
   if (req.method === 'GET' && url === '/api/v2/inbox') {
     try {
       const inboxDir = path.join(__dirname, '../agent-output/inbox');
-      const items = [];
+      const itemsByTicket = new Map(); // Dedupe by ticket_id, keep most recent
       
       if (fs.existsSync(inboxDir)) {
         const files = fs.readdirSync(inboxDir).filter(f => f.endsWith('.json'));
@@ -4259,7 +4259,15 @@ function handleAPI(req, res, body) {
             const content = fs.readFileSync(path.join(inboxDir, file), 'utf8');
             const item = JSON.parse(content);
             if (item.status === 'pending') {
-              items.push({ ...item, filename: file });
+              const ticketId = (item.ticket_id || item.ticketId || '').toUpperCase();
+              const existing = itemsByTicket.get(ticketId);
+              const itemDate = new Date(item.created_at || 0);
+              const existingDate = existing ? new Date(existing.created_at || 0) : new Date(0);
+              
+              // Keep the most recent entry per ticket
+              if (!existing || itemDate > existingDate) {
+                itemsByTicket.set(ticketId, { ...item, filename: file });
+              }
             }
           } catch (e) {
             // Skip invalid files
@@ -4267,6 +4275,7 @@ function handleAPI(req, res, body) {
         }
       }
       
+      const items = Array.from(itemsByTicket.values());
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ items, count: items.length }));
     } catch (e) {

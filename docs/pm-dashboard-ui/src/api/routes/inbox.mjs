@@ -30,10 +30,10 @@ export function initInboxRoutes(dbModule) {
   db = dbModule;
 }
 
-// GET /api/v2/inbox - List pending inbox items
+// GET /api/v2/inbox - List pending inbox items (deduplicated by ticket)
 router.get('/', (req, res) => {
   try {
-    const items = [];
+    const itemsByTicket = new Map(); // Dedupe by ticket_id, keep most recent
 
     if (existsSync(INBOX_DIR)) {
       const files = readdirSync(INBOX_DIR).filter(f => f.endsWith('.json'));
@@ -43,7 +43,15 @@ router.get('/', (req, res) => {
           const item = JSON.parse(content);
           // Only include pending items (not already approved/rejected)
           if (item.status !== 'approved' && item.status !== 'rejected') {
-            items.push({ ...item, fileName: file });
+            const ticketId = (item.ticket_id || item.ticketId || '').toUpperCase();
+            const existing = itemsByTicket.get(ticketId);
+            const itemDate = new Date(item.created_at || 0);
+            const existingDate = existing ? new Date(existing.created_at || 0) : new Date(0);
+            
+            // Keep the most recent entry per ticket
+            if (!existing || itemDate > existingDate) {
+              itemsByTicket.set(ticketId, { ...item, fileName: file });
+            }
           }
         } catch (e) {
           // Skip malformed files
@@ -51,6 +59,7 @@ router.get('/', (req, res) => {
       }
     }
 
+    const items = Array.from(itemsByTicket.values());
     res.json({ items, count: items.length });
   } catch (e) {
     res.status(500).json({ error: e.message });
