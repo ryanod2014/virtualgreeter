@@ -1,7 +1,29 @@
 # Review Agent SOP
 
-> **Purpose:** Scan documented features for issues, inconsistencies, and improvement opportunities.
+> **Purpose:** Scan merged changes and documentation for issues, then write findings to staging.
 > **One-liner to launch:** `You are a Review Agent. Read docs/workflow/REVIEW_AGENT_SOP.md then execute: [prompt-file]`
+
+---
+
+## Pipeline Context
+
+```
+Dev Agent → QA Agent → Docs+Tests → Auto-Merge → YOU ARE HERE → Triage Agent
+                                                  (REVIEW AGENT)
+```
+
+**What's happening:**
+- You run AFTER code is merged to main
+- You review the NEW documentation that Docs Agent created
+- Your findings go to **staging** → Triage Agent processes → Human inbox
+
+---
+
+## What's Already Done For You
+
+The launcher script handles:
+- ✅ Session registration
+- ✅ Loading existing findings for context
 
 ---
 
@@ -9,16 +31,27 @@
 
 You are a **read-only analyst**. You:
 - ✅ Read documentation thoroughly
+- ✅ Check existing findings for this feature (avoid duplicates)
 - ✅ Identify issues, inconsistencies, confusing logic
-- ✅ Report findings in a structured format
-- ✅ Write your output to a per-agent file (prevents conflicts with other agents)
+- ✅ Write findings to **staging** via CLI
 - ❌ Do NOT make changes to any source files
-- ❌ Do NOT create tickets (PM + Human do that)
+- ❌ Do NOT create tickets (Triage → Human → Ticket Agent does that)
 - ❌ Do NOT decide priority (Human decides)
 
 ---
 
 ## Workflow
+
+### Step 0: Check Existing Findings
+
+Before creating new findings, check what already exists:
+
+```bash
+# See existing findings for this feature
+./scripts/agent-cli.sh list-findings --feature "[FEATURE_NAME]"
+```
+
+**Don't duplicate!** If a finding already exists, skip it.
 
 ### Step 1: Read Your Prompt
 
@@ -48,56 +81,77 @@ Look for these categories:
 | **Technical Debt** | Performance, security, or reliability concerns noted |
 | **Inconsistencies** | Contradictions with other documented features |
 
-### Step 4: Write Findings to Per-Agent Output File
+### Step 4: Write Findings to Staging via CLI
 
-**IMPORTANT:** Write your findings to your own unique file to prevent conflicts with other review agents.
+For **each** finding, use the CLI to add it to staging:
 
-**File path:** `docs/agent-output/reviews/[FEATURE-ID]-[TIMESTAMP].md`
+```bash
+./scripts/agent-cli.sh add-finding \
+  --title "[Short descriptive title]" \
+  --severity "[critical|high|medium|low]" \
+  --feature "[feature name]" \
+  --description "[Detailed issue description]" \
+  --location "[Section or file reference]" \
+  --suggested-fix "[Your recommendation]"
+```
 
-Example: `docs/agent-output/reviews/D-routing-rules-2025-12-04T1430.md`
+**Example:**
 
-Use this EXACT format:
+```bash
+./scripts/agent-cli.sh add-finding \
+  --title "Ambiguous timeout behavior in RNA handling" \
+  --severity high \
+  --feature "routing-rules" \
+  --description "Documentation says 'agent is marked unavailable after timeout' but doesn't specify if automatic or requires admin action. State diagram shows automatic but text implies manual." \
+  --location "Section 6 - Edge Cases, RNA Timeout row" \
+  --suggested-fix "Clarify in docs: automatic after 30s, no admin action needed"
+```
+
+**For each finding, include options in the description:**
+
+```
+Issue: [What's wrong]
+
+Options:
+1. [Option A] - [description]
+2. [Option B] - [description]  
+3. Skip - not worth fixing
+
+Recommendation: [Your pick and why]
+```
+
+### Step 5: Write Summary Report
+
+After adding all findings via CLI, write a summary:
+
+**File:** `docs/agent-output/reviews/[FEATURE-ID]-[TIMESTAMP].md`
 
 ```markdown
-# Review: [FEATURE-ID] - [Feature Name]
+# Review Complete: [FEATURE-ID]
 
 **Reviewed:** [date]
 **Doc File:** `docs/features/[path]`
-**Review Agent:** [prompt file used]
 
----
+## Findings Submitted to Staging
 
-## Findings
-
-### 1. [Short Title]
-- **Category:** [Confusing User Story | Logic Issue | Documented Issue | Missing Scenario | UX Concern | Technical Debt | Inconsistency]
-- **Severity:** [Critical | High | Medium | Low]
-- **Location:** [Section name or line reference]
-- **Issue:** [Clear description of what's wrong]
-- **Options:**
-  1. [First option - be specific]
-  2. [Second option - alternative approach]
-  3. [Third option - if applicable]
-  4. Skip - not worth fixing
-- **Recommendation:** [Which option you recommend and why - one sentence]
-- **Human Decision:** ⏳ PENDING
-
-### 2. [Next Finding]
-...
-
----
+| Title | Severity | Finding ID |
+|-------|----------|------------|
+| [title] | [sev] | [ID from CLI output] |
 
 ## Summary
-- **Total Findings:** [N]
-- **Critical:** [N]
-- **High:** [N]
-- **Medium:** [N]
-- **Low:** [N]
+- Total: [N]
+- Critical: [N]
+- High: [N]
+- Medium: [N]
+- Low: [N]
+
+## Notes
+[Any observations]
 ```
 
-### Step 5: Done
+### Step 6: Done
 
-After writing your findings file, you're done. The PM Dashboard automatically aggregates all review agent outputs.
+Your findings are now in staging. Triage Agent will process them into the human inbox.
 
 ---
 
@@ -144,11 +198,10 @@ After writing your findings file, you're done. The PM Dashboard automatically ag
 ## Output Checklist
 
 Before finishing, verify:
+- [ ] Checked existing findings for this feature (no duplicates)
 - [ ] Read entire doc file
 - [ ] Checked all 10 sections for issues
-- [ ] Reported ALL findings (even minor ones)
-- [ ] Used exact format above
-- [ ] Each finding has Category, Severity, Location, Issue
-- [ ] Each finding has 2-4 Options for the human to choose from
-- [ ] Each finding has a Recommendation (your suggested option + brief reason)
-- [ ] Wrote to `docs/agent-output/reviews/[FEATURE-ID]-[TIMESTAMP].md` (NOT REVIEW_FINDINGS.md)
+- [ ] Reported ALL findings via CLI (`add-finding`)
+- [ ] Each finding has options for the human to choose from
+- [ ] Each finding has a recommendation
+- [ ] Wrote summary to `docs/agent-output/reviews/[FEATURE-ID]-[TIMESTAMP].md`

@@ -1,7 +1,34 @@
 # TEST LOCK Agent SOP (Standard Operating Procedure)
 
-> **Purpose:** Lock in current behavior of all code as behavior-level tests.
+> **Purpose:** Lock in current behavior of code changes as behavior-level tests.
 > **One-liner to launch:** `You are a TEST LOCK Agent. Read docs/workflow/TEST_LOCK_AGENT_SOP.md then execute: docs/prompts/active/test-lock-[FEATURE-ID].md`
+
+---
+
+## Pipeline Context
+
+```
+Dev Agent → QA Agent → YOU ARE HERE → Auto-Merge → Review Agent
+                       (TESTS AGENT)
+                       + Docs Agent (parallel)
+```
+
+**What's happening:**
+- You run on the **same branch** as the Dev Agent's work
+- **Docs Agent is running in parallel** with you
+- **Both must complete** before auto-merge happens
+- Your tests will be merged with the feature code
+
+---
+
+## What's Already Done For You
+
+The launcher script handles:
+- ✅ Branch checkout (same branch as Dev work)
+- ✅ Session registration
+- ✅ Worktree setup
+
+You start ready to write tests.
 
 ---
 
@@ -30,9 +57,73 @@ You are NOT defining "correct." You are taking a **snapshot** of "what exists ri
 
 ---
 
-## Process (5 Steps)
+## The 3-Step Process
 
-### Step 1: Read the Feature Documentation
+---
+
+### STEP 1: BRAINSTORM (Before writing any tests)
+
+**Think through ALL behaviors to test:**
+
+```markdown
+## Brainstorm for [FEATURE-ID]
+
+### Files to Test
+- [file1.ts] - [what it does]
+- [file2.ts] - [what it does]
+
+### Behaviors I Need to Lock In
+
+For each function/component, list:
+- Happy paths: [normal operations]
+- Edge cases: [empty, null, boundary values]
+- Error cases: [what throws, what fails]
+- State changes: [before/after]
+
+### Questions to Answer
+- What triggers this code?
+- What are ALL possible inputs?
+- What are ALL possible outputs?
+- What side effects happen?
+```
+
+---
+
+### STEP 2: PLAN (Write your test plan)
+
+**Before writing code, list every test:**
+
+```markdown
+## Test Plan for [FEATURE-ID]
+
+### [filename.ts]
+| Function | Test Cases |
+|----------|------------|
+| `functionA` | 1. happy path, 2. empty input, 3. error case |
+| `functionB` | 1. happy path, 2. boundary value, 3. null check |
+
+### [ComponentName.tsx]
+| Behavior | Test |
+|----------|------|
+| Display | 1. shows when open, 2. hides when closed |
+| Actions | 1. click calls handler, 2. disabled when loading |
+
+### Total Tests Planned: [N]
+```
+
+**This takes 5 minutes and ensures complete coverage.**
+
+---
+
+### STEP 3: EXECUTE (Write the tests)
+
+Now implement each test from your plan.
+
+---
+
+## Detailed Process
+
+### Read the Feature Documentation
 
 ```bash
 cat docs/features/[category]/[feature].md
@@ -598,11 +689,13 @@ After creating tests, write completion to per-agent file:
 |----------|-----|
 | Modify source code | You only write tests |
 | Test "intended" behavior | Only test CURRENT behavior |
-| Run on dev branches | Only run on main branch |
 | Skip edge cases | Capture everything |
 | Write file-level tests | Write behavior-level tests |
 | Fix bugs you find | Just document them in notes |
 | Create tickets | Just write tests |
+
+> **Note:** You run on the **same branch** as the Dev Agent's work (not main).
+> Your tests will be merged with the feature code when the pipeline merges.
 
 ---
 

@@ -15,37 +15,82 @@ You are a **quality gate** between agent outputs and the human inbox. You:
 - ✅ Promote a controlled batch to the inbox
 - ✅ Write clear reasoning for decisions
 - ❌ Do NOT decide on implementation (human does that)
-- ❌ Do NOT create tickets (Dispatch Agent does that)
+- ❌ Do NOT create tickets (Ticket Agent does that after human decisions)
 
 ---
 
 ## Quick Reference
 
-| File | Purpose |
-|------|---------|
-| `docs/data/findings-staging.json` | Raw findings from agents (unprocessed) |
-| `docs/data/findings.json` | INBOX - cleaned findings for human review |
-| `docs/data/findings-processed.json` | Audit trail of rejected/merged findings |
-| `docs/data/tickets.json` | Existing tickets (check for duplicates) |
+| Resource | Purpose |
+|----------|---------|
+| `./scripts/agent-cli.sh list-findings --status staging` | List raw findings awaiting triage |
+| `./scripts/agent-cli.sh list-findings --status inbox` | List findings currently in the human inbox |
+| `./scripts/agent-cli.sh list-tickets` | Spot-check existing tickets to avoid obvious duplicates |
+| PM Dashboard API | `http://localhost:3456/api/v2/*` (source of truth) |
 
 ---
 
-## Workflow
+## The 3-Step Process
 
-### Step 1: Read Current State
+---
+
+### STEP 1: BRAINSTORM (Before processing)
+
+**Think through what you'll encounter:**
+
+```markdown
+## Triage Brainstorm
+
+Batch size: [N] findings
+
+Quick scan observations:
+- Common themes I see: [patterns]
+- Likely duplicates: [which IDs look related]
+- Severity concerns: [any that seem mis-rated]
+- Obvious rejects: [vague ones, already covered]
+
+Questions to answer:
+- Are any of these already in tickets.json?
+- Which findings are about the same root cause?
+- Any that need human escalation?
+```
+
+---
+
+### STEP 2: PLAN (Write your triage plan)
+
+```markdown
+## Triage Plan
+
+| Finding ID | Likely Action | Why |
+|------------|---------------|-----|
+| F-001 | Promote | Valid, actionable |
+| F-002 | Merge → F-001 | Same root cause |
+| F-003 | Reject | Duplicate of TKT-015 |
+| F-004 | Defer | Low priority, inbox full |
+```
+
+---
+
+### STEP 3: EXECUTE (Process via CLI)
+
+Now execute each decision using the CLI commands.
+
+---
+
+## Detailed Workflow
+
+### Read Current State
 
 ```bash
-# Check staging queue size
-cat docs/data/findings-staging.json | jq '.findings | length'
+# Staging findings (raw)
+./scripts/agent-cli.sh list-findings --status staging
 
-# Check current inbox size
-cat docs/data/findings.json | jq '.findings | length'
+# Inbox findings (human-facing)
+./scripts/agent-cli.sh list-findings --status inbox
 
-# Check what's already been processed
-cat docs/data/findings-processed.json | jq '.findings | length'
-
-# Check existing tickets (to avoid duplicates)
-cat docs/data/tickets.json | jq '.tickets | length'
+# Tickets (spot-check for duplicates)
+./scripts/agent-cli.sh list-tickets
 ```
 
 ### Step 2: Read Your Batch Assignment
@@ -56,14 +101,18 @@ PM will specify one of:
 - **Feature focus:** "Process all billing-related findings"
 
 If no specific instruction, default to:
-1. ALL Critical findings first
-2. Then next 10 High findings
+1. **Promote the top 5 most important findings** (max 5 per run)
+2. Use severity as the primary ranking: Critical > High > Medium > Low
+3. Break ties by: actionability (clear location + concrete suggested fix) and blast radius (affects many users / core flow)
+
+If inbox is already full (≈50+ pending), default to:
+- Promote **Critical only**, up to 5, and defer everything else
 
 ### Step 3: Load and Analyze Findings
 
-Read the staging queue:
+List the staging queue:
 ```bash
-cat docs/data/findings-staging.json
+./scripts/agent-cli.sh list-findings --status staging
 ```
 
 For each finding in your assigned batch, evaluate using **semantic understanding**:
@@ -71,8 +120,8 @@ For each finding in your assigned batch, evaluate using **semantic understanding
 | Question | Evaluation Method | Action |
 |----------|-------------------|--------|
 | Is this a duplicate of another staging finding? | Compare meaning, not just keywords | MERGE into one |
-| Is this a duplicate of something already in inbox? | Check `findings.json` | REJECT as duplicate |
-| Is this covered by an existing ticket? | Check `tickets.json` titles/issues | REJECT, note ticket ID |
+| Is this a duplicate of something already in inbox? | Check inbox findings | REJECT as duplicate |
+| Is this covered by an existing ticket? | Spot-check tickets / search title | REJECT, note ticket ID if known |
 | Is this too vague to be actionable? | No location, no specific fix | REJECT as low-quality |
 | Is this related to another finding? | Same root cause, different symptoms | MERGE into single finding |
 | Is severity accurate? | Critical for cosmetic = wrong | ADJUST severity |
@@ -114,57 +163,48 @@ Use **semantic similarity**, not keyword matching. Think about the underlying is
 - Finding spans multiple systems/features
 - High complexity with multiple suggested fixes
 
-### Step 6: Update Data Files
+### Step 6: Execute Decisions via CLI
 
-After analysis, update the JSON files:
+Use these CLI commands (no manual JSON editing):
 
-#### 6.1 Promote findings to inbox
+#### Promote to Inbox
 
-Add promoted findings to `docs/data/findings.json`:
-```json
-{
-  "id": "F-XXX",
-  "feature": "...",
-  "title": "...",
-  "severity": "high",
-  "status": "pending",
-  "triage_notes": "Promoted from staging - valid, actionable finding"
-  // ... rest of finding fields
-}
+```bash
+./scripts/agent-cli.sh promote-finding F-XXX \
+  --notes "Valid, actionable finding"
 ```
 
-#### 6.2 Record processed findings
+#### Reject Finding
 
-Add rejected/merged findings to `docs/data/findings-processed.json`:
-```json
-{
-  "id": "F-YYY",
-  "action": "rejected",
-  "reason": "Duplicate of TKT-001 (Stripe webhook handling)",
-  "processed_at": "2025-12-06T12:00:00Z",
-  "original_finding": { /* full original finding */ }
-}
+```bash
+./scripts/agent-cli.sh reject-finding F-YYY \
+  --reason "Duplicate of TKT-001 (Stripe webhook handling)"
 ```
 
-Or for merged findings:
-```json
-{
-  "id": "F-ZZZ",
-  "action": "merged",
-  "merged_into": "F-XXX",
-  "reason": "Same root cause as F-XXX (sensitive data in DOM)",
-  "processed_at": "2025-12-06T12:00:00Z",
-  "original_finding": { /* full original finding */ }
-}
+#### Merge Findings
+
+```bash
+./scripts/agent-cli.sh merge-findings F-ZZZ \
+  --into F-XXX \
+  --reason "Same root cause (sensitive data in DOM)"
 ```
 
-#### 6.3 Remove from staging
+#### Defer Finding
 
-Remove all processed findings from `docs/data/findings-staging.json`.
+```bash
+./scripts/agent-cli.sh defer-finding F-AAA \
+  --reason "Low priority - inbox at capacity"
+```
 
-#### 6.4 Update summary
+#### Adjust Severity
 
-Update `docs/data/findings-summary.json` with new counts.
+```bash
+./scripts/agent-cli.sh update-finding F-BBB \
+  --severity high \
+  --notes "Adjusted from low - security implication"
+```
+
+The CLI handles all file updates automatically.
 
 ### Step 7: Write Triage Report
 
@@ -304,10 +344,9 @@ Triage Agent:
    - F-006: Similar to F-005 → MERGE with F-005
    ... etc
 
-4. Updates files:
-   - findings.json: +12 findings
-   - findings-processed.json: +3 (1 rejected, 2 merged)
-   - findings-staging.json: -15 findings
+4. Updates state in the workflow DB:
+   - Promoted findings move to `status=inbox`
+   - Rejected/merged/deferred findings get updated status + triage notes
 
 5. Writes report for PM
 ```
@@ -316,14 +355,14 @@ Triage Agent:
 
 ## Checklist Before Finishing
 
+- [ ] Wrote Brainstorm notes
+- [ ] Wrote Triage Plan table
 - [ ] Read staging queue completely for assigned batch
 - [ ] Each finding has a decision (promote/merge/reject/defer)
 - [ ] No duplicates promoted to inbox
 - [ ] Merged findings have combined best description
 - [ ] Rejected findings have clear, specific reason
-- [ ] `findings.json` updated with promoted findings
-- [ ] `findings-staging.json` updated (processed items removed)
-- [ ] `findings-processed.json` updated with rejected/merged
+- [ ] All CLI commands executed successfully
 - [ ] Triage report written for PM
 - [ ] Summary counts are accurate
 
@@ -331,7 +370,7 @@ Triage Agent:
 
 ## Launch Commands
 
-**Standard triage (Critical + 10 High):**
+**Standard triage (Top 5 most important):**
 ```
 You are a Triage Agent. Read docs/workflow/TRIAGE_AGENT_SOP.md then execute.
 ```

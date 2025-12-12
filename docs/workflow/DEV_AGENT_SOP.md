@@ -1,1129 +1,367 @@
-# Dev Agent SOP (Standard Operating Procedure)
+# Dev Agent SOP
 
-> **Purpose:** This document defines the Dev Agent's implementation workflow.
-> **One-liner to launch:** `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: [ticket-prompt-file]`
-
----
-
-## 🚨 Session Management (REQUIRED)
-
-**You MUST register your session with the workflow database.** This is how the system tracks running agents, prevents file conflicts, and enables recovery.
-
-### On Start (FIRST THING YOU DO)
-
-```bash
-# Register your session and get your SESSION_ID
-export AGENT_SESSION_ID=$(./scripts/agent-cli.sh start --ticket $TICKET_ID --type dev)
-echo "Session started: $AGENT_SESSION_ID"
-```
-
-### During Work (Every 10 Minutes)
-
-```bash
-# Send heartbeat to show you're still working
-./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
-```
-
-### On Completion
-
-```bash
-# Mark session complete with your report
-./scripts/agent-cli.sh complete --session $AGENT_SESSION_ID --report docs/agent-output/completions/$TICKET_ID.md
-```
-
-### On Blocked
-
-```bash
-# Report blocker and stop
-./scripts/agent-cli.sh block --session $AGENT_SESSION_ID --reason "Description of blocker" --type clarification
-```
-
-**Blocker types:** `clarification`, `environment`, `ci_failure`, `dependency`, `external_setup`
+> **Purpose:** Implement tickets. That's it.
+> **One-liner to launch:** `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute your ticket prompt.`
 
 ---
 
-## 🔧 Agent CLI Reference
+## Your Job
 
-The `agent-cli.sh` script is the interface to the workflow database. **Always use it instead of manually creating JSON files.**
-
-**Location:** `scripts/agent-cli.sh`
-
-**All Commands:**
-```bash
-# Start session (REQUIRED - do this first!)
-./scripts/agent-cli.sh start --ticket TKT-XXX --type dev
-
-# Send heartbeat (every 10 minutes)
-./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
-
-# Mark session complete
-./scripts/agent-cli.sh complete --session $AGENT_SESSION_ID --report docs/agent-output/completions/TKT-XXX.md
-
-# Report a blocker
-./scripts/agent-cli.sh block --session $AGENT_SESSION_ID --reason "Need clarification on X" --type clarification
-
-# Add a finding (issues outside your scope)
-./scripts/agent-cli.sh add-finding --title "Bug in X" --severity high --description "Details..." --file path/to/file.ts
-
-# Check active file locks
-./scripts/agent-cli.sh check-locks
-
-# Check running agents
-./scripts/agent-cli.sh status
 ```
+┌─────────────────────────────────────────┐
+│              DEV AGENT                  │
+│                                         │
+│  1. Read your ticket prompt             │
+│  2. Implement it                        │
+│  3. Report result:                      │
+│                                         │
+│         ┌───────┴───────┐               │
+│         ▼               ▼               │
+│   ┌──────────┐   ┌──────────────┐       │
+│   │ COMPLETE │   │    BLOCK     │       │
+│   └──────────┘   └──────────────┘       │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+Everything else is handled for you:
+- Worktree setup (launcher script)
+- File locks (launcher script)
+- Session management (launcher script)
+- What happens after (pipeline)
+
+### ⚠️ Source of Truth + Conflict Rule
+
+- **Source of truth**: the workflow **database** + PM dashboard API (not JSON files).
+- **If your ticket prompt contradicts this SOP**, the SOP wins.
+  - In particular: ignore any ticket-prompt instructions that tell you to update `docs/data/*.json` status files.
 
 ---
 
-## 🎯 Your Mission
+## Before You Start
 
-Complete your assigned ticket **exactly as specified**. No more, no less.
+### Credentials File
 
----
+**Location:** `docs/data/.agent-credentials.json`
 
-## Phase 1: INVESTIGATE (Before ANY Code)
-
-### 1.1 Read Your Ticket Spec Thoroughly
-
-Your ticket spec contains:
-- What needs to be implemented
-- Which files to modify
-- Acceptance criteria
-- Risks to avoid
-- Similar code patterns to follow
-
-**Read the ENTIRE spec. Don't skim.**
-
-### 1.2 Pre-Flight Validation (REQUIRED)
-
-**Before writing ANY code, verify the ticket has everything you need.**
-
-If the ticket is missing ANY of the following → **BLOCKED immediately**:
-
-| Required | What to Check |
-|----------|---------------|
-| ✅ Clear goal | Can you explain in 1 sentence what this accomplishes? |
-| ✅ Files to modify | Are specific file paths listed? |
-| ✅ Acceptance criteria | Are there testable success conditions? |
-| ✅ Risks to avoid | Are there explicit warnings about what NOT to do? |
-| ✅ How to test | Can you verify your work before submitting? |
-
-**If ANY is missing or unclear → Report BLOCKED with question asking for clarification.**
-
-### 1.2.1 ⚠️ External Service Check (CRITICAL)
-
-**Before writing ANY code, check if this ticket requires external services.**
-
-If the ticket mentions ANY of these, you likely need human setup:
-
-| Keyword | Requires | Example |
-|---------|----------|---------|
-| MaxMind, GeoIP, geolocation | Account + database download | "use maxmind for IP lookup" |
-| Stripe, payment | API keys + test account | "integrate Stripe billing" |
-| AWS, S3, Lambda | AWS account + credentials | "store files in S3" |
-| SendGrid, email service | API key | "send emails via SendGrid" |
-| Twilio, SMS | Account + phone numbers | "send SMS notifications" |
-| OAuth, social login | App registration + secrets | "add Google login" |
-| Any "free tier" API | Account creation | "use ip-api.com" or similar |
-
-**⚠️ BLOCK IMMEDIATELY if:**
-1. Ticket mentions a third-party service not in `docs/data/.agent-credentials.json`
-2. You would need to CREATE an account (not just log into existing one)
-3. You would need to DOWNLOAD external files (databases, SDKs, etc.)
-4. You would need LICENSE AGREEMENTS or terms acceptance
-5. Service requires BILLING/PAYMENT setup even for free tier
-
-**Example: "Use MaxMind for geolocation"**
-
-❌ **WRONG:** Implement the code assuming database will be there later
-✅ **RIGHT:** Block immediately with:
-```json
-{
-  "category": "external_setup",
-  "title": "MaxMind requires account creation and database download",
-  "issue": "To implement MaxMind geolocation, human must: (1) Create MaxMind account at dev.maxmind.com, (2) Accept license agreement, (3) Download GeoLite2-City.mmdb database (~70MB), (4) Deploy database to apps/server/data/",
-  "options": [
-    {"id": 1, "label": "Human creates account and provides database file path"},
-    {"id": 2, "label": "Use alternative service that doesn't require account (if any)"},
-    {"id": 3, "label": "Proceed knowing feature won't work until human completes setup"}
-  ],
-  "recommendation": "Option 1 - Cannot verify implementation without actual database"
-}
-```
-
-**Why this matters:** Code that "works" but requires unverified external resources is NOT complete. Unit tests with mocks don't prove the integration works. The ticket is NOT done until the external dependency is actually configured and tested.
-
-### 1.2.2 Protected Files Check (CRITICAL)
-
-**NEVER modify these files, even if your ticket seems to require it:**
-
-| Protected Path Pattern | Reason |
-|------------------------|--------|
-| `docs/pm-dashboard-ui/*` | Orchestration server - breaks all agents |
-| `scripts/db/db.js` | Database layer - breaks all data |
-| `scripts/launch-*.sh` | Agent launchers - breaks agent startup |
-| `scripts/orchestrate-*.sh` | Multi-agent coordination |
-| `scripts/setup-*.sh` | Environment setup |
-| `scripts/run-regression-tests.sh` | Test infrastructure |
-| `scripts/agent-cli.sh` | Agent command interface |
-
-**If your ticket's `files_to_modify` includes ANY protected file → BLOCK immediately:**
-
-```json
-{
-  "category": "external_setup",
-  "title": "Ticket requires protected file modification",
-  "issue": "This ticket requires changes to [FILE], which is protected infrastructure. Only human engineers can modify protected files.",
-  "options": [
-    {"id": 1, "label": "Human engineer makes the infrastructure changes"},
-    {"id": 2, "label": "Redefine ticket scope to avoid protected files"}
-  ],
-  "recommendation": "Option 1 - Infrastructure changes need human oversight"
-}
-```
-
-**Full list:** See `docs/workflow/PROTECTED_FILES.md`
-
-### 1.3 Pre-Flight Checklist
-
-Complete this checklist before writing any code:
-
-- [ ] I read the ENTIRE ticket spec
-- [ ] I can explain in 1 sentence what this ticket accomplishes
-- [ ] I read the linked feature documentation
-- [ ] I understand the "why" behind this change
-- [ ] I found and read the similar code examples mentioned
-- [ ] I understand the patterns used in this codebase
-- [ ] I identified all files I'll need to modify
-- [ ] I understand every acceptance criterion
-- [ ] I understand every risk listed
-- [ ] **⚠️ EXTERNAL SERVICES CHECK:**
-  - [ ] Does this ticket require any third-party services?
-  - [ ] If YES: Are credentials/resources in `.agent-credentials.json`?
-  - [ ] If NO credentials exist: **STOP → Block with `external_setup`**
-- [ ] **⚠️ PROTECTED FILES CHECK:**
-  - [ ] Do any `files_to_modify` match protected patterns? (See 1.2.2)
-  - [ ] If YES: **STOP → Block with "protected file modification"**
-
-**If ANYTHING is unclear → STOP and report BLOCKED**
-
----
-
-## Phase 2: PLAN (Still No Code)
-
-### 2.1 Write Implementation Plan
-
-Before coding, write a brief plan:
-
-```
-1. [file] — [what I'll do]
-2. [file] — [what I'll do]
-3. [file] — [what I'll do]
-```
-
-### 2.2 Scope Check
-
-Ask yourself:
-- Am I staying in scope? (Only modifying listed files)
-- Does this avoid all listed risks?
-- Does this follow existing patterns?
-
-**If answer is NO to any → BLOCKED immediately**
-
----
-
-## Phase 3: ENVIRONMENT SETUP
-
-### 3.0 Access Credentials (If Needed)
-
-If your ticket requires API keys, service logins, or test accounts:
-
-**Credentials file:** `docs/data/.agent-credentials.json`
+This file contains:
+- `services.*` — Login URLs and credentials for external services
+- `api_keys.*` — Pre-fetched API keys (use these first)
+- `test_accounts.*` — Test user accounts
 
 ```bash
-# Read credentials (file is gitignored - never commit changes to it)
+# Read it
 cat docs/data/.agent-credentials.json
 ```
 
-**Structure:**
-- `services.*` — Login URLs and credentials for external services (Stripe, Supabase, etc.)
-- `test_accounts.*` — Test user accounts for the app
-- `api_keys.*` — Pre-fetched API keys (use these first to avoid browser navigation)
+### If You Need API Keys or Service Access
 
-**Browser Navigation for API Keys:**
+**ALWAYS try to get it yourself before blocking:**
 
-If you need to fetch an API key that's not in the credentials file:
+1. Check credentials file for existing keys
+2. If credentials exist → Use browser to login
+3. Navigate to API settings page
+4. Copy the key and use it
 
-1. Read the service credentials from the file
-2. Navigate to the login URL using browser tools
-3. Log in with the provided email/password
-4. Navigate to the API keys page
-5. Copy the key and use it (do NOT write it back to the credentials file)
+**Only block if:**
+- 2FA/MFA required
+- CAPTCHA blocks you
+- Account creation required
+- Terms/license acceptance required
 
-**Example: Getting Stripe Test API Key**
+---
 
-```
-1. Read: cat docs/data/.agent-credentials.json | jq '.services.stripe'
-2. Navigate: browser_navigate to login_url
-3. Login: Fill email/password from credentials
-4. Navigate: browser_navigate to api_keys_url
-5. Copy: Get the pk_test_* and sk_test_* keys
-```
+## For UI Work
 
-**⚠️ Security Rules:**
-- NEVER commit the credentials file
-- NEVER log credentials to console or completion reports
-- NEVER hardcode credentials in source files (use .env.local)
-- If 2FA is required → Report as environmental blocker
+### Style Reference
 
-### 3.1 Setup Isolated Workspace (REQUIRED)
+**Match the PM Dashboard styling:** `docs/pm-dashboard-ui/index.html`
 
-**⚠️ CRITICAL:** Each agent MUST work in an isolated worktree to prevent branch pollution when multiple agents run in parallel.
-
-**Your workspace will be at:** `../agent-worktrees/TKT-XXX/`
-
-#### Option A: Use Setup Script (Recommended)
-
-```bash
-# From the main repo directory:
-./scripts/setup-agent-worktree.sh TKT-XXX
-
-# Then change to your worktree:
-cd ../agent-worktrees/TKT-XXX
+```css
+/* Dark blue theme */
+--bg-base: #030712;
+--bg-surface: rgba(15, 23, 42, 0.6);
+--text-primary: #f1f5f9;
+--text-secondary: #94a3b8;
+--accent: #3b82f6;
+--border: rgba(71, 85, 105, 0.4);
 ```
 
-The script handles all scenarios:
-- **New ticket:** Creates worktree from `origin/main` with new branch
-- **Continuation:** Creates worktree from existing remote branch
-- **Re-run:** Resets existing worktree or prompts for action
+- Use existing components from `apps/dashboard/src/components/ui/`
+- Follow patterns in similar existing pages
+- **DO NOT** change global styles or theme
 
-#### Option B: Manual Setup
+---
 
-```bash
-# From the main repo directory:
-git fetch origin
+## Code Quality
 
-# Check if branch already exists
-git branch -r | grep -i "origin/agent/tkt-xxx"
+Write **clean, modular code**:
 
-# If branch EXISTS (continuation):
-git worktree add ../agent-worktrees/TKT-XXX origin/agent/tkt-xxx-description
+| Principle | Do This |
+|-----------|---------|
+| **DRY** | Extract repeated logic into functions/hooks |
+| **Small functions** | Each function does ONE thing |
+| **Descriptive names** | `calculateTotalRevenue()` not `calc()` |
+| **Type everything** | No `any` unless absolutely necessary |
+| **Handle errors** | Try/catch, proper error messages |
+| **Guard early** | Return early for edge cases |
 
-# If branch does NOT exist (new ticket):
-git worktree add ../agent-worktrees/TKT-XXX -b agent/tkt-xxx origin/main
+```typescript
+// ✅ Good
+function getUserDisplayName(user: User): string {
+  if (!user) return 'Unknown';
+  return user.name || user.email.split('@')[0];
+}
 
-# Change to your worktree
-cd ../agent-worktrees/TKT-XXX
-
-# Install dependencies
-pnpm install
-```
-
-**If `pnpm install` fails:**
-- Network error → Retry 2-3 times
-- Lockfile conflict → Run `pnpm install --no-frozen-lockfile`
-- Still failing after 10 minutes → Report as environmental blocker (see below)
-
-**Branch naming:** `agent/tkt-xxx` or `agent/tkt-xxx-[description]`
-
-### 3.2 Pre-Flight Verification (REQUIRED)
-
-Before writing ANY code, verify you're in the correct worktree and on the correct branch:
-
-```bash
-# Confirm you're in the worktree (NOT the main repo!)
-pwd
-# Expected output: .../agent-worktrees/TKT-XXX
-
-# Confirm you're on the correct branch
-git branch --show-current
-# Expected output: agent/tkt-xxx-*
-
-# If on main or wrong branch, STOP and fix before any code changes
-```
-
-**⚠️ CRITICAL:** 
-- All code changes MUST be in your worktree at `../agent-worktrees/TKT-XXX/`
-- Never work in the main repo directory when implementing tickets
-- Never commit to `main`
-
-### 3.3 Check File Locks (REQUIRED)
-
-**Before signaling start**, check if any of your files are already locked by another agent.
-
-**Option A: Using CLI (Preferred)**
-```bash
-./scripts/agent-cli.sh check-locks
-```
-
-**Option B: Manual Check (Fallback)**
-```bash
-# List all currently locked files
-cat docs/agent-output/started/*.json 2>/dev/null | grep -o '"files_locking":\s*\[[^]]*\]' || echo "No locks"
-```
-
-**Check each file in your ticket's `files_to_modify`:**
-- If ANY file is already locked → **STOP and report to PM**
-- Don't proceed if there's a conflict - wait for the other agent to complete
-
-### 3.4 Signal Start (REQUIRED)
-
-**After confirming no file conflicts**, signal that you're starting work.
-
-**Note:** If launched via orchestrator, your session is already registered automatically. Check if `$AGENT_SESSION_ID` is set.
-
-**Option A: Using CLI (Preferred)**
-```bash
-# If session ID is already set, just send a heartbeat
-./scripts/agent-cli.sh heartbeat --session $AGENT_SESSION_ID
-
-# If no session ID, register manually (rare)
-SESSION_ID=$(./scripts/agent-cli.sh start --ticket TKT-XXX --type dev)
-export AGENT_SESSION_ID=$SESSION_ID
-```
-
-**Option B: Manual Start File (Fallback)**
-
-**File path:** `docs/agent-output/started/TKT-XXX-[TIMESTAMP].json`
-
-Example: `docs/agent-output/started/TKT-001-2025-12-04T1430.json`
-
-```json
-{
-  "ticket_id": "TKT-XXX",
-  "branch": "agent/TKT-XXX-[description]",
-  "started_at": "[ISO timestamp]",
-  "files_locking": [
-    "path/to/file1.ts",
-    "path/to/file2.ts"
-  ]
+// ❌ Bad
+function x(u: any) {
+  return u.name ? u.name : u.email ? u.email.split('@')[0] : 'Unknown';
 }
 ```
 
-**Why this matters:**
-- PM can detect stalled agents (started but no completion after 4+ hours)
-- PM can check file locks before launching new agents
-- Prevents file conflicts between parallel agents
+---
 
-**⚠️ Race Condition Warning:** The database handles race conditions atomically. If using manual JSON files, there's a small window where both agents might pass the lock check.
+## The 4-Step Process
+
+### Step 1: BRAINSTORM (Before touching code)
+
+Think through:
+- What are the different ways to implement this?
+- What edge cases might break?
+- What dependencies does this touch?
+- What could go wrong?
+
+Write a quick brainstorm (doesn't need to be formal):
+```markdown
+## Brainstorm for TKT-XXX
+
+Approaches considered:
+- Option A: [approach] - pros/cons
+- Option B: [approach] - pros/cons
+
+Edge cases to handle:
+- What if X is null/empty?
+- What if user does Y unexpectedly?
+- What if API returns error?
+
+Dependencies I'm touching:
+- [file/module] - need to be careful about [thing]
+```
+
+### Step 2: PLAN (Write implementation steps)
+
+Before coding, write your plan:
+```markdown
+## Implementation Plan
+
+1. [ ] First, I'll...
+2. [ ] Then, I'll...
+3. [ ] After that...
+4. [ ] Finally, I'll verify by...
+```
+
+**This takes 2 minutes and saves 20 minutes of rework.**
+
+### Step 3: EXECUTE (Implement the plan)
+
+Now implement, following your plan step by step.
+
+### Step 4: VERIFY (Run Related Tests)
+
+Before marking complete, run tests for the files you modified to catch regressions early.
+
+```bash
+# For each file you modified, check if a test file exists and run it
+# Example: You modified apps/dashboard/src/lib/stripe.ts
+
+# Check if test exists
+ls apps/dashboard/src/lib/stripe.test.ts 2>/dev/null && \
+  pnpm test apps/dashboard/src/lib/stripe.test.ts
+
+# For .tsx components
+ls apps/dashboard/src/features/pools/DeletePoolModal.test.tsx 2>/dev/null && \
+  pnpm test apps/dashboard/src/features/pools/DeletePoolModal.test.tsx
+```
+
+**Quick check script:**
+```bash
+# Run tests for all files you changed (vs main)
+git diff --name-only main | while read file; do
+  testfile="${file%.ts}.test.ts"
+  [ -f "$testfile" ] && pnpm test "$testfile"
+  testfile="${file%.tsx}.test.tsx"
+  [ -f "$testfile" ] && pnpm test "$testfile"
+done
+```
+
+**If tests fail:**
+| Situation | Action |
+|-----------|--------|
+| Failure related to YOUR changes | Fix it before marking complete |
+| Pre-existing failure (also fails on main) | Note it in your report, continue |
+| No test file exists | That's OK, continue |
+
+This step catches regressions **before** QA, saving a full retry cycle.
 
 ---
 
-## Phase 4: IMPLEMENT
+## When to COMPLETE
 
-### 4.1 Make Changes
-
-- Follow existing code patterns **religiously**
-- Keep changes **minimal and focused**
-- Don't refactor unrelated code
-- Add comments only for complex logic
-- Check style guide for every UI change
-
-### 4.2 Commit Frequently
+All of these must be true:
+- All acceptance criteria met
+- `pnpm typecheck` passes
+- `pnpm build` passes
+- Related test files pass (if they exist) - see Step 4
 
 ```bash
-git add [files]
-git commit -m "TKT-XXX: [brief description of change]"
+# Mark complete
+./scripts/agent-cli.sh complete
+
+# Update ticket status (triggers pipeline)
+./scripts/agent-cli.sh update-ticket $TICKET_ID --status dev_complete
 ```
 
-Good commit messages:
-- `TKT-001: Add SensitiveFieldMasker utility class`
-- `TKT-001: Integrate masker into domSerializer`
-- `TKT-001: Add password field detection`
-
-### 4.3 Run Checks After Each File
-
-```bash
-pnpm typecheck
-pnpm lint
+Write a brief completion report:
 ```
-
-Fix any errors before continuing.
-
-### 4.4 If You Can't Fix an Error (40-Minute Rule)
-
-If you've been stuck on a type error, lint error, or build error for **40 minutes**:
-
-1. **STOP trying** — Don't spin endlessly
-2. **Commit your WIP** (even if broken): `git commit -m "WIP TKT-XXX: stuck on [error] - BLOCKED"`
-3. **Report as environmental blocker** (see "Environmental Blockers" section below)
-
-> **Note:** Git push is handled automatically by the failsafe script when you finish.
-
-**Signs you should block:**
-- Same error for 40+ minutes
-- Error is in a file you didn't modify (pre-existing issue)
-- Error requires knowledge you don't have (e.g., complex type system)
-- You've tried 3+ different approaches and none work
+docs/agent-output/completions/TKT-XXX.md
+```
 
 ---
 
-## Phase 5: SELF-REVIEW
+## When to BLOCK
 
-Before submitting, verify:
+Block **only if** you:
+1. **Tried** to solve it yourself first
+2. **Cannot proceed** without human help
 
-### Acceptance Criteria Check
-For EACH criterion in the ticket:
-- [ ] Criterion met? YES
-- [ ] How did I verify it? [Brief explanation]
+### What to Try First
 
-### Risk Avoidance Check
-For EACH risk in the ticket:
-- [ ] Risk avoided? YES
-- [ ] How? [Brief explanation]
+| If You Need | Try This First | Block Only If |
+|-------------|----------------|---------------|
+| API key | Browser login → API settings | 2FA, CAPTCHA |
+| Service config | Browser login → change setting | Can't find it, need owner |
+| Third-party choice | Research options, present tradeoffs | Need human decision |
+| Architecture decision | Analyze options, present tradeoffs | Need human decision |
+| Unclear requirement | Check code, check docs | Still unclear |
+| Database file | Check if exists at path | Doesn't exist, needs download |
+| New account | — | Block immediately (can't create accounts) |
+| License agreement | — | Block immediately (can't accept TOS) |
 
-### Code Quality Check
-- [ ] Only modified files listed in scope
-- [ ] No console.logs left (except intentional)
-- [ ] No commented-out code
-- [ ] Following existing patterns
-
-### Findings Check
-- [ ] Did I notice any issues outside my scope? (bugs, type errors, security issues)
-- [ ] If YES → Did I write to `docs/agent-output/findings/`? (REQUIRED - not just notes!)
-- [ ] If NO → I will write "None" in completion report findings section
-
-### Build Check
-```bash
-pnpm typecheck  # Must pass
-pnpm lint       # Must pass
-pnpm build      # Must pass
-```
-
-### Style Guide Check (UI Tickets Only)
-- [ ] Colors from tailwind.config theme only
-- [ ] Spacing uses scale (p-4, gap-2, not p-[13px])
-- [ ] Typography uses defined styles
-- [ ] Using existing components from packages/ui
-- [ ] Matches existing similar components
-
----
-
-## Phase 6: SUBMIT FOR REVIEW
-
-> **Note:** Git push is handled automatically by the failsafe script when you finish.
-> You don't need to push manually — just commit your changes and write your completion report.
-
-### 6.1 Archive Start File
-
-Move your start file to indicate you're done (prevents stale detection):
+### How to Block
 
 ```bash
-mv docs/agent-output/started/TKT-XXX-*.json docs/agent-output/archive/
+./scripts/agent-cli.sh block --reason "[your detailed explanation]"
 ```
 
-Or if you can't move files, note in your completion report that the start file should be archived.
+### Blocker Format (REQUIRED)
 
-### 6.2 Update Dev Status (REQUIRED)
-
-**Update `docs/data/dev-status.json`** to register your completion (required for dashboard):
-
-1. Read the current file
-2. Add your ticket to the `completed` array
-3. Write the updated file
-
-```json
-{
-  "completed": [
-    // ... existing entries ...
-    {
-      "ticket_id": "TKT-XXX",
-      "branch": "agent/TKT-XXX-[description]",
-      "started_at": "[from your start file]",
-      "completed_at": "[current ISO timestamp]",
-      "completion_file": "docs/agent-output/completions/TKT-XXX-[TIMESTAMP].md"
-    }
-  ]
-}
-```
-
-**⚠️ Important:** Read the file first to preserve other entries. Don't overwrite the entire file.
-
-### 6.3 Write Completion Report
-
-**IMPORTANT:** Write your completion report to a per-agent file to prevent conflicts with other dev agents.
-
-**File path:** `docs/agent-output/completions/[TICKET-ID]-[TIMESTAMP].md`
-
-Example: `docs/agent-output/completions/TKT-001-2025-12-04T1430.md`
+Your blocker reason **must include**:
 
 ```markdown
-# Completion Report: TKT-XXX
+## What I Need
 
-### Summary
-[1-2 sentences: what this change does]
+[Clear statement of what's blocking you]
 
-### Acceptance Criteria Verification
-| Criterion | Status | How Verified |
-|-----------|--------|--------------|
-| "[Criterion 1]" | ✅ | [How you verified] |
-| "[Criterion 2]" | ✅ | [How you verified] |
+## What I Tried
 
-### Risk Avoidance Verification
-| Risk | Avoided? | How |
-|------|----------|-----|
-| "[Risk 1]" | ✅ | [How you avoided it] |
-| "[Risk 2]" | ✅ | [How you avoided it] |
+1. [What you did] → [What happened]
+2. [What you did] → [What happened]
+3. [What you did] → [Why it didn't work]
 
-### Files Changed
-| File | Change Description |
-|------|-------------------|
-| `path/to/file.ts` | [What changed] |
+## Options (if this is a decision)
 
-### Documentation Impact
-**REQUIRED:** List ALL feature docs that may need updating based on your changes.
+| Option | Pros | Cons |
+|--------|------|------|
+| A: [description] | [benefits] | [drawbacks] |
+| B: [description] | [benefits] | [drawbacks] |
+| C: [description] | [benefits] | [drawbacks] |
 
-| Feature Doc | Why It Needs Update |
-|-------------|---------------------|
-| `docs/features/[category]/[feature].md` | [What behavior changed] |
+## My Recommendation
 
-If no docs affected, write: "None - no user-facing behavior changes"
-
-### Git Context for Re-Doc Agent
-> The doc agent will read actual code changes, not trust this summary.
-> This section helps PM triage which docs to re-document.
-
-**Branch:** `agent/TKT-XXX-[description]`
-**Key commits:**
-- `[hash]` - [message]
-
-**Files changed (for git diff):**
-- `path/to/file.ts`
-
-### UI Changes (if applicable)
-| Change | Description |
-|--------|-------------|
-| [Component] | [What it looks like now] |
-
-### How to Test
-1. [Step 1]
-2. [Step 2]
-3. [Expected result]
-
-### Findings Reported
-**⚠️ REQUIRED:** If you noticed ANY issues outside your scope, you MUST have written them to `docs/agent-output/findings/`. List them here:
-
-- [ ] I wrote findings files for all issues I noticed (or there were none)
-
-| Finding ID | File Written | Title |
-|------------|--------------|-------|
-| F-DEV-TKT-XXX-1 | `docs/agent-output/findings/F-DEV-TKT-XXX-*.json` | [title] |
-
-If no findings: "None - no issues noticed outside scope"
-
-**❌ WRONG:** Mentioning issues only in "Notes" section below
-**✅ CORRECT:** Writing to `docs/agent-output/findings/` AND listing here
-
-### Notes
-[Anything unusual, decisions made, edge cases handled]
+[Which option you'd pick and why]
+OR
+[Why you can't recommend - need human expertise]
 ```
 
-The PM Dashboard automatically aggregates all dev agent completions.
+### Example Blocker
+
+```markdown
+## What I Need
+
+Decision on geolocation service for IP blocking feature.
+
+## What I Tried
+
+1. Checked ticket for guidance → None specified
+2. Researched options → Found 3 viable services
+3. Checked credentials file → No existing accounts
+
+## Options
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A: MaxMind GeoLite2 | Most accurate, free tier | Requires account creation + 70MB database download |
+| B: ip-api.com | No account needed, simple API | Rate limited (45/min), less accurate |
+| C: ipinfo.io | Good accuracy, simple API | Requires API key, 50k/month free |
+
+## My Recommendation
+
+Option B (ip-api.com) for MVP - no setup required, can upgrade later.
+But if accuracy is critical, need human to create MaxMind account.
+```
 
 ---
 
-## When You Get BLOCKED
+## Quick Reference
 
-If you're unsure about ANYTHING — **STOP and report it.**
-
-### Step 1: Commit All Work-In-Progress
-
-**Before writing the blocker file**, commit any uncommitted work so it's not lost:
+### Commands
 
 ```bash
-# Stage all changes
-git add .
+# Complete (success)
+./scripts/agent-cli.sh complete
+./scripts/agent-cli.sh update-ticket TKT-XXX --status dev_complete
 
-# Commit with WIP prefix
-git commit -m "WIP TKT-XXX: [what you were working on] - BLOCKED"
+# Block (need help)
+./scripts/agent-cli.sh block --reason "[detailed markdown]"
 ```
 
-> **Note:** Git push is handled automatically by the failsafe script when you finish.
+### Key Files
 
-This ensures the next agent (or you in a continuation) can see exactly where you stopped.
+| File | Purpose |
+|------|---------|
+| `docs/data/.agent-credentials.json` | Service logins and API keys |
+| `docs/agent-output/completions/` | Where to write completion reports |
+| Your ticket prompt | Everything you need to implement |
 
-### Step 2: Write Blocker to Per-Agent File
-
-**File path:** `docs/agent-output/blocked/BLOCKED-TKT-XXX-[TIMESTAMP].json`
-
-Example: `docs/agent-output/blocked/BLOCKED-TKT-001-2025-12-04T1430.json`
-
-Write a JSON file with this structure:
-
-```json
-{
-  "id": "BLOCKED-TKT-XXX-[number]",
-  "type": "blocker",
-  "source": "dev-agent-TKT-XXX",
-  "severity": "critical",
-  "title": "[Short question title]",
-  "feature": "[Feature from your ticket]",
-  "category": "clarification",
-  "status": "pending",
-  "found_at": "[ISO date]",
-  
-  "issue": "[Your specific question - be precise]",
-  
-  "options": [
-    {
-      "id": 1,
-      "label": "[Option 1 name] — [Description + tradeoffs]",
-      "recommended": false
-    },
-    {
-      "id": 2,
-      "label": "[Option 2 name] — [Description + tradeoffs]",
-      "recommended": true
-    },
-    {
-      "id": 3,
-      "label": "[Option 3 name] — [Description + tradeoffs]",
-      "recommended": false
-    }
-  ],
-  
-  "recommendation": "Option [N] because [1 sentence reason]",
-  
-  "blocker_context": {
-    "ticket_id": "TKT-XXX",
-    "ticket_version": 1,
-    "branch": "agent/tkt-xxx-[description]",
-    "progress": {
-      "commits": [
-        "[hash] - [message]",
-        "[hash] - [message]"
-      ],
-      "done": [
-        "[Completed item 1]",
-        "[Completed item 2]"
-      ],
-      "remaining": [
-        "[Blocked item] ← YOU ARE HERE",
-        "[Not started item]",
-        "[Not started item]"
-      ],
-      "stopped_at": {
-        "file": "path/to/file.ts",
-        "line": 45,
-        "context": "[What you were about to do]"
-      },
-      "notes_for_next_agent": "[Anything the next agent needs to know]"
-    }
-  }
-}
-```
-
-### Example Blocker:
-
-```json
-{
-  "id": "BLOCKED-TKT-001-1",
-  "type": "blocker",
-  "source": "dev-agent-TKT-001",
-  "severity": "critical",
-  "title": "Should password masking use regex or DOM attributes?",
-  "feature": "Co-Browse (Viewer + Sender)",
-  "category": "clarification",
-  "status": "pending",
-  "found_at": "2025-12-04T10:30:00Z",
-  
-  "issue": "The ticket says to mask 'sensitive fields' but doesn't specify the detection method. Should I use regex patterns to detect field names like 'password' and 'ssn', or rely on DOM attributes like type='password' and autocomplete='cc-number'?",
-  
-  "options": [
-    {
-      "id": 1,
-      "label": "Regex pattern matching — Match field names/IDs containing 'password', 'ssn', 'credit'. Catches more but may have false positives.",
-      "recommended": false
-    },
-    {
-      "id": 2,
-      "label": "DOM attributes only — Use type='password', autocomplete='cc-*', data-sensitive='true'. Semantic and reliable but may miss custom fields.",
-      "recommended": true
-    },
-    {
-      "id": 3,
-      "label": "Both approaches — Combine regex + DOM attributes. Most comprehensive but more complex.",
-      "recommended": false
-    }
-  ],
-  
-  "recommendation": "Option 2 because DOM attributes are semantic, standard, and won't have false positives. Custom fields can opt-in with data-sensitive attribute.",
-  
-  "blocker_context": {
-    "ticket_id": "TKT-001",
-    "ticket_version": 1,
-    "branch": "agent/tkt-001-cobrowse-sanitization",
-    "progress": {
-      "commits": [
-        "a1b2c3d - TKT-001: Add SensitiveFieldMasker utility class",
-        "e4f5g6h - TKT-001: Create test file structure"
-      ],
-      "done": [
-        "Created masker class skeleton",
-        "Set up test file"
-      ],
-      "remaining": [
-        "Implementing detection logic ← BLOCKED HERE",
-        "Integration with domSerializer",
-        "Final testing"
-      ],
-      "stopped_at": {
-        "file": "apps/widget/src/features/cobrowse/SensitiveFieldMasker.ts",
-        "line": 45,
-        "context": "About to implement isSensitiveField() method"
-      },
-      "notes_for_next_agent": "I created a class-based approach to keep masking logic separate from serialization. The test file has placeholder tests ready."
-    }
-  }
-}
-```
-
-**⚠️ CRITICAL:** The `blocker_context` section is REQUIRED. Without it, the next agent can't continue your work.
-
-**Then STOP.** Don't continue until you receive a continuation ticket with the answer.
-
----
-
-## Environmental Blockers (Different from Clarification Blockers)
-
-Use this format when you're blocked by **technical issues**, not missing information:
-
-- `pnpm install` fails and won't resolve
-- Type/lint/build error you can't fix after 40 minutes
-- Pre-existing bug in code you didn't modify
-- Missing environment variables or secrets
-- External service is down
-
-**File path:** `docs/agent-output/blocked/ENV-TKT-XXX-[TIMESTAMP].json`
-
-```json
-{
-  "id": "ENV-TKT-XXX-[number]",
-  "type": "blocker",
-  "category": "environment",
-  "source": "dev-agent-TKT-XXX",
-  "severity": "critical",
-  "title": "[Short description of technical issue]",
-  "feature": "[Feature from your ticket]",
-  "status": "pending",
-  "found_at": "[ISO date]",
-  
-  "issue": "[Detailed description of what's failing]",
-  
-  "what_i_tried": [
-    "[Approach 1 and why it didn't work]",
-    "[Approach 2 and why it didn't work]",
-    "[Approach 3 and why it didn't work]"
-  ],
-  
-  "error_details": {
-    "error_message": "[Exact error message]",
-    "file": "[File where error occurs]",
-    "line": "[Line number if applicable]",
-    "stack_trace": "[First few lines of stack trace if available]"
-  },
-  
-  "suggested_resolution": "[What you think needs to happen to fix this]",
-  
-  "blocker_context": {
-    "ticket_id": "TKT-XXX",
-    "branch": "agent/TKT-XXX-[description]",
-    "time_spent": "[How long you spent trying to fix]",
-    "progress": {
-      "done": ["[What you completed before hitting this]"],
-      "blocked_on": "[Specific step that's blocked]"
-    }
-  }
-}
-```
-
-**What happens next:**
-1. PM sees your environmental blocker
-2. PM presents to human with your suggested resolution
-3. Human either:
-   - Fixes the underlying issue (e.g., fixes pre-existing type error, adds env var)
-   - Updates your ticket with specific fix instructions
-   - Cancels the ticket if issue is too complex
-4. PM creates continuation ticket with resolution
-5. You (or another agent) continues from where you left off
-
----
-
-## External Setup Blockers (Third-Party Services)
-
-Use this format when you're blocked because **the ticket requires setting up a new external service, account, or resource.**
-
-**Use `external_setup` blocker when:**
-- Ticket requires creating a NEW account on a third-party service
-- Ticket requires downloading external files (databases, SDKs, data files)
-- Ticket requires API keys/credentials that aren't in `.agent-credentials.json`
-- Ticket requires accepting license agreements or terms of service
-- Ticket requires billing/payment setup (even for free tiers)
-- You CANNOT fully verify your implementation without the external resource
-
-**File path:** `docs/agent-output/blocked/EXT-TKT-XXX-[TIMESTAMP].json`
-
-```json
-{
-  "id": "EXT-TKT-XXX-[number]",
-  "type": "blocker",
-  "category": "external_setup",
-  "source": "dev-agent-TKT-XXX",
-  "severity": "critical",
-  "title": "[Service] requires account creation / resource download",
-  "feature": "[Feature from your ticket]",
-  "status": "pending",
-  "found_at": "[ISO date]",
-  
-  "issue": "[What external setup is needed and why you can't proceed]",
-  
-  "external_service": {
-    "name": "[Service name - e.g., MaxMind, Stripe, AWS]",
-    "type": "account_creation | database_download | api_key | license | billing",
-    "signup_url": "[URL where human creates account]",
-    "documentation_url": "[URL for setup docs]"
-  },
-  
-  "human_actions_required": [
-    "[Step 1 - e.g., Create account at https://...]",
-    "[Step 2 - e.g., Accept license agreement]",
-    "[Step 3 - e.g., Download database file to apps/server/data/]",
-    "[Step 4 - e.g., Add API key to .env.local]"
-  ],
-  
-  "what_i_can_do_now": [
-    "[e.g., Write code that uses the service - but cannot verify]",
-    "[e.g., Write unit tests with mocks - but integration untested]"
-  ],
-  
-  "what_i_cannot_verify": [
-    "[e.g., Actual API calls work correctly]",
-    "[e.g., Database file format is correct]",
-    "[e.g., Integration with live service works]"
-  ],
-  
-  "blocker_context": {
-    "ticket_id": "TKT-XXX",
-    "branch": "agent/TKT-XXX-[description]",
-    "progress": {
-      "done": ["[What you completed before hitting this]"],
-      "blocked_on": "[Specific step that needs external setup]"
-    }
-  }
-}
-```
-
-### Example: MaxMind Geolocation Service
-
-```json
-{
-  "id": "EXT-TKT-062-1",
-  "type": "blocker",
-  "category": "external_setup",
-  "source": "dev-agent-TKT-062",
-  "severity": "critical",
-  "title": "MaxMind requires account creation and database download",
-  "feature": "Blocklist Settings",
-  "status": "pending",
-  "found_at": "2025-12-06T05:00:00Z",
-  
-  "issue": "The ticket asks to use MaxMind for IP geolocation, but this requires: (1) creating a MaxMind account, (2) accepting their license, (3) downloading a 70MB database file. I cannot verify the implementation works without these.",
-  
-  "external_service": {
-    "name": "MaxMind GeoLite2",
-    "type": "account_creation",
-    "signup_url": "https://dev.maxmind.com/geoip/geolite2-free-geolocation-data",
-    "documentation_url": "https://dev.maxmind.com/geoip/geolocate-an-ip/databases"
-  },
-  
-  "human_actions_required": [
-    "1. Create free MaxMind account at https://dev.maxmind.com",
-    "2. Accept the GeoLite2 EULA",
-    "3. Download GeoLite2-City.mmdb from the account dashboard",
-    "4. Place file at apps/server/data/GeoLite2-City.mmdb",
-    "5. (Optional) Set MAXMIND_DB_PATH env var if using different location"
-  ],
-  
-  "what_i_can_do_now": [
-    "Write code that uses @maxmind/geoip2-node library",
-    "Write unit tests with mocked database responses"
-  ],
-  
-  "what_i_cannot_verify": [
-    "Actual IP lookups work correctly",
-    "Database file is valid and contains expected data",
-    "Country blocklist actually blocks visitors from specified countries"
-  ],
-  
-  "blocker_context": {
-    "ticket_id": "TKT-062",
-    "branch": "agent/tkt-062-maxmind-geolocation",
-    "progress": {
-      "done": ["Researched MaxMind integration approach"],
-      "blocked_on": "Cannot proceed without MaxMind account and database file"
-    }
-  }
-}
-```
-
-**⚠️ CRITICAL: Do NOT proceed to write code** if you can't verify it works. Mocked unit tests are not sufficient proof that a third-party integration works.
-
-**What happens next:**
-1. PM routes blocker to human inbox
-2. Human creates accounts, downloads files, adds credentials
-3. Human updates ticket with file paths and credentials location
-4. PM creates continuation ticket with setup complete
-5. You (or another agent) continues with verified external resources
-
----
-
-## Scope Rules
-
-### ✅ DO:
-- Only modify files listed in ticket spec
-- Follow existing patterns **exactly**
-- Make minimal changes needed
-- Check each risk before completing
-
-### ❌ DON'T:
-- Add features not in the spec
-- Refactor code outside your scope
-- "Improve" things you notice along the way
-- Add configuration options unless requested
-- Create abstractions for one-time use
-
-### If You Notice Something Wrong (But It's Not In Your Scope):
-
-**⚠️ MANDATORY: You MUST report findings. Do NOT just mention them in your completion report notes.**
-
-1. **Do NOT fix it yourself**
-2. **IMMEDIATELY report the finding** (before you forget)
-3. Continue with your ticket
-
-**Common things that require findings:**
-- Pre-existing type errors in files you didn't modify
-- Bugs you noticed while reading code
-- Security issues outside your scope
-- Missing error handling in related code
-- Broken tests not related to your ticket
-
-**How to report findings (NOT blockers):**
-
-**Option A: Using CLI (Preferred)**
-```bash
-./scripts/agent-cli.sh add-finding \
-  --title "Pre-existing type error in utils.ts" \
-  --severity high \
-  --description "Type error on line 42: 'string' is not assignable to 'number'" \
-  --file apps/dashboard/src/utils.ts \
-  --feature "Auth"
-```
-
-**Option B: Manual JSON File (Fallback)**
-
-**File path:** `docs/agent-output/findings/F-DEV-TKT-XXX-[TIMESTAMP].json`
-
-Example: `docs/agent-output/findings/F-DEV-SEC-001-2025-12-05T1230.json`
-
-**⚠️ You MUST report findings. Mentioning issues in completion report "Notes" is NOT sufficient.**
-
-Write a JSON file with this structure:
-
-```json
-{
-  "id": "F-DEV-[ticket-id]-[number]",
-  "source": "dev-agent-[your-ticket-id]",
-  "title": "[Short descriptive title]",
-  "category": "bug|security|ux|performance|docs",
-  "severity": "critical|high|medium|low",
-  "file": "path/to/file.ts",
-  "line": 42,
-  "issue": "What's wrong and why it matters",
-  "suggestion": "How to fix it",
-  "status": "pending",
-  "found_at": "[ISO date]"
-}
-```
-
-The PM Dashboard automatically aggregates all findings from per-agent files and the database.
-
----
-
-## Continuation Tickets
-
-If you're working on a **continuation ticket** (e.g., `dev-agent-TKT-001-v2.md`):
-
-### What's Different:
-1. Branch already exists with previous work
-2. Spec includes blocker resolution (human's decision)
-3. Progress checkpoint shows where to resume
-
-### Your Process:
-1. Read the **entire** continuation spec
-2. Check the **"Blocker Resolution"** section for the answer
-3. Check the **"Where You Left Off"** section
-4. Checkout existing branch (don't create new)
-5. Review previous commits and code
-6. **Write a NEW start file** (see 3.4) — yes, even for continuations
-7. Continue from checkpoint
-8. Don't redo completed work
+### Commit Messages
 
 ```bash
-# For continuation tickets:
-git fetch origin
-git checkout [existing-branch]
-git pull origin [existing-branch]
-
-# Review what's been done
-git log --oneline -10
-
-# THEN: Write new start file before continuing work
-# (Previous agent's start file was archived when they blocked)
-```
-
-### If Branch Was Deleted or Has Conflicts
-
-**Branch deleted:** Report as environmental blocker — PM needs to investigate what happened.
-
-**Merge conflicts with main:** 
-```bash
-git merge origin/main
-# If conflicts are simple, resolve them
-# If conflicts are complex (>10 files or unclear), report as environmental blocker
+git commit -m "TKT-XXX: [what you did]"
 ```
 
 ---
 
-## Quality Standards
+## What You DON'T Need to Do
 
-### Code Quality
-- [ ] Follows existing patterns in the codebase
-- [ ] No unnecessary changes to unrelated code
-- [ ] Clear variable and function names
-- [ ] Comments explain "why", not "what"
-- [ ] No console.logs left (except intentional)
+These are handled for you:
 
-### Type Safety
-- [ ] No `any` types unless absolutely necessary
-- [ ] Props interfaces defined for components
-- [ ] API responses properly typed
-
-### Error Handling
-- [ ] Errors caught and handled appropriately
-- [ ] User-facing errors are friendly
-- [ ] Edge cases considered
+- ~~Session registration~~ (launcher)
+- ~~Heartbeats~~ (launcher)
+- ~~Worktree setup~~ (launcher)
+- ~~File lock checks~~ (launcher)
+- ~~Protected files validation~~ (ticket validation)
+- ~~Blocker categorization~~ (Ticket Agent)
+- ~~Continuation ticket creation~~ (Ticket Agent)
+- ~~Findings reporting~~ (do it if you want, not required)
 
 ---
 
-## ⚠️ Critical Rules
+## Summary
 
-1. **Validate the ticket first** — If anything is missing, BLOCKED before coding
-2. **Read the full spec** — Don't skim
-3. **Stay in scope** — Only modify listed files
-4. **Follow patterns** — Copy existing code style exactly
-5. **Check everything** — typecheck, lint, build before completing
-6. **Report blockers immediately** — Don't spin; STOP and write blocker to `docs/agent-output/blocked/`
-7. **Document progress** — Especially when blocked
-8. **Don't over-engineer** — Simple solutions for simple problems
-9. **Verify each criterion** — Before marking complete
-10. **Write findings to FILE** — If you notice issues outside scope, write to `docs/agent-output/findings/` (NOT just completion report notes!)
+1. **Read** your ticket prompt
+2. **Brainstorm & Plan** before coding
+3. **Implement** the requirements
+4. **Verify** by running related tests
+5. **Complete** if done, **Block** if stuck
 
+That's it.

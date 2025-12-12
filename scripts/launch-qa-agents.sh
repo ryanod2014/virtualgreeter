@@ -363,30 +363,29 @@ create_qa_prompt() {
     local TICKET_ID="$1"
     local BRANCH="$2"
     local PROMPT_FILE="docs/prompts/active/qa-review-${TICKET_ID}.md"
+    local DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:3456}"
     
     cd "$MAIN_REPO_DIR"
     
-    # Get ticket info from tickets.json
-    local TICKET_INFO=$(cat docs/data/tickets.json | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-for t in data.get('tickets', []):
-    if t.get('id', '').upper() == '${TICKET_ID}'.upper():
-        print(json.dumps(t))
-        break
-" 2>/dev/null || echo "")
+    # Get ticket info from database API (not JSON files)
+    local TICKET_INFO=$(curl -s --max-time 10 "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" 2>/dev/null)
 
-    if [ -z "$TICKET_INFO" ]; then
-        print_warning "Could not find ticket info for $TICKET_ID"
-        return 1
+    if [ -z "$TICKET_INFO" ] || echo "$TICKET_INFO" | grep -q '"error"'; then
+        print_warning "Could not find ticket info for $TICKET_ID in database"
+        # Fallback: try to get minimal info from the branch
+        local TITLE="$TICKET_ID"
+        local PRIORITY="medium"
+        local ISSUE="See dev completion report"
+        local AC=""
+        local QA_NOTES=""
+    else
+        # Extract fields from database response
+        local TITLE=$(echo "$TICKET_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('title','$TICKET_ID'))" 2>/dev/null || echo "$TICKET_ID")
+        local PRIORITY=$(echo "$TICKET_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('priority','medium'))" 2>/dev/null || echo "medium")
+        local ISSUE=$(echo "$TICKET_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('issue',''))" 2>/dev/null || echo "")
+        local AC=$(echo "$TICKET_INFO" | python3 -c "import sys,json; ac=json.load(sys.stdin).get('acceptance_criteria',[]); print('\n'.join(['- [ ] ' + a for a in (json.loads(ac) if isinstance(ac,str) else ac)]))" 2>/dev/null || echo "")
+        local QA_NOTES=$(echo "$TICKET_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('qa_notes',''))" 2>/dev/null || echo "")
     fi
-    
-    # Extract fields
-    local TITLE=$(echo "$TICKET_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('title',''))")
-    local PRIORITY=$(echo "$TICKET_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('priority','medium'))")
-    local ISSUE=$(echo "$TICKET_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('issue',''))")
-    local AC=$(echo "$TICKET_INFO" | python3 -c "import sys,json; print('\n'.join(['- [ ] ' + a for a in json.load(sys.stdin).get('acceptance_criteria',[])]))")
-    local QA_NOTES=$(echo "$TICKET_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('qa_notes',''))")
     
     # Create prompt file
     cat > "$PROMPT_FILE" << EOF
@@ -931,50 +930,29 @@ If PASS:
   
   🌐 Magic links use TUNNEL_URL ($TUNNEL_URL) - PM can click from anywhere!
   
-  Update ticket:
-  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -d '{\"status\": \"qa_approved\"}'
-  
   ─────────────────────────────────────────────────────────────
-  FOR NON-UI TICKETS: Auto-merge flow
+  IF PASS: Update ticket status (pipeline handles merge!)
   ─────────────────────────────────────────────────────────────
   
-  QA Report must include:
-  - All curl commands executed
-  - All responses received  
-  - Expected vs actual for each test
-  - State verification evidence
+  Update ticket to qa_passed (do NOT merge yourself):
+  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID \\
+    -H 'Content-Type: application/json' \\
+    -d '{\"status\": \"qa_passed\"}'
   
-  Update ticket:
-  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -d '{\"status\": \"merged\"}'
+  ⚠️ DO NOT MERGE! The pipeline runner will:
+  1. Launch Docs Agent and Tests Agent on the same branch
+  2. Wait for both to complete
+  3. Auto-merge with selective file checkout
+  4. Launch Review Agent
   
-  ⚠️ CRITICAL: Use SELECTIVE MERGE only (NOT git merge!)
-  This ensures you only merge files YOU worked on, not the entire branch.
-  Other agents may have updated other files on main.
-  
-  Selective merge steps:
-    cd $MAIN_REPO_DIR
-    git checkout main && git pull origin main
-    
-    # Get list of files YOUR branch modified:
-    git diff --name-only main...origin/$BRANCH
-    
-    # Checkout ONLY those files from your branch:
-    git checkout origin/$BRANCH -- path/to/file1.ts path/to/file2.ts ...
-    
-    # Stage and commit:
-    git add -A
-    git commit -m 'Merge $TICKET_ID: [title] - QA Passed
-    
-    Selective merge - only files modified by this ticket.'
-    git push origin main
-  
-  ❌ NEVER use: git merge $BRANCH (overwrites ALL files from branch point)
+  Your job is ONLY to verify and update status to qa_passed.
   
   ─────────────────────────────────────────────────────────────
-  BOTH: Mark session complete
+  Mark QA session complete
   ─────────────────────────────────────────────────────────────
   
   curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete \\
+    -H 'Content-Type: application/json' \\
     -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
 
 If FAIL:

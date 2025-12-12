@@ -3,9 +3,11 @@
 # Launch Doc Agent
 # =============================================================================
 # Launches a Claude Code agent to update documentation for a ticket's changes.
+# Runs on the SAME BRANCH as the dev work (not main).
 #
 # Usage: 
 #   ./scripts/launch-doc-agent.sh TKT-001
+#   ./scripts/launch-doc-agent.sh TKT-001 --branch agent/tkt-001-feature
 # =============================================================================
 
 set -e
@@ -20,62 +22,175 @@ NC='\033[0m'
 
 # Configuration
 MAIN_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TICKET_ID="$1"
+WORKTREE_BASE="$MAIN_REPO_DIR/../agent-worktrees"
+DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:3456}"
+
+# Parse arguments
+TICKET_ID=""
+BRANCH=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --branch)
+            BRANCH="$2"
+            shift 2
+            ;;
+        *)
+            if [ -z "$TICKET_ID" ]; then
+                TICKET_ID="$1"
+            fi
+            shift
+            ;;
+    esac
+done
 
 if [ -z "$TICKET_ID" ]; then
-    echo -e "${RED}Usage: $0 TKT-XXX${NC}"
+    echo -e "${RED}Usage: $0 TKT-XXX [--branch BRANCH_NAME]${NC}"
     exit 1
 fi
 
 TICKET_UPPER=$(echo "$TICKET_ID" | tr '[:lower:]' '[:upper:]')
 TICKET_LOWER=$(echo "$TICKET_ID" | tr '[:upper:]' '[:lower:]')
 SESSION_NAME="doc-$TICKET_UPPER"
+WORKTREE_DIR="$WORKTREE_BASE/doc-$TICKET_UPPER"
 
 echo -e "${CYAN}============================================${NC}"
 echo -e "${CYAN}Launching Doc Agent: $TICKET_UPPER${NC}"
 echo -e "${CYAN}============================================${NC}"
 
-# Find the ticket's branch
-BRANCH=$(git branch -r | grep -iE "agent/tkt-${TICKET_LOWER#tkt-}|agent/${TICKET_LOWER}" | head -1 | tr -d ' ')
+# Find the ticket's branch if not specified
+if [ -z "$BRANCH" ]; then
+    cd "$MAIN_REPO_DIR"
+    git fetch origin --quiet 2>/dev/null || true
+    BRANCH=$(git branch -r | grep -iE "agent/tkt-${TICKET_LOWER#tkt-}|agent/${TICKET_LOWER}" | head -1 | tr -d ' ' | sed 's|origin/||')
+fi
 
 if [ -z "$BRANCH" ]; then
     echo -e "${RED}✗ No branch found for $TICKET_UPPER${NC}"
+    echo "Specify with: $0 $TICKET_ID --branch agent/tkt-xxx"
     exit 1
 fi
 
-echo -e "${GREEN}✓ Found branch: $BRANCH${NC}"
+echo -e "${GREEN}✓ Branch: $BRANCH${NC}"
 
-# Get the modified files
-MERGE_BASE=$(git merge-base main "$BRANCH" 2>/dev/null)
-MODIFIED_FILES=$(git diff --name-only "$MERGE_BASE" "$BRANCH" 2>/dev/null | grep -E "^apps/|^packages/" | grep -v "\.test\." | grep -v "tsconfig")
-
-if [ -z "$MODIFIED_FILES" ]; then
-    echo -e "${YELLOW}⚠ No app files modified for $TICKET_UPPER - checking for doc updates${NC}"
+# Check if tmux session already exists
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    echo -e "${YELLOW}⚠ Session $SESSION_NAME already exists${NC}"
+    echo -e "Attach with: tmux attach -t $SESSION_NAME"
+    exit 0
 fi
 
+# Set up worktree on the branch
+echo "Setting up worktree..."
+mkdir -p "$WORKTREE_BASE"
+
+if [ -d "$WORKTREE_DIR" ]; then
+    echo -e "${YELLOW}⚠ Worktree exists, updating...${NC}"
+    cd "$WORKTREE_DIR"
+    git fetch origin --quiet
+    git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH" "origin/$BRANCH"
+    git pull origin "$BRANCH" --quiet 2>/dev/null || true
+else
+    cd "$MAIN_REPO_DIR"
+    git fetch origin --quiet
+    git worktree add "$WORKTREE_DIR" "origin/$BRANCH" 2>/dev/null || \
+        git worktree add "$WORKTREE_DIR" "$BRANCH"
+fi
+
+cd "$WORKTREE_DIR"
+echo -e "${GREEN}✓ Worktree ready: $WORKTREE_DIR${NC}"
+
+# Get the modified files
+MERGE_BASE=$(git merge-base main "origin/$BRANCH" 2>/dev/null || git merge-base main HEAD)
+MODIFIED_FILES=$(git diff --name-only "$MERGE_BASE" HEAD 2>/dev/null | grep -E "^apps/|^packages/" | grep -v "\.test\." | grep -v "tsconfig" || echo "")
+
 # Get ticket info from database
-TICKET_TITLE=$(sqlite3 "$MAIN_REPO_DIR/data/workflow.db" "SELECT title FROM tickets WHERE UPPER(id) = '$TICKET_UPPER';" 2>/dev/null || echo "$TICKET_UPPER")
-TICKET_ISSUE=$(sqlite3 "$MAIN_REPO_DIR/data/workflow.db" "SELECT issue FROM tickets WHERE UPPER(id) = '$TICKET_UPPER';" 2>/dev/null || echo "")
+TICKET_TITLE=$(curl -s --max-time 5 "$DASHBOARD_URL/api/v2/tickets/$TICKET_UPPER" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('title','$TICKET_UPPER'))" 2>/dev/null || echo "$TICKET_UPPER")
+TICKET_ISSUE=$(curl -s --max-time 5 "$DASHBOARD_URL/api/v2/tickets/$TICKET_UPPER" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('issue',''))" 2>/dev/null || echo "")
 
-# Create the prompt
-PROMPT="You are a DOC Agent. Your job is to ensure documentation is updated for ticket $TICKET_UPPER.
+# Register session in database
+echo "Registering session..."
+DB_SESSION_ID=""
+REGISTER_RESULT=$(curl -s --max-time 10 -X POST "$DASHBOARD_URL/api/v2/agents/start" \
+    -H "Content-Type: application/json" \
+    -d "{\"ticket_id\": \"$TICKET_UPPER\", \"agent_type\": \"doc\", \"tmux_session\": \"$SESSION_NAME\", \"worktree_path\": \"$WORKTREE_DIR\"}" 2>/dev/null)
 
-## Ticket
-**ID:** $TICKET_UPPER
+if echo "$REGISTER_RESULT" | grep -q '"id"'; then
+    DB_SESSION_ID=$(echo "$REGISTER_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+    echo -e "${GREEN}✓ Registered session: $DB_SESSION_ID${NC}"
+else
+    echo -e "${YELLOW}⚠ Could not register session (server may be down)${NC}"
+    DB_SESSION_ID="doc-$TICKET_UPPER-$(date +%s)"
+fi
+
+# Create the prompt file
+PROMPT_FILE="$WORKTREE_DIR/.agent-prompt-doc.md"
+cat > "$PROMPT_FILE" << EOF
+# Doc Agent: $TICKET_UPPER - Update Documentation
+
+> **Type:** Documentation Update
+> **Ticket:** $TICKET_UPPER
+> **Branch:** \`$BRANCH\`
+> **Session ID:** \`$DB_SESSION_ID\`
+
+---
+
+## Your Mission
+
+Update documentation to reflect the changes made by Dev Agent for ticket $TICKET_UPPER.
+
+---
+
+## Ticket Info
+
 **Title:** $TICKET_TITLE
-**Branch:** $BRANCH
+
 **Issue:** $TICKET_ISSUE
 
-## Files Modified by This Ticket
+---
+
+## Files Modified by Dev Agent
+
 $(echo "$MODIFIED_FILES" | while read f; do [ -n "$f" ] && echo "- \`$f\`"; done)
+
+---
 
 ## Your Task
 
 1. **Read the SOP:** \`docs/workflow/DOC_AGENT_SOP.md\`
+
 2. **Read the modified files** to understand what changed
+
 3. **Find related documentation** in \`docs/features/\`
-4. **Update docs** if the behavior changed or new features were added
-5. **Commit:** Add doc updates with message: \`docs($TICKET_LOWER): Update documentation for $TICKET_UPPER\`
+
+4. **Update docs** if behavior changed or new features were added
+
+5. **Commit your changes:**
+   \`\`\`bash
+   git add docs/
+   git commit -m "docs($TICKET_LOWER): Update documentation for $TICKET_UPPER"
+   git push origin $BRANCH
+   \`\`\`
+
+6. **Write completion report:**
+   \`\`\`bash
+   # Create report file
+   cat > docs/agent-output/doc-tracker/$TICKET_UPPER-\$(date +%Y%m%dT%H%M).md << 'REPORT'
+   # Doc Complete: $TICKET_UPPER
+   
+   - **Feature:** $TICKET_TITLE
+   - **Status:** COMPLETE
+   - **Docs Updated:** [list files]
+   - **Completed At:** \$(date -Iseconds)
+   REPORT
+   \`\`\`
+
+7. **Signal completion via CLI:**
+   \`\`\`bash
+   ./scripts/agent-cli.sh complete --session $DB_SESSION_ID
+   \`\`\`
+
+---
 
 ## Documentation Requirements
 
@@ -83,47 +198,44 @@ $(echo "$MODIFIED_FILES" | while read f; do [ -n "$f" ] && echo "- \`$f\`"; done
 - Add new sections if new functionality was added
 - Update edge cases if error handling changed
 - Keep docs accurate to current behavior
+- Follow the 10-section format from existing docs
 
-## When Done
+---
 
-Write completion to: \`docs/agent-output/doc-tracker/$TICKET_UPPER-$(date +%Y%m%dT%H%M).md\`
+## Important
 
-Include:
-- Status: COMPLETE
-- Docs updated (list files)
-- Summary of changes
-
-Then signal completion:
-\`\`\`bash
-curl -X POST http://localhost:3456/api/v2/agents/doc-$TICKET_UPPER/complete \\
-  -H 'Content-Type: application/json' \\
-  -d '{\"success\": true, \"completion_file\": \"docs/agent-output/doc-tracker/$TICKET_UPPER-TIMESTAMP.md\"}'
-\`\`\`
-"
-
-# Write prompt to file
-PROMPT_FILE="$MAIN_REPO_DIR/.agent-logs/doc-$TICKET_UPPER-prompt.txt"
-mkdir -p "$MAIN_REPO_DIR/.agent-logs"
-echo "$PROMPT" > "$PROMPT_FILE"
+- You are on branch \`$BRANCH\` - commit here, not to main
+- Both you and Tests Agent are running in parallel on this branch
+- After both complete, pipeline will auto-merge to main
+EOF
 
 echo -e "${GREEN}✓ Created prompt: $PROMPT_FILE${NC}"
 
-# Check if session already exists
-if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    echo -e "${YELLOW}⚠ Session $SESSION_NAME already exists${NC}"
-    echo -e "Attach with: tmux attach -t $SESSION_NAME"
-    exit 0
-fi
+# Create log directory
+mkdir -p "$MAIN_REPO_DIR/.agent-logs"
+LOG_FILE="$MAIN_REPO_DIR/.agent-logs/doc-$TICKET_UPPER-$(date +%Y%m%dT%H%M%S).log"
 
-# Launch Claude in tmux
+# Launch Claude in tmux with actual prompt execution
 echo -e "${BLUE}Launching Claude Code in tmux session: $SESSION_NAME${NC}"
 
-tmux new-session -d -s "$SESSION_NAME" -c "$MAIN_REPO_DIR" \
+tmux new-session -d -s "$SESSION_NAME" -c "$WORKTREE_DIR" \
     "echo '=== Doc Agent: $TICKET_UPPER ===' && \
+     echo 'Session ID: $DB_SESSION_ID' && \
+     echo 'Branch: $BRANCH' && \
+     echo 'Worktree: $WORKTREE_DIR' && \
      echo 'Started: \$(date)' && \
      echo '' && \
-     claude --print '$PROMPT' 2>&1 | tee $MAIN_REPO_DIR/.agent-logs/doc-$TICKET_UPPER-\$(date +%Y%m%dT%H%M%S).log; \
-     echo ''; echo 'Agent finished. Press Enter to close.'; read"
+     claude -p '$PROMPT_FILE' --dangerously-skip-permissions 2>&1 | tee '$LOG_FILE'; \
+     echo ''; \
+     echo 'Signaling completion...'; \
+     curl -s -X POST '$DASHBOARD_URL/api/v2/agents/$DB_SESSION_ID/complete' \
+       -H 'Content-Type: application/json' \
+       -d '{\"success\": true}' || echo 'Could not signal completion'; \
+     echo ''; \
+     echo 'Agent finished. Press Enter to close.'; \
+     read"
 
 echo -e "${GREEN}✓ Doc Agent launched: $SESSION_NAME${NC}"
-echo -e "  Attach: ${BLUE}tmux attach -t $SESSION_NAME${NC}"
+echo -e "  Worktree: ${BLUE}$WORKTREE_DIR${NC}"
+echo -e "  Session:  ${BLUE}$DB_SESSION_ID${NC}"
+echo -e "  Attach:   ${BLUE}tmux attach -t $SESSION_NAME${NC}"

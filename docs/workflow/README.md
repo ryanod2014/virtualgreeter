@@ -1,285 +1,251 @@
 # Agent Workflow Hub
 
-> **Current Phase:** Ready for Dev Sprint
-> **Status:** Documentation ✅ → Review ✅ → Tickets ✅ → **Dev Ready**
+> **Version:** 2.0 (Database-Driven)
+> **Status:** All agents use CLI for database operations. No JSON files.
 
 ---
 
-## 🚀 Launch Agents NOW
+## Pipeline Overview
 
-**See [LAUNCHING_AGENTS.md](./LAUNCHING_AGENTS.md) for complete operational guide.**
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              MAIN PIPELINE                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────┐    ┌─────────────┐    ┌──────────────┐                   │
+│  │ All Tickets  │───▶│ Batch Select│───▶│  DEV AGENT   │                   │
+│  │   (ready)    │    │(no conflicts)│   │              │                   │
+│  └──────────────┘    └─────────────┘    └──────┬───────┘                   │
+│         ▲                                      │                            │
+│         │                               ┌──────┴──────┐                     │
+│         │                               ▼             ▼                     │
+│         │                          [Pass]        [Blocker]                  │
+│         │                               │             │                     │
+│         │                               ▼             ▼                     │
+│         │                        ┌──────────────┐  ┌────────────────┐       │
+│         │                        │  QA AGENT    │  │ TICKET AGENT   │       │
+│         │                        └──────┬───────┘  │(continuation)  │       │
+│         │                               │          └───────┬────────┘       │
+│         │                        ┌──────┴──────┐           │                │
+│         │                        ▼             ▼           │                │
+│         │                   [Pass]        [Blocker]        │                │
+│         │                        │             │           │                │
+│         │                        │             └───────────┤                │
+│         │                        ▼                         │                │
+│         │              ┌─────────────────────┐             │                │
+│         │              │ DOCS + TESTS AGENTS │             │                │
+│         │              │   (same branch)     │             │                │
+│         │              └─────────┬───────────┘             │                │
+│         │                        │                         │                │
+│         │                        ▼                         │                │
+│         │              ┌─────────────────┐                 │                │
+│         │              │  AUTO-MERGE     │                 │                │
+│         │              │ (selective)     │                 │                │
+│         │              └────────┬────────┘                 │                │
+│         │                       │                          │                │
+│         │                       ▼                          │                │
+│         │              ┌─────────────────┐                 │                │
+│         │              │  REVIEW AGENT   │                 │                │
+│         │              │(audits changes) │                 │                │
+│         │              └────────┬────────┘                 │                │
+│         │                       │ findings                 │                │
+│         │                       ▼                          │                │
+│         │              ┌─────────────────┐                 │                │
+│         │              │  TRIAGE AGENT   │                 │                │
+│         │              │ (top 5 to inbox)│                 │                │
+│         │              └────────┬────────┘                 │                │
+│         │                       │                          │                │
+│         │                       ▼                          │                │
+│         │              ┌─────────────────┐                 │                │
+│         │              │     INBOX       │◀────────────────┤                │
+│         │              │ (human review)  │                 │                │
+│         │              └────────┬────────┘                 │                │
+│         │                       │                          │                │
+│         │                       ▼                          │                │
+│         │              ┌─────────────────┐                 │                │
+│         │              │  INBOX AGENT    │                 │                │
+│         │              │ (answers Qs)    │                 │                │
+│         │              └────────┬────────┘                 │                │
+│         │                       │                          │                │
+│         │                       ▼                          │                │
+│         │              ┌─────────────────┐                 │                │
+│         │              │  TICKET AGENT   │─────────────────┘                │
+│         │              │ (creates ticket)│                                  │
+│         │              └────────┬────────┘                                  │
+│         │                       │                                           │
+│         └───────────────────────┘                                           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Agent Roster
+
+| Agent | Purpose | SOP | Trigger |
+|-------|---------|-----|---------|
+| **Dev Agent** | Implement tickets | [DEV_AGENT_SOP.md](./DEV_AGENT_SOP.md) | Ticket assigned |
+| **QA Agent** | Test implementations | [QA_REVIEW_AGENT_SOP.md](./QA_REVIEW_AGENT_SOP.md) | Dev complete |
+| **Docs Agent** | Document changes | [DOC_AGENT_SOP.md](./DOC_AGENT_SOP.md) | QA passed |
+| **Tests Agent** | Write unit tests | [TEST_LOCK_AGENT_SOP.md](./TEST_LOCK_AGENT_SOP.md) | QA passed |
+| **Review Agent** | Audit merged code | [REVIEW_AGENT_SOP.md](./REVIEW_AGENT_SOP.md) | After merge |
+| **Triage Agent** | Filter findings | [TRIAGE_AGENT_SOP.md](./TRIAGE_AGENT_SOP.md) | Findings added |
+| **Inbox Agent** | Answer human questions | [INBOX_AGENT_SOP.md](./INBOX_AGENT_SOP.md) | Human responds |
+| **Ticket Agent** | Create tickets | [TICKET_AGENT_SOP.md](./TICKET_AGENT_SOP.md) | Decision made |
+
+---
+
+## Quick Commands
+
+### Launch Agents
 
 ```bash
 # Start dashboard (required for API)
 node docs/pm-dashboard-ui/server.js &
 
-# Launch all ready dev agents in parallel (CPU/RAM throttled)
-./scripts/orchestrate-agents.sh --auto
+# Start pipeline runner (daemon)
+node scripts/pipeline-runner.js --watch &
 
-# Or launch specific agents
+# Launch dev agents
 ./scripts/launch-agents.sh TKT-001 TKT-002
 
 # Launch QA agents
 ./scripts/launch-qa-agents.sh TKT-001
 
-# Monitor
-tmux ls
+# Launch inbox agent for specific finding
+./scripts/launch-inbox-agent.sh F-042
+
+# Monitor agents
+./scripts/agent-cli.sh status
+```
+
+### CLI Reference
+
+```bash
+# Session management
+./scripts/agent-cli.sh start --ticket TKT-XXX --type dev
+./scripts/agent-cli.sh heartbeat
+./scripts/agent-cli.sh complete --report path/to/report.md
+./scripts/agent-cli.sh block --reason "..." --type clarification
+
+# Ticket operations
+./scripts/agent-cli.sh get-ticket TKT-XXX
+./scripts/agent-cli.sh list-tickets --status ready
+./scripts/agent-cli.sh update-ticket TKT-XXX --status dev_complete
+./scripts/agent-cli.sh create-ticket --title "..." --priority high
+
+# Findings
+./scripts/agent-cli.sh add-finding --title "Bug" --severity high
+./scripts/agent-cli.sh list-findings --status inbox
+
+# Inbox/decisions
+./scripts/agent-cli.sh generate-inbox-prompt F-042
+./scripts/agent-cli.sh resolve-thread THREAD-123 --decision create_ticket
+
+# Status
+./scripts/agent-cli.sh status
+./scripts/agent-cli.sh events
+./scripts/agent-cli.sh check-locks
 ```
 
 ---
 
-## 📋 Quick Start
+## Key Concepts
 
-### Core Agents
+### Database-Driven (No JSON Files)
 
-| Agent | Purpose | Launch Command |
-|-------|---------|----------------|
-| **Dispatch** | Route blockers, create tickets, answer questions | `You are a Dispatch Agent. Read docs/workflow/DISPATCH_AGENT_SOP.md then execute.` |
-| **Triage** | Filter/dedupe raw findings before inbox | `You are a Triage Agent. Read docs/workflow/TRIAGE_AGENT_SOP.md then execute.` |
-| **Dev** | Implement tickets | `You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-[ID].md` |
-| **Review** | Audit feature documentation | `You are a Review Agent. Read docs/workflow/REVIEW_AGENT_SOP.md then execute: docs/prompts/active/review-agent-[ID].md` |
-| **Doc** | Document features | `You are a Doc Agent. Read docs/workflow/DOC_AGENT_SOP.md then execute: docs/prompts/active/doc-agent-[ID].md` |
-| **Test Lock** | Lock test baselines for features | `You are a Test Lock Agent. Read docs/workflow/TEST_LOCK_AGENT_SOP.md then execute: docs/prompts/active/test-lock-[ID].md` |
+All workflow state is stored in SQLite database (`scripts/db/workflow.db`).
+Agents interact via CLI commands, not by editing JSON files.
 
-### PM Workflows
+### Pipeline Runner
 
-**Dev Sprint Mode:**
+`scripts/pipeline-runner.js` automatically:
+- Advances tickets through status states
+- Launches next agents when conditions are met
+- Handles failures by routing to Ticket Agent
+
+### Ticket Statuses
+
 ```
-You are the PM. Read and execute docs/workflow/PM_DEV_SOP.md
+draft → ready → in_progress → dev_complete → 
+qa_pending → qa_passed → docs_tests_pending → docs_tests_complete → 
+merged → review_pending → closed
 ```
 
-**Doc/Review Mode:**
-```
-You are the PM. Read and execute docs/workflow/PM_DOCS_SOP.md
-```
+### Blocker Types
+
+| Type | Description | Handled By |
+|------|-------------|------------|
+| `clarification` | Need human decision | Inbox Agent → Human |
+| `environment` | pnpm fails, pre-existing bugs | Human fix |
+| `external_setup` | Need API keys, accounts | Human setup |
+| `qa_failure` | QA tests failed | Ticket Agent (auto) |
+| `regression_failure` | Unit tests failed | Ticket Agent (auto) |
 
 ---
 
-## 📁 Workflow Files
+## File Structure
 
 ```
 docs/
 ├── workflow/
-│   ├── README.md                ← You are here
-│   ├── DISPATCH_AGENT_SOP.md    ← 🆕 Route blockers, create tickets
-│   ├── TRIAGE_AGENT_SOP.md      ← 🆕 Dedup/validate raw findings
-│   ├── PM_DEV_SOP.md            ← PM workflow for dev sprints
-│   ├── PM_DOCS_SOP.md           ← PM workflow for doc/review sprints
-│   ├── DEV_AGENT_SOP.md         ← Dev agent instructions
-│   ├── DOC_AGENT_SOP.md         ← Doc agent instructions
-│   ├── REVIEW_AGENT_SOP.md      ← Review agent instructions
-│   ├── TEST_LOCK_AGENT_SOP.md   ← Test lock agent instructions
-│   ├── REGRESSION_HANDLING.md   ← How to handle CI failures
-│   └── templates/
-│       ├── ticket-schema.json   ← Required ticket fields (v2)
-│       ├── dev-ticket.md        ← Ticket creation template
-│       ├── doc-agent.md         ← Doc agent prompt template
-│       ├── review-agent.md      ← Review agent prompt template
-│       ├── test-lock-agent.md   ← Test lock agent template
-│       └── redoc-agent.md       ← Re-documentation agent template
+│   ├── README.md              ← You are here
+│   ├── DEV_AGENT_SOP.md
+│   ├── QA_REVIEW_AGENT_SOP.md
+│   ├── INBOX_AGENT_SOP.md     ← NEW
+│   ├── TICKET_AGENT_SOP.md    ← NEW
+│   ├── TRIAGE_AGENT_SOP.md
+│   ├── REVIEW_AGENT_SOP.md
+│   ├── DOC_AGENT_SOP.md
+│   ├── TEST_LOCK_AGENT_SOP.md
+│   └── archive/               ← Old SOPs (Dispatch, etc.)
 │
-├── data/
-│   ├── tickets.json             ← All tickets (source of truth)
-│   ├── findings-staging.json    ← Raw findings pending triage
-│   ├── findings.json            ← INBOX - triaged findings for human review
-│   ├── findings-processed.json  ← Audit trail of rejected/merged findings
-│   ├── decisions.json           ← Human decisions
-│   ├── dev-status.json          ← Dev pipeline status
-│   ├── doc-status.json          ← Documentation freshness tracking
-│   └── .agent-credentials.json  ← Service logins & API keys (gitignored)
+├── prompts/
+│   └── active/                ← Agent prompt files
+│       ├── dev-agent-TKT-XXX.md
+│       ├── inbox-agent-F-XXX.md
+│       └── ...
 │
 ├── agent-output/
-│   ├── started/                 ← Dev agent start signals + file locks
-│   ├── completions/             ← Dev agent completion reports
-│   ├── blocked/                 ← Blocker files (CI, clarification, env)
-│   ├── findings/                ← Dev agent out-of-scope findings
-│   ├── reviews/                 ← Review agent outputs
-│   ├── test-lock/               ← Test lock agent outputs
-│   └── archive/                 ← Processed blockers/outputs
+│   ├── completions/           ← Dev completion reports
+│   ├── qa-results/            ← QA reports + screenshots
+│   ├── qa-screenshots/        ← QA evidence
+│   └── archive/               ← Processed outputs
 │
-└── prompts/
-    ├── active/                  ← Active agent prompts
-    │   ├── dispatch-agent.md    ← 🆕 Dispatch agent prompt
-    │   ├── triage-agent.md      ← 🆕 Triage agent prompt
-    │   ├── dev-agent-*.md
-    │   ├── review-agent-*.md
-    │   └── test-lock-*.md
-    └── archive/                 ← Completed prompts
+└── pm-dashboard-ui/           ← Dashboard server + UI
+
+scripts/
+├── agent-cli.sh               ← CLI wrapper
+├── agent-cli.js               ← CLI backend
+├── ticket-agent-cli.js        ← Ticket creation + prompts
+├── pipeline-runner.js         ← Pipeline orchestration
+├── auto-merge.js              ← Selective merge
+├── launch-inbox-agent.sh      ← Launch per-thread inbox
+├── launch-agents.sh           ← Launch dev agents
+├── launch-qa-agents.sh        ← Launch QA agents
+└── db/
+    ├── db.js                  ← Database module
+    ├── schema.sql             ← DB schema
+    └── workflow.db            ← SQLite database
 ```
 
 ---
 
-## 🔄 Agent Pipeline
+## PM Dashboard
 
-```
-                                    ┌─────────────────┐
-                                    │   Review Agent  │
-                                    │ (audits docs)   │
-                                    └────────┬────────┘
-                                             │ raw findings
-                                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         STAGING QUEUE                                │
-│                    docs/data/findings-staging.json                   │
-└────────────────────────────────┬────────────────────────────────────┘
-                                 │
-                                 ▼
-                      ┌──────────────────┐
-                      │   Triage Agent   │
-                      │ (dedup, filter)  │
-                      └────────┬─────────┘
-                               │ promoted findings
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                            INBOX                                     │
-│                     docs/data/findings.json                          │
-│                    (Human reviews here)                              │
-└────────────────────────────────┬────────────────────────────────────┘
-                                 │ human decisions
-                                 ▼
-                      ┌──────────────────┐
-                      │  Dispatch Agent  │
-                      │ (creates tickets)│
-                      └────────┬─────────┘
-                               │ tickets
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         TICKET QUEUE                                 │
-│                     docs/data/tickets.json                           │
-└────────────────────────────────┬────────────────────────────────────┘
-                                 │
-                                 ▼
-                        ┌────────────────┐
-                        │   Dev Agent    │
-                        │ (implements)   │
-                        └───────┬────────┘
-                                │ completes/blocks
-                        ┌───────┴───────┐
-                        ▼               ▼
-              ┌──────────────┐   ┌─────────────┐
-              │  Completed   │   │   Blocked   │
-              │  (review)    │   │   Queue     │
-              └──────────────┘   └──────┬──────┘
-                                        │
-                                        ▼
-                              ┌─────────────────┐
-                              │  Dispatch Agent │
-                              │ (routes/resolves│
-                              │  blockers)      │
-                              └─────────────────┘
-```
+**URL:** http://localhost:3456
+
+**Features:**
+- View all tickets, findings, agents
+- Respond to inbox items
+- Monitor pipeline status
+- Trigger agent launches
 
 ---
 
-## 🚧 Blocker Types
+## Archived Workflows
 
-| Prefix | Type | Auto-Handled? | Description |
-|--------|------|---------------|-------------|
-| `CI-TKT-*` | CI Failure | ✅ Yes (if clear regression) | Tests failed on agent branch |
-| `BLOCKED-TKT-*` | Clarification | ❌ No (needs human) | Agent has a question |
-| `ENV-TKT-*` | Environment | ❌ No (needs human) | Infra/credentials issue |
-
-**Dispatch Agent routes blockers:**
-- Clear regressions → Auto-create continuation ticket
-- Ambiguous → Route to inbox for human decision
-- Clarifications → Always to inbox
-
----
-
-## 📊 Current Status
-
-### Tickets Ready for Dev
-
-| Priority | Count | Status |
-|----------|-------|--------|
-| 🔴 Critical | 7 | Ready |
-| 🟠 High | 19 | Ready |
-| 🟡 Medium | 3 | Ready |
-| 🟢 Low | 2 | Ready |
-| **Total** | **40** | **Ready** |
-
----
-
-## 🛠️ Dev Workflow Details
-
-### Ticket Quality (v2 Schema)
-
-All tickets now include:
-- ✅ `feature_docs` — Links to relevant documentation
-- ✅ `similar_code` — Patterns to follow
-- ✅ `out_of_scope` — What NOT to do
-- ✅ `dev_checks` — Quick verification steps
-- ✅ `qa_notes` — Context for QA agent
-
-### When Agents Get Blocked
-
-1. Agent writes blocker to `docs/agent-output/blocked/[TYPE]-TKT-XXX-[TIMESTAMP].json`
-
-2. **Dispatch Agent** runs and:
-   - CI failures with clear regressions → auto-creates continuation ticket
-   - Unclear/clarification blockers → routes to inbox for human
-
-3. Human reviews (if needed) and provides decision
-
-4. Dispatch Agent creates continuation ticket with context
-
-5. Dev Agent resumes work
-
-### Pipeline Order (Post-Dev)
-
-After a dev agent completes a ticket:
-
-```
-Dev Completes Ticket
-       ↓
-PM Reviews Completion Report
-       ↓
-Run Regression Tests (dashboard)
-       ↓
-If regressions → Dispatch Agent creates fix ticket
-       ↓
-If passed → Human Reviews & Merges to main
-       ↓
-PM marks affected docs as "needs_redoc"
-       ↓
-Doc Agent re-documents (reads CODE, not summary)
-```
-
-### Branch Strategy
-
-```
-main (production)
-  ├── agent/TKT-001-cobrowse-sanitization
-  ├── agent/TKT-006-middleware-redirect
-  └── agent/TKT-019-incoming-call-countdown
-```
-
-- Agents create branches: `agent/TKT-XXX-description`
-- Human merges to main after QA approval
-
----
-
-## 📝 Key Files Reference
-
-| File | Purpose | Who Updates |
-|------|---------|-------------|
-| `docs/data/tickets.json` | All tickets (source of truth) | Dispatch Agent |
-| `docs/data/findings-staging.json` | Raw findings pending triage | Review/Dev Agents |
-| `docs/data/findings.json` | INBOX - triaged findings | Triage Agent |
-| `docs/data/findings-processed.json` | Audit trail of rejected/merged | Triage Agent |
-| `docs/data/decisions.json` | Human decisions on findings | Human / Dispatch Agent |
-| `docs/data/dev-status.json` | Dev pipeline status | Dashboard / Agents |
-| `docs/data/doc-status.json` | Documentation freshness tracking | PM |
-| `docs/agent-output/blocked/` | Blocker files (CI, clarification, env) | Dev Agents / CI |
-| `docs/agent-output/completions/` | Dev agent completion reports | Dev Agents |
-
----
-
-## 🗄️ Archived Workflows
-
-Previous workflow versions are in:
+Previous versions (JSON-based, Dispatch Agent, etc.) are in:
 ```
 docs/workflow/archive/
 ```
-
-These include the original PM Agent, Cleanup Agent, and other deprecated SOPs.

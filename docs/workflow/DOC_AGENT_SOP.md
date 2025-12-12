@@ -1,8 +1,61 @@
 # Documentation Agent SOP
 
-> **Purpose:** Document a single feature with ALL possible user stories, scenarios, and edge cases.
+> **Purpose:** Document features - either brand new features OR updates after tickets pass QA.
 >
 > **One-liner to launch:** `You are a Doc Agent. Read docs/workflow/DOC_AGENT_SOP.md then execute: docs/prompts/active/doc-agent-[FEATURE].md`
+
+---
+
+## Two Modes
+
+### Mode 1: New Feature Documentation
+
+```
+Feature Inventory → YOU (Doc Agent) → docs/features/[category]/[feature].md
+```
+
+**When:** PM assigns you a feature that has NO existing docs.
+**What:** Create comprehensive 10-section documentation from scratch.
+
+### Mode 2: Post-QA Re-documentation
+
+```
+Dev Agent → QA Agent → YOU ARE HERE → Auto-Merge → Review Agent
+                       (DOC AGENT)
+                       + Tests Agent (parallel)
+```
+
+**When:** Pipeline launches you after a ticket passes QA.
+**What:** Update existing docs to reflect the changes Dev Agent made.
+
+---
+
+## How to Know Which Mode
+
+Check your prompt file. It will say either:
+- **"Document new feature: [X]"** → Mode 1 (create from scratch)
+- **"Update docs for TKT-XXX"** → Mode 2 (update existing)
+
+---
+
+## Mode 2 Context (Post-QA)
+
+When running after QA:
+- You run on the **same branch** as the Dev Agent's work
+- **Tests Agent is running in parallel** with you
+- **Both must complete** before auto-merge happens
+- After merge, Review Agent will look at your docs
+
+---
+
+## What's Already Done For You
+
+The launcher script handles:
+- ✅ Branch checkout (same branch as Dev work, for Mode 2)
+- ✅ Session registration
+- ✅ Worktree setup
+
+You start ready to document.
 
 ---
 
@@ -10,13 +63,17 @@
 
 Document **exactly how the feature works right now** — not how it should work, not improvements needed. Just the truth of the current implementation.
 
-**Output:** A comprehensive 10-section document following the existing format in `docs/features/`.
+**Output:**
+- **Mode 1:** A comprehensive 10-section document in `docs/features/[category]/`
+- **Mode 2:** Updates to existing doc OR new sections added
 
 ---
 
-## Process (3 Steps)
+## Process
 
-### Step 1: Read the Code
+### For Mode 1 (New Feature): 3 Steps
+
+#### Step 1: Read the Code
 
 Read ALL relevant files for your assigned feature:
 
@@ -38,13 +95,46 @@ Take notes on:
 cat docs/features/visitor/widget-lifecycle.md
 ```
 
-### Step 2: Write Scenario Documentation
+#### Step 2: Write Full Documentation
 
 Create your doc file at: `docs/features/[category]/[feature-name].md`
 
 **Use the existing 10-section format (see template below).**
 
-### Step 3: Notify Completion
+#### Step 3: Notify Completion
+
+---
+
+### For Mode 2 (Post-QA Update): 4 Steps
+
+#### Step 1: Understand What Changed
+
+```bash
+# See what the Dev Agent modified
+git diff main..HEAD --name-only
+
+# Read the ticket info
+cat docs/prompts/active/dev-agent-TKT-XXX-*.md
+```
+
+#### Step 2: Find Existing Docs
+
+```bash
+# Check if docs exist for this feature
+ls docs/features/[category]/
+```
+
+#### Step 3: Update Documentation
+
+If docs exist: **Update** the relevant sections to reflect changes
+If no docs: **Create** new documentation using the 10-section format
+
+Focus on:
+- What behavior changed?
+- What new scenarios are possible?
+- What edge cases were added/fixed?
+
+#### Step 4: Notify Completion
 
 **IMPORTANT:** Write your completion to a per-agent file to prevent conflicts with other doc agents.
 

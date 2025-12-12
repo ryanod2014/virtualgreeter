@@ -3616,7 +3616,7 @@ pnpm build`}
     // ================= NEW PIPELINE VIEW =================
     // Combines Feature Inventory + All Tickets + In Progress + For Review
 
-    function NewPipelineView({ tickets, devStatus, agentOutputs, onSaveDevStatus, featuresList, findings }) {
+    function NewPipelineView({ tickets, devStatus, agentOutputs, onSaveDevStatus, featuresList, findings, staging }) {
       const [pipelineTab, setPipelineTab] = useState('inventory');
       const [selectedTicket, setSelectedTicket] = useState(null);
       const [selectedReviewItem, setSelectedReviewItem] = useState(null);
@@ -3758,249 +3758,476 @@ pnpm build`}
         onSaveDevStatus({ ...devStatus, in_progress: newInProgress });
       };
 
+      // Calculate all counts for the visual pipeline
+      const dbMergedIds = new Set(tickets.filter(t => t.status === 'merged' || t.status === 'done').map(t => t.id?.toUpperCase()));
+      const legacyOnlyCount = (agentOutputs?.qaResults || [])
+        .filter(qa => (qa.fileName || '').toUpperCase().includes('PASSED'))
+        .reduce((acc, qa) => {
+          const ticketId = qa.ticketId?.toUpperCase();
+          if (ticketId && !acc.has(ticketId) && !dbMergedIds.has(ticketId)) acc.add(ticketId);
+          return acc;
+        }, new Set()).size;
+      
+      const statusCounts = {
+        ready: tickets.filter(t => t.status === 'ready').length,
+        in_progress: activeInProgressItems.length,
+        dev_complete: tickets.filter(t => t.status === 'dev_complete').length,
+        in_review: tickets.filter(t => t.status === 'in_review').length,
+        qa_pending: tickets.filter(t => t.status === 'qa_pending').length,
+        qa_approved: tickets.filter(t => t.status === 'qa_approved' || t.status === 'qa_passed').length,
+        qa_failed: tickets.filter(t => t.status === 'qa_failed').length,
+        test_lock_pending: tickets.filter(t => t.status === 'test_lock_pending').length,
+        docs_pending: tickets.filter(t => t.status === 'docs_pending').length,
+        finalizing: tickets.filter(t => t.status === 'finalizing').length,
+        blocked: tickets.filter(t => t.status === 'blocked').length,
+        ready_to_merge: tickets.filter(t => t.status === 'ready_to_merge').length,
+        merged: tickets.filter(t => t.status === 'merged' || t.status === 'done').length,
+      };
+      
+      const totalDone = statusCounts.merged + legacyOnlyCount;
+      const regressionCount = statusCounts.dev_complete + statusCounts.in_review;
+      const postQaCount = statusCounts.test_lock_pending + statusCounts.docs_pending + statusCounts.qa_approved;
+      const readyToMergeCount = statusCounts.finalizing + statusCounts.ready_to_merge;
+      const needsAttention = statusCounts.blocked + statusCounts.qa_failed;
+      
+      // Pipeline Node Component
+      const PipelineNode = ({ label, count, color, icon, isActive, onClick, size = 'normal', pulse = false }) => (
+        <div 
+          onClick={onClick}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: onClick ? 'pointer' : 'default',
+            transition: 'transform 0.2s ease',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          <div style={{
+            width: size === 'large' ? '64px' : size === 'small' ? '40px' : '52px',
+            height: size === 'large' ? '64px' : size === 'small' ? '40px' : '52px',
+            borderRadius: '12px',
+            background: count > 0 
+              ? `linear-gradient(135deg, ${color}20 0%, ${color}10 100%)`
+              : 'var(--bg-surface)',
+            border: `2px solid ${count > 0 ? color : 'var(--border)'}`,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: count > 0 ? `0 0 20px ${color}30` : 'none',
+            animation: pulse && count > 0 ? 'pulse-glow 2s ease-in-out infinite' : 'none',
+            position: 'relative',
+            overflow: 'hidden',
+          }}>
+            {count > 0 && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: `linear-gradient(135deg, ${color}10 0%, transparent 50%)`,
+                animation: 'shimmer 3s ease-in-out infinite',
+              }} />
+            )}
+            <span style={{ 
+              fontSize: size === 'large' ? '22px' : size === 'small' ? '14px' : '18px', 
+              fontWeight: 700, 
+              color: count > 0 ? color : 'var(--text-muted)',
+              position: 'relative',
+              zIndex: 1,
+            }}>
+              {count}
+            </span>
+          </div>
+          <div style={{
+            fontSize: size === 'small' ? '8px' : '9px',
+            color: count > 0 ? 'var(--text-secondary)' : 'var(--text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            fontWeight: 600,
+            textAlign: 'center',
+            maxWidth: '70px',
+          }}>
+            {icon && <span style={{ marginRight: '3px' }}>{icon}</span>}
+            {label}
+          </div>
+        </div>
+      );
+      
+      // Flow Arrow Component
+      const FlowArrow = ({ direction = 'right', animated = false, color = 'var(--text-muted)' }) => {
+        const arrows = { right: '→', down: '↓', up: '↑', loop: '↻' };
+        return (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: direction === 'down' || direction === 'up' ? '4px 0' : '0 4px',
+            color: color,
+            fontSize: '14px',
+            opacity: animated ? 1 : 0.5,
+            animation: animated ? 'pulse-glow 1.5s ease-in-out infinite' : 'none',
+          }}>
+            {arrows[direction]}
+          </div>
+        );
+      };
+      
+      // Inbox thread counts (for the loop visualization)
+      const inboxCount = findings?.filter(f => f.status === 'pending' || f.status === 'needs_decision')?.length || 0;
+      
       return (
         <div className="fade-in">
-          {/* Pipeline Flow - Shows actual ticket stages */}
-          {(() => {
-            // Get legacy completed count from QA PASSED files (not in DB)
-            const dbMergedIds = new Set(tickets.filter(t => t.status === 'merged' || t.status === 'done').map(t => t.id?.toUpperCase()));
-            const legacyOnlyCount = (agentOutputs?.qaResults || [])
-              .filter(qa => (qa.fileName || '').toUpperCase().includes('PASSED'))
-              .reduce((acc, qa) => {
-                const ticketId = qa.ticketId?.toUpperCase();
-                if (ticketId && !acc.has(ticketId) && !dbMergedIds.has(ticketId)) acc.add(ticketId);
-                return acc;
-              }, new Set()).size;
+          {/* Visual Pipeline Diagram - ONE UNIFIED LOOP */}
+          <div style={{ marginBottom: '32px' }}>
+            <div style={{ 
+              fontSize: '11px', 
+              textTransform: 'uppercase', 
+              color: 'var(--text-muted)', 
+              marginBottom: '16px', 
+              letterSpacing: '0.5px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span style={{ 
+                width: '8px', 
+                height: '8px', 
+                borderRadius: '50%', 
+                background: activeInProgressItems.length > 0 ? '#22c55e' : 'var(--text-muted)',
+                animation: activeInProgressItems.length > 0 ? 'pulse-glow 1s ease-in-out infinite' : 'none'
+              }} />
+              Automated Pipeline
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none', fontSize: '10px' }}>
+                • {tickets.length} tickets in system
+              </span>
+            </div>
             
-            // Calculate counts by actual ticket status
-            const statusCounts = {
-              ready: tickets.filter(t => t.status === 'ready').length,
-              in_progress: activeInProgressItems.length,
-              dev_complete: tickets.filter(t => t.status === 'dev_complete').length,
-              in_review: tickets.filter(t => t.status === 'in_review').length, // regression testing
-              qa_pending: tickets.filter(t => t.status === 'qa_pending').length,
-              qa_approved: tickets.filter(t => t.status === 'qa_approved' || t.status === 'qa_passed').length,
-              qa_failed: tickets.filter(t => t.status === 'qa_failed').length,
-              test_lock_pending: tickets.filter(t => t.status === 'test_lock_pending').length,
-              docs_pending: tickets.filter(t => t.status === 'docs_pending').length,
-              finalizing: tickets.filter(t => t.status === 'finalizing').length, // test lock + docs done
-              blocked: tickets.filter(t => t.status === 'blocked').length,
-              ready_to_merge: tickets.filter(t => t.status === 'ready_to_merge').length,
-              merged: tickets.filter(t => t.status === 'merged' || t.status === 'done').length,
-            };
-            
-            // Total done = DB merged + legacy
-            const totalDone = statusCounts.merged + legacyOnlyCount;
-            
-            // Regression = dev_complete + in_review
-            const regressionCount = statusCounts.dev_complete + statusCounts.in_review;
-            
-            // Post-QA work = test_lock_pending + docs_pending + qa_approved (waiting for both)
-            const postQaCount = statusCounts.test_lock_pending + statusCounts.docs_pending + statusCounts.qa_approved;
-            
-            // Ready to merge = finalizing + ready_to_merge
-            const readyToMergeCount = statusCounts.finalizing + statusCounts.ready_to_merge;
-            
-            const needsAttention = statusCounts.blocked + statusCounts.qa_failed;
-            
-            return (
-              <>
-                {/* Main Pipeline Flow */}
-                <div style={{ marginBottom: '24px' }}>
-                  <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '12px', letterSpacing: '0.5px' }}>
-                    Pipeline Flow
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'stretch', flexWrap: 'wrap' }}>
-                    {/* Ready */}
-                    <div 
-                      className="card" 
-                      onClick={() => setPipelineTab('all')}
-                      style={{ 
-                        padding: '10px 14px', 
-                        cursor: 'pointer',
-                        borderLeft: '3px solid #6366f1',
-                        background: pipelineTab === 'all' ? 'var(--bg-elevated)' : undefined,
-                        minWidth: '65px'
-                      }}
-                    >
-                      <div style={{ fontSize: '18px', fontWeight: 700, color: '#6366f1' }}>{statusCounts.ready}</div>
-                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ready</div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
-                    
-                    {/* Dev */}
-                    <div 
-                      className="card" 
-                      onClick={() => setPipelineTab('progress')}
-                      style={{ 
-                        padding: '10px 14px', 
-                        cursor: 'pointer',
-                        borderLeft: statusCounts.in_progress > 0 ? '3px solid #f59e0b' : '3px solid var(--border)',
-                        background: pipelineTab === 'progress' ? 'var(--bg-elevated)' : undefined,
-                        minWidth: '65px'
-                      }}
-                    >
-                      <div style={{ fontSize: '18px', fontWeight: 700, color: statusCounts.in_progress > 0 ? '#f59e0b' : 'var(--text-muted)' }}>{statusCounts.in_progress}</div>
-                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Dev</div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
-                    
-                    {/* Regression */}
-                    <div 
-                      className="card" 
-                      onClick={() => setPipelineTab('regression')}
-                      style={{ 
-                        padding: '10px 14px', 
-                        cursor: 'pointer',
-                        borderLeft: regressionCount > 0 ? '3px solid #8b5cf6' : '3px solid var(--border)',
-                        background: pipelineTab === 'regression' ? 'var(--bg-elevated)' : undefined,
-                        minWidth: '65px'
-                      }}
-                    >
-                      <div style={{ fontSize: '18px', fontWeight: 700, color: regressionCount > 0 ? '#8b5cf6' : 'var(--text-muted)' }}>{regressionCount}</div>
-                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Regress</div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
-                    
-                    {/* QA */}
-                    <div 
-                      className="card" 
-                      onClick={() => setPipelineTab('qa')}
-                      style={{ 
-                        padding: '10px 14px', 
-                        cursor: 'pointer',
-                        borderLeft: statusCounts.qa_pending > 0 ? '3px solid #ec4899' : '3px solid var(--border)',
-                        background: pipelineTab === 'qa' ? 'var(--bg-elevated)' : undefined,
-                        minWidth: '65px'
-                      }}
-                    >
-                      <div style={{ fontSize: '18px', fontWeight: 700, color: statusCounts.qa_pending > 0 ? '#ec4899' : 'var(--text-muted)' }}>{statusCounts.qa_pending}</div>
-                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>QA</div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
-                    
-                    {/* Test Lock + Docs (parallel) */}
-                    <div 
-                      className="card" 
-                      onClick={() => setPipelineTab('postqa')}
-                      style={{ 
-                        padding: '10px 14px', 
-                        cursor: 'pointer',
-                        borderLeft: postQaCount > 0 ? '3px solid #06b6d4' : '3px solid var(--border)',
-                        background: pipelineTab === 'postqa' ? 'var(--bg-elevated)' : undefined,
-                        minWidth: '90px'
-                      }}
-                    >
-                      <div style={{ fontSize: '18px', fontWeight: 700, color: postQaCount > 0 ? '#06b6d4' : 'var(--text-muted)' }}>{postQaCount}</div>
-                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Tests+Docs</div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
-                    
-                    {/* Ready to Merge */}
-                    <div 
-                      className="card" 
-                      onClick={() => setPipelineTab('merge')}
-                      style={{ 
-                        padding: '10px 14px', 
-                        cursor: 'pointer',
-                        borderLeft: readyToMergeCount > 0 ? '3px solid #22c55e' : '3px solid var(--border)',
-                        background: pipelineTab === 'merge' ? 'var(--bg-elevated)' : undefined,
-                        minWidth: '65px'
-                      }}
-                    >
-                      <div style={{ fontSize: '18px', fontWeight: 700, color: readyToMergeCount > 0 ? '#22c55e' : 'var(--text-muted)' }}>{readyToMergeCount}</div>
-                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ready</div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
-                    
-                    {/* Done */}
-                    <div 
-                      className="card" 
-                      onClick={() => setPipelineTab('merged')}
-                      style={{ 
-                        padding: '10px 14px', 
-                        cursor: 'pointer',
-                        borderLeft: totalDone > 0 ? '3px solid #10b981' : '3px solid var(--border)',
-                        background: pipelineTab === 'merged' ? 'var(--bg-elevated)' : undefined,
-                        minWidth: '65px'
-                      }}
-                    >
-                      <div style={{ fontSize: '18px', fontWeight: 700, color: totalDone > 0 ? '#10b981' : 'var(--text-muted)' }}>{totalDone}</div>
-                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Done</div>
-                    </div>
-                  </div>
-                </div>
+            {/* Main Pipeline Container - Single Unified Loop */}
+            <div className="card" style={{ 
+              padding: '28px 24px', 
+              background: 'linear-gradient(135deg, rgba(15,23,42,0.9) 0%, rgba(30,41,59,0.5) 100%)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {/* Animated background grid */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(59,130,246,0.04) 1px, transparent 0)',
+                backgroundSize: '20px 20px',
+                pointerEvents: 'none'
+              }} />
+              
+              {/* SVG Loop Arrow (connects end back to start) */}
+              <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}>
+                <defs>
+                  <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                    <polygon points="0 0, 6 3, 0 6" fill="rgba(99,102,241,0.4)" />
+                  </marker>
+                </defs>
+                {/* Loop-back arrow from bottom-right to top-left */}
+                <path 
+                  d="M 95% 85% Q 98% 50%, 95% 15% Q 90% 5%, 75% 5% L 25% 5% Q 5% 5%, 5% 25% L 5% 50%" 
+                  fill="none" 
+                  stroke="rgba(99,102,241,0.15)" 
+                  strokeWidth="2" 
+                  strokeDasharray="8,4"
+                  markerEnd="url(#arrowhead)"
+                />
+              </svg>
+              
+              {/* ROW 1: Main Forward Flow */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '6px', 
+                marginBottom: '16px', 
+                position: 'relative',
+                zIndex: 1,
+                flexWrap: 'wrap'
+              }}>
+                {/* All Tickets */}
+                <PipelineNode 
+                  label="All Tickets" 
+                  count={statusCounts.ready} 
+                  color="#6366f1"
+                  onClick={() => setPipelineTab('all')}
+                  pulse={statusCounts.ready > 0}
+                />
+                <FlowArrow animated={statusCounts.in_progress > 0} />
                 
-                {/* Attention Row - Blocked/Failed items */}
+                {/* Batch Selection */}
+                <div style={{
+                  padding: '6px 10px',
+                  background: 'rgba(99,102,241,0.1)',
+                  border: '1px dashed rgba(99,102,241,0.3)',
+                  borderRadius: '6px',
+                  fontSize: '8px',
+                  color: '#818cf8',
+                  textTransform: 'uppercase',
+                }}>
+                  Batch
+                </div>
+                <FlowArrow animated={statusCounts.in_progress > 0} />
+                
+                {/* Dev Agent */}
+                <PipelineNode 
+                  label="Dev Agent" 
+                  count={statusCounts.in_progress} 
+                  color="#f59e0b"
+                  onClick={() => setPipelineTab('progress')}
+                  pulse={statusCounts.in_progress > 0}
+                  size="large"
+                />
+                <FlowArrow animated={statusCounts.qa_pending > 0} />
+                
+                {/* QA Agent */}
+                <PipelineNode 
+                  label="QA Agent" 
+                  count={statusCounts.qa_pending} 
+                  color="#ec4899"
+                  onClick={() => setPipelineTab('qa')}
+                  pulse={statusCounts.qa_pending > 0}
+                  size="large"
+                />
+                <FlowArrow animated={postQaCount > 0} />
+                
+                {/* Docs + Tests (parallel) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <PipelineNode 
+                    label="Docs" 
+                    count={statusCounts.docs_pending} 
+                    color="#14b8a6"
+                    size="small"
+                    onClick={() => setPipelineTab('postqa')}
+                  />
+                  <PipelineNode 
+                    label="Tests" 
+                    count={statusCounts.test_lock_pending} 
+                    color="#06b6d4"
+                    size="small"
+                    onClick={() => setPipelineTab('postqa')}
+                  />
+                </div>
+                <FlowArrow animated={readyToMergeCount > 0} />
+                
+                {/* Merge */}
+                <PipelineNode 
+                  label="Merge" 
+                  count={readyToMergeCount} 
+                  color="#22c55e"
+                  onClick={() => setPipelineTab('merge')}
+                />
+                <FlowArrow animated={totalDone > 0} />
+                
+                {/* Review Agent → Done */}
+                <PipelineNode 
+                  label="Review" 
+                  count={totalDone} 
+                  color="#a855f7"
+                  onClick={() => setPipelineTab('merged')}
+                />
+              </div>
+              
+              {/* ROW 2: The Complete Loop - Blockers, Staging, Inbox, Human Decision */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
+                position: 'relative',
+                zIndex: 1,
+                padding: '12px 0',
+                borderTop: '1px solid rgba(99,102,241,0.15)',
+              }}>
+                {/* Blockers from Dev/QA */}
                 {needsAttention > 0 && (
-                  <div style={{ marginBottom: '24px' }}>
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                      {statusCounts.blocked > 0 && (
-                        <div 
-                          className="card" 
-                          onClick={() => setPipelineTab('blocked')}
-                          style={{ 
-                            padding: '10px 14px', 
-                            cursor: 'pointer',
-                            borderLeft: '3px solid #ef4444',
-                            background: pipelineTab === 'blocked' ? 'var(--bg-elevated)' : 'rgba(239,68,68,0.1)'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '18px', fontWeight: 700, color: '#ef4444' }}>{statusCounts.blocked}</span>
-                            <span style={{ fontSize: '11px', color: '#ef4444' }}>🚫 Blocked</span>
-                          </div>
-                        </div>
-                      )}
-                      {statusCounts.qa_failed > 0 && (
-                        <div 
-                          className="card" 
-                          onClick={() => setPipelineTab('blocked')}
-                          style={{ 
-                            padding: '10px 14px', 
-                            cursor: 'pointer',
-                            borderLeft: '3px solid #f97316',
-                            background: 'rgba(249,115,22,0.1)'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '18px', fontWeight: 700, color: '#f97316' }}>{statusCounts.qa_failed}</span>
-                            <span style={{ fontSize: '11px', color: '#f97316' }}>❌ QA Failed</span>
-                          </div>
-                        </div>
-                      )}
+                  <>
+                    <div 
+                      onClick={() => setPipelineTab('blocked')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        background: 'rgba(239,68,68,0.15)',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span style={{ fontSize: '14px' }}>🚫</span>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#ef4444' }}>{needsAttention}</div>
+                        <div style={{ fontSize: '8px', color: '#ef4444', textTransform: 'uppercase' }}>Blockers</div>
+                      </div>
                     </div>
-                  </div>
+                    <FlowArrow color="#ef4444" animated />
+                  </>
                 )}
                 
-                {/* Feature Inventory Link */}
-                <div style={{ marginBottom: '24px' }}>
-                  <div 
-                    className="card" 
-                    onClick={() => setPipelineTab('inventory')}
-                    style={{ 
-                      padding: '10px 14px', 
-                      cursor: 'pointer',
-                      borderLeft: '3px solid var(--accent)',
-                      background: pipelineTab === 'inventory' ? 'var(--bg-elevated)' : undefined,
-                      display: 'inline-block'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-bright)' }}>{featuresList.length}</span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Feature Inventory</span>
+                {/* Ticket Agent (central hub) */}
+                <div style={{
+                  padding: '10px 16px',
+                  background: 'linear-gradient(135deg, rgba(251,146,60,0.2) 0%, rgba(239,68,68,0.1) 100%)',
+                  border: '2px solid rgba(251,146,60,0.4)',
+                  borderRadius: '10px',
+                  textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#fb923c' }}>🎫 Ticket Agent</div>
+                  <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '2px' }}>Creates tickets</div>
+                </div>
+                
+                {/* Arrow pointing up to All Tickets */}
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center',
+                  color: '#6366f1',
+                  fontSize: '10px',
+                }}>
+                  <span style={{ opacity: 0.7 }}>↑</span>
+                  <span style={{ fontSize: '7px', opacity: 0.5 }}>loop</span>
+                </div>
+                
+                {/* Divider */}
+                <div style={{ width: '1px', height: '40px', background: 'rgba(99,102,241,0.2)', margin: '0 8px' }} />
+                
+                {/* Staging (from Review Agent) */}
+                {staging?.count > 0 && (
+                  <>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      background: 'rgba(168,85,247,0.15)',
+                      border: '1px solid rgba(168,85,247,0.3)',
+                      borderRadius: '8px',
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#a855f7' }}>{staging.count}</div>
+                        <div style={{ fontSize: '8px', color: '#a855f7', textTransform: 'uppercase' }}>Findings</div>
+                      </div>
                     </div>
+                    <FlowArrow color="#a855f7" />
+                  </>
+                )}
+                
+                {/* Triage Agent */}
+                <div style={{
+                  padding: '6px 10px',
+                  background: 'rgba(168,85,247,0.1)',
+                  border: '1px dashed rgba(168,85,247,0.3)',
+                  borderRadius: '6px',
+                  fontSize: '8px',
+                  color: '#a855f7',
+                  textTransform: 'uppercase',
+                }}>
+                  Triage
+                </div>
+                <FlowArrow color="#a855f7" />
+                
+                {/* Inbox */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 12px',
+                  background: 'rgba(59,130,246,0.15)',
+                  border: '1px solid rgba(59,130,246,0.3)',
+                  borderRadius: '8px',
+                }}>
+                  <span style={{ fontSize: '14px' }}>📥</span>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#3b82f6' }}>{inboxCount}</div>
+                    <div style={{ fontSize: '8px', color: '#3b82f6', textTransform: 'uppercase' }}>Inbox</div>
                   </div>
                 </div>
-              </>
-            );
-          })()}
+                <FlowArrow color="#3b82f6" />
+                
+                {/* Human */}
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'linear-gradient(135deg, rgba(34,197,94,0.2) 0%, rgba(16,185,129,0.1) 100%)',
+                  border: '2px solid rgba(34,197,94,0.4)',
+                  borderRadius: '10px',
+                  textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: '16px' }}>👤</div>
+                  <div style={{ fontSize: '8px', color: '#22c55e', textTransform: 'uppercase', marginTop: '2px' }}>Human</div>
+                </div>
+                <FlowArrow color="#22c55e" />
+                
+                {/* Inbox Agent */}
+                <div style={{
+                  padding: '6px 10px',
+                  background: 'rgba(34,197,94,0.1)',
+                  border: '1px dashed rgba(34,197,94,0.3)',
+                  borderRadius: '6px',
+                  fontSize: '8px',
+                  color: '#22c55e',
+                  textTransform: 'uppercase',
+                }}>
+                  Inbox Agent
+                </div>
+                <FlowArrow color="#fb923c" />
+                
+                {/* Arrow back to Ticket Agent */}
+                <div style={{ 
+                  fontSize: '9px', 
+                  color: '#fb923c',
+                  opacity: 0.7,
+                }}>
+                  → Ticket Agent ↑
+                </div>
+              </div>
+              
+              {/* Feature Inventory indicator */}
+              <div style={{
+                position: 'absolute',
+                top: '12px',
+                left: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                background: 'rgba(99,102,241,0.1)',
+                borderRadius: '6px',
+                border: '1px solid rgba(99,102,241,0.2)',
+                cursor: 'pointer',
+                zIndex: 2,
+              }} onClick={() => setPipelineTab('inventory')}>
+                <span style={{ fontSize: '12px' }}>📋</span>
+                <span style={{ fontSize: '11px', color: '#818cf8', fontWeight: 600 }}>{featuresList.length}</span>
+                <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>features</span>
+              </div>
+              
+              {/* Done indicator */}
+              <div style={{
+                position: 'absolute',
+                top: '12px',
+                right: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                background: 'rgba(16,185,129,0.1)',
+                borderRadius: '6px',
+                border: '1px solid rgba(16,185,129,0.2)',
+                cursor: 'pointer',
+                zIndex: 2,
+              }} onClick={() => setPipelineTab('merged')}>
+                <span style={{ fontSize: '12px' }}>✅</span>
+                <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>{totalDone}</span>
+                <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>done</span>
+              </div>
+            </div>
+          </div>
           
           {/* Tab Navigation */}
           <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0', flexWrap: 'wrap' }}>
@@ -5533,11 +5760,15 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
       
       const totalToProcess = pipelineStats.pendingResponses.length + pipelineStats.awaitingDecision.length + pipelineStats.pendingTickets.length;
       
-      // Dispatch Agent Command - unified
+      // Pipeline Operator Command (Dispatch is deprecated)
       const dispatchCommand = {
-        label: 'Launch Dispatch Agent',
-        description: 'Route blockers, create tickets, answer questions',
-        command: `You are a Dispatch Agent. Read docs/workflow/DISPATCH_AGENT_SOP.md then execute.`
+        label: 'Run Pipeline (Recommended)',
+        description: 'Start/monitor pipeline runner + use Inbox/Ticket agents as needed',
+        command: `You are a Pipeline Operator. Read docs/workflow/README.md then:
+1) Ensure PM dashboard server is running (docs/workflow/README.md).
+2) Run: node scripts/pipeline-runner.js --watch
+3) If a human is waiting on a decision thread, follow docs/workflow/INBOX_AGENT_SOP.md (ONE thread at a time).
+4) If a decision is marked create_ticket, follow docs/workflow/TICKET_AGENT_SOP.md.`
       };
       
       const DOC_REVIEW_COMMANDS = {
@@ -7009,6 +7240,7 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
                   onSaveDevStatus={saveDevStatus}
                   featuresList={featuresList}
                   findings={findings}
+                  staging={staging}
                 />}
                 {view === 'launch' && <LaunchView 
                   tickets={tickets}
