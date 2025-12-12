@@ -1,0 +1,9 @@
+{
+  "ticket_id": "TKT-098",
+  "branch": "agent/tkt-098-fix-tiered-routing-to-prefer-i",
+  "started_at": "2025-12-12T03:39:13Z",
+  "files_locking": [
+    "apps/server/src/features/routing/pool-manager.ts",
+    "apps/server/src/features/routing/pool-manager.test.ts"
+  ]
+}
