@@ -133,10 +133,19 @@ export function DispositionsClient({
 
   // Check if FB is configured (has both pixel ID and access token)
   const isFbConfigured = !!(fbSettings.pixel_id && fbSettings.capi_access_token);
-  const hasFbChanges = 
+  const hasFbChanges =
     fbSettings.pixel_id !== savedFbSettings.pixel_id ||
     fbSettings.capi_access_token !== savedFbSettings.capi_access_token ||
     fbSettings.test_event_code !== savedFbSettings.test_event_code;
+
+  // Check if there are dispositions with FB events configured
+  const hasDispositionsWithFbEvents = dispositions.some(d => d.fb_event_enabled && d.fb_event_name);
+
+  // Check for incomplete FB config (has access token or FB events but no pixel ID)
+  const hasIncompleteConfig = (
+    (fbSettings.capi_access_token && !fbSettings.pixel_id) ||
+    (hasDispositionsWithFbEvents && !savedFbSettings.pixel_id)
+  );
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -153,10 +162,17 @@ export function DispositionsClient({
   
   const handleSaveFbSettings = async () => {
     if (!hasFbChanges) return;
-    
+
     setIsSavingFb(true);
     setFbError(null);
-    
+
+    // Validate: require pixel ID if access token is provided
+    if (fbSettings.capi_access_token && !fbSettings.pixel_id) {
+      setFbError("Pixel ID is required when Access Token is provided. Events cannot fire without a Pixel ID.");
+      setIsSavingFb(false);
+      return;
+    }
+
     try {
       // Auto-set enabled based on whether credentials are filled
       const settingsToSave = {
@@ -454,10 +470,18 @@ export function DispositionsClient({
                     Connected
                   </span>
                 )}
+                {hasIncompleteConfig && (
+                  <span className="px-2 py-0.5 rounded-full text-xs bg-amber-500/10 text-amber-500 font-medium flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Incomplete
+                  </span>
+                )}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {isFbConfigured 
-                  ? "Fire conversion events when dispositions are selected" 
+                {hasIncompleteConfig
+                  ? "Missing Pixel ID - events will not fire"
+                  : isFbConfigured
+                  ? "Fire conversion events when dispositions are selected"
                   : "Set up to track conversions in Facebook Ads"}
               </p>
             </div>
@@ -470,11 +494,26 @@ export function DispositionsClient({
             {/* Quick explainer */}
             <div className="p-3 rounded-lg bg-[#1877F2]/5 border border-[#1877F2]/20 text-sm">
               <p className="text-muted-foreground">
-                <strong className="text-foreground">How it works:</strong> Enter your Facebook Pixel ID and Access Token below. 
-                Then choose which Facebook event to fire for each disposition (Lead, Purchase, etc.). 
+                <strong className="text-foreground">How it works:</strong> Enter your Facebook Pixel ID and Access Token below.
+                Then choose which Facebook event to fire for each disposition (Lead, Purchase, etc.).
                 When an agent selects that disposition after a call, the event fires automatically.
               </p>
             </div>
+
+            {/* Warning banner for incomplete config */}
+            {hasIncompleteConfig && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-amber-500 font-medium">Incomplete Configuration</p>
+                  <p className="text-muted-foreground mt-1">
+                    {hasDispositionsWithFbEvents && !savedFbSettings.pixel_id
+                      ? "You have dispositions with Facebook events configured, but no Pixel ID. Events will not fire until you add a Pixel ID."
+                      : "Pixel ID is required for Facebook events to fire. Add your Pixel ID to complete the setup."}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Pixel ID */}
             <div>
