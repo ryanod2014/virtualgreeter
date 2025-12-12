@@ -1786,9 +1786,9 @@ export function PoolsClient({
     const pool = pools.find(p => p.id === poolId);
     if (!pool) return;
 
-    // Catch-all pools cannot have routing rules
+    // Catch-all pools cannot have routing rules - show user-friendly message
     if (pool.is_catch_all) {
-      console.warn("Cannot add routing rules to catch-all pool");
+      alert("Routing rules cannot be added to the catch-all pool. This pool automatically receives all visitors not matched by other rules.");
       return;
     }
 
@@ -1813,7 +1813,17 @@ export function PoolsClient({
       .select()
       .single();
 
-    if (data && !error) {
+    if (error) {
+      // Check if this is the database trigger error for catch-all pools
+      if (error.message?.includes("catch-all") || error.message?.includes("catch_all")) {
+        alert("Routing rules cannot be added to the catch-all pool. This pool automatically receives all visitors not matched by other rules.");
+      } else {
+        alert(`Failed to add routing rule: ${error.message}`);
+      }
+      return;
+    }
+
+    if (data) {
       setPools(pools.map(p => {
         if (p.id === poolId) {
           return {
@@ -1844,10 +1854,10 @@ export function PoolsClient({
 
   const handleUpdateRoutingRule = async (poolId: string, ruleId: string, conditions: RuleCondition[], ruleName: string) => {
     const pool = pools.find(p => p.id === poolId);
-    
-    // Catch-all pools cannot have routing rules
+
+    // Catch-all pools cannot have routing rules - show user-friendly message
     if (pool?.is_catch_all) {
-      console.warn("Cannot update routing rules on catch-all pool");
+      alert("Routing rules cannot be modified on the catch-all pool. This pool automatically receives all visitors not matched by other rules.");
       return;
     }
 
@@ -1867,12 +1877,22 @@ export function PoolsClient({
       .select()
       .single();
 
-    if (data && !error) {
+    if (error) {
+      // Check if this is a catch-all pool related error
+      if (error.message?.includes("catch-all") || error.message?.includes("catch_all")) {
+        alert("Routing rules cannot be modified on the catch-all pool. This pool automatically receives all visitors not matched by other rules.");
+      } else {
+        alert(`Failed to update routing rule: ${error.message}`);
+      }
+      return;
+    }
+
+    if (data) {
       setPools(pools.map(p => {
         if (p.id === poolId) {
           return {
             ...p,
-            pool_routing_rules: p.pool_routing_rules.map(r => 
+            pool_routing_rules: p.pool_routing_rules.map(r =>
               r.id === ruleId ? data : r
             ),
           };
