@@ -637,11 +637,16 @@ export class PoolManager {
   /**
    * Find the best agent within a single tier using round-robin + least-connections
    * This is the original algorithm, now applied per-tier
+   *
+   * Algorithm priority:
+   * 1. ALWAYS prefer idle agents (status=idle, load=0) using round-robin
+   * 2. ONLY use least-connections if no idle agents are available
    */
   private findBestAgentInTier(tierAgents: AgentState[]): AgentState | undefined {
     let bestAgent: AgentState | undefined;
     let lowestLoad = Infinity;
     let oldestOrder = Infinity;
+    let hasIdleCandidate = false; // Track if we found any idle agents
 
     for (const agent of tierAgents) {
       // Skip agents in call, offline, or away
@@ -660,6 +665,7 @@ export class PoolManager {
 
       // For idle agents with 0 load, use fair round-robin (pick oldest assignment order)
       if (agent.profile.status === "idle" && currentLoad === 0) {
+        hasIdleCandidate = true; // Mark that we found an idle agent
         if (assignmentOrder < oldestOrder) {
           oldestOrder = assignmentOrder;
           bestAgent = agent;
@@ -667,8 +673,9 @@ export class PoolManager {
         continue; // Keep looking for potentially older assignments
       }
 
-      // Otherwise, pick agent with lowest load
-      if (currentLoad < lowestLoad) {
+      // Only consider busy agents if we haven't found any idle candidates
+      // This ensures idle agents are ALWAYS preferred over busy agents
+      if (!hasIdleCandidate && currentLoad < lowestLoad) {
         lowestLoad = currentLoad;
         bestAgent = agent;
       }

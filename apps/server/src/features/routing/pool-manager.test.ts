@@ -688,6 +688,98 @@ describe("PoolManager", () => {
       const result2 = poolManager.findBestAgent("pool2");
       expect(result2?.agentId).toBe("agentB");
     });
+
+    it("should prefer idle agents over busy agents in same tier (TKT-098)", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+
+      // Register 2 agents in the same tier
+      poolManager.registerAgent("socket_idle", createMockAgentProfile("agentIdle", "Idle Agent"));
+      poolManager.registerAgent("socket_busy", createMockAgentProfile("agentBusy", "Busy Agent"));
+
+      // Both agents in same tier (Primary)
+      poolManager.addAgentToPool("agentIdle", "pool1", 1);
+      poolManager.addAgentToPool("agentBusy", "pool1", 1);
+
+      // Give busy agent 2 simulations (but not at capacity)
+      poolManager.registerVisitor("socket_v1", "visitor1", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor1", "agentBusy");
+      poolManager.registerVisitor("socket_v2", "visitor2", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor2", "agentBusy");
+
+      // Verify busy agent has 2 simulations
+      const busyAgent = poolManager.getAgent("agentBusy");
+      expect(busyAgent?.currentSimulations.length).toBe(2);
+
+      // Verify idle agent has 0 simulations
+      const idleAgent = poolManager.getAgent("agentIdle");
+      expect(idleAgent?.currentSimulations.length).toBe(0);
+
+      // Next visitor should ALWAYS go to idle agent (0 calls) over busy agent (2 calls)
+      const result = poolManager.findBestAgent("pool1");
+      expect(result?.agentId).toBe("agentIdle");
+      expect(result?.currentSimulations.length).toBe(0);
+    });
+
+    it("should use least-connections only when no idle agents exist (TKT-098)", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+
+      // Register 2 agents in the same tier
+      poolManager.registerAgent("socket_a", createMockAgentProfile("agentA", "Agent A"));
+      poolManager.registerAgent("socket_b", createMockAgentProfile("agentB", "Agent B"));
+
+      poolManager.addAgentToPool("agentA", "pool1", 1);
+      poolManager.addAgentToPool("agentB", "pool1", 1);
+
+      // Give agentA 3 simulations
+      for (let i = 0; i < 3; i++) {
+        poolManager.registerVisitor(`socket_va_${i}`, `visitor_a_${i}`, "org1", "/");
+        poolManager.assignVisitorToAgent(`visitor_a_${i}`, "agentA");
+      }
+
+      // Give agentB 1 simulation
+      poolManager.registerVisitor("socket_vb_0", "visitor_b_0", "org1", "/");
+      poolManager.assignVisitorToAgent("visitor_b_0", "agentB");
+
+      // Verify both agents are busy (no idle agents)
+      expect(poolManager.getAgent("agentA")?.currentSimulations.length).toBe(3);
+      expect(poolManager.getAgent("agentB")?.currentSimulations.length).toBe(1);
+
+      // Next visitor should go to agentB (least connections: 1 vs 3)
+      const result = poolManager.findBestAgent("pool1");
+      expect(result?.agentId).toBe("agentB");
+    });
+
+    it("should prefer idle agent even when multiple busy agents exist (TKT-098)", () => {
+      poolManager.setOrgConfig("org1", "pool1", []);
+
+      // Register 3 agents in same tier: 2 busy, 1 idle
+      poolManager.registerAgent("socket_busy1", createMockAgentProfile("agentBusy1", "Busy 1"));
+      poolManager.registerAgent("socket_busy2", createMockAgentProfile("agentBusy2", "Busy 2"));
+      poolManager.registerAgent("socket_idle", createMockAgentProfile("agentIdle", "Idle"));
+
+      poolManager.addAgentToPool("agentBusy1", "pool1", 1);
+      poolManager.addAgentToPool("agentBusy2", "pool1", 1);
+      poolManager.addAgentToPool("agentIdle", "pool1", 1);
+
+      // Give busy1 5 simulations
+      for (let i = 0; i < 5; i++) {
+        poolManager.registerVisitor(`socket_vb1_${i}`, `visitor_b1_${i}`, "org1", "/");
+        poolManager.assignVisitorToAgent(`visitor_b1_${i}`, "agentBusy1");
+      }
+
+      // Give busy2 2 simulations
+      for (let i = 0; i < 2; i++) {
+        poolManager.registerVisitor(`socket_vb2_${i}`, `visitor_b2_${i}`, "org1", "/");
+        poolManager.assignVisitorToAgent(`visitor_b2_${i}`, "agentBusy2");
+      }
+
+      // Idle agent has 0 simulations
+      expect(poolManager.getAgent("agentIdle")?.currentSimulations.length).toBe(0);
+
+      // Next visitor should go to idle agent, not to busy2 (even though busy2 has fewer than busy1)
+      const result = poolManager.findBestAgent("pool1");
+      expect(result?.agentId).toBe("agentIdle");
+    });
   });
 
   /**
