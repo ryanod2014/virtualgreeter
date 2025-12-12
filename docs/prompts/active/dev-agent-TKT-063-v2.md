@@ -18,13 +18,13 @@ Ticket specification contains conflicting information - no implementation possib
    - The 'Files to Modify' section says '(see ticket for files)' but provides no actual files
    - Acceptance criteria references F-001 but provides no specific measurable criteria
 
-2. **No Implementation Completed**: Dev agent correctly blocked the ticket on 2025-12-06T09:22:58Z. Only a blocker JSON file was created - no code changes were made. This was the right decision.
+2. **No Implementation Completed**: Dev agent correctly blocked the ticket on 2025-12-06T09:22:58Z. No code changes were made. This was the right decision.
 
 **What You Must Do:**
 
 **THIS TICKET REQUIRES PM CLARIFICATION BEFORE IMPLEMENTATION.**
 
-The dev agent's original blocker (BLOCKED-TKT-063-2025-12-06T0922.json) recommended Option 3 (documentation-only) as the most appropriate approach.
+The dev agent's original blocker (from 2025-12-06T09:22:58Z) recommended Option 3 (documentation-only) as the most appropriate approach.
 
 The specification needs to be corrected with:
 1. Fix the 'fix_required' field to match the actual issue (cache TTL analysis, not sanitization)
@@ -35,7 +35,7 @@ The specification needs to be corrected with:
 3. Provide specific files to modify
 4. Define measurable acceptance criteria
 
-**Your Action:** Create a NEW blocker file requesting PM clarification. Do NOT implement anything until the specification is fixed.
+**Your Action:** **BLOCK** this ticket requesting PM clarification. Do NOT implement anything until the specification is fixed.
 
 ---
 
@@ -43,13 +43,13 @@ The specification needs to be corrected with:
 
 1. Checkout existing branch: `git checkout agent/tkt-063`
 2. Pull latest: `git pull origin agent/tkt-063`
-3. Read the original blocker at docs/agent-output/blocked/BLOCKED-TKT-063-2025-12-06T0922.json (if it still exists in archive)
-4. Create a NEW blocker file at `docs/agent-output/blocked/BLOCKED-TKT-063-v2-[timestamp].json` with:
-   - Clear explanation of the specification problem
-   - Request for PM to clarify the intended approach
-   - Reference the QA findings above
-5. DO NOT implement any code changes
-6. Signal completion by creating the blocker file only
+3. Block via CLI (DB-driven workflow):
+
+```bash
+./scripts/agent-cli.sh block --reason "[paste the clarification request below]" --type clarification
+```
+
+4. DO NOT implement any code changes
 
 ---
 

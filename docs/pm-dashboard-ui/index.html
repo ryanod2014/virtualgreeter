@@ -3708,6 +3708,37 @@ pnpm build`}
         !inProgressTicketIds.has(t.id?.toUpperCase())
       );
       
+      // ============ BATCH CALCULATION (for flowchart) ============
+      // Get files locked by in-progress and completed tickets
+      const filesInProgress = new Set();
+      tickets.filter(t => inProgressTicketIds.has(t.id?.toUpperCase())).forEach(t => {
+        (t.files_to_modify || []).forEach(f => filesInProgress.add(f));
+      });
+      const filesInReview = new Set();
+      tickets.filter(t => completedTicketIds.has(t.id?.toUpperCase())).forEach(t => {
+        (t.files_to_modify || []).forEach(f => filesInReview.add(f));
+      });
+      const allLockedFiles = new Set([...filesInProgress, ...filesInReview]);
+      
+      // Calculate next batch - greedy algorithm for non-conflicting tickets
+      const nextBatchCount = (() => {
+        let count = 0;
+        const batchFiles = new Set(allLockedFiles);
+        const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+        const sorted = [...readyTickets].sort((a, b) => 
+          (priorityOrder[a.priority] || 4) - (priorityOrder[b.priority] || 4)
+        );
+        for (const ticket of sorted) {
+          const ticketFiles = ticket.files_to_modify || [];
+          const hasConflict = ticketFiles.some(f => batchFiles.has(f));
+          if (!hasConflict) {
+            count++;
+            ticketFiles.forEach(f => batchFiles.add(f));
+          }
+        }
+        return count;
+      })();
+      
       // Helper functions
       const getElapsedMinutes = (startedAt) => {
         if (!startedAt) return 0;
@@ -3953,452 +3984,174 @@ pnpm build`}
         </div>
       );
       
-      return (
-        <div className="fade-in">
-          {/* UNIFIED FLOWCHART - Single Connected Diagram */}
-          <div style={{ marginBottom: '32px' }}>
-            <div style={{ 
-              fontSize: '11px', 
-              textTransform: 'uppercase', 
-              color: 'var(--text-muted)', 
-              marginBottom: '16px', 
-              letterSpacing: '0.5px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <span style={{ 
-                width: '8px', 
-                height: '8px', 
-                borderRadius: '50%', 
-                background: activeInProgressItems.length > 0 ? '#22c55e' : 'var(--text-muted)',
-                animation: activeInProgressItems.length > 0 ? 'pulse-glow 1s ease-in-out infinite' : 'none'
-              }} />
-              Pipeline Flow
-            </div>
-            
-            {/* Flowchart Container */}
-            <div className="card" style={{ 
-              padding: '32px 24px', 
-              background: 'linear-gradient(180deg, rgba(15,23,42,0.95) 0%, rgba(30,41,59,0.7) 100%)',
-              position: 'relative',
-              overflow: 'visible',
-            }}>
-              {/* Grid background */}
-              <div style={{
-                position: 'absolute',
-                inset: 0,
-                backgroundImage: `
-                  linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px)
-                `,
-                backgroundSize: '30px 30px',
-                pointerEvents: 'none',
-                borderRadius: '12px',
-              }} />
-              
-              {/* SVG for connection lines */}
-              <svg style={{ 
-                position: 'absolute', 
-                top: 0, 
-                left: 0, 
-                width: '100%', 
-                height: '100%', 
-                pointerEvents: 'none',
-                zIndex: 0,
-              }}>
-                <defs>
-                  <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
-                    <path d="M0,0 L8,4 L0,8 Z" fill="#6366f1" opacity="0.6" />
-                  </marker>
-                  <marker id="arrow-orange" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
-                    <path d="M0,0 L8,4 L0,8 Z" fill="#fb923c" opacity="0.6" />
-                  </marker>
-                  <marker id="arrow-red" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
-                    <path d="M0,0 L8,4 L0,8 Z" fill="#ef4444" opacity="0.6" />
-                  </marker>
-                </defs>
-                
-                {/* Main loop-back line from Ticket Agent to All Tickets */}
-                <path 
-                  d="M 85 280 
-                     C 20 280, 20 100, 85 100"
-                  fill="none" 
-                  stroke="#6366f1" 
-                  strokeWidth="2" 
-                  strokeDasharray="6,4"
-                  opacity="0.3"
-                  markerEnd="url(#arrow-blue)"
-                />
-                
-                {/* Blocker lines from Dev and QA down to Ticket Agent */}
-                <path 
-                  d="M 280 130 L 280 200 L 120 200 L 120 250"
-                  fill="none" 
-                  stroke="#ef4444" 
-                  strokeWidth="1.5" 
-                  strokeDasharray="4,3"
-                  opacity="0.4"
-                />
-                <path 
-                  d="M 390 130 L 390 180 L 120 180 L 120 250"
-                  fill="none" 
-                  stroke="#ef4444" 
-                  strokeWidth="1.5" 
-                  strokeDasharray="4,3"
-                  opacity="0.4"
-                />
-              </svg>
-              
-              {/* MAIN FLOW - Row 1 */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                gap: '8px',
-                marginBottom: '0',
-                position: 'relative',
-                zIndex: 1,
-              }}>
-                {/* Features → All Tickets */}
-                <FlowNode 
-                  label="Features" 
-                  count={featuresList.length} 
-                  color="#6366f1"
-                  icon="📋"
-                  onClick={() => setPipelineTab('inventory')}
-                  isSmall
-                />
-                <Connector color="#6366f1" />
-                
-                <FlowNode 
-                  label="All Tickets" 
-                  count={statusCounts.ready} 
-                  color="#818cf8"
-                  onClick={() => setPipelineTab('all')}
-                />
-                <Connector color="#818cf8" />
-                
-                {/* Batch */}
-                <div style={{
-                  padding: '4px 10px',
-                  background: 'rgba(99,102,241,0.1)',
-                  border: '1px dashed rgba(99,102,241,0.4)',
-                  borderRadius: '4px',
-                  fontSize: '8px',
-                  color: '#818cf8',
-                  textTransform: 'uppercase',
-                }}>
-                  batch
-                </div>
-                <Connector color="#f59e0b" />
-                
-                {/* Dev Agent */}
-                <FlowNode 
-                  label="Dev Agent" 
-                  count={statusCounts.in_progress} 
-                  color="#f59e0b"
-                  icon="🤖"
-                  onClick={() => setPipelineTab('progress')}
-                  isAgent
-                />
-                
-                {/* Pass/Blocker Decision */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                  <Connector label="pass" color="#22c55e" />
-                </div>
-                
-                {/* QA Agent */}
-                <FlowNode 
-                  label="QA Agent" 
-                  count={statusCounts.qa_pending} 
-                  color="#ec4899"
-                  icon="🔍"
-                  onClick={() => setPipelineTab('qa')}
-                  isAgent
-                />
-                
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                  <Connector label="pass" color="#22c55e" />
-                </div>
-                
-                {/* Docs + Tests parallel */}
-                <div style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: '4px',
-                  padding: '8px',
-                  background: 'rgba(20,184,166,0.05)',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(20,184,166,0.2)',
-                }}>
-                  <FlowNode 
-                    label="Docs" 
-                    count={statusCounts.docs_pending} 
-                    color="#14b8a6"
-                    icon="📝"
-                    isSmall
-                    onClick={() => setPipelineTab('postqa')}
-                  />
-                  <FlowNode 
-                    label="Tests" 
-                    count={statusCounts.test_lock_pending} 
-                    color="#06b6d4"
-                    icon="🔒"
-                    isSmall
-                    onClick={() => setPipelineTab('postqa')}
-                  />
-                </div>
-                <Connector color="#22c55e" />
-                
-                {/* Merge */}
-                <FlowNode 
-                  label="Merge" 
-                  count={readyToMergeCount} 
-                  color="#22c55e"
-                  icon="🔀"
-                  onClick={() => setPipelineTab('merge')}
-                />
-                <Connector color="#a855f7" />
-                
-                {/* Review Agent */}
-                <FlowNode 
-                  label="Review" 
-                  count={totalDone} 
-                  color="#a855f7"
-                  icon="🔎"
-                  onClick={() => setPipelineTab('merged')}
-                  isAgent
-                />
+      // ================= WORKFLOW FLOWCHART (Mermaid.js) =================
+      // Uses Mermaid for automatic layout and line routing
+      // Renders in an iframe to avoid React DOM conflicts
+      
+      const WorkflowFlowchart = () => {
+        const [svgContent, setSvgContent] = React.useState(null);
+        const [error, setError] = React.useState(null);
+        const iframeRef = React.useRef(null);
+        
+        // Build the Mermaid diagram definition with live counts
+        // Using TB (top-bottom) with subgraphs for better organization
+        const getMermaidDef = () => `
+%%{init: {'theme': 'dark', 'themeVariables': { 
+  'primaryColor': '#6366f1',
+  'primaryTextColor': '#e2e8f0',
+  'primaryBorderColor': '#818cf8',
+  'lineColor': '#94a3b8',
+  'background': '#0f172a',
+  'mainBkg': '#1e293b',
+  'clusterBkg': '#1e293b15',
+  'clusterBorder': '#475569'
+}, 'flowchart': {'curve': 'basis', 'nodeSpacing': 25, 'rankSpacing': 40}}}%%
+
+flowchart LR
+    subgraph FEEDBACK["🔄 Feedback"]
+        FINDINGS["📋 ${staging?.count || 0} FINDINGS"]
+        TRIAGE["🔀 TRIAGE AGENT"]
+        FINDINGS --> TRIAGE
+    end
+    
+    TRIAGE -->|top 5| INBOX
+    
+    subgraph HUMAN["👤 Human Loop"]
+        INBOX["📥 ${inboxCount} INBOX"]
+        HUMAN_NODE["👤 HUMAN"]
+        INBOX_AGENT["💬 INBOX AGENT"]
+        DECISION{Decision?}
+        INBOX --> HUMAN_NODE --> INBOX_AGENT --> DECISION
+        DECISION -->|no| INBOX
+    end
+    
+    DECISION -->|yes| TICKET_AGENT["🎫 ${statusCounts.in_progress || 0} TICKET AGENT"]
+    TICKET_AGENT -.->|needs human| INBOX
+    TICKET_AGENT --> ALL_TICKETS["${statusCounts.ready} TICKETS"]
+    
+    ALL_TICKETS --> BATCH["📦 ${nextBatchCount} BATCH"]
+    BATCH --> DEV["🤖 ${statusCounts.in_progress} DEV AGENT"]
+    
+    DEV -->|pass| QA["🔍 ${statusCounts.qa_pending} QA AGENT"]
+    DEV -->|blocker| DEV_BLOCK{Block}
+    DEV_BLOCK -.-> TICKET_AGENT
+    
+    QA -->|pass| DOCS["📝 ${statusCounts.docs_pending} DOCS AGENT"]
+    QA -->|pass| TESTS["🔒 ${statusCounts.test_lock_pending} TESTS AGENT"]
+    QA -->|blocker| QA_BLOCK{Block}
+    QA_BLOCK -.-> TICKET_AGENT
+    
+    DOCS --> MERGE["🔀 ${readyToMergeCount} MERGE"]
+    TESTS --> MERGE
+    MERGE --> REVIEW["🔎 ${totalDone} REVIEW AGENT"]
+    
+    REVIEW -.->|findings| FINDINGS
+
+    %% Styling
+    style TICKET_AGENT fill:#fb923c33,stroke:#fb923c,stroke-width:3px,color:#fb923c
+    style DEV fill:#f59e0b22,stroke:#f59e0b,stroke-width:2px,color:#f59e0b
+    style QA fill:#ec489922,stroke:#ec4899,stroke-width:2px,color:#ec4899
+    style HUMAN fill:#22c55e22,stroke:#22c55e,stroke-width:2px,color:#22c55e
+    style INBOX_AGENT fill:#22c55e22,stroke:#22c55e,stroke-width:2px,color:#22c55e
+    style INBOX fill:#3b82f622,stroke:#3b82f6,stroke-width:2px,color:#3b82f6
+    style FINDINGS fill:#a855f722,stroke:#a855f7,stroke-width:2px,color:#a855f7
+    style TRIAGE fill:#a855f722,stroke:#a855f7,stroke-width:2px,color:#a855f7
+    style REVIEW fill:#a855f722,stroke:#a855f7,stroke-width:2px,color:#a855f7
+    style DOCS fill:#14b8a622,stroke:#14b8a6,stroke-width:2px,color:#14b8a6
+    style TESTS fill:#06b6d422,stroke:#06b6d4,stroke-width:2px,color:#06b6d4
+    style MERGE fill:#22c55e22,stroke:#22c55e,stroke-width:2px,color:#22c55e
+    style DEV_BLOCK fill:#ef444422,stroke:#ef4444,stroke-width:2px,color:#ef4444
+    style QA_BLOCK fill:#ef444422,stroke:#ef4444,stroke-width:2px,color:#ef4444
+    style ALL_TICKETS fill:#6366f122,stroke:#6366f1,stroke-width:2px,color:#6366f1
+    style BATCH fill:#64748b22,stroke:#64748b,stroke-width:2px,color:#94a3b8
+`;
+
+        React.useEffect(() => {
+          // Create an HTML document for the iframe with Mermaid
+          const mermaidDef = getMermaidDef();
+          const htmlParts = [
+            '<!DOCTYPE html>',
+            '<html>',
+            '<head>',
+            '  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"><\/script>',
+            '  <style>',
+            '    body { margin: 0; padding: 20px; background: #0f172a; display: flex; justify-content: flex-start; overflow-x: auto; overflow-y: hidden; }',
+            '    .mermaid { font-family: system-ui, -apple-system, sans-serif; }',
+            '  </style>',
+            '</head>',
+            '<body>',
+            '  <div class="mermaid">',
+            mermaidDef,
+            '  </div>',
+            '  <script>',
+            '    mermaid.initialize({ ',
+            '      startOnLoad: true,',
+            '      theme: "dark",',
+            '      flowchart: { useMaxWidth: false, htmlLabels: true, curve: "basis", padding: 15, nodeSpacing: 30, rankSpacing: 50 },',
+            '      securityLevel: "loose"',
+            '    });',
+            '  <\/script>',
+            '</body>',
+            '</html>'
+          ];
+          const html = htmlParts.join('\n');
+          
+          if (iframeRef.current) {
+            iframeRef.current.srcdoc = html;
+          }
+        }, [staging, inboxCount, statusCounts, totalDone, readyToMergeCount, nextBatchCount]);
+
+        return (
+          <div style={{ marginBottom: '24px' }}>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '12px', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: activeInProgressItems.length > 0 ? '#22c55e' : '#64748b' }} />
+              Agent Pipeline Flow
               </div>
               
-              {/* Connection lines down from main flow */}
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between',
-                padding: '0 80px',
-                position: 'relative',
-                zIndex: 1,
-              }}>
-                {/* Blocker path indicator under Dev/QA */}
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '60px',
-                  marginLeft: '180px',
-                }}>
-                  <div style={{ 
-                    fontSize: '7px', 
-                    color: '#ef4444', 
-                    textTransform: 'uppercase',
-                    opacity: 0.7,
-                  }}>
-                    ↓ blocker
-                  </div>
-                  <div style={{ 
-                    fontSize: '7px', 
-                    color: '#ef4444', 
-                    textTransform: 'uppercase',
-                    opacity: 0.7,
-                  }}>
-                    ↓ blocker
-                  </div>
-                </div>
-                
-                {/* Review → Findings indicator */}
-                <div style={{ 
-                  fontSize: '7px', 
-                  color: '#a855f7', 
-                  textTransform: 'uppercase',
-                  opacity: 0.7,
-                }}>
-                  ↓ findings
-                </div>
-              </div>
+<div className="card" style={{ 
+              padding: '0', 
+              background: 'linear-gradient(180deg, rgba(15,23,42,0.98) 0%, rgba(30,41,59,0.9) 100%)', 
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              borderRadius: '12px',
+            }}>
+              <iframe 
+                ref={iframeRef}
+                style={{ 
+                  minWidth: '1800px',
+                  width: '100%',
+                  height: '500px',
+                  border: 'none',
+                  background: 'transparent',
+                }}
+                title="Pipeline Flowchart"
+              />
               
-              {/* FEEDBACK LOOP - Row 2 */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                gap: '8px',
-                marginTop: '12px',
-                position: 'relative',
-                zIndex: 1,
-              }}>
-                {/* Loop back arrow */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '6px 10px',
-                  background: 'rgba(99,102,241,0.1)',
-                  borderRadius: '20px',
-                  border: '1px dashed rgba(99,102,241,0.3)',
-                }}>
-                  <span style={{ fontSize: '10px', color: '#6366f1' }}>↑</span>
-                  <span style={{ fontSize: '8px', color: '#6366f1', textTransform: 'uppercase' }}>to tickets</span>
-                </div>
-                <Connector color="#fb923c" />
-                
-                {/* Ticket Agent - Central Hub */}
-                <div style={{
-                  padding: '12px 20px',
-                  background: 'linear-gradient(135deg, rgba(251,146,60,0.2) 0%, rgba(239,68,68,0.1) 100%)',
-                  border: '2px solid rgba(251,146,60,0.5)',
-                  borderRadius: '12px',
-                  textAlign: 'center',
-                  boxShadow: '0 0 30px rgba(251,146,60,0.15)',
-                }}>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#fb923c' }}>🎫 Ticket Agent</div>
-                  <div style={{ fontSize: '7px', color: 'var(--text-muted)', marginTop: '2px', textTransform: 'uppercase' }}>Creates & Routes</div>
-                </div>
-                
-                {/* Blockers feeding in */}
-                {needsAttention > 0 && (
-                  <>
-                    <div style={{ 
-                      fontSize: '10px', 
-                      color: '#ef4444',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}>
-                      ← <span style={{ 
-                        padding: '4px 8px', 
-                        background: 'rgba(239,68,68,0.15)',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(239,68,68,0.3)',
-                      }}>
-                        <span style={{ fontWeight: 700 }}>{needsAttention}</span>
-                        <span style={{ fontSize: '7px', marginLeft: '4px', opacity: 0.8 }}>blockers</span>
+              {/* Legend */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', borderTop: '1px solid rgba(99,102,241,0.15)' }}>
+                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#64748b' }}>
+                    <span style={{ width: '20px', height: '2px', background: '#94a3b8' }} /> Flow
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#64748b' }}>
+                    <span style={{ width: '20px', height: '0', borderTop: '2px dashed #94a3b8' }} /> Feedback/Blocker
                       </span>
                     </div>
-                  </>
-                )}
-                
-                {/* Divider */}
-                <div style={{ 
-                  width: '2px', 
-                  height: '30px', 
-                  background: 'linear-gradient(180deg, transparent, rgba(99,102,241,0.3), transparent)',
-                  margin: '0 12px',
-                }} />
-                
-                {/* Findings → Triage → Inbox flow */}
-                <FlowNode 
-                  label="Findings" 
-                  count={staging?.count || 0} 
-                  color="#a855f7"
-                  isSmall
-                />
-                <Connector color="#a855f7" />
-                
-                <div style={{
-                  padding: '6px 12px',
-                  background: 'rgba(168,85,247,0.1)',
-                  border: '1px dashed rgba(168,85,247,0.4)',
-                  borderRadius: '6px',
-                  fontSize: '8px',
-                  color: '#a855f7',
-                  textTransform: 'uppercase',
-                }}>
-                  Triage
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(16,185,129,0.1)', borderRadius: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>✅</span>
+                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#10b981' }}>{totalDone}</span>
+                  <span style={{ fontSize: '10px', color: '#64748b' }}>done</span>
                 </div>
-                <Connector color="#3b82f6" />
-                
-                <FlowNode 
-                  label="Inbox" 
-                  count={inboxCount} 
-                  color="#3b82f6"
-                  icon="📥"
-                  isSmall
-                />
-                <Connector color="#22c55e" />
-                
-                {/* Human */}
-                <div style={{
-                  padding: '10px 16px',
-                  background: 'linear-gradient(135deg, rgba(34,197,94,0.2) 0%, rgba(16,185,129,0.1) 100%)',
-                  border: '2px solid rgba(34,197,94,0.5)',
-                  borderRadius: '12px',
-                  textAlign: 'center',
-                }}>
-                  <div style={{ fontSize: '18px' }}>👤</div>
-                  <div style={{ fontSize: '8px', color: '#22c55e', textTransform: 'uppercase' }}>Human</div>
                 </div>
-                <Connector color="#22c55e" />
-                
-                {/* Inbox Agent */}
-                <div style={{
-                  padding: '6px 12px',
-                  background: 'rgba(34,197,94,0.1)',
-                  border: '1px dashed rgba(34,197,94,0.4)',
-                  borderRadius: '6px',
-                  fontSize: '8px',
-                  color: '#22c55e',
-                  textTransform: 'uppercase',
-                }}>
-                  Inbox Agent
                 </div>
-                
-                {/* Decision */}
-                <FlowNode 
-                  label="Decision" 
-                  count={0} 
-                  color="#fb923c"
-                  isDecision
-                />
-                
-                <div style={{ 
-                  fontSize: '10px', 
-                  color: '#fb923c',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}>
-                  → 🎫
                 </div>
-              </div>
-              
-              {/* Legend / Stats */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginTop: '20px',
-                paddingTop: '16px',
-                borderTop: '1px solid rgba(99,102,241,0.1)',
-                position: 'relative',
-                zIndex: 1,
-              }}>
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '20px', height: '2px', background: '#22c55e' }} />
-                    <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Pass flow</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '20px', height: '2px', background: '#ef4444', borderStyle: 'dashed' }} />
-                    <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Blocker flow</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '20px', height: '2px', background: '#6366f1', borderStyle: 'dashed' }} />
-                    <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Loop back</span>
-                  </div>
-                </div>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px',
-                  padding: '6px 12px',
-                  background: 'rgba(16,185,129,0.1)',
-                  borderRadius: '8px',
-                }}>
-                  <span style={{ fontSize: '14px' }}>✅</span>
-                  <span style={{ fontSize: '16px', fontWeight: 700, color: '#10b981' }}>{totalDone}</span>
-                  <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>completed</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        );
+      };
+
+      return (
+        <div className="fade-in">
+          {/* Render the new flowchart */}
+          <WorkflowFlowchart />
           
           {/* Tab Navigation */}
           <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0', flexWrap: 'wrap' }}>

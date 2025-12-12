@@ -68,7 +68,7 @@ The server uses:
 | `apps/server/src/lib/auth.ts` | Add helper for checking authenticated socket (if needed) |
 | `apps/server/src/features/signaling/socket-handlers.ts` | Audit agent operations use verified auth |
 
-**⚠️ Only modify these files. Check FILE LOCKS in `docs/agent-output/started/` before starting.**
+**⚠️ Only modify these files.** File locks are handled by the launcher, but you can confirm with: `./scripts/agent-cli.sh check-locks`
 
 ---
 
@@ -192,14 +192,13 @@ pnpm build
 
 ---
 
-## ⚠️ REQUIRED: Follow Dev Agent SOP
+## REQUIRED: Workflow Reporting (DB/CLI)
 
-**All reporting is handled per the SOP:**
-- **Start:** Write to `docs/agent-output/started/SEC-001-[TIMESTAMP].json`
-- **Complete:** Write to `docs/agent-output/completions/SEC-001-[TIMESTAMP].md`
-- **Blocked:** Write to `docs/agent-output/blocked/BLOCKED-SEC-001-[TIMESTAMP].json`
+Follow `docs/workflow/DEV_AGENT_SOP.md`. This workflow is **DB/CLI-driven**; use the CLI for status/reporting.
 
-See `docs/workflow/DEV_AGENT_SOP.md` for exact formats.
-
-
+Use CLI (or let the launcher handle session start/heartbeats):
+- **Start (if needed)**: `./scripts/agent-cli.sh start --ticket SEC-001 --type dev`
+- **Complete**: `./scripts/agent-cli.sh complete --report docs/agent-output/completions/SEC-001.md` then `./scripts/agent-cli.sh update-ticket SEC-001 --status dev_complete`
+- **Block**: `./scripts/agent-cli.sh block --reason "..." --type clarification`
+- **Findings (optional)**: `./scripts/agent-cli.sh add-finding --title "..." --severity high --description "..." --file path/to/file`
 

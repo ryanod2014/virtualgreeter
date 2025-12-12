@@ -1,96 +1,48 @@
-# Dispatch Agent
+# Dispatch Agent (DEPRECATED)
 
 > **One-liner to launch:**
-> `You are a Dispatch Agent. Read docs/workflow/DISPATCH_AGENT_SOP.md then execute.`
+> ⚠️ **Do not launch this.** Dispatch has been replaced by: **Pipeline Runner + Inbox Agent + Ticket Agent**.
 
 ---
 
 ## Your Role
+This role is **deprecated**. The workflow is now status-driven and automated.
 
-You are the Dispatch Agent - the central orchestrator of the PM workflow. You route blockers, answer questions, and create tickets.
+Use these instead:
+- **Pipeline orchestration**: `scripts/pipeline-runner.js` (watch mode)
+- **Human Q&A / decisions (one thread at a time)**: `docs/workflow/INBOX_AGENT_SOP.md`
+- **Ticket creation / continuations**: `docs/workflow/TICKET_AGENT_SOP.md`
+- **Findings gate (“top 5 to inbox”)**: `docs/workflow/TRIAGE_AGENT_SOP.md`
 
 ---
 
 ## Before You Start
-
-Read these files to understand context:
-
-1. `docs/data/tickets.json` - All existing tickets
-2. `docs/data/findings.json` - Findings inbox
-3. `docs/data/decisions.json` - Human decisions
-4. `docs/agent-output/blocked/` - Current blockers
+Read the workflow hub:
+- `docs/workflow/README.md`
 
 ---
 
-## Tasks (In Priority Order)
+## What To Do Instead (Replacement Flow)
 
-### 1. Process Blockers
+### 1) Run the pipeline orchestrator
 
-Check `docs/agent-output/blocked/` for any blocker files.
-
-**CI-TKT-* (CI failures):**
-- If regressions are OUTSIDE ticket scope → Auto-create continuation ticket
-- If failures are INSIDE ticket scope → Auto-create "fix tests" continuation  
-- If unclear → Route to inbox for human decision
-
-**BLOCKED-TKT-* (clarifications):**
-- Always route to inbox for human decision
-
-**ENV-TKT-* (environment):**
-- Always route to inbox (high priority)
-
-### 2. Answer Questions
-
-Find threads where:
-- `decision.option_id = "custom"` AND last message is `role: "human"`
-
-Add your response as a system message. Keep it concise and actionable.
-
-### 3. Create Tickets
-
-**⚠️ REQUIRED:** Read `docs/prompts/ticket-creation-template.md` first!
-
-Find threads where:
-- `decision != null` AND `status != "resolved"`
-
-**DO NOT CREATE if:**
-- Human asked a question (not a decision): "explain this to me", "whats best practice?"
-- Human said skip/already exists: "already have this", "skip"
-- Decision is just "option 1" without context
-
-**MUST include in every ticket:**
-- `issue`: PM Decision + Background (NOT a question, NOT "option 1")
-- `files_to_modify`: NEVER empty for code changes
-- `out_of_scope`: What NOT to touch
-- `fix_required`: Specific steps (NOT "Custom response")
-- `dev_checks`: Specific commands
-- `acceptance_criteria`: Testable criteria (NOT generic boilerplate)
-
-**Validation:** See full checklist in `docs/prompts/ticket-creation-template.md`
-
-After creating:
-- Set `finding.status = "ticketed"`
-- Set `thread.status = "resolved"`
-
-### 4. Sync Check
+Ensure the PM dashboard server is up, then run:
 
 ```bash
-node docs/scripts/process-decisions.js
+node scripts/pipeline-runner.js --watch
 ```
 
----
+### 2) If a human is waiting on a thread → launch Inbox Agent (one thread)
 
-## Output
+Follow: `docs/workflow/INBOX_AGENT_SOP.md`
 
-Generate a report summarizing:
-- Blockers processed (auto-handled vs routed)
-- Questions answered
-- Tickets created
-- Items linked/skipped
+### 3) If a decision is made and needs a ticket → run Ticket Agent
+
+Follow: `docs/workflow/TICKET_AGENT_SOP.md`
 
 ---
 
-## Full SOP
+## Why This Exists
 
-For complete details, read: `docs/workflow/DISPATCH_AGENT_SOP.md`
+This file remains only to avoid broken links in old references. Prefer `docs/workflow/README.md`.
 

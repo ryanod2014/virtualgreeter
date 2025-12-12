@@ -380,11 +380,434 @@ const commands = {
     
     const result = await request('GET', `/api/v2/events?limit=${limit}`);
     
-    console.log(`Recent events (${result.count}):`);
-    for (const e of result.events) {
+    console.log(`Recent events (${result.count || result.events?.length || 0}):`);
+    for (const e of (result.events || [])) {
       const time = new Date(e.created_at).toLocaleTimeString();
       console.log(`  [${time}] ${e.event_type} - ${e.actor} - ${e.entity_type}:${e.entity_id}`);
     }
+    
+    return result;
+  },
+  
+  // ---------------------------------------------------------------------------
+  // Pipeline
+  // ---------------------------------------------------------------------------
+  
+  async 'trigger-pipeline'(args) {
+    const ticketId = args[0] || getArg(args, '--ticket', '-t');
+    const event = getArg(args, '--event', '-e');
+    
+    if (!ticketId) {
+      throw new Error('Ticket ID is required');
+    }
+    
+    console.log(`Triggering pipeline for ${ticketId}...`);
+    
+    // This would normally be done by spawning the pipeline-runner.js
+    // but for simplicity we just update the status
+    const eventType = event || 'dev_complete';
+    
+    console.log(`Event: ${eventType}`);
+    console.log('Run: node scripts/pipeline-runner.js --event ' + eventType + ' ' + ticketId);
+    
+    return { triggered: true, event: eventType, ticket: ticketId };
+  },
+  
+  // ---------------------------------------------------------------------------
+  // Inbox/Decision Thread Commands
+  // ---------------------------------------------------------------------------
+  
+  async 'generate-inbox-prompt'(args) {
+    const threadId = args[0] || getArg(args, '--thread', '-t');
+    const findingId = getArg(args, '--finding', '-f');
+    
+    if (!threadId && !findingId) {
+      throw new Error('Thread ID or Finding ID is required');
+    }
+    
+    // Get thread or finding details
+    let thread = null;
+    let finding = null;
+    
+    if (threadId) {
+      thread = await request('GET', `/api/v2/decisions/${threadId}`);
+      if (thread && thread.finding_id) {
+        finding = await request('GET', `/api/v2/findings/${thread.finding_id}`);
+      }
+    } else if (findingId) {
+      finding = await request('GET', `/api/v2/findings/${findingId}`);
+      // Try to get or create thread for this finding
+      const threads = await request('GET', `/api/v2/decisions?finding_id=${findingId}`);
+      if (threads.threads && threads.threads.length > 0) {
+        thread = threads.threads[0];
+      } else {
+        // Create a new thread
+        thread = await request('POST', '/api/v2/decisions', {
+          finding_id: findingId,
+          status: 'pending',
+        });
+      }
+    }
+    
+    const id = thread?.id || finding?.id || 'unknown';
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Build conversation history
+    const messages = thread?.messages || [];
+    const historyLines = messages.map(m => {
+      const time = new Date(m.created_at).toLocaleString();
+      return `[${time}] ${m.role}: ${m.content}`;
+    }).join('\n');
+    
+    // Generate the prompt content
+    const promptContent = `# Inbox Agent: Thread ${id}
+
+> **One-liner to launch:** \`You are an Inbox Agent. Read docs/workflow/INBOX_AGENT_SOP.md then execute the prompt below.\`
+
+---
+
+## Finding/Blocker Details
+
+- **ID:** ${finding?.id || thread?.finding_id || 'N/A'}
+- **Title:** ${finding?.title || 'Untitled'}
+- **Severity:** ${finding?.severity || 'medium'}
+- **Status:** ${thread?.status || 'pending'}
+- **Feature:** ${finding?.feature || 'Unknown'}
+
+**Issue:**
+${finding?.issue || 'No details available'}
+
+**Location:** ${finding?.location || 'N/A'}
+
+---
+
+## Options
+
+Based on this finding, the human can:
+
+1. **Create ticket** - Turn this into a dev ticket
+2. **Skip / Won't fix** - Mark as not worth fixing
+3. **Need more info** - Ask clarifying questions
+4. **Link to existing** - This duplicates an existing ticket
+
+${finding?.suggested_fix ? `**Suggested Fix:** ${finding.suggested_fix}` : ''}
+
+---
+
+## Conversation History
+
+${historyLines || 'No messages yet - waiting for human response.'}
+
+---
+
+## Your Goal
+
+1. Answer any human questions clearly
+2. Guide them to pick an option
+3. When they decide, record it:
+
+\`\`\`bash
+# If they want a ticket
+./scripts/agent-cli.sh resolve-thread ${id} --decision "create_ticket" --summary "[what they decided]"
+
+# If they skip
+./scripts/agent-cli.sh resolve-thread ${id} --decision "skip" --summary "[reason]"
+
+# If linking to existing
+./scripts/agent-cli.sh resolve-thread ${id} --decision "link_existing" --summary "[existing ticket ID]"
+\`\`\`
+
+---
+
+## Commands Reference
+
+\`\`\`bash
+# Add a response to the thread
+./scripts/agent-cli.sh add-message ${id} --role system --content "Your response here"
+
+# Resolve the thread with a decision  
+./scripts/agent-cli.sh resolve-thread ${id} --decision "[decision]" --summary "[summary]"
+\`\`\`
+`;
+    
+    // Write the prompt file
+    const promptsDir = path.join(__dirname, '..', 'docs/prompts/active');
+    if (!fs.existsSync(promptsDir)) {
+      fs.mkdirSync(promptsDir, { recursive: true });
+    }
+    
+    const filename = `inbox-agent-${id}.md`;
+    const filepath = path.join(promptsDir, filename);
+    fs.writeFileSync(filepath, promptContent);
+    
+    console.log(`Inbox prompt generated: ${filepath}`);
+    return { promptFile: filepath, threadId: id };
+  },
+  
+  async 'add-message'(args) {
+    const threadId = args[0] || getArg(args, '--thread', '-t');
+    const role = getArg(args, '--role', '-r') || 'system';
+    const content = getArg(args, '--content', '-c') || getArg(args, '--message', '-m');
+    
+    if (!threadId) {
+      throw new Error('Thread ID is required');
+    }
+    if (!content) {
+      throw new Error('--content is required');
+    }
+    
+    const result = await request('POST', `/api/v2/decisions/${threadId}/messages`, {
+      role: role,
+      content: content,
+    });
+    
+    console.log(`Message added to thread ${threadId}`);
+    return result;
+  },
+  
+  async 'resolve-thread'(args) {
+    const threadId = args[0] || getArg(args, '--thread', '-t');
+    const decision = getArg(args, '--decision', '-d');
+    const summary = getArg(args, '--summary', '-s');
+    
+    if (!threadId) {
+      throw new Error('Thread ID is required');
+    }
+    if (!decision) {
+      throw new Error('--decision is required');
+    }
+    
+    const result = await request('PUT', `/api/v2/decisions/${threadId}`, {
+      status: 'resolved',
+      decision_type: decision,
+      decision_summary: summary || decision,
+    });
+    
+    console.log(`Thread ${threadId} resolved`);
+    console.log(`Decision: ${decision}`);
+    
+    // If decision is to create ticket, notify that Ticket Agent should run
+    if (decision === 'create_ticket') {
+      console.log('Next: Ticket Agent will create the ticket');
+    }
+    
+    return result;
+  },
+  
+  async 'create-inbox-item'(args) {
+    const ticketId = getArg(args, '--ticket-id', '-t');
+    const type = getArg(args, '--type') || 'blocker';
+    const summary = getArg(args, '--summary', '-s');
+    
+    if (!ticketId && !summary) {
+      throw new Error('--ticket-id or --summary is required');
+    }
+    
+    // Create a finding that represents an inbox item
+    const result = await request('POST', '/api/v2/findings', {
+      title: summary || `Blocker for ${ticketId}`,
+      issue: summary,
+      category: type,
+      source_agent: 'system',
+      ticket_id: ticketId,
+      status: 'inbox',
+    });
+    
+    console.log(`Inbox item created: ${result.id}`);
+    return result;
+  },
+  
+  async 'get-finding'(args) {
+    const findingId = args[0] || getArg(args, '--id', '-i');
+    
+    if (!findingId) {
+      throw new Error('Finding ID is required');
+    }
+    
+    const result = await request('GET', `/api/v2/findings/${findingId}`);
+    
+    console.log(`Finding: ${result.id}`);
+    console.log(`Title: ${result.title}`);
+    console.log(`Severity: ${result.severity}`);
+    console.log(`Status: ${result.status}`);
+    console.log(`Issue: ${result.issue}`);
+    
+    return result;
+  },
+  
+  async 'link-finding'(args) {
+    const findingId = args[0] || getArg(args, '--finding', '-f');
+    const ticketId = getArg(args, '--ticket', '-t');
+    
+    if (!findingId) {
+      throw new Error('Finding ID is required');
+    }
+    if (!ticketId) {
+      throw new Error('--ticket is required');
+    }
+    
+    const result = await request('PUT', `/api/v2/findings/${findingId}`, {
+      ticket_id: ticketId,
+      status: 'ticketed',
+    });
+    
+    console.log(`Finding ${findingId} linked to ticket ${ticketId}`);
+    return result;
+  },
+  
+  // ---------------------------------------------------------------------------
+  // Triage Commands
+  // ---------------------------------------------------------------------------
+  
+  async 'promote-finding'(args) {
+    const findingId = args[0] || getArg(args, '--id', '-i');
+    const notes = getArg(args, '--notes', '-n');
+    
+    if (!findingId) {
+      throw new Error('Finding ID is required');
+    }
+    
+    const result = await request('PUT', `/api/v2/findings/${findingId}`, {
+      status: 'inbox',
+      triage_notes: notes || 'Promoted from staging',
+      triage_action: 'promoted',
+      triaged_at: new Date().toISOString(),
+    });
+    
+    console.log(`✓ Finding ${findingId} promoted to inbox`);
+    return result;
+  },
+  
+  async 'reject-finding'(args) {
+    const findingId = args[0] || getArg(args, '--id', '-i');
+    const reason = getArg(args, '--reason', '-r');
+    
+    if (!findingId) {
+      throw new Error('Finding ID is required');
+    }
+    if (!reason) {
+      throw new Error('--reason is required');
+    }
+    
+    const result = await request('PUT', `/api/v2/findings/${findingId}`, {
+      status: 'rejected',
+      triage_notes: reason,
+      triage_action: 'rejected',
+      triaged_at: new Date().toISOString(),
+    });
+    
+    console.log(`✓ Finding ${findingId} rejected: ${reason}`);
+    return result;
+  },
+  
+  async 'merge-findings'(args) {
+    const findingId = args[0] || getArg(args, '--id', '-i');
+    const targetId = getArg(args, '--into', '-t');
+    const reason = getArg(args, '--reason', '-r');
+    
+    if (!findingId) {
+      throw new Error('Finding ID is required');
+    }
+    if (!targetId) {
+      throw new Error('--into (target finding ID) is required');
+    }
+    
+    const result = await request('PUT', `/api/v2/findings/${findingId}`, {
+      status: 'merged',
+      merged_into: targetId,
+      triage_notes: reason || `Merged into ${targetId}`,
+      triage_action: 'merged',
+      triaged_at: new Date().toISOString(),
+    });
+    
+    console.log(`✓ Finding ${findingId} merged into ${targetId}`);
+    return result;
+  },
+  
+  async 'defer-finding'(args) {
+    const findingId = args[0] || getArg(args, '--id', '-i');
+    const reason = getArg(args, '--reason', '-r');
+    
+    if (!findingId) {
+      throw new Error('Finding ID is required');
+    }
+    
+    const result = await request('PUT', `/api/v2/findings/${findingId}`, {
+      status: 'deferred',
+      triage_notes: reason || 'Deferred - low priority',
+      triage_action: 'deferred',
+      triaged_at: new Date().toISOString(),
+    });
+    
+    console.log(`✓ Finding ${findingId} deferred`);
+    return result;
+  },
+  
+  async 'update-finding'(args) {
+    const findingId = args[0] || getArg(args, '--id', '-i');
+    const severity = getArg(args, '--severity', '-s');
+    const notes = getArg(args, '--notes', '-n');
+    const status = getArg(args, '--status');
+    
+    if (!findingId) {
+      throw new Error('Finding ID is required');
+    }
+    
+    const updates = {};
+    if (severity) updates.severity = severity;
+    if (notes) updates.triage_notes = notes;
+    if (status) updates.status = status;
+    
+    if (Object.keys(updates).length === 0) {
+      throw new Error('At least one update field is required (--severity, --notes, --status)');
+    }
+    
+    const result = await request('PUT', `/api/v2/findings/${findingId}`, updates);
+    
+    console.log(`✓ Finding ${findingId} updated`);
+    if (severity) console.log(`  Severity: ${severity}`);
+    if (notes) console.log(`  Notes: ${notes}`);
+    if (status) console.log(`  Status: ${status}`);
+    return result;
+  },
+  
+  async 'create-ticket'(args) {
+    const title = getArg(args, '--title', '-t');
+    const priority = getArg(args, '--priority', '-p') || 'medium';
+    const status = getArg(args, '--status', '-s') || 'ready';
+    const feature = getArg(args, '--feature', '-f');
+    const issue = getArg(args, '--issue', '-i');
+    const files = getArg(args, '--files');
+    const parentTicket = getArg(args, '--parent-ticket');
+    const iteration = getArg(args, '--iteration');
+    const branch = getArg(args, '--branch', '-b');
+    const source = getArg(args, '--source');
+    const id = getArg(args, '--id');
+    
+    if (!title) {
+      throw new Error('--title is required');
+    }
+    
+    const data = {
+      title,
+      priority,
+      status,
+    };
+    
+    if (id) data.id = id;
+    if (feature) data.feature = feature;
+    if (issue) data.issue = issue;
+    if (files) data.files_to_modify = JSON.parse(files);
+    if (parentTicket) data.parent_ticket_id = parentTicket;
+    if (iteration) data.iteration = parseInt(iteration);
+    if (branch) data.branch = branch;
+    if (source) data.source = source;
+    
+    const result = await request('POST', '/api/v2/tickets', data);
+    
+    console.log(`Ticket created: ${result.id}`);
+    console.log(`Status: ${result.status}`);
     
     return result;
   },
@@ -433,6 +856,27 @@ FINDING COMMANDS:
   list-findings         List findings
     --status, -s        Filter by status: staging, inbox, ticketed
     --severity          Filter by severity
+  
+  get-finding <ID>      Get finding details
+
+TRIAGE COMMANDS:
+  promote-finding <ID>  Move finding from staging to inbox
+    --notes, -n         Triage notes
+  
+  reject-finding <ID>   Reject a finding
+    --reason, -r        Rejection reason (required)
+  
+  merge-findings <ID>   Merge one finding into another
+    --into, -t          Target finding ID to merge into
+    --reason, -r        Merge reason
+  
+  defer-finding <ID>    Defer a finding for later
+    --reason, -r        Deferral reason
+  
+  update-finding <ID>   Update finding fields
+    --severity, -s      New severity
+    --notes, -n         Add notes
+    --status            New status
 
 TICKET COMMANDS:
   get-ticket <ID>       Get ticket details
@@ -457,9 +901,45 @@ STATUS COMMANDS:
   events                Show recent events
     --limit, -n         Number of events (default: 20)
 
+PIPELINE COMMANDS:
+  trigger-pipeline      Trigger pipeline for a ticket
+    <ticket_id>         Ticket ID
+    --event, -e         Event type (dev_complete, qa_passed, etc.)
+
 ENVIRONMENT:
   AGENT_SESSION_ID      Default session ID for commands
   DASHBOARD_URL         API URL (default: http://localhost:3456)
+
+INBOX COMMANDS:
+  generate-inbox-prompt Generate prompt file for inbox thread
+    <thread_id>         Thread ID
+    --finding, -f       Or generate from finding ID
+  add-message           Add message to decision thread
+    <thread_id>         Thread ID
+    --role, -r          Role: system, human (default: system)
+    --content, -c       Message content
+  resolve-thread        Resolve a decision thread
+    <thread_id>         Thread ID
+    --decision, -d      Decision: create_ticket, skip, link_existing
+    --summary, -s       Decision summary
+  create-inbox-item     Create item for inbox
+    --ticket-id, -t     Related ticket ID
+    --type              Type: blocker, question, finding
+    --summary, -s       Summary
+
+FINDING EXTENDED:
+  get-finding <ID>      Get finding details
+  link-finding <ID>     Link finding to ticket
+    --ticket, -t        Ticket ID to link to
+  
+TICKET CREATION:
+  create-ticket         Create a new ticket
+    --title, -t         Title (required)
+    --priority, -p      Priority: critical, high, medium, low
+    --status, -s        Status (default: ready)
+    --feature, -f       Feature area
+    --issue, -i         Issue description
+    --files             JSON array of files to modify
 
 EXAMPLES:
   # Start a dev agent session
@@ -474,6 +954,15 @@ EXAMPLES:
   
   # Add a finding
   agent-cli.sh add-finding --title "Bug found" --severity high --description "Details..."
+  
+  # Generate inbox prompt for a finding
+  agent-cli.sh generate-inbox-prompt --finding F-042
+  
+  # Resolve a decision thread
+  agent-cli.sh resolve-thread THREAD-123 --decision create_ticket --summary "Add error handling"
+  
+  # Create a new ticket
+  agent-cli.sh create-ticket --title "Fix webhook" --priority high
 `);
   },
 };

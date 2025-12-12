@@ -13,19 +13,19 @@ You are the Triage Agent - the quality gate between raw agent findings and the h
 
 ## Before You Start
 
-Read these files to understand context:
+Use the workflow DB (via CLI) to understand context:
 
-1. `docs/data/findings-staging.json` - Raw findings to process
-2. `docs/data/findings.json` - Current inbox
-3. `docs/data/tickets.json` - Existing tickets (check for duplicates)
+1. `./scripts/agent-cli.sh list-findings --status staging` - Raw findings to process
+2. `./scripts/agent-cli.sh list-findings --status inbox` - Current inbox
+3. `./scripts/agent-cli.sh list-tickets` - Existing tickets (spot-check duplicates)
 
 ---
 
 ## Default Batch
 
 If no specific instructions:
-1. Process ALL Critical findings
-2. Process next 10 High findings
+1. Promote the **top 5 most important** findings (max 5 per run)
+2. Rank by severity first (Critical > High > Medium > Low), then actionability and blast radius
 
 ---
 
@@ -43,7 +43,7 @@ If no specific instructions:
 ## Key Rules
 
 1. Use **semantic similarity** for deduplication (meaning, not keywords)
-2. Check `tickets.json` before promoting - don't duplicate existing work
+2. Spot-check tickets before promoting - don't duplicate existing work
 3. Highest severity wins when merging
 4. Keep best description when merging
 5. Always note your reasoning

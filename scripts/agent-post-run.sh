@@ -295,7 +295,27 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# Step 7: Final status
+# Step 7: Trigger Pipeline Runner (advances ticket through next stages)
+# -----------------------------------------------------------------------------
+if [ "$REGRESSION_PASSED" = true ]; then
+    log "Triggering pipeline runner for next steps..."
+    
+    # Update ticket to dev_complete status (pipeline will handle unit tests → QA → merge)
+    curl -s -X PUT "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" \
+        -H "Content-Type: application/json" \
+        -d "{\"status\": \"dev_complete\", \"branch\": \"$BRANCH\"}" > /dev/null 2>&1
+    
+    # Trigger pipeline runner asynchronously (handles unit tests, QA launch, etc.)
+    if [ -f "$MAIN_REPO_DIR/scripts/pipeline-runner.js" ]; then
+        nohup node "$MAIN_REPO_DIR/scripts/pipeline-runner.js" --event dev_complete "$TICKET_ID" > /dev/null 2>&1 &
+        log_success "Pipeline runner triggered for $TICKET_ID"
+    else
+        log_warning "Pipeline runner not found - manual intervention needed"
+    fi
+fi
+
+# -----------------------------------------------------------------------------
+# Step 8: Final status
 # -----------------------------------------------------------------------------
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -307,7 +327,7 @@ echo "Commit:     $(git log -1 --oneline)"
 
 if [ "$REGRESSION_PASSED" = true ]; then
     echo -e "Regression: ${GREEN}✓ PASSED${NC}"
-    echo -e "Status:     ${GREEN}in_review${NC} (ready for QA agent)"
+    echo -e "Status:     ${GREEN}dev_complete${NC} → pipeline running"
 else
     echo -e "Regression: ${RED}✗ FAILED${NC}"
     echo -e "Status:     ${RED}blocked${NC} (dispatch will create continuation)"
@@ -322,7 +342,11 @@ fi
 
 echo ""
 if [ "$REGRESSION_PASSED" = true ]; then
-    echo "✅ Dev work complete. QA agent can now review this ticket."
+    echo "✅ Dev work complete. Pipeline will:"
+    echo "   1. Run unit tests"
+    echo "   2. Launch QA agent (if tests pass)"
+    echo "   3. Run test-lock/doc agents (if needed)"
+    echo "   4. Auto-merge when all gates pass"
 else
     echo "❌ REGRESSION DETECTED! Dev broke tests outside ticket scope."
     echo "   Dispatch agent will create continuation ticket for fix."

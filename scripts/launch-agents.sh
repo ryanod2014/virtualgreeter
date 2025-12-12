@@ -175,6 +175,7 @@ launch_agent() {
     local TICKET_ID="$1"
     local SESSION_NAME="agent-$TICKET_ID"
     local WORKTREE_DIR="$WORKTREE_BASE/$TICKET_ID"
+    local DASHBOARD_URL="http://localhost:3456"
     
     echo ""
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -189,6 +190,35 @@ launch_agent() {
         return 1
     fi
     
+    # Check for file lock conflicts before launching
+    echo "Checking file locks..."
+    local TICKET_INFO=$(curl -s --max-time 5 "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" 2>/dev/null)
+    if [ -n "$TICKET_INFO" ] && echo "$TICKET_INFO" | grep -q '"files_to_modify"'; then
+        # Get files this ticket needs
+        local FILES_TO_MODIFY=$(echo "$TICKET_INFO" | python3 -c "import sys,json; files=json.load(sys.stdin).get('files_to_modify',[]); print(' '.join(files) if files else '')" 2>/dev/null)
+        
+        if [ -n "$FILES_TO_MODIFY" ]; then
+            # Check if any are locked
+            local LOCKS=$(curl -s --max-time 5 "$DASHBOARD_URL/api/v2/locks" 2>/dev/null)
+            if [ -n "$LOCKS" ] && echo "$LOCKS" | grep -q '"locks"'; then
+                local LOCKED_FILES=$(echo "$LOCKS" | python3 -c "import sys,json; locks=json.load(sys.stdin).get('locks',[]); print(' '.join([l['file_path'] for l in locks]))" 2>/dev/null)
+                
+                # Check for conflicts
+                for file in $FILES_TO_MODIFY; do
+                    if echo "$LOCKED_FILES" | grep -q "$file"; then
+                        print_error "File conflict: $file is locked by another agent"
+                        echo -e "  Cannot launch $TICKET_ID until lock is released"
+                        echo -e "  Check locks with: ${BLUE}./scripts/agent-cli.sh check-locks${NC}"
+                        return 1
+                    fi
+                done
+            fi
+        fi
+        print_success "No file conflicts detected"
+    else
+        print_warning "Could not check file locks (server may be down)"
+    fi
+    
     # Setup worktree
     echo "Setting up worktree..."
     if ! "$SETUP_SCRIPT" "$TICKET_ID"; then
@@ -198,7 +228,6 @@ launch_agent() {
     
     # Register session in database (v2 API) with health check and retry
     local DB_SESSION_ID=""
-    local DASHBOARD_URL="http://localhost:3456"
     local MAX_RETRIES=3
     local RETRY_DELAY=2
     
@@ -236,6 +265,20 @@ launch_agent() {
         
         if [ -z "$DB_SESSION_ID" ]; then
             print_warning "Could not register session after $MAX_RETRIES attempts (continuing without session ID)"
+        else
+            # Acquire file locks for this ticket's files
+            if [ -n "$FILES_TO_MODIFY" ]; then
+                echo "Acquiring file locks..."
+                local LOCK_RESULT=$(curl -s --max-time 10 -X POST "$DASHBOARD_URL/api/v2/locks/acquire" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"session_id\": \"$DB_SESSION_ID\", \"ticket_id\": \"$TICKET_ID\", \"files\": $(echo "$TICKET_INFO" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin).get('files_to_modify',[])))" 2>/dev/null)}" 2>/dev/null)
+                
+                if echo "$LOCK_RESULT" | grep -q '"success":true'; then
+                    print_success "File locks acquired"
+                else
+                    print_warning "Could not acquire file locks (continuing anyway)"
+                fi
+            fi
         fi
     else
         print_warning "PM Dashboard server not running - session will not be tracked"

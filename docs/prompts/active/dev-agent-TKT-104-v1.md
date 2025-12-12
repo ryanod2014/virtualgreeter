@@ -77,13 +77,13 @@ pnpm build      # Must pass
 
 ---
 
-## ⚠️ REQUIRED: Follow Dev Agent SOP
+## REQUIRED: Workflow Reporting (DB/CLI)
 
-**All reporting is handled per the SOP:**
-- **Start:** Write to `docs/agent-output/started/TKT-104-[TIMESTAMP].json`
-- **Complete:** Write to `docs/agent-output/completions/TKT-104-[TIMESTAMP].md`
-- **Update:** Add to `docs/data/dev-status.json` completed array
-- **Blocked:** Write to `docs/agent-output/blocked/BLOCKED-TKT-104-[TIMESTAMP].json`
-- **Findings:** Write to `docs/agent-output/findings/F-DEV-TKT-104-[TIMESTAMP].json`
+Follow `docs/workflow/DEV_AGENT_SOP.md`. This workflow is **DB/CLI-driven**; use the CLI for status/reporting.
 
-See `docs/workflow/DEV_AGENT_SOP.md` for exact formats.
+Use CLI (or let the launcher handle session start/heartbeats):
+- **Start (if needed)**: `./scripts/agent-cli.sh start --ticket TKT-104 --type dev`
+- **Complete**: `./scripts/agent-cli.sh complete --report docs/agent-output/completions/TKT-104.md` then `./scripts/agent-cli.sh update-ticket TKT-104 --status dev_complete`
+- **Block**: `./scripts/agent-cli.sh block --reason "..." --type clarification`
+- **Findings (optional)**: `./scripts/agent-cli.sh add-finding --title "..." --severity high --description "..." --file path/to/file`
+
