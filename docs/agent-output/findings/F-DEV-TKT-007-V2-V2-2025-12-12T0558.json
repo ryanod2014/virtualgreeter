@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-007-V2-V2-1",
+  "source": "dev-agent-TKT-007-V2-V2",
+  "title": "Pre-existing merge conflicts in server socket-handlers prevent build",
+  "category": "bug",
+  "severity": "high",
+  "file": "apps/server/src/features/signaling/socket-handlers.ts",
+  "line": 641,
+  "issue": "Merge conflict markers found in socket-handlers.ts (lines 641-667) and socket-handlers.test.ts (lines 438-441) preventing server build. These conflicts pre-date the TKT-007-V2-V2 documentation work and are unrelated to this ticket.",
+  "suggestion": "Resolve merge conflicts by reviewing the conflicting changes and choosing the correct version, or merge/rebase from the branch that fixed these issues (appears to be fixed in TKT-104 branch based on git history).",
+  "status": "pending",
+  "found_at": "2025-12-12T05:58:12Z"
+}
