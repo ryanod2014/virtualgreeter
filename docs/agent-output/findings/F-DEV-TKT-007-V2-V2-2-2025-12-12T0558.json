@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-007-V2-V2-2",
+  "source": "dev-agent-TKT-007-V2-V2",
+  "title": "Pre-existing TypeScript syntax error in widget test file",
+  "category": "bug",
+  "severity": "medium",
+  "file": "apps/widget/src/features/webrtc/useWebRTC.test.ts",
+  "line": 1067,
+  "issue": "TypeScript compilation errors at line 1067: 'Declaration or statement expected.' preventing widget typecheck. File appears syntactically correct when inspected, suggesting possible file corruption or encoding issue. These errors pre-date the TKT-007-V2-V2 documentation work.",
+  "suggestion": "Review the file for hidden characters or encoding issues. The visible content at line 1067 appears correct (closing brace and semicolon), so this may be a tool/cache issue. Try: 1) Clean build cache, 2) Re-save file with UTF-8 encoding, 3) Check for hidden characters.",
+  "status": "pending",
+  "found_at": "2025-12-12T05:58:12Z"
+}
