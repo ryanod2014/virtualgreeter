@@ -39,7 +39,7 @@ import {
   markCallReconnected,
   markCallReconnectFailed,
 } from "../../lib/call-logger.js";
-import { verifyAgentToken, fetchAgentPoolMemberships, getAgentOrgId } from "../../lib/auth.js";
+import { verifyAgentToken, fetchAgentPoolMemberships } from "../../lib/auth.js";
 import {
   startSession,
   endSession,

@@ -133,11 +133,7 @@ export function EllisSurveyModal({
         organization_id: organizationId,
         user_id: userId,
         user_role: userRole,
-<<<<<<< HEAD
         disappointment_level: null, // Null for dismissed to exclude from PMF calculation (TKT-045)
-=======
-        disappointment_level: null, // Null for dismissed to exclude from PMF calculation
->>>>>>> origin/agent/tkt-045
         follow_up_text: null,
         triggered_by: triggeredBy,
         page_url: pageUrl,

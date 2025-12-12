@@ -34,13 +34,8 @@ export default async function PlatformFeedbackPage() {
     supabase
       .from("pmf_surveys")
       .select("*")
-<<<<<<< HEAD
       .eq("dismissed", false) // Exclude explicitly dismissed surveys
       .not("disappointment_level", "is", null) // Exclude null responses (TKT-045)
-=======
-      .eq("dismissed", false)
-      .not("disappointment_level", "is", null)
->>>>>>> origin/agent/tkt-045
       .order("created_at", { ascending: false }),
   ]);
 

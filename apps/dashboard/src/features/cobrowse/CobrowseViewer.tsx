@@ -117,19 +117,11 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
   useEffect(() => {
     if (!snapshot || !iframeRef.current) return;
 
-<<<<<<< HEAD
     // Track first snapshot (TKT-052)
     if (!hasReceivedFirstSnapshot) {
       setHasReceivedFirstSnapshot(true);
     } else {
       // Show updating indicator for subsequent updates (TKT-052)
-=======
-    // Track first snapshot
-    if (!hasReceivedFirstSnapshot) {
-      setHasReceivedFirstSnapshot(true);
-    } else {
-      // Show updating indicator for subsequent updates
->>>>>>> origin/agent/tkt-052
       setIsUpdating(true);
       const timer = setTimeout(() => setIsUpdating(false), 500);
       return () => clearTimeout(timer);
@@ -201,14 +193,10 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
     }
   }, [scrollPosition, snapshot?.viewport.width]);
 
-<<<<<<< HEAD
   /**
    * TKT-052: Loading state - shown when call is active but no snapshot received yet
    * Prevents confusion about whether co-browse is working during initialization
    */
-=======
-  // Show loading state while waiting for first snapshot
->>>>>>> origin/agent/tkt-052
   if (!snapshot && !hasReceivedFirstSnapshot) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[300px] bg-muted/50 rounded-xl border border-dashed border-border">
@@ -223,11 +211,7 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
     );
   }
 
-<<<<<<< HEAD
   // Show placeholder when no active call (hasReceivedFirstSnapshot is true but snapshot is now null)
-=======
-  // Show placeholder when no active call
->>>>>>> origin/agent/tkt-052
   if (!snapshot) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[300px] bg-muted/50 rounded-xl border border-dashed border-border">
@@ -255,10 +239,7 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
             <Eye className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-primary">Live View</span>
           </div>
-<<<<<<< HEAD
           {/* TKT-052: Brief "Updating..." indicator during subsequent snapshot updates */}
-=======
->>>>>>> origin/agent/tkt-052
           {isUpdating && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/20 rounded-full">
               <Loader2 className="w-3 h-3 text-blue-400 animate-spin" />
