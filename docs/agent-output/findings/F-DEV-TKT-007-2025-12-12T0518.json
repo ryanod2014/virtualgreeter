@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-007-1",
+  "source": "dev-agent-TKT-007",
+  "title": "Pre-existing build errors in server test files",
+  "category": "bug",
+  "severity": "low",
+  "file": "apps/server/src/features/signaling/socket-handlers.test.ts",
+  "line": 437,
+  "issue": "Build fails due to unused imports and variables in test files: 'afterEach' in pool-manager.test.ts:1, 'CallRequest' and 'ActiveCall' in socket-handlers.test.ts:437, 'TIMING' in socket-handlers.test.ts:438. These are TypeScript errors (TS6133, TS6196) that prevent successful build completion.",
+  "suggestion": "Remove unused imports and variables from test files, or add eslint-disable comments if they're needed for future test cases. Quick fix: Remove lines with unused declarations or prefix variables with underscore (_afterEach, _CallRequest, etc.) to indicate intentional non-use.",
+  "status": "pending",
+  "found_at": "2025-12-12T05:18:00Z"
+}
