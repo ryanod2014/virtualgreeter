@@ -161,18 +161,30 @@ $AC
 
 6. **DO NOT modify any files in the main repo except your QA outputs**
 
-7. **If tests PASS, include this merge command in your report:**
+7. **If tests PASS, include this SELECTIVE merge command in your report:**
+   
+   ⚠️ CRITICAL: Use SELECTIVE MERGE only - NOT git merge!
+   Other agents may have updated other files on main.
+   
    \`\`\`bash
    cd $MAIN_REPO
    git fetch origin main
    git checkout main
    git pull origin main
-   # Cherry-pick ONLY the ticket's files:
-   git checkout origin/$BRANCH -- $FILES_TO_MODIFY
-   git add $FILES_TO_MODIFY
-   git commit -m 'feat: $TICKET_UPPER - $TITLE'
+   
+   # Get list of files modified by this branch:
+   git diff --name-only main...origin/$BRANCH
+   
+   # Cherry-pick ONLY the ticket's files (selective merge):
+   git checkout origin/$BRANCH -- path/to/file1.ts path/to/file2.ts ...
+   git add -A
+   git commit -m 'feat: $TICKET_UPPER - $TITLE
+   
+   Selective merge - only files modified by this ticket.'
    git push origin main
    \`\`\`
+   
+   ❌ NEVER use: git merge $BRANCH (overwrites ALL files from branch point)
 
 ## If FAILED - Blocker JSON Template:
 

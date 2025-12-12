@@ -1098,14 +1098,29 @@ All acceptance criteria verified. Ready for merge to main.
 
 **APPROVE FOR MERGE**
 
+⚠️ **CRITICAL: Use SELECTIVE FILE MERGE only!**  
+Never use `git merge` - it overwrites ALL files from branch point, including files other agents may have modified on main.
+
 ```bash
-# Merge command (for human to execute):
+# SELECTIVE MERGE (safe for parallel agents):
 git checkout main
 git pull origin main
-git merge --squash [branch-name]
-git commit -m "feat([scope]): [TICKET-ID] - [Title]"
+
+# Get list of files modified by this branch:
+git diff --name-only main...origin/[branch-name]
+
+# Checkout ONLY those specific files:
+git checkout origin/[branch-name] -- path/to/file1.ts path/to/file2.ts ...
+
+# Commit the selective changes:
+git add -A
+git commit -m "feat([scope]): [TICKET-ID] - [Title]
+
+Selective merge - only files modified by this ticket."
 git push origin main
 ```
+
+❌ **NEVER USE:** `git merge [branch]` or `git merge --squash [branch]`
 ```
 
 **Then update ticket status:**

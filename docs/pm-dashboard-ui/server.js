@@ -15,6 +15,11 @@ const fs = require('fs');
 const path = require('path');
 
 // =============================================================================
+// AUTOMATION KILL-SWITCH (Temporary until full refactor)
+// =============================================================================
+const automationConfig = require('./automation-config.js');
+
+// =============================================================================
 // SUPABASE CLIENT (for QA test user management)
 // =============================================================================
 // Using the dashboard Supabase instance for user/org management
@@ -621,51 +626,71 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
     return;
   }
   
+  // ==========================================================================
+  // AUTOMATION KILL-SWITCH CHECK
+  // ==========================================================================
+  if (!automationConfig.enabled) {
+    console.log(`🔒 Automation DISABLED - not auto-processing ${ticketId}: ${oldStatus} → ${newStatus}`);
+    return;
+  }
+  
   console.log(`📋 Ticket ${ticketId}: ${oldStatus} → ${newStatus}`);
   
   // =========================================================================
   // STEP 1: Dev completed → Queue regression tests
   // =========================================================================
   if (newStatus === 'dev_complete') {
-    console.log(`🧪 Queueing regression tests for ${ticketId}`);
-    dbModule.jobs.create({
-      job_type: 'regression_test',
-      ticket_id: ticketId,
-      branch: ticket.branch,
-      priority: 3,
-      payload: { triggered_by: 'dev_complete' }
-    });
-    startJobWorker();
+    if (!automationConfig.autoQueueOnDevComplete) {
+      console.log(`🔒 autoQueueOnDevComplete disabled - not auto-queuing regression for ${ticketId}`);
+    } else {
+      console.log(`🧪 Queueing regression tests for ${ticketId}`);
+      dbModule.jobs.create({
+        job_type: 'regression_test',
+        ticket_id: ticketId,
+        branch: ticket.branch,
+        priority: 3,
+        payload: { triggered_by: 'dev_complete' }
+      });
+      startJobWorker();
+    }
   }
   
   // =========================================================================
   // STEP 2: Regression passed → Queue QA agent launch
   // =========================================================================
   if (newStatus === 'in_review') {
-    console.log(`🔍 Queueing QA agent for ${ticketId}`);
-    dbModule.jobs.create({
-      job_type: 'qa_launch',
-      ticket_id: ticketId,
-      branch: ticket.branch,
-      priority: 5,
-      payload: { triggered_by: 'regression_passed' }
-    });
-    startJobWorker();
+    if (!automationConfig.autoQueueOnDevComplete) {
+      console.log(`🔒 autoQueueOnDevComplete disabled - not auto-queuing QA for ${ticketId}`);
+    } else {
+      console.log(`🔍 Queueing QA agent for ${ticketId}`);
+      dbModule.jobs.create({
+        job_type: 'qa_launch',
+        ticket_id: ticketId,
+        branch: ticket.branch,
+        priority: 5,
+        payload: { triggered_by: 'regression_passed' }
+      });
+      startJobWorker();
+    }
   }
   
   // =========================================================================
   // STEP 3: QA failed OR blocked → Queue dispatch agent
   // =========================================================================
   if (newStatus === 'qa_failed' || newStatus === 'blocked') {
-    console.log(`📨 Queueing dispatch agent for ${ticketId}`);
-    dbModule.jobs.create({
-      job_type: 'dispatch',
-      ticket_id: ticketId,
-      branch: ticket.branch,
-      priority: 4,
-      payload: { triggered_by: newStatus }
-    });
-    startJobWorker();
+    if (!automationConfig.autoDispatchOnBlock) {
+      console.log(`🔒 autoDispatchOnBlock disabled - not auto-queuing dispatch for ${ticketId}`);
+    } else {
+      console.log(`📨 Queueing dispatch agent for ${ticketId}`);
+      dbModule.jobs.create({
+        job_type: 'dispatch',
+        ticket_id: ticketId,
+        branch: ticket.branch,
+        priority: 4,
+        payload: { triggered_by: newStatus }
+      });
+      startJobWorker();
+    }
   }
   
   // =========================================================================
@@ -715,31 +740,35 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
   // STEP 5: QA approved → Check for UI changes, route accordingly
   // =========================================================================
   if (newStatus === 'qa_approved') {
-    // Check if ticket has UI changes
-    const filesToModify = ticket.files_to_modify || [];
-    const hasUIChanges = filesToModify.some(f => 
-      f.includes('/components/') || 
-      f.includes('/app/') || 
-      f.endsWith('.tsx') ||
-      f.endsWith('.css')
-    );
-    
-    if (hasUIChanges) {
-      console.log(`🖼️ UI changes detected for ${ticketId} - routing to inbox for screenshot review`);
-      // Create inbox item for human screenshot review
-      createInboxItem(ticketId, {
-        type: 'ui_review',
-        message: 'UI changes detected - please review screenshots',
-        branch: ticket.branch,
-        files: filesToModify.filter(f => f.endsWith('.tsx') || f.endsWith('.css'))
-      });
-      // Don't auto-proceed - wait for human approval via inbox
+    if (!automationConfig.autoQueueOnQaPass) {
+      console.log(`🔒 autoQueueOnQaPass disabled - not auto-processing ${ticketId} after QA approval`);
     } else {
-      // No UI changes - proceed directly to finalizing
-      console.log(`📝 No UI changes for ${ticketId} - proceeding to finalizing`);
-      dbModule.tickets.update(ticketId, { status: 'finalizing' });
-      // Recursively call to trigger finalizing handler
-      handleTicketStatusChange(ticketId, 'qa_approved', 'finalizing', ticket);
+      // Check if ticket has UI changes
+      const filesToModify = ticket.files_to_modify || [];
+      const hasUIChanges = filesToModify.some(f => 
+        f.includes('/components/') || 
+        f.includes('/app/') || 
+        f.endsWith('.tsx') ||
+        f.endsWith('.css')
+      );
+      
+      if (hasUIChanges) {
+        console.log(`🖼️ UI changes detected for ${ticketId} - routing to inbox for screenshot review`);
+        // Create inbox item for human screenshot review
+        createInboxItem(ticketId, {
+          type: 'ui_review',
+          message: 'UI changes detected - please review screenshots',
+          branch: ticket.branch,
+          files: filesToModify.filter(f => f.endsWith('.tsx') || f.endsWith('.css'))
+        });
+        // Don't auto-proceed - wait for human approval via inbox
+      } else {
+        // No UI changes - proceed directly to finalizing
+        console.log(`📝 No UI changes for ${ticketId} - proceeding to finalizing`);
+        dbModule.tickets.update(ticketId, { status: 'finalizing' });
+        // Recursively call to trigger finalizing handler
+        handleTicketStatusChange(ticketId, 'qa_approved', 'finalizing', ticket);
+      }
     }
   }
   
@@ -747,25 +776,29 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
   // STEP 6: Finalizing → Queue Test Agent + Doc Agent
   // =========================================================================
   if (newStatus === 'finalizing') {
-    console.log(`🧪 Queueing Test Agent for ${ticketId}`);
-    dbModule.jobs.create({
-      job_type: 'test_agent',
-      ticket_id: ticketId,
-      branch: ticket.branch,
-      priority: 2,
-      payload: { triggered_by: 'finalizing' }
-    });
-    
-    console.log(`📚 Queueing Doc Agent for ${ticketId}`);
-    dbModule.jobs.create({
-      job_type: 'doc_agent',
-      ticket_id: ticketId,
-      branch: ticket.branch,
-      priority: 2,
-      payload: { triggered_by: 'finalizing' }
-    });
-    
-    startJobWorker();
+    if (!automationConfig.autoQueueOnQaPass) {
+      console.log(`🔒 autoQueueOnQaPass disabled - not auto-queuing Test/Doc agents for ${ticketId}`);
+    } else {
+      console.log(`🧪 Queueing Test Agent for ${ticketId}`);
+      dbModule.jobs.create({
+        job_type: 'test_agent',
+        ticket_id: ticketId,
+        branch: ticket.branch,
+        priority: 2,
+        payload: { triggered_by: 'finalizing' }
+      });
+      
+      console.log(`📚 Queueing Doc Agent for ${ticketId}`);
+      dbModule.jobs.create({
+        job_type: 'doc_agent',
+        ticket_id: ticketId,
+        branch: ticket.branch,
+        priority: 2,
+        payload: { triggered_by: 'finalizing' }
+      });
+      
+      startJobWorker();
+    }
   }
 }
 
@@ -1074,7 +1107,8 @@ function checkForNewContinuationTickets() {
 
 /**
  * Merge a branch to main after QA passes
- * Uses code (not AI) to do the merge
+ * Uses SELECTIVE FILE CHECKOUT - only merges files the agent actually modified
+ * This prevents overwriting changes from other agents working on different files
  */
 function mergeBranchToMain(ticketId, branch) {
   const { execSync } = require('child_process');
@@ -1101,7 +1135,7 @@ function mergeBranchToMain(ticketId, branch) {
   global.mergeInProgress = ticketId;
   
   try {
-    console.log(`🔀 Merging ${branch} to main...`);
+    console.log(`🔀 Selective merge: ${branch} to main (only modified files)...`);
     
     // Make sure we're on main and it's up to date
     execSync('git checkout main', { cwd: PROJECT_ROOT, encoding: 'utf8' });
@@ -1110,64 +1144,93 @@ function mergeBranchToMain(ticketId, branch) {
     // Fetch the latest from the branch
     execSync(`git fetch origin ${branch}`, { cwd: PROJECT_ROOT, encoding: 'utf8' });
     
-    // Merge the branch (no-ff to keep history clear)
-    const commitMsg = `Merge ${branch} - ${ticketId} QA approved`;
+    // Get the list of files modified by this branch compared to main
+    // This is the key difference: we only merge these specific files
+    const mergeBase = execSync(`git merge-base main origin/${branch}`, {
+      cwd: PROJECT_ROOT,
+      encoding: 'utf8'
+    }).trim();
     
-    try {
-      execSync(`git merge origin/${branch} --no-ff -m "${commitMsg}"`, { 
-        cwd: PROJECT_ROOT, 
-        encoding: 'utf8' 
-      });
-    } catch (mergeError) {
-      // Check if it's a conflict in metadata files we can auto-resolve
-      const conflictOutput = mergeError.message || '';
-      const metadataFiles = [
-        'docs/data/dev-status.json',
-        'docs/data/decisions.json',
-        'docs/data/findings.json'
-      ];
-      
-      console.log('⚠️ Merge conflict detected, checking if auto-resolvable...');
-      
-      // Check which files have conflicts
-      let conflictInfo;
+    const modifiedFilesRaw = execSync(`git diff --name-only ${mergeBase} origin/${branch}`, {
+      cwd: PROJECT_ROOT,
+      encoding: 'utf8'
+    }).trim();
+    
+    if (!modifiedFilesRaw) {
+      console.log(`⚠️ No files modified in ${branch}, nothing to merge`);
+      global.mergeInProgress = null;
+      return { success: true, filesChanged: 0 };
+    }
+    
+    const modifiedFiles = modifiedFilesRaw.split('\n').filter(f => f.trim());
+    console.log(`📁 Files to merge (${modifiedFiles.length}): ${modifiedFiles.slice(0, 5).join(', ')}${modifiedFiles.length > 5 ? '...' : ''}`);
+    
+    // Selective checkout: get ONLY these files from the branch
+    // This does NOT affect any other files on main
+    for (const file of modifiedFiles) {
       try {
-        conflictInfo = execSync('git diff --name-only --diff-filter=U', { 
-          cwd: PROJECT_ROOT, 
-          encoding: 'utf8' 
-        }).trim();
-      } catch (e) {
-        conflictInfo = '';
-      }
-      
-      const conflictFiles = conflictInfo.split('\n').filter(f => f.trim());
-      const allResolvable = conflictFiles.every(f => metadataFiles.includes(f));
-      
-      if (allResolvable && conflictFiles.length > 0) {
-        console.log(`🔧 Auto-resolving conflicts in metadata files: ${conflictFiles.join(', ')}`);
-        
-        // Keep main's version of metadata files (DB is source of truth)
-        for (const file of conflictFiles) {
-          execSync(`git checkout --ours "${file}"`, { cwd: PROJECT_ROOT, encoding: 'utf8' });
-          execSync(`git add "${file}"`, { cwd: PROJECT_ROOT, encoding: 'utf8' });
+        // Check if file was deleted in the branch
+        try {
+          execSync(`git show origin/${branch}:"${file}" > /dev/null 2>&1`, {
+            cwd: PROJECT_ROOT,
+            encoding: 'utf8'
+          });
+          // File exists in branch - checkout it
+          execSync(`git checkout origin/${branch} -- "${file}"`, {
+            cwd: PROJECT_ROOT,
+            encoding: 'utf8'
+          });
+        } catch (showError) {
+          // File was deleted in the branch - remove it from main too
+          console.log(`  🗑️ Removing deleted file: ${file}`);
+          execSync(`git rm --ignore-unmatch "${file}"`, {
+            cwd: PROJECT_ROOT,
+            encoding: 'utf8'
+          });
         }
-        
-        // Complete the merge
-        execSync(`git commit -m "${commitMsg} (auto-resolved metadata conflicts)"`, {
-          cwd: PROJECT_ROOT,
-          encoding: 'utf8'
-        });
-        console.log('✅ Auto-resolved metadata conflicts and completed merge');
-      } else {
-        // Real conflict in application code - can't auto-resolve
-        throw mergeError;
+      } catch (fileError) {
+        console.error(`  ⚠️ Could not checkout ${file}: ${fileError.message}`);
+        // Continue with other files - don't fail the whole merge
       }
     }
+    
+    // Stage all the selectively checked-out files
+    execSync('git add -A', { cwd: PROJECT_ROOT, encoding: 'utf8' });
+    
+    // Check if there are actual changes to commit
+    const status = execSync('git status --porcelain', {
+      cwd: PROJECT_ROOT,
+      encoding: 'utf8'
+    }).trim();
+    
+    if (!status) {
+      console.log(`⚠️ No changes to commit (files already match main)`);
+      global.mergeInProgress = null;
+      return { success: true, filesChanged: 0 };
+    }
+    
+    // Get ticket info for commit message
+    const ticket = dbModule?.tickets?.get(ticketId);
+    const title = ticket?.title || ticketId;
+    
+    // Create a regular commit (NOT a merge commit - single parent)
+    // This prevents the branch's entire history from overwriting main
+    const commitMsg = `Merge ${ticketId}: ${title} - QA approved
+
+Files changed: ${modifiedFiles.length}
+Branch: ${branch}
+
+Selective merge - only files modified by this ticket were merged.`;
+    
+    execSync(`git commit -m "${commitMsg.replace(/"/g, '\\"')}"`, {
+      cwd: PROJECT_ROOT,
+      encoding: 'utf8'
+    });
     
     // Push to origin
     execSync('git push origin main', { cwd: PROJECT_ROOT, encoding: 'utf8' });
     
-    console.log(`✅ Successfully merged ${branch} to main and pushed`);
+    console.log(`✅ Successfully merged ${modifiedFiles.length} files from ${branch} to main`);
     
     // Clean up the worktree
     cleanupConflictingWorktrees(ticketId, branch);
@@ -1184,19 +1247,20 @@ function mergeBranchToMain(ticketId, branch) {
     // Release merge lock
     global.mergeInProgress = null;
     
-    return { success: true };
+    return { success: true, filesChanged: modifiedFiles.length };
     
   } catch (e) {
-    console.error(`❌ Merge failed: ${e.message}`);
+    console.error(`❌ Selective merge failed: ${e.message}`);
     
     // Release merge lock on failure too
     global.mergeInProgress = null;
     
-    // Try to recover - abort merge if in progress
+    // Reset any partial changes
     try {
-      execSync('git merge --abort', { cwd: PROJECT_ROOT, encoding: 'utf8' });
-    } catch (abortError) {
-      // Ignore if no merge to abort
+      execSync('git checkout -- .', { cwd: PROJECT_ROOT, encoding: 'utf8' });
+      execSync('git clean -fd', { cwd: PROJECT_ROOT, encoding: 'utf8' });
+    } catch (resetError) {
+      // Ignore reset errors
     }
     
     // Make sure we're back on main
@@ -1538,17 +1602,20 @@ function handleTestDocAgentCompletion(job, agentType, success) {
       return;
     }
     
-    // Merge the branch
-    const mergeResult = mergeBranchToMain(ticketId, ticket.branch);
+    // AUTO-MERGE DISABLED - Set to ready_to_merge for manual merge
+    // This prevents agent merges from overwriting main branch changes
+    dbModule.tickets.update(ticketId, { status: 'ready_to_merge' });
+    console.log(`✅ ${ticketId} ready for manual merge (branch: ${ticket.branch})`);
     
-    if (mergeResult.success) {
-      dbModule.tickets.update(ticketId, { status: 'merged' });
-      console.log(`🎉 ${ticketId} merged to main after finalizing!`);
-    } else {
-      console.error(`❌ Merge failed for ${ticketId}: ${mergeResult.error}`);
-      // Update status to indicate merge failure
-      dbModule.tickets.update(ticketId, { status: 'blocked' });
-    }
+    // Original auto-merge code (disabled):
+    // const mergeResult = mergeBranchToMain(ticketId, ticket.branch);
+    // if (mergeResult.success) {
+    //   dbModule.tickets.update(ticketId, { status: 'merged' });
+    //   console.log(`🎉 ${ticketId} merged to main after finalizing!`);
+    // } else {
+    //   console.error(`❌ Merge failed for ${ticketId}: ${mergeResult.error}`);
+    //   dbModule.tickets.update(ticketId, { status: 'blocked' });
+    // }
   }
 }
 
@@ -4254,43 +4321,32 @@ function handleAPI(req, res, body) {
         }
       }
       
-      // Merge the branch to main if we have branch info
-      let mergeResult = { success: false, error: 'No branch found' };
-      if (branch) {
-        console.log(`🔀 Merging branch ${branch} to main for ${ticketId}...`);
-        mergeResult = mergeBranchToMain(ticketId, branch);
-        
-        if (mergeResult.success) {
-          // Update inbox with merge info - use original filename (case-sensitive)
-          if (inboxContent && inboxDir) {
-            inboxContent.status = 'merged';
-            inboxContent.merged_at = new Date().toISOString();
-            // Find the actual file again (handles case sensitivity)
-            const inboxFiles = fs.readdirSync(inboxDir).filter(f => f.toLowerCase().includes(ticketId.toLowerCase()) && f.endsWith('.json'));
-            for (const file of inboxFiles) {
-              fs.writeFileSync(path.join(inboxDir, file), JSON.stringify(inboxContent, null, 2));
-            }
-          }
-          
-          // Update ticket status if in database
-          if (dbModule?.tickets) {
-            dbModule.tickets.update(ticketId, { status: 'merged' });
-          }
+      // AUTO-MERGE DISABLED - Mark as ready_to_merge for manual merge
+      // This prevents agent merges from overwriting main branch changes
+      if (inboxContent && inboxDir) {
+        inboxContent.status = 'ready_to_merge';
+        inboxContent.approved_at = new Date().toISOString();
+        const inboxFiles = fs.readdirSync(inboxDir).filter(f => f.toLowerCase().includes(ticketId.toLowerCase()) && f.endsWith('.json'));
+        for (const file of inboxFiles) {
+          fs.writeFileSync(path.join(inboxDir, file), JSON.stringify(inboxContent, null, 2));
         }
       }
       
+      if (dbModule?.tickets) {
+        dbModule.tickets.update(ticketId, { status: 'ready_to_merge' });
+      }
+      console.log(`✅ ${ticketId} approved and ready for manual merge (branch: ${branch})`);
+      
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ 
-        success: mergeResult.success, 
+        success: true, 
         ticketId,
         branch,
         inbox_updated: inboxUpdated,
         ticket_updated: ticketUpdated,
-        merged: mergeResult.success,
-        merge_error: mergeResult.error || null,
-        message: mergeResult.success 
-          ? `✅ Branch ${branch} merged to main successfully!` 
-          : `Approval recorded but merge failed: ${mergeResult.error}`
+        merged: false,
+        ready_to_merge: true,
+        message: `✅ ${ticketId} approved! Ready for manual merge (branch: ${branch})`
       }));
     } catch (e) {
       res.writeHead(400, { 'Content-Type': 'application/json' });

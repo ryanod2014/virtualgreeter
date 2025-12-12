@@ -947,13 +947,28 @@ If PASS:
   Update ticket:
   curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -d '{\"status\": \"merged\"}'
   
-  Selective merge:
+  ⚠️ CRITICAL: Use SELECTIVE MERGE only (NOT git merge!)
+  This ensures you only merge files YOU worked on, not the entire branch.
+  Other agents may have updated other files on main.
+  
+  Selective merge steps:
     cd $MAIN_REPO_DIR
     git checkout main && git pull origin main
-    git checkout $BRANCH -- $FILES_TO_MODIFY
-    git add $FILES_TO_MODIFY
-    git commit -m 'Merge $TICKET_ID: [title] - QA Passed'
+    
+    # Get list of files YOUR branch modified:
+    git diff --name-only main...origin/$BRANCH
+    
+    # Checkout ONLY those files from your branch:
+    git checkout origin/$BRANCH -- path/to/file1.ts path/to/file2.ts ...
+    
+    # Stage and commit:
+    git add -A
+    git commit -m 'Merge $TICKET_ID: [title] - QA Passed
+    
+    Selective merge - only files modified by this ticket.'
     git push origin main
+  
+  ❌ NEVER use: git merge $BRANCH (overwrites ALL files from branch point)
   
   ─────────────────────────────────────────────────────────────
   BOTH: Mark session complete
