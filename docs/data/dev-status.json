@@ -54,6 +54,13 @@
       "started_at": "2025-12-11T07:00:00Z",
       "completed_at": "2025-12-11T07:37:47Z",
       "completion_file": "docs/agent-output/completions/TKT-067-2025-12-11T0737.md"
+    },
+    {
+      "ticket_id": "TKT-105",
+      "branch": "agent/tkt-105-typescript-type-missing-past-d",
+      "started_at": "2025-12-12T23:46:00Z",
+      "completed_at": "2025-12-12T23:50:01Z",
+      "completion_file": "docs/agent-output/completions/TKT-105-2025-12-12T2349.md"
     }
   ],
   "retry_history": []
