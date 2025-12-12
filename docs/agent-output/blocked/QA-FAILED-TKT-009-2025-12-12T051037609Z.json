@@ -1,0 +1,12 @@
+{
+  "ticket_id": "TKT-009",
+  "blocker_type": "QA-FAILED",
+  "created_at": "2025-12-12T05:10:37.609Z",
+  "dispatch_action": "create_continuation_ticket",
+  "failures": [
+    "Missing input validation"
+  ],
+  "recommendation": "Add validation to settings form",
+  "qa_report": null,
+  "branch": "agent/tkt-009"
+}

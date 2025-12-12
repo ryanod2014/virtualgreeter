@@ -1,0 +1,100 @@
+{
+  "ticket_id": "TKT-014",
+  "title": "Recording Consent Indicator for Visitors",
+  "type": "ui_review",
+  "status": "blocked",
+  "created_at": "2025-12-12T00:14:00Z",
+  "message": "QA BLOCKED - Widget video call feature requires manual testing. Code verified, visual test impossible without live call infrastructure.",
+  "branch": "agent/tkt-014",
+  "tunnel_url": "https://representing-literacy-owns-factory.trycloudflare.com",
+  "qa_report": "docs/agent-output/qa-results/QA-TKT-014-BLOCKED-20251211T1714.md",
+  "blocker_file": "docs/agent-output/blocked/QA-TKT-014-INFRASTRUCTURE-20251211T1712.json",
+  "code_verification": {
+    "status": "PASSED",
+    "summary": "All code changes verified correct via inspection. Implementation follows best practices.",
+    "verified": [
+      "Badge renders only when call connected and no error",
+      "Badge positioned top-right (12px from edges)",
+      "Badge hidden when recording disabled (returns null)",
+      "Recording flag sourced from call_settings.is_recording_enabled",
+      "Styling: semi-transparent red, backdrop blur, pulsing dot",
+      "Complete prop chain from database to component"
+    ]
+  },
+  "visual_testing": {
+    "status": "BLOCKED",
+    "reason": "Requires live video call with agent accepting call",
+    "cannot_verify": [
+      "Badge appearance during actual call",
+      "Badge visibility on video backgrounds",
+      "Badge behavior when toggling recording settings",
+      "Mobile viewport rendering",
+      "Subjective 'visible but not intrusive' assessment"
+    ]
+  },
+  "pm_action_required": {
+    "type": "manual_test",
+    "priority": "HIGH - Compliance feature",
+    "test_steps": [
+      "1. Set org call_settings.is_recording_enabled = true",
+      "2. Embed widget on test page with org ID: 7522180c-3f73-4218-87cd-3f70dead31af",
+      "3. Agent goes online in dashboard",
+      "4. Visitor clicks widget to initiate call",
+      "5. Agent accepts call",
+      "6. VERIFY: 'Recording' badge in top-right of visitor video",
+      "7. VERIFY: Badge has red pulsing dot and 'Recording' text",
+      "8. Set is_recording_enabled = false and repeat",
+      "9. VERIFY: NO badge appears when recording disabled"
+    ],
+    "what_to_look_for": [
+      "Badge position: top-right, 12px from edges",
+      "Badge style: semi-transparent red background (#ef4444 at 20% opacity)",
+      "Pulsing red dot (8px diameter)",
+      "Text: 'Recording' in red",
+      "Appears ONLY after call connects (not during connecting)",
+      "Hidden when org recording disabled",
+      "Visible on light and dark video backgrounds",
+      "Not intrusive but clearly visible for compliance"
+    ]
+  },
+  "test_org_info": {
+    "org_id": "7522180c-3f73-4218-87cd-3f70dead31af",
+    "org_name": "QA Org TKT-014 20251212001009",
+    "subscription_status": "active",
+    "users": [
+      {
+        "role": "admin",
+        "email": "qa-admin-tkt014-20251212001009@greetnow.test",
+        "password": "QATest-TKT-014!",
+        "magic_link": "https://representing-literacy-owns-factory.trycloudflare.com/api/review-login?token=569c1cc17aba84fb4c09c748c080d7231798b0fd11111d122c0a1561cccf4eaa"
+      },
+      {
+        "role": "agent",
+        "email": "qa-agent-tkt014-20251212001009@greetnow.test",
+        "password": "QATest-TKT-014!",
+        "magic_link": "https://representing-literacy-owns-factory.trycloudflare.com/api/review-login?token=4bc1e0623c1ec03dd72c155fb6fbb4a81be55b84c26056b284a48f84b99e7a14"
+      }
+    ],
+    "note": "Use these users to access dashboard. For widget testing, embed widget with org_id on test page."
+  },
+  "widget_test_setup": {
+    "embed_code": "<script src='https://your-widget-url/widget.js'></script><script>gg('init', { orgId: '7522180c-3f73-4218-87cd-3f70dead31af', serverUrl: 'http://localhost:3001' });</script>",
+    "recording_setting": "Set call_settings.is_recording_enabled = true in database for org 7522180c-3f73-4218-87cd-3f70dead31af"
+  },
+  "acceptance_criteria": [
+    "'Recording' indicator appears after call connects",
+    "Indicator is in same location as 'Live' badge was (top-right)",
+    "Only shows when org has recording enabled",
+    "Badge is visible but not intrusive"
+  ],
+  "files_changed": [
+    "apps/widget/src/features/call/RecordingBadge.tsx",
+    "apps/widget/src/features/webrtc/LiveCallView.tsx",
+    "apps/widget/src/widget-styles.ts",
+    "apps/widget/src/Widget.tsx",
+    "apps/server/src/features/signaling/socket-handlers.ts",
+    "apps/server/src/features/signaling/redis-socket-handlers.ts",
+    "packages/domain/src/types.ts"
+  ],
+  "recommendation": "APPROVE after manual test confirms badge works correctly. Code quality is high, implementation appears correct, but visual verification is mandatory for compliance feature."
+}

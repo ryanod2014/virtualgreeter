@@ -1,0 +1,11 @@
+{
+  "token": "4bc1e0623c1ec03dd72c155fb6fbb4a81be55b84c26056b284a48f84b99e7a14",
+  "ticket_id": "TKT-014",
+  "user_email": "qa-agent-tkt014-20251212001009@greetnow.test",
+  "user_password": "QATest-TKT-014!",
+  "redirect_path": "/dashboard",
+  "preview_base_url": "https://representing-literacy-owns-factory.trycloudflare.com",
+  "created_at": "2025-12-12T00:10:10.978Z",
+  "expires_at": "2025-12-19T00:10:10.978Z",
+  "used_count": 0
+}

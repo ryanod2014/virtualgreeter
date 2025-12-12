@@ -33,7 +33,6 @@ import {
   ChevronUp,
   Loader2,
   MessageSquareText,
-  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -55,7 +54,7 @@ import {
 } from "@/lib/components/call-log-filter-conditions";
 import { formatLocationWithFlag } from "@/lib/utils/country-flag";
 import { getCountryByCode } from "@/lib/utils/countries";
-import { exportCallLogsToCSV } from "@/features/call-logs/exportCSV";
+import { RecordingPlayer } from "@/features/recordings/RecordingPlayer";
 
 interface Agent {
   id: string;
@@ -144,13 +143,9 @@ export function CallsClient({
 
   const [showFilters, setShowFilters] = useState(false);
   const [playingCallId, setPlayingCallId] = useState<string | null>(null);
-  const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
+  const [videoModalRecordingId, setVideoModalRecordingId] = useState<string | null>(null);
   const [videoModalCallId, setVideoModalCallId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // CSV export state
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState(0);
 
   // Filter state - multi-select fields use arrays
   const [filters, setFilters] = useState({
@@ -343,30 +338,15 @@ export function CallsClient({
     icon: <User className="w-3 h-3 text-primary" />,
   }));
 
-  const handlePlayRecording = (callId: string, recordingUrl: string) => {
-    const isVideo = recordingUrl.includes('.webm') || recordingUrl.includes('video');
-    
-    if (isVideo) {
-      setVideoModalUrl(recordingUrl);
-      setVideoModalCallId(callId);
-    } else {
-      if (playingCallId === callId) {
-        audioRef.current?.pause();
-        setPlayingCallId(null);
-      } else {
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-        audioRef.current = new Audio(recordingUrl);
-        audioRef.current.play();
-        audioRef.current.onended = () => setPlayingCallId(null);
-        setPlayingCallId(callId);
-      }
-    }
+  const handlePlayRecording = (callId: string, recordingId: string) => {
+    // In the new system, recording_url stores the recordingId (a UUID), not a full URL
+    // RecordingPlayer will fetch the signed URL from the API
+    setVideoModalRecordingId(recordingId);
+    setVideoModalCallId(callId);
   };
 
   const closeVideoModal = () => {
-    setVideoModalUrl(null);
+    setVideoModalRecordingId(null);
     setVideoModalCallId(null);
   };
 
@@ -388,28 +368,6 @@ export function CallsClient({
     }
   };
 
-  // Handle manual transcription retry
-  const handleTranscriptionRetry = async (callId: string) => {
-    try {
-      const response = await fetch("/api/transcription/retry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callLogId: callId }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error("Transcription retry failed:", error);
-        return;
-      }
-
-      // Refresh the page to show updated status
-      router.refresh();
-    } catch (error) {
-      console.error("Transcription retry error:", error);
-    }
-  };
-
   // Auto-open recording modal from URL params
   useEffect(() => {
     const callId = searchParams.get("callId");
@@ -418,35 +376,70 @@ export function CallsClient({
     if (callId && autoplay === "true") {
       const call = calls.find((c) => c.id === callId);
       if (call?.recording_url) {
-        setVideoModalUrl(call.recording_url);
+        setVideoModalRecordingId(call.recording_url);
         setVideoModalCallId(call.id);
       }
     }
   }, [searchParams, calls]);
 
-  // Download filtered calls as CSV using Web Worker
+  // Download filtered calls as CSV
   const downloadCSV = () => {
-    setIsExporting(true);
-    setExportProgress(0);
+    const headers = [
+      "Date",
+      "Time",
+      "Agent",
+      "Status",
+      "Duration (seconds)",
+      "City",
+      "Region",
+      "Country",
+      "Page URL",
+      "Disposition",
+      "Recording",
+    ];
 
-    exportCallLogsToCSV({
-      calls: filteredCalls,
-      fromDate: dateRange.from,
-      toDate: dateRange.to,
-      onProgress: (progress) => {
-        setExportProgress(progress);
-      },
-      onComplete: () => {
-        setIsExporting(false);
-        setExportProgress(0);
-      },
-      onError: (error) => {
-        console.error('CSV export failed:', error);
-        alert(`Export failed: ${error}`);
-        setIsExporting(false);
-        setExportProgress(0);
-      },
+    const escapeCSV = (value: string | null | undefined): string => {
+      if (value == null) return "";
+      const str = String(value);
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = filteredCalls.map((call) => {
+      const date = new Date(call.created_at);
+      const recordingLink = call.recording_url
+        ? `${window.location.origin}/admin/calls?callId=${call.id}&autoplay=true`
+        : "";
+
+      return [
+        date.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" }),
+        date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }),
+        call.agent?.display_name ?? "",
+        call.status,
+        call.duration_seconds?.toString() ?? "",
+        call.visitor_city ?? "",
+        call.visitor_region ?? "",
+        call.visitor_country ?? "",
+        call.page_url ?? "",
+        call.disposition?.name ?? "",
+        recordingLink,
+      ].map(escapeCSV).join(",");
     });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const fromDate = dateRange.from.split("T")[0];
+    const toDate = dateRange.to.split("T")[0];
+    link.download = `call-logs_${fromDate}_to_${toDate}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -455,7 +448,7 @@ export function CallsClient({
       <audio ref={audioRef} className="hidden" />
 
       {/* Video Recording Modal */}
-      {videoModalUrl && (
+      {videoModalRecordingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
@@ -481,23 +474,11 @@ export function CallsClient({
                 <XIcon className="w-5 h-5" />
               </button>
             </div>
-            <div className="aspect-video rounded-xl overflow-hidden bg-black">
-              <video
-                src={videoModalUrl}
-                controls
-                autoPlay
-                className="w-full h-full"
-              />
-            </div>
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => handleDownload(videoModalUrl, `call-recording-${videoModalCallId}.webm`)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Download
-              </button>
-            </div>
+            <RecordingPlayer
+              recordingId={videoModalRecordingId}
+              autoplay={true}
+              className="aspect-video"
+            />
           </div>
         </div>
       )}
@@ -525,21 +506,11 @@ export function CallsClient({
             {filteredCalls.length > 0 && (
               <button
                 onClick={downloadCSV}
-                disabled={isExporting}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title={isExporting ? `Exporting... ${exportProgress}%` : "Download filtered calls as CSV"}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                title="Download filtered calls as CSV"
               >
-                {isExporting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Exporting {exportProgress}%
-                  </>
-                ) : (
-                  <>
-                    <FileDown className="w-4 h-4" />
-                    Export CSV
-                  </>
-                )}
+                <FileDown className="w-4 h-4" />
+                Export CSV
               </button>
             )}
 
@@ -943,7 +914,6 @@ export function CallsClient({
                     }
                   }}
                   onDownload={handleDownload}
-                  onTranscriptionRetry={handleTranscriptionRetry}
                 />
               ))}
             </tbody>
@@ -999,33 +969,17 @@ function CallLogRow({
   isPlaying,
   onPlayToggle,
   onDownload,
-  onTranscriptionRetry,
 }: {
   call: CallLogWithRelations;
   isPlaying: boolean;
   onPlayToggle: () => void;
   onDownload: (url: string, filename?: string) => void;
-  onTranscriptionRetry?: (callId: string) => Promise<void>;
 }) {
   const [showTranscription, setShowTranscription] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  const [isRetrying, setIsRetrying] = useState(false);
   
   const hasTranscription = call.transcription_status === "completed" && call.transcription;
   const hasSummary = call.ai_summary_status === "completed" && call.ai_summary;
-  
-  // Show retry button for failed transcriptions with a recording
-  const canRetry = call.transcription_status === "failed" && call.recording_url && onTranscriptionRetry;
-
-  const handleRetry = async () => {
-    if (!onTranscriptionRetry || isRetrying) return;
-    setIsRetrying(true);
-    try {
-      await onTranscriptionRetry(call.id);
-    } finally {
-      setIsRetrying(false);
-    }
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -1213,34 +1167,13 @@ function CallLogRow({
       <td className="px-6 py-4">
         {call.recording_url ? (
           <div className="flex items-center gap-2">
-            {call.recording_url.includes('.webm') || call.recording_url.includes('video') ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); onPlayToggle(); }}
-                className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors flex items-center gap-1.5"
-                title="Play video recording"
-              >
-                <Video className="w-4 h-4" />
-                <Play className="w-3 h-3" />
-              </button>
-            ) : (
-              <button
-                onClick={(e) => { e.stopPropagation(); onPlayToggle(); }}
-                className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
-                title={isPlaying ? "Pause audio" : "Play audio recording"}
-              >
-                {isPlaying ? (
-                  <Pause className="w-4 h-4" />
-                ) : (
-                  <Play className="w-4 h-4" />
-                )}
-              </button>
-            )}
             <button
-              onClick={(e) => { e.stopPropagation(); onDownload(call.recording_url!, `call-recording-${call.id}.webm`); }}
-              className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-              title="Download recording"
+              onClick={(e) => { e.stopPropagation(); onPlayToggle(); }}
+              className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors flex items-center gap-1.5"
+              title="Play video recording"
             >
-              <Download className="w-4 h-4" />
+              <Video className="w-4 h-4" />
+              <Play className="w-3 h-3" />
             </button>
           </div>
         ) : (
@@ -1266,27 +1199,10 @@ function CallLogRow({
           </button>
         )}
         {call.transcription_status === "failed" && (
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-500">
-              <AlertTriangle className="w-3 h-3" />
-              Failed
-            </span>
-            {canRetry && (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleRetry(); }}
-                disabled={isRetrying}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
-                title="Retry transcription"
-              >
-                {isRetrying ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3 h-3" />
-                )}
-                Retry
-              </button>
-            )}
-          </div>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-red-500/10 text-red-500">
+            <AlertTriangle className="w-3 h-3" />
+            Failed
+          </span>
         )}
         {!call.transcription_status && <span className="text-sm text-muted-foreground">—</span>}
       </td>

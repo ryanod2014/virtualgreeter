@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TKT-003",
+  "branch": "agent/TKT-003-cancel-copy",
+  "started_at": "2025-12-10T18:30:00Z",
+  "files_locking": [
+    "apps/dashboard/src/app/(dashboard)/settings/CancelModal.tsx"
+  ]
+}

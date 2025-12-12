@@ -42,3 +42,8 @@ coverage
 *.mmdb
 .vercel
 .env*.local
+
+# Workflow database (local state, not tracked)
+data/workflow.db
+data/workflow.db-wal
+data/workflow.db-shm

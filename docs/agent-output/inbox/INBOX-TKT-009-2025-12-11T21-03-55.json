@@ -1,0 +1,12 @@
+{
+  "id": "INBOX-TKT-009-2025-12-11T21-03-55",
+  "ticket_id": "TKT-009",
+  "type": "ui_review",
+  "message": "UI changes detected - please review screenshots",
+  "branch": "agent/tkt-009",
+  "files": [
+    "apps/dashboard/src/app/(dashboard)/settings/page.tsx"
+  ],
+  "created_at": "2025-12-11T21:03:55.969Z",
+  "status": "pending"
+}

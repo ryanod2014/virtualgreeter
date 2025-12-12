@@ -3,7 +3,13 @@
     {
       "finding_id": "F-1765322377494",
       "status": "pending",
-      "messages": [],
+      "messages": [
+        {
+          "role": "system",
+          "text": "## Finding: Pre-existing TypeScript error in use-webrtc.test.ts\n\n**Severity:** High\n**Location:** apps/dashboard/src/features/webrtc/use-webrtc.test.ts:1456\n\n**Issue:**\nTypeScript compilation fails with error TS1128: Declaration or statement expected. This is a syntax error in the test file that blocks typecheck from passing.\n\n### Recommended Action:\n\nThis is a **pre-existing error** that was found during dev work but is NOT related to any current ticket. It needs to be fixed to unblock builds.\n\n**Options:**\n1. ✅ Create a cleanup ticket to fix the syntax error in use-webrtc.test.ts\n2. Skip - acceptable to have broken tests (NOT recommended)\n\n**What would you like to do?**",
+          "timestamp": "2025-12-11T22:27:47.443Z"
+        }
+      ],
       "decision": null
     },
     {
@@ -94,6 +100,11 @@
           "role": "system",
           "text": "📋 **Decision Required: Call Quality Metrics Not Tracked**\n\n**Issue:** Documentation covers call completion status in call_logs (pending, accepted, rejected, completed) but doesn't mention capturing call quality metrics (connection time, audio/video quality stats, packet loss, reconnection count). Without quality metrics, there's no visibility into whether calls are succeeding technically even when they complete normally.\n\n**Severity:** medium\n\nThis finding needs your review. What would you like to do?\n\nPlease review the details and let me know your decision.\n",
           "timestamp": "2025-12-10T23:22:02.427Z"
+        },
+        {
+          "role": "system",
+          "text": "## Finding: Call Quality Metrics Not Tracked\n\n**Severity:** Medium\n**Feature:** Call Lifecycle\n**Location:** Documentation sections 3 & 6\n\n**Issue:**\nCall completion status is tracked (pending, accepted, rejected, completed) but call quality metrics are not captured. Without quality metrics, there's no visibility into whether calls are succeeding technically even when they complete normally.\n\n### Options:\n\n1. ✅ **Recommended:** Add WebRTC stats collection (getStats API) and log quality metrics to call_logs\n   - Provides objective quality data (connection time, audio/video quality, packet loss, reconnections)\n   - No new infrastructure needed\n   - Industry standard approach\n\n2. Add quality metrics as separate analytics table\n   - More complex infrastructure\n   - Better for detailed analysis\n\n3. Implement post-call quality rating prompt\n   - Subjective user feedback only\n   - Doesn't capture objective technical metrics\n\n4. Skip - call completion is sufficient\n   - Misses important quality issues\n\n**What would you like to do?**",
+          "timestamp": "2025-12-11T22:27:49.105Z"
         }
       ],
       "decision": null
@@ -111,6 +122,11 @@
           "role": "system",
           "text": "📋 **Decision Required: State Definition Table Incomplete for Agent States**\n\n**Issue:** The \"State Definitions\" table only documents visitor states (browsing, watching_simulation, call_requested, in_call). However, the \"Agent Status States During Call\" diagram shows additional states (away, idle, in_simulation, in_call) that are not defined in the table. This inconsistency could confuse developers trying to understand the complete state model.\n\n**Severity:** low\n\nThis finding needs your review. What would you like to do?\n\nPlease review the details and let me know your decision.\n",
           "timestamp": "2025-12-10T23:22:02.977Z"
+        },
+        {
+          "role": "system",
+          "text": "## Finding: State Definition Table Incomplete for Agent States\n\n**Severity:** Low\n**Feature:** Call Lifecycle\n**Location:** Documentation Section 2\n\n**Issue:**\nThe \"State Definitions\" table only documents visitor states (browsing, watching_simulation, call_requested, in_call). The \"Agent Status States During Call\" diagram shows additional agent states (away, idle, in_simulation, in_call) that aren't defined in the table. This inconsistency could confuse developers.\n\n### Options:\n\n1. ✅ **Recommended:** Add a separate \"Agent State Definitions\" table after the existing table\n   - Keeps visitor/agent concerns separate\n   - Documents all states clearly\n   - Clean organization\n\n2. Combine both into one comprehensive table with a \"Type\" column\n   - More compact but potentially confusing\n\n3. Add a note clarifying agent states are in RNA Timeout feature doc\n   - Requires developers to look elsewhere\n   - Less user-friendly\n\n4. Skip - the diagram is self-explanatory\n   - Leaves incomplete documentation\n\n**What would you like to do?**",
+          "timestamp": "2025-12-11T22:27:50.557Z"
         }
       ],
       "decision": null
@@ -11387,6 +11403,24 @@
     },
     {
       "finding_id": "TKT-067",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-014",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-020",
+      "status": "pending",
+      "messages": [],
+      "decision": null
+    },
+    {
+      "finding_id": "TKT-022",
       "status": "pending",
       "messages": [],
       "decision": null

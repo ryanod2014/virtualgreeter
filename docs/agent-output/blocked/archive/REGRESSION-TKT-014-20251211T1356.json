@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TKT-014",
+  "blocker_type": "regression_failure",
+  "branch": "agent/tkt-014",
+  "blocked_at": "2025-12-11T20:56:38Z",
+  "summary": "Pre-flight regression tests failed - dev broke code outside ticket scope",
+  "dispatch_action": "create_continuation_ticket"
+}

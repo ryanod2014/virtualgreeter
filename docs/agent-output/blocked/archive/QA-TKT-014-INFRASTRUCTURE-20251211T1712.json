@@ -1,0 +1,79 @@
+{
+  "ticket_id": "TKT-014",
+  "ticket_title": "Recording Consent Indicator for Visitors",
+  "blocker_type": "infrastructure",
+  "created_at": "2025-12-12T00:12:00Z",
+  "agent_type": "qa",
+  "summary": "Cannot test widget recording badge - requires live video call infrastructure with agent accepting calls",
+  "blocked_criteria": [
+    "AC1: Recording indicator appears after call connects",
+    "AC2: Indicator in same location as Live badge",
+    "AC4: Badge is visible but not intrusive (subjective visual check)"
+  ],
+  "verified_via_code": [
+    "AC1: Badge only renders when isConnected && !error (LiveCallView.tsx:197)",
+    "AC2: Badge positioned at top-right 12px from edges (widget-styles.ts:492)",
+    "AC3: Badge returns null when isRecording=false (RecordingBadge.tsx:6-8)",
+    "AC3: Recording flag sourced from call_settings.is_recording_enabled",
+    "AC4: Semi-transparent red background, backdrop blur, pulsing dot animation"
+  ],
+  "infrastructure_gap": {
+    "feature_type": "Widget video call UI (visitor-facing)",
+    "why_blocked": "Testing requires: (1) Widget embedded on test page, (2) Agent online in dashboard, (3) Agent accepting incoming call, (4) Video call connected, (5) Recording badge visible during live call",
+    "current_qa_tooling": "QA has dashboard testing (Playwright), API testing (curl), but NO live video call simulation",
+    "needed_infrastructure": [
+      "Widget E2E test environment with video streaming",
+      "Automated agent simulation that accepts calls",
+      "Ability to programmatically initiate visitor calls",
+      "Screenshot capture during active video calls",
+      "Mobile viewport video call testing"
+    ]
+  },
+  "code_verification_summary": {
+    "files_reviewed": [
+      "apps/widget/src/features/call/RecordingBadge.tsx",
+      "apps/widget/src/features/webrtc/LiveCallView.tsx",
+      "apps/widget/src/widget-styles.ts",
+      "apps/widget/src/Widget.tsx",
+      "apps/server/src/features/signaling/socket-handlers.ts",
+      "apps/server/src/features/signaling/redis-socket-handlers.ts",
+      "packages/domain/src/types.ts"
+    ],
+    "implementation_quality": "High - code follows existing patterns, prop chains complete, styling consistent",
+    "risks_identified": [],
+    "confidence_level": "Code implementation appears correct, but visual behavior unverified"
+  },
+  "recommendation_for_pm": {
+    "testing_approach": "Manual testing required",
+    "test_steps": [
+      "1. Set an org's call_settings.is_recording_enabled = true",
+      "2. Embed widget on test page with that org's orgId",
+      "3. Agent goes online in dashboard",
+      "4. Visitor clicks widget to initiate call",
+      "5. Agent accepts call",
+      "6. VERIFY: 'Recording' badge appears in top-right of visitor's video view",
+      "7. VERIFY: Badge has red pulsing dot and 'Recording' text",
+      "8. Set call_settings.is_recording_enabled = false",
+      "9. Repeat steps 2-5",
+      "10. VERIFY: NO recording badge appears"
+    ],
+    "what_to_look_for": [
+      "Badge position: top-right corner, 12px from edges",
+      "Badge appearance: semi-transparent red background, pulsing red dot",
+      "Badge text: 'Recording' in red (#ef4444)",
+      "Badge only appears AFTER call connects (not during connecting state)",
+      "Badge hidden when org has recording disabled"
+    ]
+  },
+  "dispatch_action": "route_to_pm_inbox",
+  "requeue_when": "After PM manual test confirms badge works correctly, or after E2E video call testing infrastructure is implemented",
+  "partial_test_artifacts": {
+    "code_verification_report": "/tmp/tkt-014-code-verification.md",
+    "dashboard_users_created": {
+      "admin": "qa-admin-tkt014-20251212001009@greetnow.test",
+      "agent": "qa-agent-tkt014-20251212001009@greetnow.test",
+      "org_id": "7522180c-3f73-4218-87cd-3f70dead31af"
+    },
+    "note": "Dashboard users created but feature is widget-side (visitor-facing), not dashboard-side"
+  }
+}

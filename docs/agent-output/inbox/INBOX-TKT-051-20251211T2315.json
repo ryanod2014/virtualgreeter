@@ -1,0 +1,39 @@
+{
+  "id": "INBOX-TKT-051-20251211T2315",
+  "ticket_id": "TKT-051",
+  "type": "manual_qa_required",
+  "message": "Code implementation verified but requires manual QA with live co-browse infrastructure",
+  "branch": "agent/tkt-051",
+  "summary": "Cannot test WebSocket-based compression without live co-browse session infrastructure",
+  "code_verified": [
+    "✅ Compression function (gzip with CompressionStream API)",
+    "✅ Decompression function (with error handling)",
+    "✅ Type definitions (isCompressed flag)",
+    "✅ Browser fallback for unsupported browsers",
+    "✅ Large DOM monitoring (>500KB warnings)",
+    "✅ Error handling in both compression/decompression"
+  ],
+  "requires_manual_testing": [
+    "End-to-end WebSocket payload compression in live session",
+    "Actual compression ratio on real pages",
+    "Agent viewer correctly displays decompressed content",
+    "Performance impact on mobile devices",
+    "Browser compatibility (Safari, Firefox, Chrome, Edge)"
+  ],
+  "manual_qa_steps": [
+    "1. Deploy to staging/test environment with working widget + dashboard + server",
+    "2. Load widget on a page with complex DOM (>500KB recommended)",
+    "3. Start co-browse session from widget side",
+    "4. Agent joins co-browse from dashboard",
+    "5. Use browser DevTools Network tab to inspect WebSocket payloads",
+    "6. Verify 'isCompressed: true' in COBROWSE_SNAPSHOT messages",
+    "7. Verify compressed payload size is ~70% smaller than uncompressed",
+    "8. Verify agent viewer displays visitor page correctly (no corruption)",
+    "9. Check browser console for large DOM warnings (>500KB)",
+    "10. Test on multiple browsers to verify CompressionStream fallback works"
+  ],
+  "human_action_required": "Perform manual QA in staging environment with live co-browse session",
+  "blocker_file": "docs/agent-output/blocked/QA-TKT-051-BLOCKED-20251211T152518.json",
+  "created_at": "2025-12-11T23:15:00Z",
+  "status": "awaiting_manual_qa"
+}

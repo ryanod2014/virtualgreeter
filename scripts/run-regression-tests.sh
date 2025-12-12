@@ -60,7 +60,7 @@ TICKET_ID=$(echo "$TICKET_ID" | tr '[:lower:]' '[:upper:]')
 
 # Default branch if not provided
 if [ -z "$BRANCH" ]; then
-    BRANCH="agent/${TICKET_ID,,}"  # lowercase
+    BRANCH="agent/$(echo "$TICKET_ID" | tr '[:upper:]' '[:lower:]')"  # lowercase (macOS compatible)
 fi
 
 log "Running regression tests for $TICKET_ID on branch $BRANCH"

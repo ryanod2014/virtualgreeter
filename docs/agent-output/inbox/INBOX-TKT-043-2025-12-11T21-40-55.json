@@ -1,0 +1,12 @@
+{
+  "id": "INBOX-TKT-043-2025-12-11T21-40-55",
+  "ticket_id": "TKT-043",
+  "type": "ui_review",
+  "message": "UI changes detected - please review screenshots",
+  "branch": "agent/tkt-043",
+  "files": [
+    "apps/dashboard/src/features/pools/PoolCard.tsx"
+  ],
+  "created_at": "2025-12-11T21:40:55.212Z",
+  "status": "pending"
+}

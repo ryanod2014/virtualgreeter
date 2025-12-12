@@ -1,0 +1,16 @@
+{
+  "name": "pm-dashboard",
+  "version": "1.0.0",
+  "description": "PM Dashboard for Agent Workflow Management",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:new": "node server-new.mjs",
+    "dev": "node --watch server.js",
+    "dev:new": "node --watch server-new.mjs"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "uuid": "^9.0.0"
+  }
+}

@@ -813,7 +813,7 @@
         if (item?.completion_file) {
           setReportLoading(true);
           setReportError(null);
-          fetch(`/api/file?path=${encodeURIComponent(item.completion_file)}`)
+          fetch(`/api/v2/actions/file?path=${encodeURIComponent(item.completion_file)}`)
             .then(res => {
               if (!res.ok) throw new Error('Failed to load report');
               return res.text();
@@ -2319,7 +2319,7 @@ pnpm build`}
                 }}
                 onClick={async () => {
                   try {
-                    const res = await fetch('/api/launch-dispatch', { method: 'POST' });
+                    const res = await fetch('/api/v2/actions/launch-dispatch', { method: 'POST' });
                     const data = await res.json();
                     if (data.success) {
                       alert(`✅ Launched ${data.estimatedBatches} dispatch agents!\n\n${data.blockerCount} blockers in batches of 5.\n\nMonitor: tmux list-sessions | grep dispatch`);
@@ -3760,120 +3760,268 @@ pnpm build`}
 
       return (
         <div className="fade-in">
-          {/* Summary Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
-            <div
-              className="card"
-              onClick={() => setPipelineTab('inventory')}
-              style={{
-                padding: '16px',
-                cursor: 'pointer',
-                borderLeft: '4px solid var(--accent)',
-                background: pipelineTab === 'inventory' ? 'var(--bg-elevated)' : undefined
-              }}
-            >
-              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--accent-bright)' }}>
-                {featuresList.length || FINDINGS_SUMMARY.meta.total_features}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Features</div>
-            </div>
-            <div 
-              className="card" 
-              onClick={() => setPipelineTab('all')}
-              style={{ 
-                padding: '16px', 
-                cursor: 'pointer',
-                borderLeft: '4px solid var(--text-muted)',
-                background: pipelineTab === 'all' ? 'var(--bg-elevated)' : undefined
-              }}
-            >
-              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                {pendingTickets.length}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Pending</div>
-            </div>
-            <div 
-              className="card" 
-              onClick={() => setPipelineTab('progress')}
-              style={{ 
-                padding: '16px', 
-                cursor: 'pointer',
-                borderLeft: activeInProgressItems.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
-                background: pipelineTab === 'progress' ? 'var(--bg-elevated)' : undefined
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontSize: '24px', fontWeight: 700, color: activeInProgressItems.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
-                  {activeInProgressItems.length}
-                </span>
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>In Progress</div>
-            </div>
-            <div 
-              className="card" 
-              onClick={() => setPipelineTab('blocked')}
-              style={{ 
-                padding: '16px', 
-                cursor: 'pointer',
-                borderLeft: blockedItems.length > 0 ? '4px solid var(--critical)' : '4px solid var(--border)',
-                background: pipelineTab === 'blocked' ? 'var(--bg-elevated)' : undefined
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontSize: '24px', fontWeight: 700, color: blockedItems.length > 0 ? 'var(--critical)' : 'var(--text-muted)' }}>
-                  {blockedItems.length}
-                </span>
-                {blockedItems.length > 0 && <span style={{ fontSize: '11px' }}>🚧</span>}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Blocked</div>
-            </div>
-            <div 
-              className="card" 
-              onClick={() => setPipelineTab('review')}
-              style={{ 
-                padding: '16px', 
-                cursor: 'pointer',
-                borderLeft: completedItemsForReview.length > 0 ? '4px solid var(--success)' : '4px solid var(--border)',
-                background: pipelineTab === 'review' ? 'var(--bg-elevated)' : undefined
-              }}
-            >
-              <div style={{ fontSize: '24px', fontWeight: 700, color: completedItemsForReview.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
-                {completedItemsForReview.length}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>For Review</div>
-              {ciBlockers.length > 0 && (
-                <div style={{ fontSize: '10px', color: 'var(--critical)', marginTop: '4px' }}>
-                  ⚠️ {ciBlockers.length} need fixes
+          {/* Pipeline Flow - Shows actual ticket stages */}
+          {(() => {
+            // Get legacy completed count from QA PASSED files (not in DB)
+            const dbMergedIds = new Set(tickets.filter(t => t.status === 'merged' || t.status === 'done').map(t => t.id?.toUpperCase()));
+            const legacyOnlyCount = (agentOutputs?.qaResults || [])
+              .filter(qa => (qa.fileName || '').toUpperCase().includes('PASSED'))
+              .reduce((acc, qa) => {
+                const ticketId = qa.ticketId?.toUpperCase();
+                if (ticketId && !acc.has(ticketId) && !dbMergedIds.has(ticketId)) acc.add(ticketId);
+                return acc;
+              }, new Set()).size;
+            
+            // Calculate counts by actual ticket status
+            const statusCounts = {
+              ready: tickets.filter(t => t.status === 'ready').length,
+              in_progress: activeInProgressItems.length,
+              dev_complete: tickets.filter(t => t.status === 'dev_complete').length,
+              in_review: tickets.filter(t => t.status === 'in_review').length, // regression testing
+              qa_pending: tickets.filter(t => t.status === 'qa_pending').length,
+              qa_approved: tickets.filter(t => t.status === 'qa_approved' || t.status === 'qa_passed').length,
+              qa_failed: tickets.filter(t => t.status === 'qa_failed').length,
+              test_lock_pending: tickets.filter(t => t.status === 'test_lock_pending').length,
+              docs_pending: tickets.filter(t => t.status === 'docs_pending').length,
+              finalizing: tickets.filter(t => t.status === 'finalizing').length, // test lock + docs done
+              blocked: tickets.filter(t => t.status === 'blocked').length,
+              ready_to_merge: tickets.filter(t => t.status === 'ready_to_merge').length,
+              merged: tickets.filter(t => t.status === 'merged' || t.status === 'done').length,
+            };
+            
+            // Total done = DB merged + legacy
+            const totalDone = statusCounts.merged + legacyOnlyCount;
+            
+            // Regression = dev_complete + in_review
+            const regressionCount = statusCounts.dev_complete + statusCounts.in_review;
+            
+            // Post-QA work = test_lock_pending + docs_pending + qa_approved (waiting for both)
+            const postQaCount = statusCounts.test_lock_pending + statusCounts.docs_pending + statusCounts.qa_approved;
+            
+            // Ready to merge = finalizing + ready_to_merge
+            const readyToMergeCount = statusCounts.finalizing + statusCounts.ready_to_merge;
+            
+            const needsAttention = statusCounts.blocked + statusCounts.qa_failed;
+            
+            return (
+              <>
+                {/* Main Pipeline Flow */}
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '12px', letterSpacing: '0.5px' }}>
+                    Pipeline Flow
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'stretch', flexWrap: 'wrap' }}>
+                    {/* Ready */}
+                    <div 
+                      className="card" 
+                      onClick={() => setPipelineTab('all')}
+                      style={{ 
+                        padding: '10px 14px', 
+                        cursor: 'pointer',
+                        borderLeft: '3px solid #6366f1',
+                        background: pipelineTab === 'all' ? 'var(--bg-elevated)' : undefined,
+                        minWidth: '65px'
+                      }}
+                    >
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: '#6366f1' }}>{statusCounts.ready}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ready</div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
+                    
+                    {/* Dev */}
+                    <div 
+                      className="card" 
+                      onClick={() => setPipelineTab('progress')}
+                      style={{ 
+                        padding: '10px 14px', 
+                        cursor: 'pointer',
+                        borderLeft: statusCounts.in_progress > 0 ? '3px solid #f59e0b' : '3px solid var(--border)',
+                        background: pipelineTab === 'progress' ? 'var(--bg-elevated)' : undefined,
+                        minWidth: '65px'
+                      }}
+                    >
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: statusCounts.in_progress > 0 ? '#f59e0b' : 'var(--text-muted)' }}>{statusCounts.in_progress}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Dev</div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
+                    
+                    {/* Regression */}
+                    <div 
+                      className="card" 
+                      onClick={() => setPipelineTab('regression')}
+                      style={{ 
+                        padding: '10px 14px', 
+                        cursor: 'pointer',
+                        borderLeft: regressionCount > 0 ? '3px solid #8b5cf6' : '3px solid var(--border)',
+                        background: pipelineTab === 'regression' ? 'var(--bg-elevated)' : undefined,
+                        minWidth: '65px'
+                      }}
+                    >
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: regressionCount > 0 ? '#8b5cf6' : 'var(--text-muted)' }}>{regressionCount}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Regress</div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
+                    
+                    {/* QA */}
+                    <div 
+                      className="card" 
+                      onClick={() => setPipelineTab('qa')}
+                      style={{ 
+                        padding: '10px 14px', 
+                        cursor: 'pointer',
+                        borderLeft: statusCounts.qa_pending > 0 ? '3px solid #ec4899' : '3px solid var(--border)',
+                        background: pipelineTab === 'qa' ? 'var(--bg-elevated)' : undefined,
+                        minWidth: '65px'
+                      }}
+                    >
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: statusCounts.qa_pending > 0 ? '#ec4899' : 'var(--text-muted)' }}>{statusCounts.qa_pending}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>QA</div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
+                    
+                    {/* Test Lock + Docs (parallel) */}
+                    <div 
+                      className="card" 
+                      onClick={() => setPipelineTab('postqa')}
+                      style={{ 
+                        padding: '10px 14px', 
+                        cursor: 'pointer',
+                        borderLeft: postQaCount > 0 ? '3px solid #06b6d4' : '3px solid var(--border)',
+                        background: pipelineTab === 'postqa' ? 'var(--bg-elevated)' : undefined,
+                        minWidth: '90px'
+                      }}
+                    >
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: postQaCount > 0 ? '#06b6d4' : 'var(--text-muted)' }}>{postQaCount}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Tests+Docs</div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
+                    
+                    {/* Ready to Merge */}
+                    <div 
+                      className="card" 
+                      onClick={() => setPipelineTab('merge')}
+                      style={{ 
+                        padding: '10px 14px', 
+                        cursor: 'pointer',
+                        borderLeft: readyToMergeCount > 0 ? '3px solid #22c55e' : '3px solid var(--border)',
+                        background: pipelineTab === 'merge' ? 'var(--bg-elevated)' : undefined,
+                        minWidth: '65px'
+                      }}
+                    >
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: readyToMergeCount > 0 ? '#22c55e' : 'var(--text-muted)' }}>{readyToMergeCount}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ready</div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>→</div>
+                    
+                    {/* Done */}
+                    <div 
+                      className="card" 
+                      onClick={() => setPipelineTab('merged')}
+                      style={{ 
+                        padding: '10px 14px', 
+                        cursor: 'pointer',
+                        borderLeft: totalDone > 0 ? '3px solid #10b981' : '3px solid var(--border)',
+                        background: pipelineTab === 'merged' ? 'var(--bg-elevated)' : undefined,
+                        minWidth: '65px'
+                      }}
+                    >
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: totalDone > 0 ? '#10b981' : 'var(--text-muted)' }}>{totalDone}</div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Done</div>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
-            <div 
-              className="card" 
-              onClick={() => setPipelineTab('merged')}
-              style={{ 
-                padding: '16px', 
-                cursor: 'pointer',
-                borderLeft: (devStatus?.merged || []).length > 0 ? '4px solid #22c55e' : '4px solid var(--border)',
-                background: pipelineTab === 'merged' ? 'var(--bg-elevated)' : undefined
-              }}
-            >
-              <div style={{ fontSize: '24px', fontWeight: 700, color: (devStatus?.merged || []).length > 0 ? '#22c55e' : 'var(--text-muted)' }}>
-                {(devStatus?.merged || []).length}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Merged</div>
-            </div>
-          </div>
+                
+                {/* Attention Row - Blocked/Failed items */}
+                {needsAttention > 0 && (
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      {statusCounts.blocked > 0 && (
+                        <div 
+                          className="card" 
+                          onClick={() => setPipelineTab('blocked')}
+                          style={{ 
+                            padding: '10px 14px', 
+                            cursor: 'pointer',
+                            borderLeft: '3px solid #ef4444',
+                            background: pipelineTab === 'blocked' ? 'var(--bg-elevated)' : 'rgba(239,68,68,0.1)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '18px', fontWeight: 700, color: '#ef4444' }}>{statusCounts.blocked}</span>
+                            <span style={{ fontSize: '11px', color: '#ef4444' }}>🚫 Blocked</span>
+                          </div>
+                        </div>
+                      )}
+                      {statusCounts.qa_failed > 0 && (
+                        <div 
+                          className="card" 
+                          onClick={() => setPipelineTab('blocked')}
+                          style={{ 
+                            padding: '10px 14px', 
+                            cursor: 'pointer',
+                            borderLeft: '3px solid #f97316',
+                            background: 'rgba(249,115,22,0.1)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '18px', fontWeight: 700, color: '#f97316' }}>{statusCounts.qa_failed}</span>
+                            <span style={{ fontSize: '11px', color: '#f97316' }}>❌ QA Failed</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Feature Inventory Link */}
+                <div style={{ marginBottom: '24px' }}>
+                  <div 
+                    className="card" 
+                    onClick={() => setPipelineTab('inventory')}
+                    style={{ 
+                      padding: '10px 14px', 
+                      cursor: 'pointer',
+                      borderLeft: '3px solid var(--accent)',
+                      background: pipelineTab === 'inventory' ? 'var(--bg-elevated)' : undefined,
+                      display: 'inline-block'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-bright)' }}>{featuresList.length}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Feature Inventory</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
           
           {/* Tab Navigation */}
-          <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0' }}>
+          <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '0', flexWrap: 'wrap' }}>
             {[
-              { id: 'inventory', label: 'Feature Inventory', count: featuresList.length || FINDINGS_SUMMARY.meta.total_features, color: 'var(--accent)' },
-              { id: 'all', label: 'Pending', count: pendingTickets.length, color: 'var(--text-primary)' },
-              { id: 'progress', label: 'In Progress', count: activeInProgressItems.length, color: 'var(--success)' },
-              { id: 'blocked', label: 'Blocked', count: blockedItems.length, color: 'var(--critical)' },
-              { id: 'review', label: 'For Review', count: completedItemsForReview.length, color: 'var(--success)', ciBlocked: ciBlockers.length },
-              { id: 'merged', label: 'Merged', count: (devStatus?.merged || []).length, color: '#22c55e' },
-              { id: 'qa', label: 'QA Ready', count: Object.values(regressionStatus).filter(r => r.passed).length, color: '#a78bfa' }
+              { id: 'inventory', label: 'Features', count: featuresList.length, color: 'var(--accent)' },
+              { id: 'all', label: 'Ready', count: tickets.filter(t => t.status === 'ready').length, color: '#6366f1' },
+              { id: 'progress', label: 'Dev', count: activeInProgressItems.length, color: '#f59e0b' },
+              { id: 'regression', label: 'Regress', count: tickets.filter(t => t.status === 'dev_complete' || t.status === 'in_review').length, color: '#8b5cf6' },
+              { id: 'qa', label: 'QA', count: tickets.filter(t => t.status === 'qa_pending').length, color: '#ec4899' },
+              { id: 'postqa', label: 'Tests+Docs', count: tickets.filter(t => ['qa_approved', 'qa_passed', 'test_lock_pending', 'docs_pending'].includes(t.status)).length, color: '#06b6d4' },
+              { id: 'blocked', label: 'Blocked', count: tickets.filter(t => t.status === 'blocked' || t.status === 'qa_failed').length, color: '#ef4444' },
+              { id: 'merge', label: 'Ready', count: tickets.filter(t => t.status === 'ready_to_merge' || t.status === 'finalizing').length, color: '#22c55e' },
+              { id: 'merged', label: 'Done', count: (() => {
+                const dbMerged = tickets.filter(t => t.status === 'merged' || t.status === 'done');
+                const dbIds = new Set(dbMerged.map(t => t.id?.toUpperCase()));
+                const legacy = (agentOutputs?.qaResults || []).filter(qa => 
+                  (qa.fileName || '').toUpperCase().includes('PASSED') && 
+                  qa.ticketId && !dbIds.has(qa.ticketId.toUpperCase())
+                ).reduce((s, qa) => { s.add(qa.ticketId.toUpperCase()); return s; }, new Set()).size;
+                return dbMerged.length + legacy;
+              })(), color: '#10b981' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -4631,7 +4779,7 @@ pnpm build`}
                                   e.stopPropagation();
                                   setRegressionStatus(prev => ({ ...prev, [item.ticket_id]: { running: true } }));
                                   try {
-                                    const response = await fetch('/api/run-regression', {
+                                    const response = await fetch('/api/v2/actions/run-regression', {
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ ticketId: item.ticket_id, branch: item.branch })
@@ -4675,7 +4823,7 @@ pnpm build`}
                                     // If there are unexpected failures, create a CI blocker for PM
                                     if (unexpectedFiles.length > 0) {
                                       // Create CI blocker file so PM workflow picks it up
-                                      fetch('/api/create-ci-blocker', {
+                                      fetch('/api/v2/actions/create-ci-blocker', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
@@ -4735,19 +4883,159 @@ pnpm build`}
             </div>
           )}
           
-          {/* MERGED TAB */}
-          {pipelineTab === 'merged' && (
+          {/* REGRESSION TAB */}
+          {pipelineTab === 'regression' && (
             <div className="fade-in">
               {(() => {
-                const mergedItems = devStatus?.merged || [];
+                const regressionTickets = tickets.filter(t => 
+                  t.status === 'dev_complete' || t.status === 'in_review'
+                );
                 
-                if (mergedItems.length === 0) {
+                if (regressionTickets.length === 0) {
                   return (
                     <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-                      <div style={{ marginBottom: '16px', fontSize: '48px' }}>🎉</div>
-                      <div style={{ fontSize: '18px', fontWeight: 500 }}>No tickets have been merged yet</div>
+                      <div style={{ marginBottom: '16px', fontSize: '48px' }}>🧪</div>
+                      <div style={{ fontSize: '18px', fontWeight: 500 }}>No tickets in regression testing</div>
                       <div style={{ fontSize: '14px', marginTop: '8px' }}>
-                        Tickets that pass QA and get merged to main will appear here
+                        Completed dev work runs regression tests before moving to QA
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div>
+                    <div style={{ 
+                      padding: '16px 20px', 
+                      background: 'rgba(139,92,246,0.1)', 
+                      borderRadius: '12px', 
+                      marginBottom: '20px',
+                      border: '1px solid rgba(139,92,246,0.2)'
+                    }}>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        🧪 {regressionTickets.length} ticket{regressionTickets.length > 1 ? 's' : ''} in regression testing
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Running existing tests to ensure no breaking changes
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {regressionTickets.map(ticket => (
+                        <div 
+                          key={ticket.id} 
+                          className="card"
+                          style={{ 
+                            borderLeft: '4px solid #8b5cf6',
+                            padding: '16px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{ticket.id}</code>
+                            <span className="badge" style={{ color: '#8b5cf6', background: 'rgba(139,92,246,0.15)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
+                              {ticket.status === 'dev_complete' ? '⏳ Pending' : '🔄 Running'}
+                            </span>
+                            <span className={`badge badge-${ticket.priority}`}>{ticket.priority}</span>
+                          </div>
+                          <div style={{ fontSize: '15px', fontWeight: 600 }}>{ticket.title}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+          
+          {/* POST-QA TAB (Test Lock + Docs in parallel) */}
+          {pipelineTab === 'postqa' && (
+            <div className="fade-in">
+              {(() => {
+                const postQaTickets = tickets.filter(t => 
+                  ['qa_approved', 'qa_passed', 'test_lock_pending', 'docs_pending'].includes(t.status)
+                );
+                
+                if (postQaTickets.length === 0) {
+                  return (
+                    <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                      <div style={{ marginBottom: '16px', fontSize: '48px' }}>📝</div>
+                      <div style={{ fontSize: '18px', fontWeight: 500 }}>No tickets awaiting tests & docs</div>
+                      <div style={{ fontSize: '14px', marginTop: '8px' }}>
+                        After QA passes, Test Lock and Doc agents run in parallel
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div>
+                    <div style={{ 
+                      padding: '16px 20px', 
+                      background: 'rgba(6,182,212,0.1)', 
+                      borderRadius: '12px', 
+                      marginBottom: '20px',
+                      border: '1px solid rgba(6,182,212,0.2)'
+                    }}>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        📝 {postQaTickets.length} ticket{postQaTickets.length > 1 ? 's' : ''} awaiting test lock & docs
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Test Lock Agent writes behavior tests • Doc Agent updates documentation
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {postQaTickets.map(ticket => (
+                        <div 
+                          key={ticket.id} 
+                          className="card"
+                          style={{ 
+                            borderLeft: '4px solid #06b6d4',
+                            padding: '16px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{ticket.id}</code>
+                            <span className="badge" style={{ color: '#06b6d4', background: 'rgba(6,182,212,0.15)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
+                              ✅ QA Passed
+                            </span>
+                            {ticket.status === 'test_lock_pending' && (
+                              <span className="badge" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.15)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
+                                🧪 Tests Pending
+                              </span>
+                            )}
+                            {ticket.status === 'docs_pending' && (
+                              <span className="badge" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.15)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
+                                📄 Docs Pending
+                              </span>
+                            )}
+                            <span className={`badge badge-${ticket.priority}`}>{ticket.priority}</span>
+                          </div>
+                          <div style={{ fontSize: '15px', fontWeight: 600 }}>{ticket.title}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+          
+          {/* READY TO MERGE TAB */}
+          {pipelineTab === 'merge' && (
+            <div className="fade-in">
+              {(() => {
+                const readyToMergeTickets = tickets.filter(t => 
+                  t.status === 'ready_to_merge' || t.status === 'finalizing'
+                );
+                
+                if (readyToMergeTickets.length === 0) {
+                  return (
+                    <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                      <div style={{ marginBottom: '16px', fontSize: '48px' }}>🚀</div>
+                      <div style={{ fontSize: '18px', fontWeight: 500 }}>No tickets ready to merge</div>
+                      <div style={{ fontSize: '14px', marginTop: '8px' }}>
+                        Tickets that pass QA will appear here for final merge
                       </div>
                     </div>
                   );
@@ -4763,94 +5051,156 @@ pnpm build`}
                       border: '1px solid rgba(34,197,94,0.2)'
                     }}>
                       <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        🎉 {mergedItems.length} ticket{mergedItems.length > 1 ? 's' : ''} QA'd and merged to main
+                        🚀 {readyToMergeTickets.length} ticket{readyToMergeTickets.length > 1 ? 's' : ''} ready to merge
                       </div>
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        These tickets have passed QA testing and are now in production.
+                        These tickets have passed QA and are ready for final merge to main.
                       </div>
                     </div>
                     
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      {mergedItems.map(item => {
-                        const ticket = tickets.find(t => t.id?.toUpperCase() === item.ticket_id?.toUpperCase());
-                        return (
-                          <div 
-                            key={item.ticket_id} 
-                            className="card"
-                            style={{ 
-                              borderLeft: '4px solid #22c55e',
-                              padding: '16px'
-                            }}
-                          >
-                            {/* Header */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                  <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.ticket_id}</code>
-                                  <span className="badge" style={{ color: '#22c55e', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>✅ Merged</span>
-                                  {ticket && <span className={`badge badge-${ticket.priority}`}>{ticket.priority}</span>}
-                                </div>
-                                <div style={{ fontSize: '16px', fontWeight: 600 }}>{ticket?.title || 'Unknown Ticket'}</div>
-                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{ticket?.feature || ''}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {readyToMergeTickets.map(ticket => (
+                        <div 
+                          key={ticket.id} 
+                          className="card"
+                          style={{ 
+                            borderLeft: ticket.status === 'ready_to_merge' ? '4px solid #22c55e' : '4px solid #10b981',
+                            padding: '16px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{ticket.id}</code>
+                                <span className="badge" style={{ 
+                                  color: ticket.status === 'ready_to_merge' ? '#22c55e' : '#10b981', 
+                                  background: 'rgba(34,197,94,0.15)', 
+                                  border: '1px solid rgba(34,197,94,0.3)', 
+                                  padding: '2px 8px', 
+                                  borderRadius: '12px', 
+                                  fontSize: '11px' 
+                                }}>
+                                  {ticket.status === 'ready_to_merge' ? '🚀 Ready' : '✅ QA Approved'}
+                                </span>
+                                <span className={`badge badge-${ticket.priority}`}>{ticket.priority}</span>
                               </div>
-                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'right' }}>
-                                <div>Merged: {item.merged_at ? new Date(item.merged_at).toLocaleDateString() : 'Unknown'}</div>
-                                <div style={{ color: '#22c55e' }}>Branch: {item.branch}</div>
-                              </div>
+                              <div style={{ fontSize: '15px', fontWeight: 600 }}>{ticket.title}</div>
                             </div>
-                            
-                            {/* QA Summary */}
-                            {item.report_summary && (
-                              <div style={{ 
-                                padding: '12px', 
-                                background: 'rgba(34,197,94,0.05)', 
-                                borderRadius: '8px',
-                                marginBottom: '12px',
-                                fontSize: '13px',
-                                color: 'var(--text-secondary)'
-                              }}>
-                                <div style={{ fontWeight: 600, marginBottom: '4px', color: '#22c55e' }}>📋 QA Summary</div>
-                                {item.report_summary}
-                              </div>
-                            )}
-                            
-                            {/* Test Results & Acceptance Criteria */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                              {/* Tests */}
-                              {item.test_results && item.test_results.length > 0 && (
-                                <div style={{ fontSize: '12px' }}>
-                                  <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--text-muted)' }}>Tests</div>
-                                  {item.test_results.map((t, i) => (
-                                    <div key={i} style={{ color: t.includes('✅') ? '#22c55e' : t.includes('❌') ? 'var(--critical)' : 'var(--text-secondary)', marginBottom: '2px' }}>
-                                      {t}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              
-                              {/* Acceptance Criteria */}
-                              {item.acceptance_criteria && item.acceptance_criteria.length > 0 && (
-                                <div style={{ fontSize: '12px' }}>
-                                  <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--text-muted)' }}>Acceptance Criteria</div>
-                                  {item.acceptance_criteria.map((c, i) => (
-                                    <div key={i} style={{ color: c.includes('✅') ? '#22c55e' : c.includes('❌') ? 'var(--critical)' : 'var(--text-secondary)', marginBottom: '2px' }}>
-                                      {c}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button className="btn btn-sm" style={{ background: 'var(--success)', color: 'white' }}>
+                                Merge →
+                              </button>
                             </div>
-                            
-                            {/* Report Link */}
-                            {item.qa_report && (
-                              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)', fontSize: '11px', color: 'var(--text-muted)' }}>
-                                📄 Full report: <code>{item.qa_report}</code>
-                              </div>
-                            )}
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+          
+          {/* MERGED TAB */}
+          {pipelineTab === 'merged' && (
+            <div className="fade-in">
+              {(() => {
+                const mergedTickets = tickets.filter(t => t.status === 'merged' || t.status === 'done');
+                const dbMergedIds = new Set(mergedTickets.map(t => t.id?.toUpperCase()));
+                
+                // Get legacy tickets from QA PASSED files not in DB
+                const legacyTickets = [];
+                const seenLegacy = new Set();
+                for (const qa of (agentOutputs?.qaResults || [])) {
+                  const fileName = qa.fileName || '';
+                  const ticketId = qa.ticketId?.toUpperCase();
+                  if (fileName.toUpperCase().includes('PASSED') && ticketId && !dbMergedIds.has(ticketId) && !seenLegacy.has(ticketId)) {
+                    seenLegacy.add(ticketId);
+                    legacyTickets.push({ id: qa.ticketId, fileName, legacy: true });
+                  }
+                }
+                
+                const allDone = [...mergedTickets, ...legacyTickets];
+                
+                if (allDone.length === 0) {
+                  return (
+                    <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                      <div style={{ marginBottom: '16px', fontSize: '48px' }}>🎉</div>
+                      <div style={{ fontSize: '18px', fontWeight: 500 }}>No tickets have been merged yet</div>
+                      <div style={{ fontSize: '14px', marginTop: '8px' }}>
+                        Tickets that pass QA and get merged to main will appear here
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div>
+                    <div style={{ 
+                      padding: '16px 20px', 
+                      background: 'rgba(16,185,129,0.1)', 
+                      borderRadius: '12px', 
+                      marginBottom: '20px',
+                      border: '1px solid rgba(16,185,129,0.2)'
+                    }}>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        ✅ {allDone.length} ticket{allDone.length > 1 ? 's' : ''} completed
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        {mergedTickets.length} from database • {legacyTickets.length} legacy (pre-database)
+                      </div>
+                    </div>
+                    
+                    {/* DB Tickets */}
+                    {mergedTickets.length > 0 && (
+                      <div style={{ marginBottom: '24px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Recent (Database)</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {mergedTickets.map(ticket => (
+                            <div 
+                              key={ticket.id} 
+                              className="card"
+                              style={{ 
+                                borderLeft: '4px solid #10b981',
+                                padding: '12px 16px'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <code style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{ticket.id}</code>
+                                <span className="badge" style={{ color: '#10b981', background: 'rgba(16,185,129,0.15)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
+                                  ✅ {ticket.status === 'done' ? 'Done' : 'Merged'}
+                                </span>
+                                <span className={`badge badge-${ticket.priority}`}>{ticket.priority}</span>
+                                <span style={{ flex: 1 }}></span>
+                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{ticket.title}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Legacy Tickets */}
+                    {legacyTickets.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Legacy (Pre-Database)</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {legacyTickets.map(ticket => (
+                            <div 
+                              key={ticket.id} 
+                              className="card"
+                              style={{ 
+                                borderLeft: '3px solid #6b7280',
+                                padding: '8px 12px',
+                                opacity: 0.7
+                              }}
+                            >
+                              <code style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{ticket.id}</code>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -4964,7 +5314,7 @@ pnpm build`}
         
         try {
           // Call API to create worktree and open Cursor
-          const response = await fetch('/api/launch-agent', {
+          const response = await fetch('/api/v2/actions/launch-agent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ticketId: ticket.id })
@@ -5849,7 +6199,7 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
                             
                             try {
                               const ticketIds = nextBatch.map(t => t.id);
-                              const response = await fetch('/api/setup-worktrees', {
+                              const response = await fetch('/api/v2/actions/setup-worktrees', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ ticketIds })
@@ -5901,7 +6251,7 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
                               setLaunchAllProgress(i + 1);
                               
                               try {
-                                await fetch('/api/launch-agent', {
+                                await fetch('/api/v2/actions/launch-agent', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ ticketId: ticket.id })
@@ -6461,7 +6811,7 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
       // Fetch data from server
       const fetchData = (showLoading = true) => {
         if (showLoading) setLoading(true);
-        fetch('/api/data')
+        fetch('/api/v2/data')
           .then(res => {
             if (res.ok) {
               setServerMode(true);
@@ -6529,7 +6879,7 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
 
       // Save decisions to server
       const saveDecisions = async (decisions) => {
-        const res = await fetch('/api/decisions', {
+        const res = await fetch('/api/v2/data/decisions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(decisions)
@@ -6540,7 +6890,7 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
       // Save dev status
       const saveDevStatus = async (newStatus) => {
         try {
-          const res = await fetch('/api/dev-status', {
+          const res = await fetch('/api/v2/data/dev-status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newStatus)

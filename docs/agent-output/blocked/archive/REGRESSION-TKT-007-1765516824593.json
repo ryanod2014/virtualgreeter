@@ -1,0 +1,9 @@
+{
+  "ticket_id": "TKT-007",
+  "blocker_type": "regression_failure",
+  "branch": null,
+  "blocked_at": "2025-12-12T05:20:24.593Z",
+  "summary": "Regression tests failed - dev broke code outside ticket scope",
+  "output": "/Users/ryanodonnell/projects/Digital_greeter/scripts/run-regression-tests.sh: line 63: agent/${TICKET_ID,,}: bad substitution\n",
+  "dispatch_action": "create_continuation_ticket"
+}

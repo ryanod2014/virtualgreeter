@@ -1,0 +1,65 @@
+{
+  "finding_id": "QA-TKT-009-INFRASTRUCTURE",
+  "ticket_id": "TKT-009",
+  "category": "qa_infrastructure_unavailable",
+  "severity": "high",
+  "title": "TKT-009 QA Blocked - Test Infrastructure Unavailable",
+  "issue": "QA agent completed thorough code inspection and found implementation appears correct, but cannot perform end-to-end testing due to PM Dashboard API being unavailable and missing test infrastructure.",
+  "human_decision_required": true,
+  "options": [
+    {
+      "id": "manual_qa",
+      "label": "Manual QA in Staging",
+      "description": "PM performs manual testing in staging environment (login, toggle setting, verify widget behavior, test persistence)",
+      "pros": ["Fastest path to approval", "Real integration testing", "Immediate unblock"],
+      "cons": ["Requires PM time", "No automated regression coverage"],
+      "effort": "30-45 minutes of PM time"
+    },
+    {
+      "id": "fix_infrastructure",
+      "label": "Fix QA Infrastructure",
+      "description": "Resolve test environment issues (PM Dashboard API hanging, test credentials, etc.) and re-run automated QA",
+      "pros": ["Proper QA process", "Reusable for future tickets", "Comprehensive automated testing"],
+      "cons": ["Time to debug and fix infrastructure", "May require DevOps support", "Blocks ticket temporarily"],
+      "effort": "1-2 hours investigation + fixes"
+    },
+    {
+      "id": "accept_code_review",
+      "label": "Accept Based on Code Review",
+      "description": "Approve ticket based on QA agent's thorough code inspection (all AC verified in code, proper types, defaults, logic)",
+      "pros": ["Unblocks ticket immediately", "Code quality confirmed good", "Implementation follows existing patterns"],
+      "cons": ["Risk of integration bugs at runtime", "No verification of database schema support", "No widget behavior testing"],
+      "recommendation": "Create follow-up ticket for integration testing once infrastructure is fixed"
+    }
+  ],
+  "qa_agent_assessment": {
+    "code_quality": "appears_correct",
+    "verification_method": "thorough_code_inspection",
+    "confidence": "high",
+    "verified": [
+      "Type safety: cobrowse_enabled: boolean added to WidgetSettings",
+      "Backward compatibility: All 3 default locations set to true",
+      "Proper fallback: ?? true operator for existing orgs",
+      "Widget logic: Conditional cobrowse activation based on setting",
+      "UI implementation: Toggle follows existing patterns",
+      "State management: Proper React state with change detection"
+    ],
+    "unverified": [
+      "Database schema supports nested object updates",
+      "Widget settings propagation from server to widget",
+      "Real-time updates on widget reconnect",
+      "Role-based access control blocks agents from settings page"
+    ]
+  },
+  "acceptance_criteria_status": {
+    "AC1_toggle_visible": "code_verified_not_tested",
+    "AC2_disables_cobrowse": "logic_verified_not_tested",
+    "AC3_defaults_enabled": "three_locations_verified",
+    "AC4_next_call_only": "logic_verified_not_tested"
+  },
+  "qa_report": "docs/agent-output/qa-results/QA-TKT-009-FAILED-20251211T2029.md",
+  "blocker_file": "docs/agent-output/blocked/QA-TKT-009-FAILED-20251211T2029.json",
+  "branch": "agent/tkt-009",
+  "created_at": "2025-12-11T20:37:00Z",
+  "status": "awaiting_human_decision"
+}

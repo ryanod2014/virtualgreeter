@@ -44,6 +44,7 @@ import {
   serializeConditions,
 } from "@/lib/components/call-log-filter-conditions";
 import { formatLocationWithFlag } from "@/lib/utils/country-flag";
+import { RecordingPlayer } from "@/features/recordings/RecordingPlayer";
 
 interface Disposition {
   id: string;
@@ -99,7 +100,7 @@ export function AgentCallsClient({
 
   const [showFilters, setShowFilters] = useState(false);
   const [playingCallId, setPlayingCallId] = useState<string | null>(null);
-  const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
+  const [videoModalRecordingId, setVideoModalRecordingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Filter state - multi-select fields use arrays
@@ -303,33 +304,14 @@ export function AgentCallsClient({
     color: d.color,
   }));
 
-  const handlePlayRecording = (callId: string, recordingUrl: string) => {
-    // Check if it's a video recording (webm)
-    const isVideo =
-      recordingUrl.includes(".webm") || recordingUrl.includes("video");
-
-    if (isVideo) {
-      // Open video in modal
-      setVideoModalUrl(recordingUrl);
-    } else {
-      // Handle audio recordings
-      if (playingCallId === callId) {
-        audioRef.current?.pause();
-        setPlayingCallId(null);
-      } else {
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-        audioRef.current = new Audio(recordingUrl);
-        audioRef.current.play();
-        audioRef.current.onended = () => setPlayingCallId(null);
-        setPlayingCallId(callId);
-      }
-    }
+  const handlePlayRecording = (callId: string, recordingId: string) => {
+    // In the new system, recording_url stores the recordingId (a UUID), not a full URL
+    // RecordingPlayer will fetch the signed URL from the API
+    setVideoModalRecordingId(recordingId);
   };
 
   const closeVideoModal = () => {
-    setVideoModalUrl(null);
+    setVideoModalRecordingId(null);
   };
 
   const handleDownload = async (url: string, filename?: string) => {
@@ -357,7 +339,7 @@ export function AgentCallsClient({
       <audio ref={audioRef} className="hidden" />
 
       {/* Video Recording Modal */}
-      {videoModalUrl && (
+      {videoModalRecordingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
@@ -383,28 +365,11 @@ export function AgentCallsClient({
                 <XIcon className="w-5 h-5" />
               </button>
             </div>
-            <div className="aspect-video rounded-xl overflow-hidden bg-black">
-              <video
-                src={videoModalUrl}
-                controls
-                autoPlay
-                className="w-full h-full"
-              />
-            </div>
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() =>
-                  handleDownload(
-                    videoModalUrl,
-                    `call-recording-${Date.now()}.webm`
-                  )
-                }
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted hover:bg-muted/80 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Download
-              </button>
-            </div>
+            <RecordingPlayer
+              recordingId={videoModalRecordingId}
+              autoplay={true}
+              className="aspect-video"
+            />
           </div>
         </div>
       )}
@@ -880,47 +845,16 @@ function CallLogRow({
         <td className="px-6 py-4">
           {call.recording_url ? (
             <div className="flex items-center gap-2">
-              {call.recording_url.includes(".webm") ||
-              call.recording_url.includes("video") ? (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onPlayRecording(call.recording_url!);
-                  }}
-                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex items-center gap-1.5"
-                  title="Play video recording"
-                >
-                  <Video className="w-4 h-4" />
-                  <Play className="w-3 h-3" />
-                </button>
-              ) : (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onPlayRecording(call.recording_url!);
-                  }}
-                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
-                  title={isPlaying ? "Pause audio" : "Play audio recording"}
-                >
-                  {isPlaying ? (
-                    <Pause className="w-4 h-4" />
-                  ) : (
-                    <Play className="w-4 h-4" />
-                  )}
-                </button>
-              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDownload(
-                    call.recording_url!,
-                    `call-recording-${call.id}.webm`
-                  );
+                  onPlayRecording(call.recording_url!);
                 }}
-                className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                title="Download recording"
+                className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex items-center gap-1.5"
+                title="Play video recording"
               >
-                <Download className="w-4 h-4" />
+                <Video className="w-4 h-4" />
+                <Play className="w-3 h-3" />
               </button>
             </div>
           ) : (

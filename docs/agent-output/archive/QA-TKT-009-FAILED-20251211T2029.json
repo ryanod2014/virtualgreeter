@@ -1,0 +1,80 @@
+{
+  "ticket_id": "TKT-009",
+  "blocker_type": "qa_infrastructure_unavailable",
+  "summary": "Cannot complete hybrid ticket QA - PM Dashboard API unavailable, no test users, cannot verify API or UI",
+  "details": {
+    "ticket_type": "hybrid",
+    "requires": ["API testing", "UI testing"],
+    "completed": ["code_inspection", "build_verification", "type_system_verification", "default_values_verification", "logic_flow_verification"],
+    "blocked": [
+      "API endpoint testing with curl",
+      "Database state verification",
+      "UI testing with Playwright",
+      "Test user creation and authentication",
+      "Setting persistence verification",
+      "Magic link generation",
+      "Role-based access control testing"
+    ]
+  },
+  "missing_infrastructure": [
+    "PM Dashboard API not running at localhost:3456",
+    "No test user creation capability (/api/v2/qa/create-test-user)",
+    "No Supabase test credentials for direct DB access",
+    "No existing test accounts to login with",
+    "No tunnel URL for magic link generation"
+  ],
+  "code_quality_assessment": {
+    "status": "appears_correct",
+    "verification_method": "thorough_code_inspection",
+    "confidence": "high",
+    "concerns": [
+      "Cannot verify database schema supports nested object updates",
+      "Cannot verify widget settings propagation from server to widget",
+      "Cannot verify real-time setting updates",
+      "Cannot verify role-based access control works at runtime"
+    ]
+  },
+  "acceptance_criteria_status": {
+    "AC1_toggle_visible": "code_verified_not_tested",
+    "AC2_disables_cobrowse": "logic_verified_not_tested",
+    "AC3_defaults_enabled": "three_locations_verified",
+    "AC4_next_call_only": "logic_verified_not_tested"
+  },
+  "recommendations": [
+    {
+      "option": "manual_qa",
+      "description": "PM performs manual testing in staging environment",
+      "pros": ["Fastest path to approval", "Real integration testing"],
+      "cons": ["Requires PM time", "No automated regression coverage"]
+    },
+    {
+      "option": "fix_infrastructure",
+      "description": "Resolve QA environment issues and re-run automated tests",
+      "pros": ["Proper QA process", "Reusable for future tickets"],
+      "cons": ["Time to fix infrastructure", "May require DevOps support"]
+    },
+    {
+      "option": "accept_code_review",
+      "description": "Approve based on thorough code inspection",
+      "pros": ["Unblocks ticket immediately", "Code quality looks good"],
+      "cons": ["Risk of integration bugs", "No runtime verification"],
+      "recommendation": "Create follow-up ticket for integration testing"
+    }
+  ],
+  "dispatch_action": "pm_decision_required",
+  "created_at": "2025-12-11T20:29:00Z",
+  "qa_agent_session_id": "28eb0c96-c49a-4b16-a23b-9d91f08d1627",
+  "branch": "agent/tkt-009",
+  "files_verified": [
+    "packages/domain/src/types.ts",
+    "apps/widget/src/Widget.tsx",
+    "apps/server/src/lib/widget-settings.ts",
+    "apps/dashboard/src/app/(app)/admin/settings/organization/organization-settings-client.tsx"
+  ],
+  "evidence_collected": {
+    "code_snippets": 7,
+    "screenshots": 0,
+    "api_responses": 0,
+    "magic_links": 0
+  }
+}
