@@ -57,7 +57,7 @@ describe("DeletePoolModal", () => {
     it("renders modal when isOpen is true", () => {
       render(<DeletePoolModal {...defaultProps} />);
 
-      expect(screen.getByText("Delete Pool")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Delete Pool" })).toBeInTheDocument();
     });
 
     it("shows 'This action cannot be undone' subtitle", () => {
@@ -71,16 +71,19 @@ describe("DeletePoolModal", () => {
     it("shows pool name in warning message", () => {
       render(<DeletePoolModal {...defaultProps} poolName="Enterprise" />);
 
-      expect(screen.getByText(/Enterprise/)).toBeInTheDocument();
+      expect(screen.getByText(/You are about to delete the pool/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Enterprise/).length).toBeGreaterThan(0);
     });
 
     it("shows pool name in confirmation label", () => {
       render(<DeletePoolModal {...defaultProps} poolName="Support Team" />);
 
       // The label should say "Type Support Team to confirm"
-      expect(screen.getByText(/Type/)).toBeInTheDocument();
-      expect(screen.getByText(/Support Team/)).toBeInTheDocument();
-      expect(screen.getByText(/to confirm/)).toBeInTheDocument();
+      const label = screen.getByText((content, element) => {
+        return element?.tagName === 'LABEL' && /Type.*to confirm/.test(element.textContent || '');
+      });
+      expect(label).toBeInTheDocument();
+      expect(label.textContent).toContain("Support Team");
     });
   });
 
@@ -500,7 +503,4 @@ describe("DeletePoolModal", () => {
     });
   });
 });
-
-
-
 

@@ -32,14 +32,12 @@ import {
   Sun,
   Moon,
   Droplets,
-  CheckCircle2,
-  AlertCircle,
 } from "lucide-react";
 import type { WidgetSettings, WidgetSize, WidgetPosition, WidgetDevices, WidgetTheme } from "@ghost-greeter/domain/database.types";
 import { useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { VALIDATION, validateNumber } from "@/lib/utils/validation";
-import * as Toast from "@radix-ui/react-toast";
+import { DeletePoolModal } from "@/features/pools/DeletePoolModal";
 
 // Signaling server URL for syncing config
 const SIGNALING_SERVER = process.env.NEXT_PUBLIC_SIGNALING_SERVER ?? "http://localhost:3001";
@@ -833,10 +831,9 @@ interface PoolWidgetSettingsProps {
   pool: Pool;
   orgDefaults: WidgetSettings;
   onUpdate: (settings: WidgetSettings | null) => void;
-  showToast: (title: string, description?: string, type?: "success" | "error") => void;
 }
 
-function PoolWidgetSettings({ pool, orgDefaults, onUpdate, showToast }: PoolWidgetSettingsProps) {
+function PoolWidgetSettings({ pool, orgDefaults, onUpdate }: PoolWidgetSettingsProps) {
   const [useCustom, setUseCustom] = useState(pool.widget_settings !== null);
   const [settings, setSettings] = useState<WidgetSettings>(pool.widget_settings ?? orgDefaults);
   const [saving, setSaving] = useState(false);
@@ -891,41 +888,26 @@ function PoolWidgetSettings({ pool, orgDefaults, onUpdate, showToast }: PoolWidg
   const handleSaveCustomSettings = async () => {
     // Validate before saving
     const triggerError = validateNumber(settings.trigger_delay, "trigger_delay");
-    const hideError = settings.auto_hide_delay !== null
+    const hideError = settings.auto_hide_delay !== null 
       ? validateNumber(settings.auto_hide_delay, "auto_hide_delay")
       : null;
-
+    
     if (triggerError || hideError) {
       setTriggerDelayError(triggerError);
       setAutoHideError(hideError);
       return;
     }
-
-    // Capture previous state for rollback
-    const previousSettings = pool.widget_settings;
-
+    
     setSaving(true);
     const { error } = await supabase
       .from("agent_pools")
       .update({ widget_settings: settings })
       .eq("id", pool.id);
-
-    if (error) {
-      console.error("[Pools] Error saving custom settings:", error);
-      // Revert to previous state
-      setSettings(previousSettings || orgDefaults);
-      if (error.message?.includes("network") || error.message?.includes("fetch")) {
-        showToast("Connection error", "Unable to save widget settings. Please check your connection and try again.", "error");
-      } else {
-        showToast("Failed to save settings", error.message || "An unexpected error occurred", "error");
-      }
-      setSaving(false);
-      return;
+    
+    if (!error) {
+      onUpdate(settings);
+      setIsExpanded(false); // Collapse after saving
     }
-
-    onUpdate(settings);
-    setIsExpanded(false); // Collapse after saving
-    showToast("Settings saved", "Widget settings have been updated successfully");
     setSaving(false);
   };
   
@@ -1550,46 +1532,12 @@ export function PoolsClient({
   const [editingScriptText, setEditingScriptText] = useState("");
   const [uploadingVideo, setUploadingVideo] = useState<{ poolId: string; type: "wave" | "intro" | "loop" } | null>(null);
   const [recordingVideo, setRecordingVideo] = useState<{ poolId: string; type: "wave" | "intro" | "loop" } | null>(null);
-
-  // Toast notification state
-  const [toasts, setToasts] = useState<Array<{ id: string; title: string; description?: string; type: "success" | "error" }>>([]);
+  const [poolToDelete, setPoolToDelete] = useState<{ id: string; name: string; agentCount: number; routingRulesCount: number } | null>(null);
 
   const waveInputRef = useRef<HTMLInputElement>(null);
   const loopInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClient();
-
-<<<<<<< HEAD
-  /**
-   * Displays a toast notification to provide user feedback for pool operations.
-   * Toasts automatically dismiss after 5 seconds.
-   *
-   * @param title - The main message to display (e.g., "Pool created", "Connection error")
-   * @param description - Optional detailed message providing context or recovery instructions
-   * @param type - The notification type: "success" for successful operations, "error" for failures
-   *
-   * @example
-   * showToast("Pool created", `"${poolName}" has been created successfully`);
-   * showToast("Connection error", "Unable to save pool. Please check your connection.", "error");
-   *
-   * @remarks
-   * Part of TKT-043: Add Save/Error Notifications for Pool Management
-   * - Success toasts show green checkmark icon
-   * - Error toasts show red alert icon
-   * - Network errors specifically use "Connection error" as title
-   */
-=======
-  // Show toast notification
->>>>>>> origin/agent/tkt-043
-  const showToast = useCallback((title: string, description?: string, type: "success" | "error" = "success") => {
-    const id = Math.random().toString(36).substring(7);
-    setToasts(prev => [...prev, { id, title, description, type }]);
-
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 5000);
-  }, []);
 
   // Sync pool config to signaling server
   const syncConfigToServer = useCallback(async (currentPools: Pool[]) => {
@@ -1713,11 +1661,9 @@ export function PoolsClient({
       console.error("[Pools] Error creating pool:", error);
       // Better error message for duplicate names
       if (error.code === "23505" || error.message.includes("duplicate key")) {
-        showToast("Failed to create pool", `A pool named "${newPoolName}" already exists. Please choose a different name.`, "error");
-      } else if (error.message?.includes("network") || error.message?.includes("fetch")) {
-        showToast("Connection error", "Unable to save pool. Please check your connection and try again.", "error");
+        alert(`A pool named "${newPoolName}" already exists. Please choose a different name.`);
       } else {
-        showToast("Failed to create pool", error.message || "An unexpected error occurred", "error");
+        alert(`Failed to create pool: ${error.message}`);
       }
       return;
     }
@@ -1729,7 +1675,6 @@ export function PoolsClient({
       setNewPoolDescription("");
       setIsAddingPool(false);
       setExpandedPools(new Set([...Array.from(expandedPools), data.id]));
-      showToast("Pool created", `"${data.name}" has been created successfully`);
     }
   };
 
@@ -1755,17 +1700,7 @@ export function PoolsClient({
       .select("id, agent_profile_id, priority_rank")
       .single();
 
-    if (error) {
-      console.error("[Pools] Error adding agent to pool:", error);
-      if (error.message?.includes("network") || error.message?.includes("fetch")) {
-        showToast("Connection error", "Unable to add agent. Please check your connection and try again.", "error");
-      } else {
-        showToast("Failed to add agent", error.message || "An unexpected error occurred", "error");
-      }
-      return;
-    }
-
-    if (data) {
+    if (data && !error) {
       setPools(pools.map(p => {
         if (p.id === poolId) {
           return {
@@ -1779,8 +1714,7 @@ export function PoolsClient({
         return p;
       }));
       setAddingAgentToPool(null);
-      showToast("Agent added", `${agent.display_name} has been added to the pool`);
-
+      
       // Sync to signaling server
       syncConfigToServer(pools);
     }
@@ -1794,108 +1728,57 @@ export function PoolsClient({
       console.error("[Pools] Invalid priority rank:", priorityError);
       return;
     }
-
-    // Capture previous state for potential rollback
-    const previousPools = pools;
-
-    // Optimistically update UI
-    setPools(pools.map(p => {
-      if (p.id === poolId) {
-        return {
-          ...p,
-          agent_pool_members: p.agent_pool_members.map(m =>
-            m.id === memberId ? { ...m, priority_rank: newPriority } : m
-          ),
-        };
-      }
-      return p;
-    }));
-
+    
     const { error } = await supabase
       .from("agent_pool_members")
       .update({ priority_rank: newPriority })
       .eq("id", memberId);
 
-    if (error) {
-      console.error("[Pools] Error updating agent priority:", error);
-      // Revert to previous state
-      setPools(previousPools);
-      if (error.message?.includes("network") || error.message?.includes("fetch")) {
-        showToast("Connection error", "Unable to update priority. Please check your connection and try again.", "error");
-      } else {
-        showToast("Failed to update priority", error.message || "An unexpected error occurred", "error");
-      }
-      return;
+    if (!error) {
+      setPools(pools.map(p => {
+        if (p.id === poolId) {
+          return {
+            ...p,
+            agent_pool_members: p.agent_pool_members.map(m => 
+              m.id === memberId ? { ...m, priority_rank: newPriority } : m
+            ),
+          };
+        }
+        return p;
+      }));
+      
+      // Sync to signaling server so tiered routing takes effect immediately
+      syncConfigToServer(pools);
     }
-
-    showToast("Priority updated", "Agent priority has been updated successfully");
-    // Sync to signaling server so tiered routing takes effect immediately
-    syncConfigToServer(pools);
   };
 
   const handleRemoveAgentFromPool = async (poolId: string, memberId: string) => {
-    // Capture previous state and agent name for rollback
-    const previousPools = pools;
-    const pool = pools.find(p => p.id === poolId);
-    const member = pool?.agent_pool_members.find(m => m.id === memberId);
-    const agentName = member?.agent_profiles?.display_name || "Agent";
-
-    // Optimistically update UI
-    setPools(pools.map(p => {
-      if (p.id === poolId) {
-        return {
-          ...p,
-          agent_pool_members: p.agent_pool_members.filter(m => m.id !== memberId),
-        };
-      }
-      return p;
-    }));
-
     const { error } = await supabase
       .from("agent_pool_members")
       .delete()
       .eq("id", memberId);
 
-    if (error) {
-      console.error("[Pools] Error removing agent from pool:", error);
-      // Revert to previous state
-      setPools(previousPools);
-      if (error.message?.includes("network") || error.message?.includes("fetch")) {
-        showToast("Connection error", "Unable to remove agent. Please check your connection and try again.", "error");
-      } else {
-        showToast("Failed to remove agent", error.message || "An unexpected error occurred", "error");
-      }
-      return;
+    if (!error) {
+      setPools(pools.map(p => {
+        if (p.id === poolId) {
+          return {
+            ...p,
+            agent_pool_members: p.agent_pool_members.filter(m => m.id !== memberId),
+          };
+        }
+        return p;
+      }));
     }
-
-    showToast("Agent removed", `${agentName} has been removed from the pool`);
   };
 
   const handleDeletePool = async (poolId: string) => {
     const pool = pools.find(p => p.id === poolId);
     if (pool?.is_catch_all) return; // Can't delete the "All" pool
 
-    const poolName = pool?.name || "Pool";
-    const previousPools = pools;
-
-    // Optimistically update UI
-    setPools(pools.filter(p => p.id !== poolId));
-
     const { error } = await supabase.from("agent_pools").delete().eq("id", poolId);
-
-    if (error) {
-      console.error("[Pools] Error deleting pool:", error);
-      // Revert to previous state
-      setPools(previousPools);
-      if (error.message?.includes("network") || error.message?.includes("fetch")) {
-        showToast("Connection error", "Unable to delete pool. Please check your connection and try again.", "error");
-      } else {
-        showToast("Failed to delete pool", error.message || "An unexpected error occurred", "error");
-      }
-      return;
+    if (!error) {
+      setPools(pools.filter(p => p.id !== poolId));
     }
-
-    showToast("Pool deleted", `"${poolName}" has been deleted successfully`);
   };
 
   // Routing rule management
@@ -1930,17 +1813,7 @@ export function PoolsClient({
       .select()
       .single();
 
-    if (error) {
-      console.error("[Pools] Error adding routing rule:", error);
-      if (error.message?.includes("network") || error.message?.includes("fetch")) {
-        showToast("Connection error", "Unable to add routing rule. Please check your connection and try again.", "error");
-      } else {
-        showToast("Failed to add routing rule", error.message || "An unexpected error occurred", "error");
-      }
-      return;
-    }
-
-    if (data) {
+    if (data && !error) {
       setPools(pools.map(p => {
         if (p.id === poolId) {
           return {
@@ -1951,39 +1824,22 @@ export function PoolsClient({
         return p;
       }));
       setAddingRuleToPool(null);
-      showToast("Routing rule added", "New routing rule has been created successfully");
     }
   };
 
   const handleDeleteRoutingRule = async (poolId: string, ruleId: string) => {
-    const previousPools = pools;
-
-    // Optimistically update UI
-    setPools(pools.map(p => {
-      if (p.id === poolId) {
-        return {
-          ...p,
-          pool_routing_rules: p.pool_routing_rules.filter(r => r.id !== ruleId),
-        };
-      }
-      return p;
-    }));
-
     const { error } = await supabase.from("pool_routing_rules").delete().eq("id", ruleId);
-
-    if (error) {
-      console.error("[Pools] Error deleting routing rule:", error);
-      // Revert to previous state
-      setPools(previousPools);
-      if (error.message?.includes("network") || error.message?.includes("fetch")) {
-        showToast("Connection error", "Unable to delete routing rule. Please check your connection and try again.", "error");
-      } else {
-        showToast("Failed to delete routing rule", error.message || "An unexpected error occurred", "error");
-      }
-      return;
+    if (!error) {
+      setPools(pools.map(p => {
+        if (p.id === poolId) {
+          return {
+            ...p,
+            pool_routing_rules: p.pool_routing_rules.filter(r => r.id !== ruleId),
+          };
+        }
+        return p;
+      }));
     }
-
-    showToast("Routing rule deleted", "Routing rule has been removed successfully");
   };
 
   const handleUpdateRoutingRule = async (poolId: string, ruleId: string, conditions: RuleCondition[], ruleName: string) => {
@@ -2038,37 +1894,18 @@ export function PoolsClient({
   };
 
   const handleSaveScript = async (poolId: string) => {
-    // Capture previous state for rollback
-    const previousPools = pools;
-    const pool = pools.find(p => p.id === poolId);
-    const previousScript = pool?.intro_script || "";
-
-    // Optimistically update UI
-    setPools(pools.map(p =>
-      p.id === poolId ? { ...p, intro_script: editingScriptText } : p
-    ));
-
     const { error } = await supabase
       .from("agent_pools")
       .update({ intro_script: editingScriptText })
       .eq("id", poolId);
 
-    if (error) {
-      console.error("[Pools] Error saving intro script:", error);
-      // Revert to previous state
-      setPools(previousPools);
-      setEditingScriptText(previousScript);
-      if (error.message?.includes("network") || error.message?.includes("fetch")) {
-        showToast("Connection error", "Unable to save script. Please check your connection and try again.", "error");
-      } else {
-        showToast("Failed to save script", error.message || "An unexpected error occurred", "error");
-      }
-      return;
+    if (!error) {
+      setPools(pools.map(p => 
+        p.id === poolId ? { ...p, intro_script: editingScriptText } : p
+      ));
+      setEditingScriptPoolId(null);
+      setEditingScriptText("");
     }
-
-    setEditingScriptPoolId(null);
-    setEditingScriptText("");
-    showToast("Script saved", "Intro script has been updated successfully");
   };
 
   const handleCancelEditScript = () => {
@@ -2113,20 +1950,14 @@ export function PoolsClient({
       if (updateError) throw updateError;
 
       // Update local state
-      setPools(pools.map(p =>
-        p.id === poolId
+      setPools(pools.map(p => 
+        p.id === poolId 
           ? { ...p, [updateField]: videoUrl }
           : p
       ));
-      showToast("Video uploaded", "Example video has been uploaded successfully");
     } catch (error) {
       console.error("Failed to upload example video:", error);
-      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
-      if (errorMessage?.includes("network") || errorMessage?.includes("fetch")) {
-        showToast("Connection error", "Unable to upload video. Please check your connection and try again.", "error");
-      } else {
-        showToast("Failed to upload video", errorMessage || "Please try again.", "error");
-      }
+      alert("Failed to upload video. Please try again.");
     } finally {
       setUploadingVideo(null);
     }
@@ -2186,18 +2017,12 @@ export function PoolsClient({
 
       if (updateError) throw updateError;
 
-      setPools(pools.map(p =>
+      setPools(pools.map(p => 
         p.id === poolId ? { ...p, [updateField]: videoUrl } : p
       ));
-      showToast("Video saved", "Recorded video has been saved successfully");
     } catch (error) {
       console.error("Failed to save recorded video:", error);
-      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
-      if (errorMessage?.includes("network") || errorMessage?.includes("fetch")) {
-        showToast("Connection error", "Unable to save video. Please check your connection and try again.", "error");
-      } else {
-        showToast("Failed to save video", errorMessage || "Please try again.", "error");
-      }
+      alert("Failed to save video. Please try again.");
     } finally {
       setUploadingVideo(null);
       setRecordingVideo(null);
@@ -2321,7 +2146,12 @@ export function PoolsClient({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeletePool(pool.id);
+                        setPoolToDelete({
+                          id: pool.id,
+                          name: pool.name,
+                          agentCount: getMemberCount(pool),
+                          routingRulesCount: pool.pool_routing_rules.length,
+                        });
                       }}
                       className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                     >
@@ -2769,9 +2599,8 @@ export function PoolsClient({
                   <PoolWidgetSettings
                     pool={pool}
                     orgDefaults={orgDefaultWidgetSettings}
-                    showToast={showToast}
                     onUpdate={(settings) => {
-                      setPools(pools.map(p =>
+                      setPools(pools.map(p => 
                         p.id === pool.id ? { ...p, widget_settings: settings } : p
                       ));
                     }}
@@ -2951,38 +2780,19 @@ export function PoolsClient({
         )}
       </div>
 
-      {/* Toast notifications */}
-      <Toast.Provider>
-        {toasts.map((toast) => (
-          <Toast.Root
-            key={toast.id}
-            className="bg-background border border-border rounded-lg shadow-lg p-4 flex items-start gap-3 data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full"
-            duration={5000}
-          >
-            <div className="flex-shrink-0">
-              {toast.type === "success" ? (
-                <CheckCircle2 className="w-5 h-5 text-green-500" />
-              ) : (
-                <AlertCircle className="w-5 h-5 text-red-500" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <Toast.Title className="text-sm font-semibold text-foreground">
-                {toast.title}
-              </Toast.Title>
-              {toast.description && (
-                <Toast.Description className="text-sm text-muted-foreground mt-1">
-                  {toast.description}
-                </Toast.Description>
-              )}
-            </div>
-            <Toast.Close className="flex-shrink-0 text-muted-foreground hover:text-foreground">
-              <X className="w-4 h-4" />
-            </Toast.Close>
-          </Toast.Root>
-        ))}
-        <Toast.Viewport className="fixed top-0 right-0 flex flex-col p-6 gap-2 w-96 max-w-[100vw] m-0 list-none z-50 outline-none" />
-      </Toast.Provider>
+      {/* Delete Pool Confirmation Modal */}
+      <DeletePoolModal
+        isOpen={poolToDelete !== null}
+        onClose={() => setPoolToDelete(null)}
+        onConfirm={async () => {
+          if (poolToDelete) {
+            await handleDeletePool(poolToDelete.id);
+          }
+        }}
+        poolName={poolToDelete?.name ?? ""}
+        agentCount={poolToDelete?.agentCount ?? 0}
+        routingRulesCount={poolToDelete?.routingRulesCount ?? 0}
+      />
     </div>
   );
 }
