@@ -37,6 +37,7 @@ import {
 } from "@/lib/stats/coverage-stats";
 import { DateRangePicker } from "@/lib/components/date-range-picker";
 import { resendInviteEmail } from "../../../(dashboard)/agents/actions";
+import { ReactivateAgentModal } from "@/features/admin/components/ReactivateAgentModal";
 
 interface Pool {
   id: string;
@@ -171,7 +172,6 @@ export function AgentsClient({
 
   // State for reactivation
   const [agentToReactivate, setAgentToReactivate] = useState<Agent | null>(null);
-  const [isReactivating, setIsReactivating] = useState(false);
   const [reactivateError, setReactivateError] = useState<string | null>(null);
   
   // State for expanded pool videos
@@ -564,7 +564,6 @@ export function AgentsClient({
   const handleReactivateAgent = async () => {
     if (!agentToReactivate) return;
 
-    setIsReactivating(true);
     setReactivateError(null);
 
     try {
@@ -578,8 +577,7 @@ export function AgentsClient({
 
       if (!response.ok) {
         setReactivateError(data.error || "Failed to reactivate agent");
-        setIsReactivating(false);
-        return;
+        throw new Error(data.error || "Failed to reactivate agent");
       }
 
       // Move agent from inactive to active list
@@ -609,9 +607,8 @@ export function AgentsClient({
       router.refresh(); // Refresh to get updated data
     } catch (error) {
       console.error("Reactivate error:", error);
-      setReactivateError("An unexpected error occurred");
-    } finally {
-      setIsReactivating(false);
+      setReactivateError(error instanceof Error ? error.message : "An unexpected error occurred");
+      throw error; // Re-throw so the modal can handle it
     }
   };
 
@@ -1290,88 +1287,18 @@ export function AgentsClient({
       )}
 
       {/* Reactivate Agent Confirmation Modal */}
-      {agentToReactivate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="glass rounded-2xl p-6 w-full max-w-md mx-4">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
-                <RefreshCw className="w-8 h-8 text-green-500" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">
-                Reactivate Agent?
-              </h3>
-              <p className="text-muted-foreground">
-                {agentToReactivate.display_name} will be restored to your team and can take calls immediately.
-              </p>
-            </div>
-
-            {reactivateError && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm mb-4">
-                {reactivateError}
-              </div>
-            )}
-
-            <div className="p-4 rounded-xl bg-muted/30 mb-6 space-y-3">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <strong>Call history restored</strong>
-                  <p className="text-muted-foreground">All previous call logs and stats will be available.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <CreditCard className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <strong>Billing seat used</strong>
-                  <p className="text-muted-foreground">
-                    {wouldExceedPurchased
-                      ? `This will increase your monthly cost by $${billingInfo.pricePerSeat}/month.`
-                      : `You'll use 1 of your ${billingInfo.purchasedSeats} available seats.`
-                    }
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Shield className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <strong>Immediate access</strong>
-                  <p className="text-muted-foreground">Agent can log in and start taking calls right away.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleReactivateAgent}
-                disabled={isReactivating}
-                className="flex-1 px-6 py-3 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isReactivating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Reactivating...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4" />
-                    Reactivate Agent
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setAgentToReactivate(null);
-                  setReactivateError(null);
-                }}
-                disabled={isReactivating}
-                className="px-6 py-3 rounded-lg bg-muted hover:bg-muted/80 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ReactivateAgentModal
+        isOpen={!!agentToReactivate}
+        onClose={() => {
+          setAgentToReactivate(null);
+          setReactivateError(null);
+        }}
+        onConfirm={handleReactivateAgent}
+        agent={agentToReactivate}
+        billingInfo={billingInfo}
+        error={reactivateError}
+        currentUserId={currentUserId}
+      />
 
       <div className="space-y-6">
         {/* Agents List */}
