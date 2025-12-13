@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-078-1",
+  "source": "dev-agent-TKT-078",
+  "title": "Pre-existing merge conflict markers prevent typecheck and build",
+  "category": "bug",
+  "severity": "high",
+  "file": "apps/server/src/features/signaling/socket-handlers.ts",
+  "line": 641,
+  "issue": "Multiple files in the codebase contain unresolved merge conflict markers (<<<<<<, ======, >>>>>>) from previous merges. These prevent pnpm typecheck and pnpm build from passing, which blocks CI/CD and prevents verification of new changes. Affected files: socket-handlers.ts (lines 641-667), socket-handlers.test.ts (lines 438-441), pools-client.tsx (lines 1562-1583), CobrowseViewer.tsx (multiple sections), feedback/page.tsx (lines 37-43), ellis-survey-modal.tsx (lines 136-140), useWebRTC.test.ts (line 1067), organization.test.ts (lines 67, 412)",
+  "suggestion": "Resolve all merge conflicts by: 1) Reviewing each conflict section to determine the correct code to keep, 2) Removing all conflict markers, 3) Testing the resolved code, 4) Running pnpm typecheck and pnpm build to verify resolution",
+  "status": "pending",
+  "found_at": "2025-12-13T04:16:44Z"
+}
