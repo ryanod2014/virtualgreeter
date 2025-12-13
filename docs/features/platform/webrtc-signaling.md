@@ -61,9 +61,9 @@ stateDiagram-v2
     Connected --> Renegotiating: Screen share added/removed
     Renegotiating --> Connected: New offer/answer exchanged
     Connected --> Disconnected: Network issue
-    Disconnected --> Reconnecting: ICE restart attempt
+    Disconnected --> Reconnecting: ICE restart attempt (auto)
     Reconnecting --> Connected: Reconnect success
-    Reconnecting --> Failed: Timeout
+    Reconnecting --> Failed: Max retries (3) reached
     Connected --> [*]: Call ended
     Failed --> [*]: Connection lost
 ```
@@ -81,8 +81,9 @@ stateDiagram-v2
 | SendingAnswer | Visitor creating and sending SDP answer | Offer processed | `setLocalDescription` completes |
 | Connected | Peer connection established, media flowing | `connectionState` = "connected" | Screen share or disconnect |
 | Renegotiating | Adding/removing screen share tracks | `addTrack` or `removeTrack` called | New answer received |
-| Disconnected | Temporary network interruption | `connectionState` = "disconnected" | Recovery or timeout |
-| Failed | Connection cannot be established | `connectionState` = "failed" | User ends call |
+| Disconnected | Temporary network interruption | `connectionState` = "disconnected" | ICE restart begins automatically |
+| Reconnecting | ICE restart in progress | `performIceRestart()` called | Success or max attempts reached |
+| Failed | Connection cannot be established | Max ICE restart attempts (3) exhausted | User ends call |
 
 ---
 
@@ -210,7 +211,7 @@ const ICE_SERVERS = [
 | 4 | Camera permission denied | User clicks "Block" on permission | Clear error message with instructions | ✅ | Widget shows 🔒 icon guidance |
 | 5 | No camera detected | Desktop without webcam | "Couldn't find a camera" message | ✅ | Specific error handling |
 | 6 | Camera in use by another app | Zoom/Teams has camera locked | "Try closing other apps" message | ✅ | NotReadableError handled |
-| 7 | Network drops mid-call | WiFi disconnects briefly | `connectionState` → "disconnected" → may recover | ⚠️ | No explicit reconnect logic |
+| 7 | Network drops mid-call | WiFi disconnects briefly | ICE restart attempted (up to 3 times) | ✅ | Automatic reconnection logic |
 | 8 | Offer arrives before peer ready | Race condition on call accept | Signals queued in `pendingSignalsRef` | ✅ | Processed when peer created |
 | 9 | Agent starts screen share | Agent clicks share button | Renegotiation offer sent to visitor | ✅ | Visitor accepts automatically |
 | 10 | Visitor starts screen share | Visitor clicks share button | Renegotiation offer sent to agent | ✅ | Agent accepts automatically |
@@ -226,7 +227,8 @@ const ICE_SERVERS = [
 | NotFoundError | No camera device detected | "We couldn't find a camera on this device." | Connect camera, refresh |
 | NotReadableError | Camera used by another app | "Camera is being used by another application." | Close other app, retry |
 | Connection timeout | No response in 30s | "Connection is taking longer than usual." | Retry button shown |
-| ICE failed | All candidates failed | "Video connection dropped. Let's try again!" | Retry button shown |
+| ICE restart in progress | Connection temporarily lost | "Reconnecting..." status | Automatic ICE restart (up to 3 attempts) |
+| ICE failed after retries | All restart attempts exhausted | "Connection failed after multiple attempts" | Manual retry button shown |
 | Connection lost | Network interruption | Automatic recovery attempt, then error | Automatic retry, then manual |
 
 ---
@@ -313,7 +315,6 @@ const ICE_SERVERS = [
 | Issue | Impact | Severity | Suggested Fix |
 |-------|--------|----------|--------------|
 | TURN credentials in client bundle | Credentials visible in browser dev tools | 🟢 Low | Already domain-restricted; consider token rotation |
-| No explicit network recovery | Mid-call network changes may not recover | 🟡 Medium | Add ICE restart on disconnected state |
 | Widget/dashboard ICE config duplicated | Maintenance burden, could drift | 🟢 Low | Extract to `@ghost-greeter/domain` |
 | Connection timeout callback not always called | `onConnectionTimeout` prop but may not fire in all failure modes | 🟢 Low | Ensure timeout fires for all error paths |
 
@@ -344,13 +345,11 @@ const ICE_SERVERS = [
 
 ## 10. OPEN QUESTIONS
 
-1. **Q-P5-001**: Should we implement ICE restart for mid-call network changes? Currently `connectionState === "disconnected"` is logged but not explicitly handled with ICE restart.
+1. **Q-P5-002**: The widget and dashboard have identical `ICE_SERVERS` arrays. Should this be centralized in `@ghost-greeter/domain` to prevent drift?
 
-2. **Q-P5-002**: The widget and dashboard have identical `ICE_SERVERS` arrays. Should this be centralized in `@ghost-greeter/domain` to prevent drift?
+2. **Q-P5-003**: TURN credentials are visible in the client bundle. Are there plans to implement short-lived tokens via server-side credential vending?
 
-3. **Q-P5-003**: TURN credentials are visible in the client bundle. Are there plans to implement short-lived tokens via server-side credential vending?
-
-4. **Q-P5-004**: What happens if BOTH STUN servers and ALL TURN servers fail? Should there be a fallback to notify the user that video calling is unavailable?
+3. **Q-P5-004**: What happens if BOTH STUN servers and ALL TURN servers fail? Should there be a fallback to notify the user that video calling is unavailable?
 
 ---
 
