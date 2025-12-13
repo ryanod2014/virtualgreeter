@@ -20,6 +20,7 @@ import { setDB as setStateMachineDB } from './src/core/stateMachine.mjs';
 import { init as initOrchestrator } from './src/core/orchestrator.mjs';
 import { agentLauncher } from './src/services/agentLauncher.mjs';
 import { regressionRunner } from './src/services/regressionRunner.mjs';
+import { eventBus } from './src/events/eventBus.mjs';
 import config from './src/config.mjs';
 
 // Route initializers
