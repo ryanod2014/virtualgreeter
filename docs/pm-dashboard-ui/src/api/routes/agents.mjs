@@ -62,6 +62,25 @@ router.post('/start', (req, res) => {
   try {
     const { ticket_id, feature_id, agent_type, tmux_session, worktree_path } = req.body;
 
+    // Check for existing running session for this ticket + agent type
+    // If found, return that session instead of creating a duplicate
+    const existingSessions = db.sessions.list({ ticket_id });
+    const runningSession = existingSessions.find(s => 
+      s.agent_type === agent_type && 
+      s.status === 'running'
+    );
+    
+    if (runningSession) {
+      console.log(`⚠️ Reusing existing session ${runningSession.id} for ${ticket_id} (${agent_type})`);
+      
+      // Update tmux_session if provided
+      if (tmux_session && !runningSession.tmux_session) {
+        db.sessions.start(runningSession.id, tmux_session, worktree_path);
+      }
+      
+      return res.status(200).json({ success: true, id: runningSession.id, session: runningSession, reused: true });
+    }
+
     const session = db.sessions.create({
       ticket_id,
       feature_id,
@@ -136,8 +155,35 @@ router.post('/:sessionId/crash', (req, res) => {
     const { reason } = req.body;
     const session = db.sessions.crash(req.params.sessionId, reason);
     
-    // NOTE: File locks are NOT released on crash - they persist until ticket is merged/cancelled
-    // The ticket will go through dispatch → continuation, and the new ticket will need different files or wait
+    // Release file locks on crash so other tickets can work
+    if (db.locks) {
+      db.locks.release(req.params.sessionId);
+      console.log(`🔓 Released file locks for crashed session ${req.params.sessionId}`);
+    }
+    
+    res.json({ success: true, session });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// POST /api/v2/agents/:sessionId/block - Mark session blocked (agent hit a blocker)
+router.post('/:sessionId/block', (req, res) => {
+  if (!db?.sessions) {
+    return res.status(503).json({ error: 'Database not available' });
+  }
+
+  try {
+    const { blocker_type, summary } = req.body;
+    
+    // Mark session as blocked/failed
+    const session = db.sessions.crash(req.params.sessionId, `${blocker_type}: ${summary}`);
+    
+    // Release file locks so continuation ticket or other tickets can work
+    if (db.locks) {
+      db.locks.release(req.params.sessionId);
+      console.log(`🔓 Released file locks for blocked session ${req.params.sessionId}`);
+    }
     
     res.json({ success: true, session });
   } catch (e) {

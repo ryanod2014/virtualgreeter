@@ -88,7 +88,7 @@ launch_batch() {
 #!/bin/bash
 cd "$PROJECT_ROOT"
 
-claude --dangerously-skip-permissions --permission-mode bypassPermissions "You are a Dispatch Agent processing a batch of blockers.
+claude --model claude-opus-4-20250514 --dangerously-skip-permissions --permission-mode bypassPermissions "You are a Dispatch Agent processing a batch of blockers.
 
 Read docs/workflow/DISPATCH_AGENT_SOP.md for context.
 

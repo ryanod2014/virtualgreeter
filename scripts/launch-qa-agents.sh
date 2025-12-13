@@ -993,7 +993,7 @@ echo 'Started: \$(date)'
 echo 'Port: $AGENT_PORT'
 echo 'Tunnel: $TUNNEL_URL'
 echo ''
-claude --dangerously-skip-permissions -p "\$(cat '$PROMPT_TEMP_FILE')" 2>&1 | tee '$LOG_FILE'
+claude --model claude-opus-4-20250514 --dangerously-skip-permissions -p "\$(cat '$PROMPT_TEMP_FILE')" 2>&1 | tee '$LOG_FILE'
 echo ''
 echo '=== Completed: \$(date) ==='
 

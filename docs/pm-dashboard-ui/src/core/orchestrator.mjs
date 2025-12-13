@@ -313,29 +313,50 @@ function setupAutoHandlers() {
   console.log('🤖 Automation ENABLED');
   
   // Auto-advance pipeline on status changes
-  eventBus.on('ticket:transitioned', async ({ ticketId, toStatus }) => {
+  eventBus.on('ticket:transitioned', async ({ ticketId, toStatus, ticket }) => {
     try {
+      // DEV_COMPLETE or IN_REVIEW → Queue QA directly (skip regression)
       if (config.automation.autoQueueOnDevComplete && 
-          toStatus === STATES.DEV_COMPLETE) {
-        console.log(`🔄 Auto-queuing regression for ${ticketId}`);
-        await runRegression(ticketId);
+          (toStatus === STATES.DEV_COMPLETE || toStatus === STATES.IN_REVIEW || toStatus === 'unit_test_passed')) {
+        console.log(`🔄 Auto-queuing QA for ${ticketId} (status: ${toStatus})`);
+        
+        // Update to qa_pending and queue QA job
+        db.tickets.update(ticketId, { status: 'qa_pending' });
+        
+        scheduler.enqueue({
+          type: 'qa_launch',
+          ticketId,
+          payload: { triggered_by: 'dev_complete' }
+        });
       }
       
+      // QA_APPROVED or qa_passed → Queue finalizing (test + doc agents)
       if (config.automation.autoQueueOnQaPass && 
-          toStatus === STATES.QA_APPROVED) {
+          (toStatus === STATES.QA_APPROVED || toStatus === 'qa_passed')) {
         console.log(`🔄 Auto-queuing finalizing for ${ticketId}`);
         startFinalizing(ticketId);
+      }
+      
+      // QA_FAILED or BLOCKED → Queue dispatch blocker
+      if (config.automation.autoDispatchOnBlock &&
+          (toStatus === STATES.QA_FAILED || toStatus === STATES.BLOCKED)) {
+        console.log(`🚨 Ticket ${ticketId} failed/blocked, queuing dispatch...`);
+        scheduler.enqueue({
+          type: 'dispatch_blocker',
+          ticketId,
+          payload: { triggered_by: toStatus }
+        });
       }
     } catch (e) {
       console.error(`Auto-handler error for ${ticketId}: ${e.message}`);
     }
   });
   
-  // Auto-trigger Dispatch when blockers are created
+  // Auto-trigger Dispatch when blockers are created (file-based)
   eventBus.on('blocker:created', async ({ ticketId, blockerType, path }) => {
     if (!config.automation.autoDispatchOnBlock) return;
     
-    console.log(`🚨 Blocker created for ${ticketId} (${blockerType}), triggering Dispatch...`);
+    console.log(`🚨 Blocker file created for ${ticketId} (${blockerType}), triggering Dispatch...`);
     
     // Queue a dispatch job to process the blocker
     try {

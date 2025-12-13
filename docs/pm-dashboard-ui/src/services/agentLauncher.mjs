@@ -88,6 +88,9 @@ class AgentLauncher {
 
   /**
    * Launch a dev agent
+   * 
+   * NOTE: Session creation and file lock acquisition is handled by launch-agents.sh
+   * which calls /api/v2/agents/start. We just check for conflicts and run the script.
    */
   async launchDev(ticket) {
     const ticketId = ticket.id;
@@ -97,23 +100,19 @@ class AgentLauncher {
       throw new Error('Dev launch script not found');
     }
 
-    // Create DB session record
-    let session = null;
-    if (db?.sessions) {
-      session = db.sessions.create({
-        ticket_id: ticketId,
-        agent_type: 'dev',
-        tmux_session: `agent-${ticketId}`,
-      });
-
-      // Acquire file locks
-      const files = ticket.files_to_modify || [];
-      if (files.length > 0 && db.locks) {
-        const lockResult = db.locks.acquire(session.id, ticketId, files);
-        if (!lockResult.success) {
-          db.sessions.crash(session.id, `File lock conflict: ${lockResult.conflicts.join(', ')}`);
-          throw new Error(`File lock conflict: ${lockResult.conflicts.join(', ')}`);
+    // Check file locks BEFORE launching (just a pre-check - actual locks acquired by launch script)
+    const files = ticket.files_to_modify || [];
+    if (files.length > 0 && db?.locks) {
+      const activeLocks = db.locks.getActive();
+      const conflicts = [];
+      for (const file of files) {
+        const lock = activeLocks.find(l => l.file_path === file && l.ticket_id !== ticketId);
+        if (lock) {
+          conflicts.push(file);
         }
+      }
+      if (conflicts.length > 0) {
+        throw new Error(`File lock conflict: ${conflicts.join(', ')}`);
       }
     }
 
@@ -122,6 +121,12 @@ class AgentLauncher {
     this.cleanupConflictingWorktrees(ticketId, ticket.branch);
 
     console.log(`🛠️ Launching Dev agent for ${ticketId}...`);
+
+    // Update ticket status to in_progress
+    if (db?.tickets) {
+      db.tickets.update(ticketId, { status: 'in_progress' });
+      console.log(`📋 ${ticketId}: ready → in_progress`);
+    }
 
     return new Promise((resolve, reject) => {
       const proc = spawn('bash', [scriptPath, ticketId], {
@@ -143,26 +148,23 @@ class AgentLauncher {
       });
 
       proc.on('close', (code) => {
-        if (session && db?.sessions) {
-          if (code === 0) {
-            db.sessions.start(session.id, `agent-${ticketId}`, null);
-          } else {
-            db.sessions.crash(session.id, 'Launch script failed');
-          }
-        }
-
         eventBus.emit('agent:started', { ticketId, agentType: 'dev', success: code === 0 });
 
         if (code === 0) {
-          resolve({ launched: true, sessionId: session?.id, output: stdout.slice(-2000) });
+          resolve({ launched: true, output: stdout.slice(-2000) });
         } else {
+          // Revert status on failure
+          if (db?.tickets) {
+            db.tickets.update(ticketId, { status: 'ready' });
+          }
           resolve({ launched: false, output: (stdout + stderr).slice(-2000) });
         }
       });
 
       proc.on('error', (err) => {
-        if (session && db?.sessions) {
-          db.sessions.crash(session.id, err.message);
+        // Revert status on error
+        if (db?.tickets) {
+          db.tickets.update(ticketId, { status: 'ready' });
         }
         reject(err);
       });
@@ -171,6 +173,9 @@ class AgentLauncher {
 
   /**
    * Launch a QA agent
+   * 
+   * NOTE: Session creation is handled by launch-qa-agents.sh
+   * which calls /api/v2/agents/start.
    */
   async launchQa(ticket) {
     const ticketId = ticket.id;
@@ -178,16 +183,6 @@ class AgentLauncher {
 
     if (!existsSync(scriptPath)) {
       throw new Error('QA launch script not found');
-    }
-
-    // Create DB session record
-    let session = null;
-    if (db?.sessions) {
-      session = db.sessions.create({
-        ticket_id: ticketId,
-        agent_type: 'qa',
-        tmux_session: `qa-${ticketId}`,
-      });
     }
 
     // Clean up conflicting worktrees
@@ -216,27 +211,16 @@ class AgentLauncher {
       });
 
       proc.on('close', (code) => {
-        if (session && db?.sessions) {
-          if (code === 0) {
-            db.sessions.start(session.id, `qa-${ticketId}`, null);
-          } else {
-            db.sessions.crash(session.id, 'Launch script failed');
-          }
-        }
-
         eventBus.emit('agent:started', { ticketId, agentType: 'qa', success: code === 0 });
 
         if (code === 0) {
-          resolve({ launched: true, sessionId: session?.id, output: stdout.slice(-2000) });
+          resolve({ launched: true, output: stdout.slice(-2000) });
         } else {
           resolve({ launched: false, output: (stdout + stderr).slice(-2000) });
         }
       });
 
       proc.on('error', (err) => {
-        if (session && db?.sessions) {
-          db.sessions.crash(session.id, err.message);
-        }
         reject(err);
       });
     });
@@ -274,6 +258,58 @@ class AgentLauncher {
     console.log(`📚 Launching Doc agent for ${ticketId}...`);
 
     return this._runAgentScript(scriptPath, ticketId, 'doc');
+  }
+
+  /**
+   * Launch Ticket agent (creates continuation tickets from blockers)
+   */
+  async launchTicket(ticketId, blockerFile = null) {
+    const scriptPath = join(this.projectRoot, 'scripts/launch-ticket-agent.sh');
+
+    if (!existsSync(scriptPath)) {
+      throw new Error('Ticket agent script not found');
+    }
+
+    console.log(`🎫 Launching Ticket agent for ${ticketId}...`);
+
+    const args = [scriptPath, ticketId];
+    if (blockerFile) {
+      args.push('--blocker', blockerFile);
+    }
+
+    return new Promise((resolve, reject) => {
+      const proc = spawn('bash', args, {
+        cwd: this.projectRoot,
+        env: process.env
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      proc.stdout.on('data', (data) => {
+        stdout += data.toString();
+        process.stdout.write(data);
+      });
+
+      proc.stderr.on('data', (data) => {
+        stderr += data.toString();
+        process.stderr.write(data);
+      });
+
+      proc.on('close', (code) => {
+        eventBus.emit('agent:started', { ticketId, agentType: 'ticket', success: code === 0 });
+
+        if (code === 0) {
+          resolve({ launched: true, output: stdout.slice(-2000) });
+        } else {
+          resolve({ launched: false, output: (stdout + stderr).slice(-2000) });
+        }
+      });
+
+      proc.on('error', (err) => {
+        reject(err);
+      });
+    });
   }
 
   /**

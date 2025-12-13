@@ -193,59 +193,10 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# Step 5: Run Regression Tests (CRITICAL - catches unintended breakage)
+# Step 5: Skip Regression (handled by QA agent now)
 # -----------------------------------------------------------------------------
-REGRESSION_PASSED=true
 MAIN_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
-log "Running regression tests to check for unintended breakage..."
-
-# Run regression tests if script exists
-if [ -f "$MAIN_REPO_DIR/scripts/run-regression-tests.sh" ]; then
-    # Run regression tests and capture result
-    REGRESSION_OUTPUT=$("$MAIN_REPO_DIR/scripts/run-regression-tests.sh" "$TICKET_ID" "$BRANCH" 2>&1)
-    REGRESSION_EXIT_CODE=$?
-    
-    if [ $REGRESSION_EXIT_CODE -eq 0 ]; then
-        log_success "Regression tests PASSED - no unintended breakage"
-        REGRESSION_PASSED=true
-    else
-        log_error "Regression tests FAILED - dev broke something outside ticket scope!"
-        REGRESSION_PASSED=false
-        
-        # Create blocker file for dispatch agent
-        BLOCKER_FILE="$MAIN_REPO_DIR/docs/agent-output/blocked/REGRESSION-${TICKET_ID}-$(date +%Y%m%dT%H%M).json"
-        
-        cat > "$BLOCKER_FILE" << EOF
-{
-  "ticket_id": "$TICKET_ID",
-  "ticket_title": "Regression failure - unintended breakage",
-  "branch": "$BRANCH",
-  "blocked_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "blocker_type": "regression_failure",
-  "summary": "Dev agent broke tests outside ticket scope. Must fix before QA.",
-  "failures": [
-    {
-      "category": "regression",
-      "criterion": "No tests outside ticket scope should fail",
-      "expected": "All non-modified file tests pass",
-      "actual": "Tests failed in files dev did NOT modify",
-      "evidence": "See regression test output below"
-    }
-  ],
-  "regression_output": $(echo "$REGRESSION_OUTPUT" | tail -100 | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))' 2>/dev/null || echo '""'),
-  "recommendation": "Fix the regressions WITHOUT breaking the original feature. Run pnpm test to identify failing tests.",
-  "dispatch_action": "create_continuation_ticket"
-}
-EOF
-        
-        log_error "Created blocker: $BLOCKER_FILE"
-        log "Dispatch agent will create continuation ticket for regression fix"
-    fi
-else
-    log_warning "Regression test script not found. Skipping regression check."
-    log_warning "Expected: $MAIN_REPO_DIR/scripts/run-regression-tests.sh"
-fi
+log "Regression tests skipped - QA agent will validate the work"
 
 # -----------------------------------------------------------------------------
 # Step 6: Report to API (v2)
@@ -254,34 +205,12 @@ if [ -n "$SESSION_ID" ]; then
     log "Reporting session status to API..."
     
     if [ -n "$COMPLETION_FILE" ]; then
-        if [ "$REGRESSION_PASSED" = true ]; then
-            # Regression passed - mark as ready for QA review
-            curl -s -X POST "$DASHBOARD_URL/api/v2/agents/$SESSION_ID/complete" \
-                -H "Content-Type: application/json" \
-                -d "{\"completion_file\": \"$COMPLETION_FILE\"}" > /dev/null 2>&1 \
-                && log_success "Session marked as completed" \
-                || log_warning "Could not update session status"
-            
-            # Update ticket status to in_review (ready for QA) - include branch for merge later
-            curl -s -X PUT "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" \
-                -H "Content-Type: application/json" \
-                -d "{\"status\": \"in_review\", \"branch\": \"$BRANCH\"}" > /dev/null 2>&1 \
-                && log_success "Ticket status: in_review (waiting for QA)" \
-                || log_warning "Could not update ticket status"
-        else
-            # Regression failed - mark as blocked
-            curl -s -X POST "$DASHBOARD_URL/api/v2/agents/$SESSION_ID/block" \
-                -H "Content-Type: application/json" \
-                -d '{"blocker_type": "regression_failure", "summary": "Regression tests failed - broke code outside ticket scope"}' > /dev/null 2>&1 \
-                && log_warning "Session marked as blocked (regression failure)" \
-                || log_warning "Could not update session status"
-            
-            # Update ticket status to blocked - include branch for retry later
-            curl -s -X PUT "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" \
-                -H "Content-Type: application/json" \
-                -d "{\"status\": \"blocked\", \"branch\": \"$BRANCH\"}" > /dev/null 2>&1 \
-                || log_warning "Could not update ticket status"
-        fi
+        # Mark session as completed
+        curl -s -X POST "$DASHBOARD_URL/api/v2/agents/$SESSION_ID/complete" \
+            -H "Content-Type: application/json" \
+            -d "{\"completion_file\": \"$COMPLETION_FILE\"}" > /dev/null 2>&1 \
+            && log_success "Session marked as completed" \
+            || log_warning "Could not update session status"
     else
         # No completion file - mark as potentially crashed
         curl -s -X POST "$DASHBOARD_URL/api/v2/agents/$SESSION_ID/block" \
@@ -295,24 +224,17 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# Step 7: Trigger Pipeline Runner (advances ticket through next stages)
+# Step 7: Trigger Server Pipeline (via status change → job handlers)
 # -----------------------------------------------------------------------------
-if [ "$REGRESSION_PASSED" = true ]; then
-    log "Triggering pipeline runner for next steps..."
-    
-    # Update ticket to dev_complete status (pipeline will handle unit tests → QA → merge)
-    curl -s -X PUT "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" \
-        -H "Content-Type: application/json" \
-        -d "{\"status\": \"dev_complete\", \"branch\": \"$BRANCH\"}" > /dev/null 2>&1
-    
-    # Trigger pipeline runner asynchronously (handles unit tests, QA launch, etc.)
-    if [ -f "$MAIN_REPO_DIR/scripts/pipeline-runner.js" ]; then
-        nohup node "$MAIN_REPO_DIR/scripts/pipeline-runner.js" --event dev_complete "$TICKET_ID" > /dev/null 2>&1 &
-        log_success "Pipeline runner triggered for $TICKET_ID"
-    else
-        log_warning "Pipeline runner not found - manual intervention needed"
-    fi
-fi
+log "Setting ticket to dev_complete (server will auto-queue QA)..."
+
+# Update ticket to dev_complete status
+# The server's orchestrator will automatically queue qa_launch job
+curl -s -X PUT "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" \
+    -H "Content-Type: application/json" \
+    -d "{\"status\": \"dev_complete\", \"branch\": \"$BRANCH\"}" > /dev/null 2>&1 \
+    && log_success "Ticket status: dev_complete (server will queue QA)" \
+    || log_warning "Could not update ticket status"
 
 # -----------------------------------------------------------------------------
 # Step 8: Final status
@@ -324,14 +246,7 @@ echo ""
 echo "Branch:     $BRANCH"
 echo "Remote:     $(git remote get-url origin)"
 echo "Commit:     $(git log -1 --oneline)"
-
-if [ "$REGRESSION_PASSED" = true ]; then
-    echo -e "Regression: ${GREEN}✓ PASSED${NC}"
-    echo -e "Status:     ${GREEN}dev_complete${NC} → pipeline running"
-else
-    echo -e "Regression: ${RED}✗ FAILED${NC}"
-    echo -e "Status:     ${RED}blocked${NC} (dispatch will create continuation)"
-fi
+echo -e "Status:     ${GREEN}dev_complete${NC} → QA queued"
 
 if [ -n "$SESSION_ID" ]; then
     echo "Session:    $SESSION_ID"
@@ -341,15 +256,8 @@ if [ -n "$PR_URL" ]; then
 fi
 
 echo ""
-if [ "$REGRESSION_PASSED" = true ]; then
-    echo "✅ Dev work complete. Pipeline will:"
-    echo "   1. Run unit tests"
-    echo "   2. Launch QA agent (if tests pass)"
-    echo "   3. Run test-lock/doc agents (if needed)"
-    echo "   4. Auto-merge when all gates pass"
-else
-    echo "❌ REGRESSION DETECTED! Dev broke tests outside ticket scope."
-    echo "   Dispatch agent will create continuation ticket for fix."
-    echo "   See blocker: docs/agent-output/blocked/REGRESSION-${TICKET_ID}-*.json"
-fi
+echo "✅ Dev work complete. Server will:"
+echo "   1. Launch QA agent"
+echo "   2. Run test/doc agents after QA passes"
+echo "   3. Auto-merge when all gates pass"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

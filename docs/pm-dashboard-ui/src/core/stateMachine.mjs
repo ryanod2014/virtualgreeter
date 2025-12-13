@@ -41,6 +41,7 @@ export const STATES = {
   
   // Legacy (for backwards compatibility)
   CONTINUATION_READY: 'continuation_ready',
+  QA_PASSED: 'qa_passed',  // Legacy alias for qa_approved
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -53,7 +54,7 @@ const TRANSITIONS = {
   [STATES.IN_PROGRESS]:     [STATES.DEV_COMPLETE, STATES.BLOCKED],
   [STATES.DEV_COMPLETE]:    [STATES.IN_REVIEW],
   [STATES.IN_REVIEW]:       [STATES.QA_PENDING, STATES.BLOCKED],
-  [STATES.QA_PENDING]:      [STATES.QA_APPROVED, STATES.QA_FAILED],
+  [STATES.QA_PENDING]:      [STATES.QA_APPROVED, STATES.QA_FAILED, STATES.QA_PASSED],
   [STATES.QA_APPROVED]:     [STATES.FINALIZING, STATES.UI_REVIEW],
   [STATES.QA_FAILED]:       [STATES.IN_PROGRESS, STATES.BLOCKED, STATES.CONTINUATION_READY],
   [STATES.UI_REVIEW]:       [STATES.FINALIZING, STATES.BLOCKED],
@@ -63,6 +64,7 @@ const TRANSITIONS = {
   [STATES.MERGED]:          [],  // Terminal
   [STATES.CANCELLED]:       [],  // Terminal
   [STATES.CONTINUATION_READY]: [STATES.IN_PROGRESS],
+  [STATES.QA_PASSED]: [STATES.FINALIZING, STATES.UI_REVIEW],  // Same as QA_APPROVED
 };
 
 // Database module - will be injected

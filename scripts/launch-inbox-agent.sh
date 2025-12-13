@@ -151,7 +151,7 @@ fi
 
 # Launch in tmux
 log "Starting tmux session: $TMUX_SESSION"
-tmux new-session -d -s "$TMUX_SESSION" "claude --prompt $PROMPT_FILE; echo 'Press Enter to exit...'; read"
+tmux new-session -d -s "$TMUX_SESSION" "claude --model claude-opus-4-20250514 --prompt $PROMPT_FILE; echo 'Press Enter to exit...'; read"
 
 log_success "Inbox Agent launched!"
 echo ""

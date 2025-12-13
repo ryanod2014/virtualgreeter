@@ -105,7 +105,7 @@ echo '=== Review Agent: $TICKET_ID ==='
 echo 'Started: \$(date)'
 echo ''
 
-claude --dangerously-skip-permissions -p "$CLAUDE_PROMPT"
+claude --model claude-opus-4-20250514 --dangerously-skip-permissions -p "$CLAUDE_PROMPT"
 
 echo ''
 echo '=== Completed: \$(date) ==='

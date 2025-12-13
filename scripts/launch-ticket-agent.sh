@@ -253,7 +253,7 @@ echo "Session ID: $3"
 echo "Blocker: $4"
 echo "Started: $(date)"
 echo ""
-claude -p "$5" --dangerously-skip-permissions 2>&1 | tee "$6"
+claude --model claude-opus-4-20250514 -p "$5" --dangerously-skip-permissions 2>&1 | tee "$6"
 echo ""
 echo "Signaling completion..."
 curl -s -X POST "$7/api/v2/agents/$3/complete" \

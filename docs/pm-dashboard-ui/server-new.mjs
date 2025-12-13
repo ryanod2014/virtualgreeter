@@ -181,24 +181,19 @@ scheduler.registerHandler('doc_agent', async (job) => {
         return { success: true, action: 'escalated_to_human', ticketId };
       }
       
-      // Auto-processable blockers → Create continuation ticket
-      const autoProcessTypes = ['QA-FAILED', 'CI-FAILED', 'REGRESSION-FAILED', 'UI-REJECTED'];
+      // Auto-processable blockers → Launch TICKET AGENT to create smart continuation
+      // This matches the mermaid chart: DEV/QA --> blocker --> TICKET AGENT --> TICKETS
+      const autoProcessTypes = ['QA-FAILED', 'CI-FAILED', 'REGRESSION-FAILED', 'UI-REJECTED', 'DEV-BLOCKED'];
       if (!autoProcessTypes.some(t => blockerType.toUpperCase().includes(t))) {
         console.log(`⚠️ Unknown blocker type ${blockerType} for ${ticketId} → Inbox`);
         dbModule.tickets.update(ticketId, { status: 'blocked' });
         return { success: true, action: 'escalated_to_human', ticketId };
       }
       
-      // Calculate new ticket ID (TKT-007 → TKT-007-v2, TKT-007-v2 → TKT-007-v3)
-      // Handle both uppercase and lowercase version suffixes
-      const baseId = ticketId.replace(/-[vV]\d+$/i, ''); // Strip existing version (case-insensitive)
+      // Check max iterations
       const versionMatch = ticketId.match(/-[vV](\d+)$/i);
       const currentVersion = versionMatch ? parseInt(versionMatch[1]) : 1;
-      const newVersion = currentVersion + 1;
-      const newTicketId = `${baseId}-v${newVersion}`; // Always use lowercase 'v'
-      
-      // Check max iterations
-      if (newVersion > 5) {
+      if (currentVersion >= 5) {
         console.log(`🛑 ${ticketId} reached max iterations (5). Escalating to human.`);
         dbModule.tickets.update(ticketId, { 
           status: 'blocked', 
@@ -207,195 +202,32 @@ scheduler.registerHandler('doc_agent', async (job) => {
         return { success: false, action: 'max_iterations', ticketId };
       }
       
-      // Create continuation ticket (copy of original + blocker info)
-      const continuationTicket = {
-        id: newTicketId,
-        title: ticket.title,
-        priority: ticket.priority,
-        feature: ticket.feature,
-        difficulty: ticket.difficulty,
-        status: 'ready',
-        source: `Continuation of ${ticketId}`,
-        issue: `${ticket.issue || ''}\n\n--- BLOCKER FROM PREVIOUS ATTEMPT ---\n${blockerDetails.summary || blockerType}\n${blockerDetails.output ? blockerDetails.output.slice(-2000) : ''}`.trim(),
-        feature_docs: ticket.feature_docs,
-        similar_code: ticket.similar_code,
-        files_to_modify: ticket.files_to_modify,
-        files_to_read: ticket.files_to_read,
-        out_of_scope: ticket.out_of_scope,
-        fix_required: ticket.fix_required,
-        acceptance_criteria: ticket.acceptance_criteria,
-        risks: ticket.risks,
-        dev_checks: ticket.dev_checks,
-        qa_notes: ticket.qa_notes,
-        parent_ticket_id: baseId,
-        iteration: newVersion
-      };
-      
-      dbModule.tickets.create(continuationTicket);
-      console.log(`✅ Created continuation ticket: ${newTicketId}`);
-      
-      // Create prompt file for continuation ticket
-      try {
-        const { readFileSync, writeFileSync, existsSync, readdirSync } = await import('fs');
-        const { join } = await import('path');
-        const promptsDir = join(config.paths.projectRoot, 'docs/prompts/active');
-        
-        // Find the original prompt file (try multiple patterns)
-        const baseIdLower = baseId.toLowerCase();
-        const baseIdUpper = baseId.toUpperCase();
-        const ticketIdLower = ticketId.toLowerCase();
-        const ticketIdUpper = ticketId.toUpperCase();
-        
-        let originalPromptPath = null;
-        let originalPromptContent = '';
-        
-        // Look for existing prompt files
-        const promptFiles = readdirSync(promptsDir).filter(f => f.endsWith('.md'));
-        for (const pattern of [ticketIdLower, ticketIdUpper, ticketId, baseIdLower, baseIdUpper, baseId]) {
-          const match = promptFiles.find(f => f.toLowerCase().includes(pattern.toLowerCase()));
-          if (match) {
-            originalPromptPath = join(promptsDir, match);
-            originalPromptContent = readFileSync(originalPromptPath, 'utf8');
-            break;
-          }
-        }
-        
-        // Generate continuation prompt
-        const blockerSection = `
----
-
-## ⚠️ CONTINUATION - Previous Attempt Failed
-
-**Original Ticket:** ${ticketId}
-**Blocker Type:** ${blockerType}
-**Attempt:** v${newVersion}
-
-### What Went Wrong
-
-${blockerDetails.summary || 'Previous attempt did not pass validation.'}
-
-${blockerDetails.failures ? `### Specific Failures\n${Array.isArray(blockerDetails.failures) ? blockerDetails.failures.map(f => `- ${f}`).join('\n') : blockerDetails.failures}` : ''}
-
-${blockerDetails.recommendation ? `### Recommendation\n${blockerDetails.recommendation}` : ''}
-
-${blockerDetails.output ? `### Error Output (last 1000 chars)\n\`\`\`\n${blockerDetails.output.slice(-1000)}\n\`\`\`` : ''}
-
-### Your Task
-
-Fix the issues identified above. The branch already exists with previous work - build on it, don't start over.
-
----
-`;
-
-        let newPromptContent;
-        if (originalPromptContent) {
-          // Insert blocker section after the header
-          const headerEnd = originalPromptContent.indexOf('---');
-          if (headerEnd > 0) {
-            const secondDash = originalPromptContent.indexOf('---', headerEnd + 3);
-            if (secondDash > 0) {
-              newPromptContent = originalPromptContent.slice(0, secondDash + 3) + '\n' + blockerSection + originalPromptContent.slice(secondDash + 3);
-            } else {
-              newPromptContent = originalPromptContent + '\n' + blockerSection;
-            }
-          } else {
-            newPromptContent = blockerSection + '\n' + originalPromptContent;
-          }
-          
-          // Update ticket ID references
-          newPromptContent = newPromptContent.replace(new RegExp(ticketId, 'gi'), newTicketId);
-          newPromptContent = newPromptContent.replace(/Version:\s*v\d+/i, `Version: v${newVersion}`);
-          newPromptContent = newPromptContent.replace(/Attempt:\s*v\d+/i, `Attempt: v${newVersion}`);
-        } else {
-          // Generate a basic prompt if original not found
-          newPromptContent = `# Dev Agent Continuation: ${newTicketId}
-
-> **One-liner to launch:**
-> \`You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prompts/active/dev-agent-${newTicketId}-v1.md\`
-
-${blockerSection}
-
-## Original Ticket Info
-
-**Title:** ${ticket.title}
-**Priority:** ${ticket.priority || 'medium'}
-
-## The Problem
-
-${ticket.issue || 'See original ticket for details.'}
-
-## Files to Modify
-
-${ticket.files_to_modify ? (typeof ticket.files_to_modify === 'string' ? JSON.parse(ticket.files_to_modify) : ticket.files_to_modify).map(f => `- \`${f}\``).join('\n') : 'See original ticket.'}
-
-## Acceptance Criteria
-
-${ticket.acceptance_criteria ? (typeof ticket.acceptance_criteria === 'string' ? JSON.parse(ticket.acceptance_criteria) : ticket.acceptance_criteria).map(c => `- [ ] ${c}`).join('\n') : 'See original ticket.'}
-
----
-
-## ⚠️ REQUIRED: Follow Dev Agent SOP
-
-See \`docs/workflow/DEV_AGENT_SOP.md\` for reporting requirements.
-`;
-        }
-        
-        // Write the new prompt file
-        const newPromptPath = join(promptsDir, `dev-agent-${newTicketId}-v1.md`);
-        writeFileSync(newPromptPath, newPromptContent);
-        console.log(`📝 Created prompt file: dev-agent-${newTicketId}-v1.md`);
-        
-      } catch (e) {
-        console.error(`Failed to create prompt file: ${e.message}`);
-        // Don't fail the whole operation if prompt creation fails
-      }
-      
-      // Cancel original ticket and release its locks
-      dbModule.tickets.update(ticketId, {
-        status: 'cancelled',
-        blocker_summary: `Superseded by ${newTicketId}`,
-        updated_at: new Date().toISOString()
-      });
-      console.log(`🚫 Cancelled original ticket: ${ticketId}`);
-      
-      // Release file locks from the cancelled ticket's sessions
-      if (dbModule.locks && dbModule.sessions) {
-        const sessions = dbModule.sessions.list({ ticket_id: ticketId });
-        for (const s of sessions) {
-          dbModule.locks.release(s.id);
-        }
-        if (sessions.length > 0) {
-          console.log(`🔓 Released locks from ${sessions.length} session(s) for ${ticketId}`);
-        }
-      }
-      
-      // Archive the blocker file
+      // Get the blocker filename from the path
+      let blockerFilename = null;
       if (blockerPath) {
-        try {
-          const { renameSync, existsSync, mkdirSync } = await import('fs');
-          const { join, basename } = await import('path');
-          const archiveDir = join(config.paths.projectRoot, 'docs/agent-output/blocked/archive');
-          if (!existsSync(archiveDir)) mkdirSync(archiveDir, { recursive: true });
-          renameSync(blockerPath, join(archiveDir, basename(blockerPath)));
-          console.log(`📁 Archived blocker: ${basename(blockerPath)}`);
-        } catch (e) {
-          console.error(`Failed to archive blocker: ${e.message}`);
-        }
+        const { basename } = await import('path');
+        blockerFilename = basename(blockerPath);
       }
       
-      // Auto-launch dev agent for continuation ticket (completes the self-healing loop)
+      // Launch TICKET AGENT to analyze blocker and create smart continuation
+      console.log(`🎫 Launching Ticket Agent for ${ticketId} (blocker: ${blockerType})`);
+      
       try {
-        scheduler.enqueue({
-          type: 'dev_launch',
-          ticketId: newTicketId,
-          payload: { triggered_by: 'dispatch_continuation' }
-        });
-        console.log(`🚀 Queued dev_launch for ${newTicketId}`);
+        const result = await agentLauncher.launchTicket(ticketId, blockerFilename);
+        
+        if (result.launched) {
+          console.log(`✅ Ticket Agent launched for ${ticketId}`);
+          return { success: true, action: 'ticket_agent_launched', ticketId, blockerType };
+        } else {
+          console.error(`❌ Ticket Agent failed to launch: ${result.output?.slice(-500)}`);
+          dbModule.tickets.update(ticketId, { status: 'blocked', blocker_summary: 'Ticket agent failed to launch' });
+          return { success: false, action: 'ticket_agent_failed', ticketId };
+        }
       } catch (e) {
-        console.error(`Failed to queue dev_launch: ${e.message}`);
+        console.error(`❌ Ticket Agent error: ${e.message}`);
+        dbModule.tickets.update(ticketId, { status: 'blocked', blocker_summary: `Ticket agent error: ${e.message}` });
+        return { success: false, action: 'ticket_agent_error', ticketId, error: e.message };
       }
-      
-      return { success: true, action: 'continuation_created', originalTicket: ticketId, newTicket: newTicketId };
     } catch (e) {
       console.error(`Dispatch handler error: ${e.message}`);
       return { success: false, error: e.message };

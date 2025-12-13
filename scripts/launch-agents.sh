@@ -332,7 +332,7 @@ When you complete your work:
     # 4. Failsafe script runs after claude exits (regardless of exit code)
     # Auto-exit after completion (no manual Enter required)
     tmux new-session -d -s "$SESSION_NAME" \
-        "cd '$WORKTREE_DIR' && export ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY' && export AGENT_SESSION_ID='$DB_SESSION_ID' && claude --dangerously-skip-permissions -p '$CLAUDE_PROMPT'; '$FAILSAFE_SCRIPT' '$TICKET_ID' '$WORKTREE_DIR' '$DB_SESSION_ID'"
+        "cd '$WORKTREE_DIR' && export ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY' && export AGENT_SESSION_ID='$DB_SESSION_ID' && claude --model claude-opus-4-20250514 --dangerously-skip-permissions -p '$CLAUDE_PROMPT'; '$FAILSAFE_SCRIPT' '$TICKET_ID' '$WORKTREE_DIR' '$DB_SESSION_ID'"
     
     print_success "Agent launched: $SESSION_NAME"
     echo -e "  Worktree: ${CYAN}$WORKTREE_DIR${NC}"

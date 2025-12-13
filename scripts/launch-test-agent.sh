@@ -270,7 +270,7 @@ tmux new-session -d -s "$SESSION_NAME" -c "$WORKTREE_DIR" \
      echo 'Worktree: $WORKTREE_DIR' && \
      echo 'Started: \$(date)' && \
      echo '' && \
-     claude -p '$PROMPT_FILE' --dangerously-skip-permissions 2>&1 | tee '$LOG_FILE'; \
+     claude --model claude-opus-4-20250514 -p '$PROMPT_FILE' --dangerously-skip-permissions 2>&1 | tee '$LOG_FILE'; \
      echo ''; \
      echo 'Signaling completion...'; \
      curl -s -X POST '$DASHBOARD_URL/api/v2/agents/$DB_SESSION_ID/complete' \

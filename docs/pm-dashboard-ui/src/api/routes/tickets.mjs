@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import { transition, forceTransition, getNextStates, setDB as setStateMachineDB } from '../../core/stateMachine.mjs';
 import orchestrator from '../../core/orchestrator.mjs';
+import { eventBus } from '../../events/eventBus.mjs';
 
 const router = Router();
 
@@ -78,7 +79,33 @@ router.put('/:id', (req, res) => {
   }
 
   try {
+    // Get current ticket to detect status changes
+    const currentTicket = db.tickets.get(req.params.id);
+    const oldStatus = currentTicket?.status;
+    
     const ticket = db.tickets.update(req.params.id, req.body);
+    
+    // If status changed, emit event so orchestrator can react
+    if (req.body.status && req.body.status !== oldStatus) {
+      console.log(`📋 ${req.params.id}: ${oldStatus} → ${req.body.status} (via PUT)`);
+      
+      // Log event if available
+      if (db.logEvent) {
+        db.logEvent('ticket_status_changed', 'system', 'ticket', req.params.id, {
+          from: oldStatus,
+          to: req.body.status,
+        });
+      }
+      
+      // Emit event for orchestrator to queue jobs
+      eventBus.emit('ticket:transitioned', {
+        ticketId: req.params.id,
+        fromStatus: oldStatus,
+        toStatus: req.body.status,
+        ticket,
+      });
+    }
+    
     res.json({ success: true, ticket });
   } catch (e) {
     res.status(400).json({ error: e.message });
