@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-068-1",
+  "source": "dev-agent-TKT-068",
+  "title": "Ticket spec references non-existent files - feature already implemented",
+  "category": "docs",
+  "severity": "medium",
+  "file": "docs/prompts/active/dev-agent-TKT-068-v1.md",
+  "line": 33,
+  "issue": "The ticket specifies files_to_modify that don't exist: 'apps/server/src/features/pageviews/track.ts' and 'database/migrations/XXXX-make-agent-id-nullable.sql'. The actual implementation uses 'apps/server/src/lib/pageview-logger.ts' and 'supabase/migrations/20251128400000_widget_pageviews.sql'. All acceptance criteria are already met by the existing implementation, making this ticket appear to be either outdated or incorrectly scoped.",
+  "suggestion": "Update ticket generation process to verify file paths exist before creating tickets, or add a pre-flight check that warns when specified files don't exist. For this specific ticket, either: (1) Close as already implemented, or (2) Update with correct file paths if additional work is needed.",
+  "status": "pending",
+  "found_at": "2025-12-13T01:42:00Z"
+}
