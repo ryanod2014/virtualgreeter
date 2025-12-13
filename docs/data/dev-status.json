@@ -81,10 +81,10 @@
     {
       "ticket_id": "TKT-064",
       "branch": "agent/tkt-064",
-      "completed_at": "2025-12-11T19:15:00.000Z",
-      "completion_file": "docs/agent-output/completions/TKT-064-2025-12-11T191500.md",
+      "completed_at": "2025-12-12T09:30:00.000Z",
+      "completion_file": "docs/agent-output/blocked/BLOCKED-TKT-064-2025-12-12T0930.json",
       "status": "blocked",
-      "note": "SIXTH confirmation - CRITICAL PM BUG: routing logic ignores blocker files - SIX agent sessions wasted - IMMEDIATELY fix PM routing"
+      "note": "SEVENTH confirmation - CRITICAL PM BUG: routing logic ignores blocker files - SEVEN agent sessions wasted - PM retry loop is broken - ESCALATE TO HUMAN"
     }
   ],
   "retry_history": [],
