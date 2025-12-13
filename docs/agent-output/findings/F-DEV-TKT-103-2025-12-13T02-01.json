@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-103-1",
+  "source": "dev-agent-TKT-103",
+  "title": "Pre-existing merge conflicts and test errors block typecheck",
+  "category": "bug",
+  "severity": "critical",
+  "file": "apps/server/src/features/signaling/socket-handlers.ts",
+  "line": 641,
+  "issue": "Branch has merge conflicts in apps/server/src/features/signaling/socket-handlers.ts and socket-handlers.test.ts (lines 641-667), test syntax errors in apps/widget/src/features/webrtc/useWebRTC.test.ts (line 1067), and template literal errors in apps/server/src/lib/organization.test.ts (lines 67, 412). These errors prevent the full monorepo typecheck from passing. These are NOT related to TKT-103 changes (auto-resume functionality).",
+  "suggestion": "Resolve merge conflicts in socket-handlers.ts and socket-handlers.test.ts. Fix test syntax errors in useWebRTC.test.ts and organization.test.ts. Run full typecheck after fixing to verify.",
+  "status": "pending",
+  "found_at": "2025-12-13T02:01:00Z"
+}
