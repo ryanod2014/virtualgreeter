@@ -8,10 +8,10 @@
   "completed": [
     {
       "ticket_id": "TKT-034",
-      "branch": "agent/tkt-034",
+      "branch": "agent/tkt-034-call-logs-pagination-for-perfo",
       "started_at": "2025-12-06T19:00:00Z",
-      "completed_at": "2025-12-08T07:33:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-034-2025-12-08T0733.md"
+      "completed_at": "2025-12-13T02:21:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-034-2025-12-13T0221.md"
     },
     {
       "ticket_id": "SEC-001",
