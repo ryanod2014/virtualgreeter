@@ -126,26 +126,18 @@ fi
 # Create the prompt file
 PROMPT_FILE="$WORKTREE_DIR/.agent-prompt-doc.md"
 cat > "$PROMPT_FILE" << EOF
-# Doc Agent: $TICKET_UPPER - Update Documentation
+# EXECUTE IMMEDIATELY: Update Documentation for $TICKET_UPPER
 
-> **Type:** Documentation Update
-> **Ticket:** $TICKET_UPPER
-> **Branch:** \`$BRANCH\`
-> **Session ID:** \`$DB_SESSION_ID\`
+**DO NOT ASK QUESTIONS. EXECUTE THESE STEPS IN ORDER.**
 
 ---
 
-## Your Mission
+## Context
 
-Update documentation to reflect the changes made by Dev Agent for ticket $TICKET_UPPER.
-
----
-
-## Ticket Info
-
-**Title:** $TICKET_TITLE
-
-**Issue:** $TICKET_ISSUE
+- **Ticket:** $TICKET_UPPER - "$TICKET_TITLE"
+- **Issue:** $TICKET_ISSUE
+- **Branch:** \`$BRANCH\` (commit here, not main)
+- **Session ID:** \`$DB_SESSION_ID\`
 
 ---
 
@@ -155,58 +147,60 @@ $(echo "$MODIFIED_FILES" | while read f; do [ -n "$f" ] && echo "- \`$f\`"; done
 
 ---
 
-## Your Task
+## STEP 1: Analyze What Changed
 
-1. **Read the SOP:** \`docs/workflow/DOC_AGENT_SOP.md\`
+Read each modified file and understand what was added/changed:
 
-2. **Read the modified files** to understand what changed
-
-3. **Find related documentation** in \`docs/features/\`
-
-4. **Update docs** if behavior changed or new features were added
-
-5. **Commit your changes:**
-   \`\`\`bash
-   git add docs/
-   git commit -m "docs($TICKET_LOWER): Update documentation for $TICKET_UPPER"
-   git push origin $BRANCH
-   \`\`\`
-
-6. **Write completion report:**
-   \`\`\`bash
-   # Create report file
-   cat > docs/agent-output/doc-tracker/$TICKET_UPPER-\$(date +%Y%m%dT%H%M).md << 'REPORT'
-   # Doc Complete: $TICKET_UPPER
-   
-   - **Feature:** $TICKET_TITLE
-   - **Status:** COMPLETE
-   - **Docs Updated:** [list files]
-   - **Completed At:** \$(date -Iseconds)
-   REPORT
-   \`\`\`
-
-7. **Signal completion via CLI:**
-   \`\`\`bash
-   ./scripts/agent-cli.sh complete --session $DB_SESSION_ID
-   \`\`\`
+\`\`\`bash
+$(echo "$MODIFIED_FILES" | while read f; do [ -n "$f" ] && echo "cat $f | head -100"; done)
+\`\`\`
 
 ---
 
-## Documentation Requirements
+## STEP 2: Find Related Docs
 
-- Update any feature docs affected by code changes
-- Add new sections if new functionality was added
-- Update edge cases if error handling changed
-- Keep docs accurate to current behavior
-- Follow the 10-section format from existing docs
+\`\`\`bash
+ls docs/features/
+# Find the category that matches this ticket's files
+\`\`\`
 
 ---
 
-## Important
+## STEP 3: Update Documentation (if needed)
 
-- You are on branch \`$BRANCH\` - commit here, not to main
-- Both you and Tests Agent are running in parallel on this branch
-- After both complete, pipeline will auto-merge to main
+**Decision tree:**
+- Did behavior change? → Update the feature doc
+- New function/component added? → Add to CODE REFERENCES section
+- New edge case? → Add to EDGE CASES section
+- Just a bug fix with no behavior change? → No doc update needed
+
+If no doc update needed, print "No documentation changes required" and skip to STEP 5.
+
+---
+
+## STEP 4: Commit (if you made changes)
+
+\`\`\`bash
+git add docs/
+git commit -m "docs($TICKET_LOWER): Update documentation for $TICKET_UPPER"
+git push origin $BRANCH
+\`\`\`
+
+---
+
+## STEP 5: Signal Completion
+
+\`\`\`bash
+curl -X POST $DASHBOARD_URL/api/v2/agents/$DB_SESSION_ID/complete \\
+  -H "Content-Type: application/json" \\
+  -d '{"success": true}'
+\`\`\`
+
+Print:
+\`\`\`
+✅ Doc Agent Complete
+- Docs updated: [list files or "none needed"]
+\`\`\`
 EOF
 
 echo -e "${GREEN}✓ Created prompt: $PROMPT_FILE${NC}"

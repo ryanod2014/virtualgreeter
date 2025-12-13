@@ -143,24 +143,17 @@ fi
 # Create the prompt file
 PROMPT_FILE="$WORKTREE_DIR/.agent-prompt-test.md"
 cat > "$PROMPT_FILE" << EOF
-# Test Lock Agent: $TICKET_UPPER - Add Test Coverage
+# EXECUTE IMMEDIATELY: Add Test Coverage for $TICKET_UPPER
 
-> **Type:** Test Coverage
-> **Ticket:** $TICKET_UPPER
-> **Branch:** \`$BRANCH\`
-> **Session ID:** \`$DB_SESSION_ID\`
+**DO NOT ASK QUESTIONS. EXECUTE THESE STEPS IN ORDER.**
 
 ---
 
-## Your Mission
+## Context
 
-Add behavior-level test coverage for the files modified by Dev Agent in ticket $TICKET_UPPER.
-
----
-
-## Ticket Info
-
-**Title:** $TICKET_TITLE
+- **Ticket:** $TICKET_UPPER - "$TICKET_TITLE"
+- **Branch:** \`$BRANCH\` (commit here, not main)
+- **Session ID:** \`$DB_SESSION_ID\`
 
 ---
 
@@ -170,72 +163,95 @@ $(echo "$MODIFIED_FILES" | while read f; do [ -n "$f" ] && echo "- \`$f\`"; done
 
 ---
 
-## Your Task
+## STEP 1: Analyze Each File
 
-1. **Read the SOP:** \`docs/workflow/TEST_LOCK_AGENT_SOP.md\`
-
-2. **Read each modified file** listed above
-
-3. **Read existing test patterns:** Look at \`*.test.ts\` files near the modified files
-
-4. **Write tests** for each file's public functions/exports
-   - One behavior per \`it()\` block
-   - Test happy path, edge cases, and error conditions
-   - Use existing mock patterns from the codebase
-   - Put test files next to source files (e.g., \`foo.ts\` → \`foo.test.ts\`)
-
-5. **Run tests to verify:**
-   \`\`\`bash
-   pnpm test
-   \`\`\`
-
-6. **Commit your changes:**
-   \`\`\`bash
-   git add .
-   git commit -m "test($TICKET_LOWER): Add test coverage for $TICKET_UPPER"
-   git push origin $BRANCH
-   \`\`\`
-
-7. **Write completion report:**
-   \`\`\`bash
-   mkdir -p docs/agent-output/test-lock
-   cat > docs/agent-output/test-lock/$TICKET_UPPER-\$(date +%Y%m%dT%H%M).md << 'REPORT'
-   # Test Lock Complete: $TICKET_UPPER
-   
-   ## Summary
-   - **Feature:** $TICKET_TITLE
-   - **Status:** COMPLETE
-   - **Completed At:** \$(date -Iseconds)
-   
-   ## Test Files Created
-   [list test files]
-   
-   ## Behaviors Tested
-   [list behaviors]
-   REPORT
-   \`\`\`
-
-8. **Signal completion via CLI:**
-   \`\`\`bash
-   ./scripts/agent-cli.sh complete --session $DB_SESSION_ID
-   \`\`\`
+For each file above, read it and identify:
+- All exported functions/components
+- Happy paths, edge cases, error conditions
+- What behaviors need to be locked in
 
 ---
 
-## Test Requirements
+## STEP 2: Check Existing Test Patterns
 
-- Tests must PASS (you're testing current behavior, not intended behavior)
-- Use existing mock patterns from the codebase
-- For UI components: add \`@vitest-environment jsdom\` at top of file
-- Mock lucide-react icons if component uses them
+\`\`\`bash
+# Find existing tests near the files
+find apps/dashboard/src -name "*.test.ts" -o -name "*.test.tsx" | head -5
+cat apps/server/src/features/routing/pool-manager.test.ts | head -100
+\`\`\`
 
 ---
 
-## Important
+## STEP 3: Write Tests
 
-- You are on branch \`$BRANCH\` - commit here, not to main
-- Both you and Docs Agent are running in parallel on this branch
-- After both complete, pipeline will auto-merge to main
+Create test files next to source files (e.g., \`foo.ts\` → \`foo.test.ts\`).
+
+**For each file's public functions:**
+- One \`it()\` block per behavior
+- Test happy path, edge cases, error conditions
+- Use \`vi.mock()\` for dependencies
+- For UI components: add \`/** @vitest-environment jsdom */\` at top
+
+**Test structure:**
+\`\`\`typescript
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Mock dependencies BEFORE imports
+vi.mock("@/lib/dependency", () => ({ fn: vi.fn() }));
+
+import { functionUnderTest } from "./file";
+
+describe("functionName", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  
+  it("returns X when given Y", () => {
+    // Arrange
+    // Act  
+    // Assert
+  });
+  
+  it("throws error when input is empty", () => {
+    // ...
+  });
+});
+\`\`\`
+
+---
+
+## STEP 4: Verify Tests Pass
+
+\`\`\`bash
+pnpm test
+\`\`\`
+
+All tests MUST pass. If a test fails, fix the test (you test CURRENT behavior).
+
+---
+
+## STEP 5: Commit and Push
+
+\`\`\`bash
+git add .
+git commit -m "test($TICKET_LOWER): Add test coverage for $TICKET_UPPER"
+git push origin $BRANCH
+\`\`\`
+
+---
+
+## STEP 6: Signal Completion
+
+\`\`\`bash
+curl -X POST $DASHBOARD_URL/api/v2/agents/$DB_SESSION_ID/complete \\
+  -H "Content-Type: application/json" \\
+  -d '{"success": true}'
+\`\`\`
+
+Print:
+\`\`\`
+✅ Test Agent Complete
+- Created: [list test files]
+- Tests: [count] passing
+\`\`\`
 EOF
 
 echo -e "${GREEN}✓ Created prompt: $PROMPT_FILE${NC}"
