@@ -1,0 +1,67 @@
+{
+  "id": "BLOCKED-TKT-064-7",
+  "type": "blocker",
+  "source": "dev-agent-TKT-064",
+  "severity": "critical",
+  "title": "SEVENTH blocker confirmation - This is a PM routing bug, not an implementation ticket",
+  "feature": "Call Logs",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-12T09:30:00Z",
+
+  "issue": "TKT-064 continues to fail SOP section 1.2 Pre-Flight Validation. This ticket has been blocked 6 times already with the same issue. The ticket was generated from finding F-022 where the human decision was 'explain this to me' - a request for explanation, NOT implementation. The ticket contains: (1) Empty files list, (2) 'Custom response' as the only fix requirement, (3) Non-testable acceptance criteria. This is a PM ROUTING BUG - explanation-only tickets should not be routed to dev agents. The human has already received their explanation via the decision system.",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Mark ticket as INVALID and close — The human requested an explanation (which was provided), not implementation. Finding F-022 can remain in findings for future prioritization if the human later decides to implement server-side URL filtering.",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Convert to proper implementation ticket — If the human NOW wants implementation (not just explanation), generate a NEW ticket with proper specs: files to modify (dashboard query/API code), server-side filtering approach, testable acceptance criteria. This would require PM investigation and codebase research.",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Continue blocking — Keep this ticket blocked waiting for PM to fix the routing bug and either close the ticket or convert it to a proper implementation spec.",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 1 because after 7 blockers and multiple commits confirming the same issue, it's clear this ticket should never have been routed to a dev agent. The human got their explanation through the decision system. If implementation is desired later, that requires a NEW ticket with proper research and specifications.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-064",
+    "ticket_version": 1,
+    "branch": "agent/tkt-064",
+    "progress": {
+      "commits": [
+        "dc997cb - TKT-064: Sixth blocker confirmation - CRITICAL PM routing bug",
+        "9de4340 - TKT-064: Fifth blocker confirmation - CRITICAL PM routing bug",
+        "a6ef7ee - TKT-064: Fourth blocker confirmation - ticket still lacks implementation details",
+        "ea2be8d - TKT-064: Third blocker confirmation - ticket still lacks implementation details",
+        "fa926cf - TKT-064: Update dev-status.json with blocked completion",
+        "0d600f0 - TKT-064: Confirm blocker - ticket still missing implementation details",
+        "1b86764 - BLOCKED TKT-064: Ticket missing implementation details - appears to be explanation-only"
+      ],
+      "done": [
+        "Read SOP (7th time)",
+        "Read ticket spec (7th time)",
+        "Confirmed ticket still fails Pre-Flight Validation",
+        "Reviewed previous 6 blocker reports",
+        "Confirmed this is a PM routing bug, not a ticket spec issue"
+      ],
+      "remaining": [
+        "Pre-flight validation ← STILL BLOCKED (ticket still invalid)",
+        "Implementation (CANNOT START - no files, no spec, no testable criteria)"
+      ],
+      "stopped_at": {
+        "file": "docs/prompts/active/dev-agent-TKT-064-v1.md",
+        "line": 32,
+        "context": "Section 'Files to Modify' is empty. Section 'What to Implement' contains only 'Custom response' and 'Note: explain this to me'. This has not changed in 7 agent attempts."
+      },
+      "notes_for_next_agent": "STOP RETRYING THIS TICKET. After 7 blocker reports, the problem is clear: the PM system is routing explanation-only tickets to dev agents. This is a PM bug, not a ticket that needs continuation. The human wanted an explanation (which they got), not implementation. If you are the 8th agent seeing this ticket, IMMEDIATELY escalate to human oversight - the PM retry loop is broken."
+    }
+  }
+}
