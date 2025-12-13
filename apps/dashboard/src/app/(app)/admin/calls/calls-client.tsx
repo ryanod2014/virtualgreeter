@@ -56,6 +56,7 @@ import {
 import { formatLocationWithFlag } from "@/lib/utils/country-flag";
 import { getCountryByCode } from "@/lib/utils/countries";
 import { exportCallLogsToCSV } from "@/features/call-logs/exportCSV";
+import { useCalls } from "@/lib/hooks/useCalls";
 
 interface Agent {
   id: string;
@@ -111,7 +112,7 @@ interface CoverageStats {
 }
 
 interface Props {
-  calls: CallLogWithRelations[];
+  calls?: CallLogWithRelations[]; // Optional - will be fetched client-side
   dispositions: DispositionForStats[];
   agents: Agent[];
   pools: Pool[];
@@ -164,11 +165,34 @@ export function CallsClient({
     maxDuration: currentFilters.maxDuration ?? "",
   });
 
+  // Fetch paginated calls using the useCalls hook
+  const {
+    calls: paginatedCalls,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    error: callsError,
+    loadMore,
+  } = useCalls({
+    filters: {
+      from: dateRange.from.split("T")[0],
+      to: dateRange.to.split("T")[0],
+      agent: currentFilters.agent,
+      status: currentFilters.status,
+      disposition: currentFilters.disposition,
+      pool: currentFilters.pool,
+      minDuration: currentFilters.minDuration,
+      maxDuration: currentFilters.maxDuration,
+      country: currentFilters.country,
+    },
+    pageSize: 50,
+  });
+
   // Apply URL conditions filtering client-side
   const filteredCalls = useMemo(() => {
-    if (filters.urlConditions.length === 0) return calls;
-    
-    return calls.filter((call) => {
+    if (filters.urlConditions.length === 0) return paginatedCalls;
+
+    return paginatedCalls.filter((call) => {
       // All conditions must match (AND logic)
       return filters.urlConditions.every((condition: FilterCondition) => {
         const url = call.page_url || "";
@@ -211,7 +235,7 @@ export function CallsClient({
         }
       });
     });
-  }, [calls, filters.urlConditions]);
+  }, [paginatedCalls, filters.urlConditions]);
 
   const stats = calculateAgentStats(filteredCalls, dispositions);
 
@@ -888,9 +912,14 @@ export function CallsClient({
       {/* Results Count */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">
-          Showing {filteredCalls.length} calls
-          {filteredCalls.length === 500 && " (limit reached)"}
+          Showing {filteredCalls.length} call{filteredCalls.length !== 1 ? "s" : ""}
+          {hasMore && " (more available)"}
         </p>
+        {callsError && (
+          <p className="text-sm text-red-500">
+            Error loading calls: {callsError}
+          </p>
+        )}
       </div>
 
       {/* Call Logs Table */}
@@ -950,7 +979,7 @@ export function CallsClient({
           </table>
         </div>
 
-        {filteredCalls.length === 0 && (
+        {filteredCalls.length === 0 && !isLoading && (
           <div className="p-12 text-center">
             <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h3 className="text-lg font-semibold mb-2">No calls found</h3>
@@ -959,7 +988,37 @@ export function CallsClient({
             </p>
           </div>
         )}
+
+        {isLoading && filteredCalls.length === 0 && (
+          <div className="p-12 text-center">
+            <Loader2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground animate-spin" />
+            <p className="text-muted-foreground">Loading calls...</p>
+          </div>
+        )}
       </div>
+
+      {/* Load More Button */}
+      {hasMore && (
+        <div className="mt-4 flex justify-center">
+          <button
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading more calls...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4" />
+                Load More Calls
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
