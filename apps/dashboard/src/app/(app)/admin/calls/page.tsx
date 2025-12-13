@@ -43,89 +43,8 @@ export default async function CallsPage({ searchParams }: Props) {
     : new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000);
   fromDate.setHours(0, 0, 0, 0);
 
-  // Build query with full data for both stats and table display
-  let query = supabase
-    .from("call_logs")
-    .select(
-      `
-      id,
-      status,
-      page_url,
-      duration_seconds,
-      recording_url,
-      created_at,
-      ring_started_at,
-      answered_at,
-      answer_time_seconds,
-      disposition_id,
-      pool_id,
-      visitor_city,
-      visitor_region,
-      visitor_country,
-      visitor_country_code,
-      transcription,
-      transcription_status,
-      ai_summary,
-      ai_summary_status,
-      agent:agent_profiles(id, display_name),
-      site:sites(id, name, domain),
-      disposition:dispositions(id, name, color)
-    `
-    )
-    .eq("organization_id", auth.organization.id)
-    .gte("created_at", fromDate.toISOString())
-    .lte("created_at", toDate.toISOString())
-    .order("created_at", { ascending: false });
-
-  // Apply optional filters
-  if (params.agent) {
-    const agentIds = params.agent.split(",").filter(Boolean);
-    if (agentIds.length > 0) {
-      query = query.in("agent_id", agentIds);
-    }
-  }
-  if (params.status) {
-    const statuses = params.status.split(",").filter(Boolean);
-    if (statuses.length > 0) {
-      query = query.in("status", statuses);
-    }
-  }
-  if (params.disposition) {
-    const dispositionIds = params.disposition.split(",").filter(Boolean);
-    if (dispositionIds.length > 0) {
-      query = query.in("disposition_id", dispositionIds);
-    }
-  }
-  if (params.pool) {
-    const poolIds = params.pool.split(",").filter(Boolean);
-    if (poolIds.length > 0) {
-      query = query.in("pool_id", poolIds);
-    }
-  }
-  // URL conditions filtering is handled client-side after fetch
-  if (params.minDuration) {
-    query = query.gte("duration_seconds", parseInt(params.minDuration));
-  }
-  if (params.maxDuration) {
-    query = query.lte("duration_seconds", parseInt(params.maxDuration));
-  }
-  if (params.country) {
-    // Country filter - filter by ISO country codes
-    const countryCodes = params.country.split(",").filter(Boolean).map(c => c.toUpperCase());
-    if (countryCodes.length > 0) {
-      query = query.in("visitor_country_code", countryCodes);
-    }
-  }
-
-  const { data: rawCalls } = await query.limit(500);
-
-  // Transform Supabase array relations to single objects
-  const calls = rawCalls?.map((call) => ({
-    ...call,
-    agent: Array.isArray(call.agent) ? call.agent[0] ?? null : call.agent,
-    site: Array.isArray(call.site) ? call.site[0] ?? null : call.site,
-    disposition: Array.isArray(call.disposition) ? call.disposition[0] ?? null : call.disposition,
-  }));
+  // Note: Calls are now fetched client-side with pagination via API route
+  // We no longer fetch calls here - the client will use the /api/calls endpoint
 
   // Fetch filter options
   const { data: dispositions } = await supabase
@@ -235,7 +154,6 @@ export default async function CallsPage({ searchParams }: Props) {
 
   return (
     <CallsClient
-      calls={calls ?? []}
       dispositions={dispositions ?? []}
       agents={agents ?? []}
       pools={pools ?? []}
