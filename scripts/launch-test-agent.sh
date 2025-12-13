@@ -52,7 +52,8 @@ fi
 TICKET_UPPER=$(echo "$TICKET_ID" | tr '[:lower:]' '[:upper:]')
 TICKET_LOWER=$(echo "$TICKET_ID" | tr '[:upper:]' '[:lower:]')
 SESSION_NAME="test-$TICKET_UPPER"
-WORKTREE_DIR="$WORKTREE_BASE/test-$TICKET_UPPER"
+# Use SAME worktree as dev/QA agents (test writes .test.ts files, no conflict with dev code)
+WORKTREE_DIR="$WORKTREE_BASE/$TICKET_UPPER"
 
 echo -e "${CYAN}============================================${NC}"
 echo -e "${CYAN}Launching Test Lock Agent: $TICKET_UPPER${NC}"
@@ -101,9 +102,13 @@ fi
 cd "$WORKTREE_DIR"
 echo -e "${GREEN}✓ Worktree ready: $WORKTREE_DIR${NC}"
 
-# Install dependencies
-echo "Installing dependencies..."
-pnpm install --frozen-lockfile --quiet 2>/dev/null || pnpm install --quiet
+# Install dependencies (skip if node_modules exists from dev/QA)
+if [ ! -d "node_modules" ]; then
+    echo "Installing dependencies..."
+    pnpm install --frozen-lockfile --quiet 2>/dev/null || pnpm install --quiet
+else
+    echo -e "${GREEN}✓ Dependencies already installed${NC}"
+fi
 
 # Get the modified files (app code only, no tests)
 # Compare origin/main with origin/BRANCH to get actual changed files (not local HEAD)

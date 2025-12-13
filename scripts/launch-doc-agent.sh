@@ -52,7 +52,8 @@ fi
 TICKET_UPPER=$(echo "$TICKET_ID" | tr '[:lower:]' '[:upper:]')
 TICKET_LOWER=$(echo "$TICKET_ID" | tr '[:upper:]' '[:lower:]')
 SESSION_NAME="doc-$TICKET_UPPER"
-WORKTREE_DIR="$WORKTREE_BASE/doc-$TICKET_UPPER"
+# Use SAME worktree as dev/QA agents (doc writes docs/ files, no conflict with dev code)
+WORKTREE_DIR="$WORKTREE_BASE/$TICKET_UPPER"
 
 echo -e "${CYAN}============================================${NC}"
 echo -e "${CYAN}Launching Doc Agent: $TICKET_UPPER${NC}"
