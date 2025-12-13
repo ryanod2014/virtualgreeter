@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-016-2",
+  "source": "dev-agent-TKT-016",
+  "title": "Pre-existing typecheck and build errors in test files",
+  "category": "bug",
+  "severity": "medium",
+  "file": "multiple test files",
+  "line": null,
+  "issue": "Dashboard typecheck fails due to Stripe mock null checks in multiple test files (route.test.ts files). Server build fails due to unused imports in test files (pool-manager.test.ts, socket-handlers.test.ts). These prevent successful typecheck and build commands from completing.",
+  "suggestion": "Update Stripe mocks to handle null checks properly, remove unused imports from server test files",
+  "status": "pending",
+  "found_at": "2025-12-13T10:19:00Z"
+}

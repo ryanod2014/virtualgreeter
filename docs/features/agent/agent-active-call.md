@@ -49,8 +49,11 @@ stateDiagram-v2
     [*] --> CallAccepted: agent clicks Accept
     CallAccepted --> Connecting: initialize WebRTC
     Connecting --> Connected: offer/answer complete + ICE
-    Connecting --> Failed: WebRTC error
+    Connecting --> Failed: WebRTC error after retries
     Connected --> InCall: remote stream received
+    InCall --> Reconnecting: connection lost
+    Reconnecting --> InCall: ICE restart successful
+    Reconnecting --> Failed: max retries reached
     InCall --> ScreenSharing: start screen share
     ScreenSharing --> InCall: stop screen share
     InCall --> Ended: end call
@@ -65,8 +68,9 @@ stateDiagram-v2
 | Connecting | WebRTC offer sent, waiting for answer | initializeCall() called | Answer received + ICE complete |
 | Connected | Peer connection established | connectionState === 'connected' | Remote track received |
 | InCall | Active video call with remote stream | ontrack event fires | End call or connection fails |
+| Reconnecting | ICE restart in progress | connectionState === 'disconnected' or 'failed' | Reconnect success or max retries |
 | ScreenSharing | Agent sharing their screen | startScreenShare() called | stopScreenShare() or track ends |
-| Failed | WebRTC connection failed | connectionState === 'failed' | cleanup() |
+| Failed | WebRTC connection failed after all retries | Max ICE restart attempts reached | cleanup() |
 | Ended | Call has ended | endCall() or disconnect | Post-call disposition |
 
 ---
@@ -140,7 +144,7 @@ Call End:
 | # | Scenario | Trigger | Current Behavior | Correct? | Notes |
 |---|----------|---------|------------------|----------|-------|
 | 1 | Happy path - full call | Accept → video → end | Both parties connect, call tracked, recording saved | ✅ | Works well |
-| 2 | WebRTC connection fails | ICE failure | Error state shown, connection retry not automatic | ⚠️ | No retry mechanism |
+| 2 | WebRTC connection fails | ICE failure | Automatic ICE restart attempts (up to 3) | ✅ | ICE restart mechanism added |
 | 3 | Camera/mic permission denied | getUserMedia rejects | Error message in preview | ✅ | Clear error handling |
 | 4 | Visitor disconnects mid-call | Socket disconnect | Call ends, agent notified with reason | ✅ | Clean handling |
 | 5 | Agent disconnects mid-call | Socket disconnect | Call ends, visitor notified, recording may be incomplete | ⚠️ | Recording upload may fail |
@@ -154,7 +158,8 @@ Call End:
 | Error | When It Happens | What User Sees | Recovery Path |
 |-------|-----------------|----------------|---------------|
 | Camera access denied | getUserMedia fails | Error icon + message in preview | "Retry" button to request again |
-| WebRTC connection failed | ICE/DTLS fails | "Connection failed" message | End call, try again |
+| WebRTC connection failed | ICE/DTLS fails | "Reconnecting..." status during retries | Automatic ICE restart (up to 3 attempts) |
+| Connection failed after retries | All ICE restart attempts exhausted | "Connection failed after multiple attempts" | End call, try again |
 | Socket disconnect | Network issues | Call ends with reason | Reconnection handled by call reconnection feature |
 | Recording failed | MediaRecorder error | Error logged (silent) | Call continues without recording |
 | Max duration reached | Timer fires | Notification message | Call ends automatically |
@@ -212,13 +217,12 @@ Call End:
 2. **Is the control intuitive?** Yes - standard mute/video/end buttons in expected positions.
 3. **Is feedback immediate?** Yes - button states change instantly, status badges update.
 4. **Is the flow reversible?** Partially - mute/video can toggle, but end call is final.
-5. **Are errors recoverable?** Partially - camera retry works, but WebRTC failures require new call.
+5. **Are errors recoverable?** Yes - camera retry works, WebRTC failures trigger automatic ICE restart.
 6. **Is the complexity justified?** Yes - WebRTC is inherently complex, abstraction is appropriate.
 
 ### Identified Issues
 | Issue | Impact | Severity | Suggested Fix |
 |-------|--------|----------|--------------|
-| No WebRTC reconnection on ICE failure | Agent must end and restart call | 🟡 | Add ICE restart mechanism |
 | No keyboard shortcuts | Accessibility gap | 🟢 | Add Ctrl+M for mute, etc. |
 | Recording upload on disconnect | May lose recording | 🟡 | Consider partial upload or queue |
 | No aria-labels on control buttons | Screen reader unfriendly | 🟡 | Add descriptive aria-labels |
@@ -231,7 +235,7 @@ Call End:
 | Purpose | File | Lines | Notes |
 |---------|------|-------|-------|
 | Main UI component | `apps/dashboard/src/features/webrtc/active-call-stage.tsx` | 1-341 | All controls, video displays, duration |
-| WebRTC hook | `apps/dashboard/src/features/webrtc/use-webrtc.ts` | 1-368 | Connection management, screen share |
+| WebRTC hook | `apps/dashboard/src/features/webrtc/use-webrtc.ts` | 1-512 | Connection management, screen share, ICE restart |
 | Recording hook | `apps/dashboard/src/features/webrtc/use-call-recording.ts` | 1-321 | Canvas compositing, upload |
 | Workbench integration | `apps/dashboard/src/features/workbench/workbench-client.tsx` | 65-142 | Call state orchestration |
 | Server call accept | `apps/server/src/features/signaling/socket-handlers.ts` | 699-780 | CALL_ACCEPT handler |
