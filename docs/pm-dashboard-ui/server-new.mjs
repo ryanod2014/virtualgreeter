@@ -119,12 +119,161 @@ scheduler.registerHandler('regression_test', async (job) => {
   
   scheduler.registerHandler('test_agent', async (job) => {
     const ticket = dbModule.tickets.get(job.ticket_id);
-    return await agentLauncher.launchTest(ticket);
+    const result = await agentLauncher.launchTest(ticket);
+    
+    // Check if both test and doc are done → queue selective merge
+    await checkFinalizingComplete(job.ticket_id, 'test');
+    
+    return result;
   });
   
-scheduler.registerHandler('doc_agent', async (job) => {
+  scheduler.registerHandler('doc_agent', async (job) => {
     const ticket = dbModule.tickets.get(job.ticket_id);
-    return await agentLauncher.launchDoc(ticket);
+    const result = await agentLauncher.launchDoc(ticket);
+    
+    // Check if both test and doc are done → queue selective merge
+    await checkFinalizingComplete(job.ticket_id, 'doc');
+    
+    return result;
+  });
+  
+  // Helper: Check if both test+doc are done, then queue merge
+  async function checkFinalizingComplete(ticketId, completedType) {
+    // Get all jobs for this ticket
+    const jobs = dbModule.jobs?.list ? dbModule.jobs.list({ ticket_id: ticketId }) : [];
+    
+    const testJobs = jobs.filter(j => j.job_type === 'test_agent');
+    const docJobs = jobs.filter(j => j.job_type === 'doc_agent');
+    
+    const testDone = testJobs.some(j => j.status === 'completed');
+    const docDone = docJobs.some(j => j.status === 'completed');
+    
+    // If both are done, queue selective merge
+    if (testDone && docDone) {
+      console.log(`✅ Both test+doc complete for ${ticketId}, queuing selective merge...`);
+      
+      // Update status to ready_to_merge
+      dbModule.tickets.update(ticketId, { status: 'ready_to_merge' });
+      
+      scheduler.enqueue({
+        type: 'selective_merge',
+        ticketId,
+        payload: { triggered_by: 'finalizing_complete' }
+      });
+    } else {
+      console.log(`⏳ ${ticketId}: test=${testDone ? '✅' : '⏳'} doc=${docDone ? '✅' : '⏳'}`);
+    }
+  }
+  
+  // Selective merge - only merge specific files, not full branch
+  scheduler.registerHandler('selective_merge', async (job) => {
+    const ticketId = job.ticket_id;
+    const ticket = dbModule.tickets.get(ticketId);
+    
+    if (!ticket) {
+      return { success: false, error: 'Ticket not found' };
+    }
+    
+    const branch = ticket.branch || `agent/${ticketId.toLowerCase()}`;
+    const filesToModify = ticket.files_to_modify || [];
+    
+    console.log(`🔀 Starting selective merge for ${ticketId} from branch ${branch}`);
+    
+    try {
+      const { execSync } = await import('child_process');
+      const projectRoot = config.paths.projectRoot;
+      
+      // Fetch latest from origin
+      execSync('git fetch origin', { cwd: projectRoot, encoding: 'utf8' });
+      
+      // Get list of files changed on the branch vs main
+      let changedFiles = [];
+      try {
+        const diffOutput = execSync(
+          `git diff --name-only origin/main...origin/${branch}`,
+          { cwd: projectRoot, encoding: 'utf8' }
+        );
+        changedFiles = diffOutput.trim().split('\n').filter(Boolean);
+      } catch (e) {
+        console.error(`Failed to get diff: ${e.message}`);
+        changedFiles = [...filesToModify];
+      }
+      
+      // Filter to only include:
+      // 1. Files from ticket.files_to_modify (dev changes)
+      // 2. Doc files (docs/)
+      // 3. Test files (*.test.*, *.spec.*, __tests__/)
+      const allowedFiles = changedFiles.filter(f => {
+        const isDevFile = filesToModify.includes(f);
+        const isDocFile = f.startsWith('docs/') || f.endsWith('.md');
+        const isTestFile = f.includes('.test.') || f.includes('.spec.') || f.includes('__tests__/');
+        return isDevFile || isDocFile || isTestFile;
+      });
+      
+      if (allowedFiles.length === 0) {
+        console.log(`⚠️ No files to merge for ${ticketId}`);
+        dbModule.tickets.update(ticketId, { status: 'merged' });
+        return { success: true, action: 'no_files_to_merge', ticketId };
+      }
+      
+      console.log(`📁 Merging ${allowedFiles.length} files: ${allowedFiles.slice(0, 5).join(', ')}${allowedFiles.length > 5 ? '...' : ''}`);
+      
+      // Ensure we're on main and up to date
+      execSync('git checkout main', { cwd: projectRoot, encoding: 'utf8' });
+      execSync('git pull origin main', { cwd: projectRoot, encoding: 'utf8' });
+      
+      // Selectively checkout files from the feature branch
+      for (const file of allowedFiles) {
+        try {
+          execSync(`git checkout origin/${branch} -- "${file}"`, { cwd: projectRoot, encoding: 'utf8' });
+          console.log(`  ✓ ${file}`);
+        } catch (e) {
+          console.error(`  ✗ Failed to checkout ${file}: ${e.message}`);
+        }
+      }
+      
+      // Commit the changes
+      execSync('git add -A', { cwd: projectRoot, encoding: 'utf8' });
+      
+      const commitMsg = `feat(${ticketId}): ${ticket.title}\n\nSelective merge from ${branch}\nFiles: ${allowedFiles.length}`;
+      try {
+        execSync(`git commit -m "${commitMsg}"`, { cwd: projectRoot, encoding: 'utf8' });
+      } catch (e) {
+        // No changes to commit
+        if (e.message.includes('nothing to commit')) {
+          console.log(`⚠️ Nothing to commit for ${ticketId}`);
+          dbModule.tickets.update(ticketId, { status: 'merged' });
+          return { success: true, action: 'nothing_to_commit', ticketId };
+        }
+        throw e;
+      }
+      
+      // Push to main
+      execSync('git push origin main', { cwd: projectRoot, encoding: 'utf8' });
+      
+      console.log(`✅ Merged ${ticketId} to main (${allowedFiles.length} files)`);
+      
+      // Update ticket status
+      dbModule.tickets.update(ticketId, { status: 'merged' });
+      
+      // Release file locks
+      if (dbModule.locks && dbModule.sessions) {
+        const sessions = dbModule.sessions.list({ ticket_id: ticketId });
+        for (const s of sessions) {
+          dbModule.locks.release(s.id);
+        }
+      }
+      
+      return { success: true, action: 'merged', ticketId, filesCount: allowedFiles.length };
+      
+    } catch (e) {
+      console.error(`❌ Merge failed for ${ticketId}: ${e.message}`);
+      dbModule.tickets.update(ticketId, { 
+        status: 'blocked', 
+        blocker_summary: `Merge failed: ${e.message}` 
+      });
+      return { success: false, error: e.message };
+    }
   });
 
   scheduler.registerHandler('dispatch_blocker', async (job) => {

@@ -1,0 +1,26 @@
+{
+  "ticket_id": "TKT-013",
+  "ticket_title": "Retention Policy Retroactive Deletion Warning",
+  "branch": "agent/tkt-013",
+  "blocked_at": "2025-12-13T09:45:00Z",
+  "blocker_type": "qa_failure",
+  "summary": "Cannot verify retention modal feature - no test recordings exist. Also 27 new type errors introduced.",
+  "failures": [
+    {
+      "category": "build",
+      "criterion": "No new type errors",
+      "expected": "Type errors ≤ 12 (main branch count)",
+      "actual": "39 type errors (27 new)",
+      "evidence": "pnpm typecheck shows 39 errors vs 12 on main"
+    },
+    {
+      "category": "acceptance",
+      "criterion": "Modal shows exact count of recordings to be deleted",
+      "expected": "Confirmation modal appears with recording count when reducing retention",
+      "actual": "Modal did not appear - no recordings exist to be affected",
+      "evidence": "Settings saved directly without modal when changing 90→7 days"
+    }
+  ],
+  "recommendation": "Fix type errors and create test environment with existing recordings for proper testing",
+  "dispatch_action": "create_continuation_ticket"
+}

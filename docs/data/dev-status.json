@@ -1,102 +1,91 @@
 {
   "meta": {
-    "last_updated": "2025-12-05",
-    "version": "2.0",
-    "note": "Blockers now in findings.json with type: 'blocker'. Observations also in findings.json."
+    "last_updated": "2025-12-08T10:01:53Z",
+    "version": "2.3",
+    "note": "Added TKT-013 completion"
   },
   "in_progress": [],
   "completed": [
     {
-      "ticket_id": "SEC-001",
-      "branch": "agent/SEC-001-api-auth",
-      "started_at": "2025-12-05T12:00:00Z",
-      "completed_at": "2025-12-05T12:39:00Z",
-      "completion_file": "docs/agent-output/completions/SEC-001-2025-12-05T1230.md"
-    },
-    {
-      "ticket_id": "TKT-006",
-      "branch": "agent/TKT-006-middleware-redirect",
-      "started_at": "2025-12-05T16:00:00Z",
-      "completed_at": "2025-12-05T16:15:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-006-2025-12-05T1600.md"
-    },
-    {
       "ticket_id": "TKT-001",
       "branch": "agent/TKT-001-cobrowse-sanitization",
-      "started_at": "2025-12-05T14:30:00Z",
-      "completed_at": "2025-12-05T18:30:00Z",
+      "completed_at": "2025-12-05T08:46:05.033Z",
       "completion_file": "docs/agent-output/completions/TKT-001-2025-12-05T1430.md"
     },
     {
-      "ticket_id": "TKT-003",
-      "branch": "agent/TKT-003-cancel-copy",
-      "started_at": "2025-12-05T12:00:00Z",
-      "completed_at": "2025-12-05T19:35:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-003-2025-12-05T1935.md"
+      "ticket_id": "TKT-002",
+      "branch": "agent/tkt-002",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-002-auto.md"
     },
     {
-      "ticket_id": "TKT-038",
-      "branch": "agent/tkt-038-add-delete-confirmation-for-po",
-      "started_at": "2025-12-05T15:00:00Z",
-      "completed_at": "2025-12-05T15:30:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-038-2025-12-05T1530.md"
+      "ticket_id": "TKT-004C",
+      "branch": "agent/tkt-004c",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-004C-auto.md"
     },
     {
-      "ticket_id": "TKT-017",
-      "branch": "agent/tkt-017-pool-routing-reassignment",
-      "started_at": "2025-12-08T07:28:53Z",
-      "completed_at": "2025-12-08T07:32:50Z",
-      "completion_file": "docs/agent-output/completions/TKT-017-2025-12-08T0732.md"
+      "ticket_id": "TKT-005A",
+      "branch": "agent/tkt-005a",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-005A-auto.md"
     },
     {
-      "ticket_id": "TKT-067",
-      "branch": "agent/tkt-067",
-      "started_at": "2025-12-11T07:00:00Z",
-      "completed_at": "2025-12-11T07:37:47Z",
-      "completion_file": "docs/agent-output/completions/TKT-067-2025-12-11T0737.md"
+      "ticket_id": "TKT-008",
+      "branch": "agent/tkt-008",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-008-auto.md"
     },
     {
-      "ticket_id": "TKT-098",
-      "branch": "agent/tkt-098-fix-tiered-routing-to-prefer-i",
-      "started_at": "2025-12-12T03:39:13Z",
-      "completed_at": "2025-12-12T03:42:33Z",
-      "completion_file": "docs/agent-output/completions/TKT-098-2025-12-12T0342.md"
+      "ticket_id": "TKT-019",
+      "branch": "main",
+      "completed_at": "2025-12-05T08:46:05.264Z",
+      "completion_file": "docs/agent-output/completions/TKT-019-2025-12-06T0600.md"
     },
     {
-      "ticket_id": "TKT-007",
-      "branch": "agent/tkt-007-fix-public-feedback-doc",
-      "started_at": "2025-12-05T13:00:00Z",
-      "completed_at": "2025-12-12T05:18:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-007-2025-12-12T0518.md"
+      "ticket_id": "TKT-024",
+      "branch": "agent/tkt-024",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-024-auto.md"
     },
     {
-      "ticket_id": "TKT-007-V2-V2",
-      "branch": "agent/tkt-007-v2-v2",
-      "started_at": "2025-12-12T05:55:58Z",
-      "completed_at": "2025-12-12T05:58:12Z",
-      "completion_file": "docs/agent-output/completions/TKT-007-V2-V2-2025-12-12T0558.md"
+      "ticket_id": "TKT-041",
+      "branch": "agent/tkt-041",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-041-auto.md"
     },
     {
-      "ticket_id": "TKT-015",
-      "branch": "agent/tkt-015",
-      "started_at": "2025-12-06T08:00:00Z",
-      "completed_at": "2025-12-06T08:04:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-015-2025-12-06T0800.md"
+      "ticket_id": "TKT-047",
+      "branch": "agent/tkt-047",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-047-auto.md"
     },
     {
-      "ticket_id": "TKT-060",
-      "branch": "agent/tkt-060",
-      "started_at": "2025-12-06T00:00:00Z",
-      "completed_at": "2025-12-06T00:10:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-060-2025-12-06T0010.md"
+      "ticket_id": "TKT-052",
+      "branch": "agent/tkt-052",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-052-auto.md"
     },
     {
-      "ticket_id": "TKT-104",
-      "branch": "agent/tkt-104",
-      "started_at": "2025-12-12T04:36:09Z",
-      "completed_at": "2025-12-12T04:42:56Z",
-      "completion_file": "docs/agent-output/completions/TKT-104-20251212T044256.md"
+      "ticket_id": "TKT-054",
+      "branch": "agent/tkt-054",
+      "completed_at": "2025-12-06T03:43:16.762111Z",
+      "completion_file": "docs/agent-output/completions/TKT-054-auto.md"
+    },
+    {
+      "ticket_id": "TKT-062",
+      "branch": "main",
+      "completed_at": "2025-12-05T08:46:05.294Z",
+      "completion_file": "docs/agent-output/completions/TKT-062-2025-12-06T0600.md"
+    },
+    {
+      "ticket_id": "TKT-013",
+      "branch": "agent/tkt-013",
+      "started_at": "2025-12-08T07:36:00Z",
+      "completed_at": "2025-12-08T10:01:53Z",
+      "completion_file": "docs/agent-output/completions/TKT-013-2025-12-08T1001.md"
     }
   ],
-  "retry_history": []
+  "retry_history": [],
+  "regression_results": {}
 }

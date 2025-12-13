@@ -124,7 +124,7 @@ launch_qa() {
     cat > "/tmp/qa-retest-$ticket.sh" << SCRIPT
 #!/bin/bash
 cd "$worktree"
-claude --dangerously-skip-permissions -p "You are a QA Review Agent.
+claude --model claude-opus-4-20250514 --dangerously-skip-permissions -p "You are a QA Review Agent.
 
 CRITICAL: First read docs/workflow/QA_REVIEW_AGENT_SOP.md for your FULL testing procedure.
 

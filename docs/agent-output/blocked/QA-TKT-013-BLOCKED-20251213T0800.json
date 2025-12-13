@@ -1,0 +1,42 @@
+{
+  "ticket_id": "TKT-013",
+  "ticket_title": "Retention Policy Retroactive Deletion Warning",
+  "branch": "agent/tkt-013",
+  "blocked_at": "2025-12-13T08:00:00Z",
+  "blocker_type": "qa_infrastructure_missing",
+  "summary": "Cannot complete UI testing - PM Dashboard QA API endpoints not functional",
+  "failures": [
+    {
+      "category": "infrastructure",
+      "criterion": "Browser testing required for UI ticket",
+      "expected": "Create test admin user via /api/v2/qa/create-test-user",
+      "actual": "API returns {\"error\":\"Not found\"}",
+      "evidence": "curl -X POST http://localhost:3456/api/v2/qa/create-test-user returns 404"
+    },
+    {
+      "category": "acceptance",
+      "criterion": "All 5 acceptance criteria must be verified via browser testing",
+      "expected": "Login as admin, navigate to settings, test modal behavior",
+      "actual": "Cannot authenticate without test user creation API",
+      "evidence": "QA SOP: 'If your evidence is I read the code, your QA is INVALID' for UI tickets"
+    }
+  ],
+  "code_review_status": "PASSED",
+  "code_review_notes": [
+    "All 5 acceptance criteria verified in code",
+    "Modal implementation correct",
+    "DELETE confirmation validation present",
+    "Count API implemented correctly",
+    "Audit logging present (console.log only, TODO notes needed improvement)"
+  ],
+  "recommendation": "Fix QA infrastructure OR conduct manual human testing before merge",
+  "dispatch_action": "notify_engineering_team",
+  "required_actions": [
+    "Implement /api/v2/qa/create-test-user API endpoint in PM Dashboard",
+    "Implement /api/v2/qa/org-by-email API endpoint",
+    "OR: Assign human QA tester to execute test plan",
+    "Re-run automated QA after infrastructure fix"
+  ],
+  "risk_level": "MEDIUM",
+  "risk_notes": "Code appears correct but without UI testing, visual bugs or edge cases may exist"
+}

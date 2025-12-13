@@ -20,27 +20,26 @@ TICKET TYPE: ui
 UI TICKET - Browser testing required
 
 Read: docs/workflow/UI_TICKET_QA_WORKFLOW.md
-- Test with Playwright
+- Test with Playwright browser automation
 - Test each role separately
-- Generate magic links for PM review
+- Take screenshots as evidence
 
 GENERAL: docs/workflow/QA_REVIEW_AGENT_SOP.md
 
 SESSION INFO:
   TICKET: TKT-013 | BRANCH: agent/tkt-013 | TYPE: ui
   HAS_UI: true | HAS_API: false
-  SESSION_ID: 4b250c81-a23f-4411-b2d2-80c81eb8720c
-  WORKTREE: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-013
+  SESSION_ID: fc4a3dcc-a467-44d2-8c2d-5a79f83c887b
+  WORKTREE: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/TKT-013
   
   ⚠️  YOUR DASHBOARD PORT: 3113
   This port is unique to your ticket - use it for all testing!
   Other QA agents may be running on different ports simultaneously.
   
   🌐 TUNNEL URL: 
-  Use this URL for magic links! PM can access from anywhere.
-  (If tunnel unavailable, falls back to localhost:3113)
+  (Used for remote access if needed)
   
-Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/4b250c81-a23f-4411-b2d2-80c81eb8720c/heartbeat
+Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/fc4a3dcc-a467-44d2-8c2d-5a79f83c887b/heartbeat
 
 ═══════════════════════════════════════════════════════════════
 PHASE 1: CREATE YOUR TEST PLAN (BEFORE any testing!)
@@ -56,10 +55,10 @@ Write this FIRST:
 
 
 ### UI TESTS - ROLES TO TEST
-| Role | User Email | Tests | Magic Link? |
-|------|-----------|-------|-------------|
-| Admin | qa-admin-$TICKET_ID@greetnow.test | [list] | Yes |
-| Agent | qa-agent-$TICKET_ID@greetnow.test | [list] | Yes |
+| Role | User Email | Tests |
+|------|-----------|-------|
+| Admin | qa-admin-$TICKET_ID@greetnow.test | [list] |
+| Agent | qa-agent-$TICKET_ID@greetnow.test | [list] |
 
 ### UI TESTS - SCENARIOS
 | # | Scenario | User Action | Expected Result |
@@ -108,38 +107,7 @@ UI TICKETS - For EACH role:
   3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
   4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
   5. Test feature at http://localhost:$AGENT_PORT, take screenshot
-  6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
-       -H \"Content-Type: application/json\" \\
-       -d "\""ticket_id":"TKT-013"\""
-  7. REPEAT for next role
-  
-  🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
- 
-UI TICKETS - For EACH role:
-  1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
-  2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
-  3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
-  4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
-  5. Test feature at http://localhost:$AGENT_PORT, take screenshot
-  6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
-       -H \"Content-Type: application/json\" \\
-       -d "\""user_email":"..."\""
-  7. REPEAT for next role
-  
-  🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
- 
-UI TICKETS - For EACH role:
-  1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
-  2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
-  3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
-  4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
-  5. Test feature at http://localhost:$AGENT_PORT, take screenshot
-  6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
-       -H \"Content-Type: application/json\" \\
-       -d "\""preview_base_url":""\""
-  7. REPEAT for next role
-  
-  🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
+  6. REPEAT for next role
 
 ═══════════════════════════════════════════════════════════════
 PHASE 4: SELF-AUDIT (Before marking complete)
@@ -155,7 +123,7 @@ Answer honestly:
 
 
 ### UI Testing
-- Roles in AC: ___ | Users created: ___ | Magic links: ___
+- Roles in AC: ___ | Users created: ___
 - All numbers must match!
 
 ⛔ DO NOT mark complete until self-audit passes!
@@ -171,64 +139,28 @@ If PASS:
      Include: Test plan, all test results, evidence, self-audit
   
   ─────────────────────────────────────────────────────────────
-  FOR UI TICKETS: Create inbox with magic_links (PLURAL!)
+  IF PASS: Update ticket status (pipeline handles merge!)
   ─────────────────────────────────────────────────────────────
   
-  Write: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/inbox/TKT-013.json
+  Update ticket to qa_passed (do NOT merge yourself):
+  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-013 \
+    -H 'Content-Type: application/json' \
+    -d '{"status": "qa_passed"}'
   
-  {
-    "ticket_id": "TKT-013",
-    "title": "[title]",
-    "type": "ui_review",
-    "status": "pending",
-    "created_at": "[ISO timestamp]",
-    "message": "QA verified ALL roles. PM please confirm each.",
-    "branch": "agent/tkt-013",
-    "tunnel_url": "",
-    "qa_report": "docs/agent-output/qa-results/QA-TKT-013-PASSED-[timestamp].md",
-    "screenshots": [
-      {"name": "Admin View", "path": "..."},
-      {"name": "Agent View", "path": "..."}
-    ],
-    "magic_links": [
-      {"role": "admin", "url": "/login?token=...", "what_pm_sees": "..."},
-      {"role": "agent", "url": "/login?token=...", "what_pm_sees": "..."}
-    ],
-    "test_setup": "[how test accounts are configured]",
-    "acceptance_criteria": ["list from ticket"]
-  }
+  ⚠️ DO NOT MERGE! The pipeline runner will:
+  1. Launch Docs Agent and Tests Agent on the same branch
+  2. Wait for both to complete
+  3. Auto-merge with selective file checkout
+  4. Launch Review Agent
   
-  🌐 Magic links use TUNNEL_URL () - PM can click from anywhere!
-  
-  Update ticket:
-  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-013 -d '{"status": "qa_approved"}'
+  Your job is ONLY to verify and update status to qa_passed.
   
   ─────────────────────────────────────────────────────────────
-  FOR NON-UI TICKETS: Auto-merge flow
+  Mark QA session complete
   ─────────────────────────────────────────────────────────────
   
-  QA Report must include:
-  - All curl commands executed
-  - All responses received  
-  - Expected vs actual for each test
-  - State verification evidence
-  
-  Update ticket:
-  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-013 -d '{"status": "merged"}'
-  
-  Selective merge:
-    cd /Users/ryanodonnell/projects/Digital_greeter
-    git checkout main && git pull origin main
-    git checkout agent/tkt-013 -- apps/dashboard/src/app/(dashboard)/settings/actions.ts apps/dashboard/src/app/(dashboard)/settings/RetentionWarningModal.tsx apps/dashboard/src/app/(dashboard)/settings/page.tsx
-    git add apps/dashboard/src/app/(dashboard)/settings/actions.ts apps/dashboard/src/app/(dashboard)/settings/RetentionWarningModal.tsx apps/dashboard/src/app/(dashboard)/settings/page.tsx
-    git commit -m 'Merge TKT-013: [title] - QA Passed'
-    git push origin main
-  
-  ─────────────────────────────────────────────────────────────
-  BOTH: Mark session complete
-  ─────────────────────────────────────────────────────────────
-  
-  curl -X POST http://localhost:3456/api/v2/agents/4b250c81-a23f-4411-b2d2-80c81eb8720c/complete \
+  curl -X POST http://localhost:3456/api/v2/agents/fc4a3dcc-a467-44d2-8c2d-5a79f83c887b/complete \
+    -H 'Content-Type: application/json' \
     -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-013-PASSED.md"}'
 
 If FAIL:
@@ -248,7 +180,7 @@ If FAIL:
   }
   
   Update status:
-  curl -X POST http://localhost:3456/api/v2/agents/4b250c81-a23f-4411-b2d2-80c81eb8720c/block -d '{"blocker_type": "qa_failure", ...}'
+  curl -X POST http://localhost:3456/api/v2/agents/fc4a3dcc-a467-44d2-8c2d-5a79f83c887b/block -d '{"blocker_type": "qa_failure", ...}'
   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-013 -d '{"status": "qa_failed"}'
 
 ═══════════════════════════════════════════════════════════════
