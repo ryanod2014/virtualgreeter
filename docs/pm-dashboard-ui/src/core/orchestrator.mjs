@@ -347,6 +347,16 @@ function setupAutoHandlers() {
           payload: { triggered_by: toStatus }
         });
       }
+      
+      // CONTINUATION_READY → Auto-queue dev_launch to retry
+      if (config.automation.enabled && toStatus === STATES.CONTINUATION_READY) {
+        console.log(`🔄 Continuation ready for ${ticketId}, auto-queuing dev_launch...`);
+        scheduler.enqueue({
+          type: 'dev_launch',
+          ticketId,
+          payload: { triggered_by: 'continuation_ready' }
+        });
+      }
     } catch (e) {
       console.error(`Auto-handler error for ${ticketId}: ${e.message}`);
     }
