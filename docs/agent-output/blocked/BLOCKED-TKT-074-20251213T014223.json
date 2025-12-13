@@ -1,0 +1,86 @@
+{
+  "id": "BLOCKED-TKT-074-3",
+  "type": "blocker",
+  "source": "dev-agent-TKT-074",
+  "severity": "critical",
+  "title": "⚠️ THIRD BLOCKER - Previous scope clarification still unresolved",
+  "feature": "Event Tracking",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-13T01:42:23Z",
+
+  "issue": "TKT-074 has been BLOCKED THREE TIMES on the same unresolved scope issue:\n\n1. BLOCKED-TKT-074-1 (2025-12-11T20:52:23Z) - First agent identified that target file 'apps/server/src/features/events/eventEmitter.ts' does not exist and requested scope clarification.\n2. BLOCKED-TKT-074-2 (2025-12-11T22:28:11Z) - Second agent re-reported the same blocker because no resolution was provided.\n3. THIS BLOCKER (2025-12-13T01:42:23Z) - Third agent (current) finds the same issue STILL unresolved.\n\nThe fundamental problem: The ticket instructs modification of 'apps/server/src/features/events/eventEmitter.ts' but this file does not exist. The 'events' directory doesn't exist either.\n\nFinding F-197 references a specific fire-and-forget issue in the transcription service (apps/dashboard/src/features/webrtc/use-call-recording.ts lines 283-295), but the ticket scope is ambiguous about whether to:\n\nA) Create NEW generic event emitter infrastructure from scratch\nB) Fix the SPECIFIC transcription fire-and-forget issue directly\n\nThis represents a breakdown in the blocker resolution process. The PM has not addressed either of the previous two blockers.",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Create generic event emitter infrastructure — Build new apps/server/src/features/events/ directory with EventEmitter class featuring error logging, retry queue, and metrics. Then refactor transcription to use it. Architectural change with significant scope.",
+      "recommended": false
+    },
+    {
+      "id": 2,
+      "label": "Fix transcription fire-and-forget directly — Add error handling, logging, and retry logic directly to the transcription flow in use-call-recording.ts and/or the transcription API route. Simpler, targeted fix that solves F-197 immediately.",
+      "recommended": true
+    },
+    {
+      "id": 3,
+      "label": "Cancel this ticket and create a properly scoped replacement — Acknowledge that the current ticket has insufficient scope and create TKT-074-v2 (or new ticket) with clear, unambiguous instructions after PM decides on the approach.",
+      "recommended": false
+    },
+    {
+      "id": 4,
+      "label": "PM escalation - Fix blocker resolution workflow — This ticket demonstrates that the blocker resolution process is broken. PM should investigate why previous blockers were not addressed and fix the workflow before attempting TKT-074 again.",
+      "recommended": true
+    }
+  ],
+
+  "recommendation": "Option 4 FIRST (fix blocker resolution workflow), then either Option 2 (direct transcription fix) or Option 3 (rewrite ticket). The fact that this is the THIRD blocker on the same issue suggests a systemic problem in how blockers are being triaged and resolved.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-074",
+    "ticket_version": 1,
+    "branch": "agent/tkt-074",
+    "previous_blockers": [
+      {
+        "id": "BLOCKED-TKT-074-1",
+        "date": "2025-12-11T20:52:23Z",
+        "status": "UNRESOLVED",
+        "file": "docs/agent-output/blocked/BLOCKED-TKT-074-20251211T205223.json"
+      },
+      {
+        "id": "BLOCKED-TKT-074-2",
+        "date": "2025-12-11T22:28:11Z",
+        "status": "UNRESOLVED",
+        "file": "docs/agent-output/blocked/BLOCKED-TKT-074-20251211T222811.json"
+      }
+    ],
+    "progress": {
+      "commits": [
+        "55affa0 - TKT-074: Re-report blocker - previous scope clarification unresolved",
+        "e4d1231 - WIP TKT-074: Blocked on scope clarification - BLOCKED"
+      ],
+      "done": [
+        "Read SOP and ticket instructions",
+        "Read previous blocker reports (BLOCKED-TKT-074-1 and BLOCKED-TKT-074-2)",
+        "Confirmed target file still does not exist",
+        "Confirmed no blocker resolution was ever added to ticket",
+        "Sent heartbeat to PM Dashboard",
+        "Verified working in correct worktree and branch"
+      ],
+      "remaining": [
+        "⚠️ AWAITING PM INTERVENTION ← YOU ARE HERE",
+        "After resolution: Implement solution based on PM decision",
+        "Add error logging",
+        "Add retry mechanism (if applicable)",
+        "Add metrics",
+        "Testing and verification"
+      ],
+      "stopped_at": {
+        "file": null,
+        "line": null,
+        "context": "Cannot proceed without scope clarification. This is the third agent to block on this issue."
+      },
+      "notes_for_next_agent": "If PM resolves this blocker:\n\n- Option 1 (generic emitter): Create apps/server/src/features/events/ directory from scratch. Build EventEmitter class with error handling, retry queue, and metrics. See Node.js EventEmitter patterns for reference.\n\n- Option 2 (direct fix): Focus on apps/dashboard/src/features/webrtc/use-call-recording.ts lines 283-295. The fire-and-forget fetch to /api/transcription/process needs proper error handling. Also review the API route at apps/server/src/features/transcription/routes.ts (or similar) for server-side error handling.\n\nThe transcription feature docs are at docs/features/transcription.md. Finding F-197 provides the original context for why this was raised."
+    }
+  }
+}
