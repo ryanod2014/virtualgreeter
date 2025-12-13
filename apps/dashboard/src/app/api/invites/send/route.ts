@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
-import { sendInviteEmail } from "@/lib/email";
+import { sendInviteEmail, sendReactivationEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -94,14 +94,22 @@ export async function POST(request: NextRequest) {
           const org = Array.isArray(profile.organization) ? profile.organization[0] : profile.organization;
           const orgName = (org as { name: string })?.name || "GreetNow";
 
-          // TODO: Create sendReactivationEmail function
-          // For now, we'll skip the email or reuse sendInviteEmail
-          // The user can just log in with their existing credentials
+          const emailResult = await sendReactivationEmail({
+            to: email,
+            displayName: agentProfile.display_name,
+            orgName,
+          });
+
+          // Log email status but don't block reactivation on email failure
+          if (!emailResult.success) {
+            console.error("Reactivation email delivery failed:", emailResult.error);
+          }
 
           return NextResponse.json({
             success: true,
             reactivated: true,
             agentProfile: { id: agentProfile.id, display_name: agentProfile.display_name },
+            emailStatus: emailResult.success ? "sent" : "failed",
           });
         }
       }
