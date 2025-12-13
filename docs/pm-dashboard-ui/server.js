@@ -99,6 +99,18 @@ async function loadDBModule() {
       dbModule = await import(`file://${dbPath}`);
       db = dbModule.initDB();
       console.log('✅ Database module loaded');
+      
+      // Start stale job checker on DB load
+      if (!staleCheckerInterval) {
+        staleCheckerInterval = setInterval(checkAndRetryStaleJobs, STALE_CHECK_INTERVAL_MS);
+        console.log('🔍 Stale job checker started (checking every 2 min)');
+        // Initial check after 5 seconds
+        setTimeout(() => {
+          console.log('🔍 Running initial stuck ticket check...');
+          checkAndRetryStaleJobs();
+        }, 5000);
+      }
+      
       return true;
     }
   } catch (e) {
@@ -833,6 +845,12 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
 // Job worker state
 let jobWorkerRunning = false;
 let jobWorkerInterval = null;
+let staleCheckerInterval = null;
+
+// Stale job configuration
+const STALE_JOB_TIMEOUT_MS = 20 * 60 * 1000;  // 20 minutes
+const STALE_CHECK_INTERVAL_MS = 2 * 60 * 1000;  // Check every 2 minutes
+const MAX_JOB_RETRIES = 3;
 
 /**
  * Start the job worker if not already running
@@ -845,6 +863,12 @@ function startJobWorker() {
   
   // Poll for jobs every 2 seconds
   jobWorkerInterval = setInterval(processNextJob, 2000);
+  
+  // Start stale job checker if not running
+  if (!staleCheckerInterval) {
+    staleCheckerInterval = setInterval(checkAndRetryStaleJobs, STALE_CHECK_INTERVAL_MS);
+    console.log('🔍 Stale job checker started (checking every 2 min)');
+  }
   
   // Process first job immediately
   processNextJob();
@@ -860,6 +884,148 @@ function stopJobWorker() {
   }
   jobWorkerRunning = false;
   console.log('⏹️ Job worker stopped');
+  // Note: staleCheckerInterval keeps running to detect stuck jobs
+}
+
+/**
+ * Check for stale/stuck jobs and retry them
+ */
+function checkAndRetryStaleJobs() {
+  if (!dbModule?.jobs || !dbModule?.tickets) return;
+  
+  const now = Date.now();
+  const runningJobs = dbModule.jobs.list({ status: 'running' });
+  
+  for (const job of runningJobs) {
+    // Respect whitelist
+    if (automationConfig.testTickets && automationConfig.testTickets.length > 0) {
+      const isWhitelisted = automationConfig.testTickets.some(prefix => job.ticket_id?.startsWith(prefix));
+      if (!isWhitelisted) continue;
+    }
+    
+    const jobAge = now - new Date(job.created_at).getTime();
+    if (jobAge < STALE_JOB_TIMEOUT_MS) continue;
+    
+    // Check if tmux session is alive
+    const sessionName = getSessionNameForJob(job);
+    if (!isSessionAlive(sessionName)) {
+      console.log(`🔄 Stale job detected: ${job.job_type} for ${job.ticket_id} (session dead)`);
+      retryStaleJob(job);
+    }
+  }
+  
+  checkStuckTickets();
+}
+
+function getSessionNameForJob(job) {
+  const ticketId = job.ticket_id || '';
+  switch (job.job_type) {
+    case 'dev_launch': return `agent-${ticketId}`;
+    case 'qa_launch': return `qa-${ticketId}`;
+    case 'test_agent': return `test-${ticketId}`;
+    case 'doc_agent': return `doc-${ticketId}`;
+    default: return null;
+  }
+}
+
+function isSessionAlive(sessionName) {
+  if (!sessionName) return true;
+  try {
+    const { execSync } = require('child_process');
+    execSync(`tmux has-session -t "${sessionName}" 2>/dev/null`, { encoding: 'utf8' });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function retryStaleJob(job) {
+  if (!dbModule?.jobs) return;
+  
+  const retryCount = (job.payload?.retry_count || 0) + 1;
+  
+  if (retryCount > MAX_JOB_RETRIES) {
+    console.log(`❌ Job ${job.job_type} for ${job.ticket_id} exceeded max retries`);
+    dbModule.jobs.fail(job.id, `Exceeded max retries`);
+    if (job.ticket_id && dbModule?.tickets) {
+      dbModule.tickets.update(job.ticket_id, { status: 'blocked' });
+    }
+    return;
+  }
+  
+  console.log(`🔄 Retrying ${job.job_type} for ${job.ticket_id} (attempt ${retryCount}/${MAX_JOB_RETRIES})`);
+  
+  // Clean up dead session
+  const sessionName = getSessionNameForJob(job);
+  if (sessionName) {
+    try {
+      const { execSync } = require('child_process');
+      execSync(`tmux kill-session -t "${sessionName}" 2>/dev/null`);
+    } catch (e) {}
+  }
+  
+  if (job.ticket_id) cleanupConflictingWorktrees(job.ticket_id, job.branch);
+  
+  dbModule.jobs.fail(job.id, 'Stale job - session died');
+  
+  dbModule.jobs.create({
+    job_type: job.job_type,
+    ticket_id: job.ticket_id,
+    branch: job.branch,
+    priority: job.priority || 2,
+    payload: { ...job.payload, retry_count: retryCount }
+  });
+  
+  startJobWorker();
+}
+
+function checkStuckTickets() {
+  if (!dbModule?.tickets || !dbModule?.jobs) return;
+  
+  const stuckStates = ['in_review', 'qa_pending', 'finalizing'];
+  
+  for (const status of stuckStates) {
+    const tickets = dbModule.tickets.list({ status });
+    
+    for (const ticket of tickets) {
+      // Respect whitelist
+      if (automationConfig.testTickets && automationConfig.testTickets.length > 0) {
+        const isWhitelisted = automationConfig.testTickets.some(prefix => ticket.id?.startsWith(prefix));
+        if (!isWhitelisted) continue;
+      }
+      
+      const ticketAge = Date.now() - new Date(ticket.updated_at || ticket.created_at).getTime();
+      
+      // Stuck for over 5 minutes with no active jobs
+      if (ticketAge > 5 * 60 * 1000) {
+        const jobs = dbModule.jobs.getForTicket(ticket.id);
+        const hasActiveJob = jobs.some(j => ['pending', 'running'].includes(j.status));
+        
+        if (!hasActiveJob) {
+          console.log(`⚠️ Ticket ${ticket.id} stuck in ${status} - re-queueing`);
+          requeueTicketForState(ticket);
+        }
+      }
+    }
+  }
+}
+
+function requeueTicketForState(ticket) {
+  if (!dbModule?.jobs) return;
+  
+  switch (ticket.status) {
+    case 'in_review':
+      dbModule.jobs.create({ job_type: 'regression_test', ticket_id: ticket.id, branch: ticket.branch, priority: 2 });
+      break;
+    case 'qa_pending':
+      dbModule.jobs.create({ job_type: 'qa_launch', ticket_id: ticket.id, branch: ticket.branch, priority: 2 });
+      break;
+    case 'finalizing':
+      dbModule.jobs.create({ job_type: 'test_agent', ticket_id: ticket.id, branch: ticket.branch, priority: 2 });
+      dbModule.jobs.create({ job_type: 'doc_agent', ticket_id: ticket.id, branch: ticket.branch, priority: 2 });
+      break;
+  }
+  startJobWorker();
 }
 
 /**
