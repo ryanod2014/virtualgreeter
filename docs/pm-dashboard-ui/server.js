@@ -4880,6 +4880,115 @@ function handleAPI(req, res, body) {
     return true;
   }
   
+  // GET /api/v2/data - Main dashboard data endpoint (matches what dashboard expects)
+  if (req.method === 'GET' && url === '/api/v2/data') {
+    try {
+      // Get tickets from DB
+      const dbTickets = dbModule?.tickets?.list?.() || [];
+      
+      // Get sessions from DB
+      const runningSessions = dbModule?.sessions?.getRunning?.() || [];
+      
+      // Get active locks from DB
+      const activeLocks = dbModule?.locks?.getActive?.() || [];
+      
+      // Get findings from DB
+      const allDbFindings = dbModule?.findings?.list?.() || [];
+      const dbFindings = allDbFindings.filter(f => f.status !== 'staging');
+      const stagingFindings = allDbFindings.filter(f => f.status === 'staging');
+      
+      // Get decisions from DB
+      const dbDecisions = dbModule?.decisions?.list?.() || [];
+      const decisionThreads = dbDecisions.map(d => ({
+        finding_id: d.finding_id,
+        status: d.status || 'pending',
+        messages: [],
+        decision: d.decision_type ? {
+          option_id: d.decision_type,
+          option_label: d.decision_summary || '',
+          timestamp: d.resolved_at || d.updated_at
+        } : null
+      }));
+      
+      // Build devStatus from sessions
+      const devStatus = {
+        in_progress: runningSessions.filter(s => s.agent_type === 'dev').map(s => ({
+          ticket_id: s.ticket_id,
+          session_id: s.id,
+          started_at: s.started_at
+        })),
+        completed: [],
+        merged: dbTickets.filter(t => t.status === 'merged').map(t => t.id)
+      };
+      
+      // Scan agent outputs from filesystem
+      const agentOutputDir = path.join(DOCS_DIR, 'agent-output');
+      let agentOutputs = { reviews: [], completions: [], blocked: [], qaResults: [] };
+      try {
+        if (fs.existsSync(path.join(agentOutputDir, 'qa-results'))) {
+          agentOutputs.qaResults = fs.readdirSync(path.join(agentOutputDir, 'qa-results'))
+            .filter(f => f.endsWith('.md'))
+            .map(f => ({ fileName: f }));
+        }
+        if (fs.existsSync(path.join(agentOutputDir, 'blocked'))) {
+          agentOutputs.blocked = fs.readdirSync(path.join(agentOutputDir, 'blocked'))
+            .filter(f => f.endsWith('.json'))
+            .map(f => ({ fileName: f }));
+        }
+      } catch (e) {
+        // Ignore scan errors
+      }
+      
+      // Calculate staging severity breakdown
+      const stagingBySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
+      for (const f of stagingFindings) {
+        const sev = f.severity || 'medium';
+        if (stagingBySeverity[sev] !== undefined) {
+          stagingBySeverity[sev]++;
+        }
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        findings: { 
+          findings: dbFindings,
+          meta: { total: dbFindings.length }
+        },
+        decisions: { threads: decisionThreads },
+        tickets: { tickets: dbTickets },
+        summary: {
+          meta: { total_features: 0 },
+          by_priority: {},
+          by_category: {}
+        },
+        devStatus,
+        docStatus: { meta: {}, features: {} },
+        featuresList: [],
+        agentOutputs,
+        staging: {
+          count: stagingFindings.length,
+          bySeverity: stagingBySeverity
+        },
+        activeLocks,
+        runningSessions,
+        source: 'database',
+        dbAvailable: !!dbModule
+      }));
+    } catch (e) {
+      console.error('Error in /api/v2/data:', e.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return true;
+  }
+  
+  // POST /api/v2/data/decisions - Save decisions (stub for dashboard compatibility)
+  if (req.method === 'POST' && url === '/api/v2/data/decisions') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+    return true;
+  }
+  
   return false;
 }
 

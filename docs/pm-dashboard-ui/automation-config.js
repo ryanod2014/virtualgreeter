@@ -7,7 +7,7 @@
 
 const automationConfig = {
   enabled: true,
-  testTickets: ['TKT-072'],  // Only process TKT-072 (and its continuations)
+  testTickets: ['TKT-093'],  // Phase 1 test: TKT-093 (Timezone Display fix)
   autoQueueOnDevComplete: true,
   autoQueueOnQaPass: true,
   autoDispatchOnBlock: true,
