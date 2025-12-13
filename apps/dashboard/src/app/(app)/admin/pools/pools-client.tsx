@@ -2118,17 +2118,40 @@ export function PoolsClient({
       loop: "example_loop_video_url"
     };
     const updateField = fieldMap[type];
-    
+
+    // Capture previous state for rollback
+    const previousPools = pools;
+    const pool = pools.find(p => p.id === poolId);
+    const previousVideoUrl = pool?.[updateField as keyof Pool] as string | null;
+
+    // Optimistically update UI
+    setPools(pools.map(p =>
+      p.id === poolId ? { ...p, [updateField]: null } : p
+    ));
+
     const { error } = await supabase
       .from("agent_pools")
       .update({ [updateField]: null })
       .eq("id", poolId);
 
-    if (!error) {
-      setPools(pools.map(p => 
-        p.id === poolId ? { ...p, [updateField]: null } : p
-      ));
+    if (error) {
+      // Rollback on error
+      setPools(previousPools);
+      if (error.message?.includes("network") || error.message?.includes("fetch")) {
+        showToast("Connection error", "Unable to remove video. Please check your connection and try again.", "error");
+      } else {
+        showToast("Failed to remove video", error.message || "An unexpected error occurred", "error");
+      }
+      return;
     }
+
+    // Show success notification
+    const typeLabels = {
+      wave: "Wave",
+      intro: "Intro",
+      loop: "Loop"
+    };
+    showToast("Video removed", `${typeLabels[type]} video has been removed successfully`);
   };
 
   // Save recorded video blob
