@@ -243,7 +243,6 @@ NOTHING ELSE HAPPENS
 | No dunning emails | User never notified of failure | 🔴 High | Implement email on `invoice.payment_failed` |
 | No payment method update flow | User can't self-serve recovery | 🔴 High | Add Stripe Customer Portal or custom update flow |
 | No service restrictions | Revenue loss continues | 🟡 Medium | Add graceful restrictions (e.g., can't add seats, warning on widget) |
-| TypeScript type mismatch | `SubscriptionStatus` type doesn't include `past_due` | 🟡 Medium | Update `packages/domain/src/database.types.ts` line 39 |
 | No in-app notification | Admin may miss the issue | 🟡 Medium | Add toast/alert on login when `past_due` |
 
 ---
@@ -257,7 +256,7 @@ NOTHING ELSE HAPPENS
 | Status mapping | `apps/server/src/features/billing/stripe-webhook-handler.ts` | 32-54 | `mapStripeStatusToDbStatus()` - maps `incomplete`, `unpaid` → `past_due` |
 | Idempotent update | `apps/server/src/features/billing/stripe-webhook-handler.ts` | 106-135 | `updateOrgSubscriptionStatus()` |
 | Database migration | `supabase/migrations/20251204200000_expand_subscription_status.sql` | 1-20 | Adds `past_due` to constraint |
-| TypeScript types | `packages/domain/src/database.types.ts` | 39 | ⚠️ Missing `past_due` in `SubscriptionStatus` type |
+| TypeScript types | `packages/domain/src/database.types.ts` | 39 | ✅ Includes `past_due` in `SubscriptionStatus` type |
 | Billing settings UI | `apps/dashboard/src/app/(app)/admin/settings/billing/billing-settings-client.tsx` | 1-951 | No `past_due` handling present |
 
 ---
@@ -284,12 +283,7 @@ NOTHING ELSE HAPPENS
 
 5. **How many failed attempts before cancellation?** — Stripe decides this based on Smart Retries settings. We receive `subscription.deleted` when Stripe gives up.
 
-6. **Should the TypeScript `SubscriptionStatus` type be updated?** — Yes, `packages/domain/src/database.types.ts` line 39 should add `past_due`:
-   ```typescript
-   export type SubscriptionStatus = "active" | "paused" | "cancelled" | "trialing" | "past_due";
-   ```
-
-7. **What happens if payment fails during seat addition?** — Currently, seats are added to DB optimistically via `update-settings` API before Stripe processes. If invoice fails, there may be inconsistency between DB `seat_count` and Stripe quantity. This needs investigation.
+6. **What happens if payment fails during seat addition?** — Currently, seats are added to DB optimistically via `update-settings` API before Stripe processes. If invoice fails, there may be inconsistency between DB `seat_count` and Stripe quantity. This needs investigation.
 
 ---
 
@@ -299,7 +293,7 @@ NOTHING ELSE HAPPENS
 |-----------|--------|---------------|
 | Webhook handler for `invoice.payment_failed` | ✅ Implemented | `stripe-webhook-handler.ts` |
 | Database status `past_due` | ✅ Implemented | Migration `20251204200000` |
-| TypeScript type for `past_due` | ❌ Missing | `database.types.ts:39` |
+| TypeScript type for `past_due` | ✅ Implemented | `database.types.ts:39` |
 | Past-due UI banner | ❌ Not Implemented | — |
 | Dunning emails | ❌ Not Implemented | — |
 | Service restrictions | ❌ Not Implemented | — |
