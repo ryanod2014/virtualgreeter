@@ -1,0 +1,12 @@
+{
+  "id": "F-DEV-TKT-094-1",
+  "source": "dev-agent-TKT-094",
+  "title": "Pre-existing merge conflict markers preventing typecheck",
+  "category": "bug",
+  "severity": "high",
+  "file": "multiple files",
+  "issue": "Multiple files in the codebase contain unresolved merge conflict markers (<<<<<<, =======, >>>>>>>) that prevent TypeScript compilation. This blocks the standard 'pnpm typecheck' command from passing, which is required for verifying new code changes. The conflicts affect apps/server, apps/dashboard, and apps/widget packages.",
+  "suggestion": "Resolve merge conflicts in the following files:\n- apps/server/src/features/signaling/socket-handlers.ts (lines 641-667)\n- apps/server/src/features/signaling/socket-handlers.test.ts (line 438+)\n- apps/server/src/lib/organization.test.ts (lines 67, 412)\n- apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx (lines 1562-1583)\n- apps/dashboard/src/app/(app)/platform/feedback/page.tsx (lines 37-43)\n- apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx (lines 120-261)\n- apps/dashboard/src/features/surveys/ellis-survey-modal.tsx (lines 136-140)\n- apps/widget/src/features/webrtc/useWebRTC.test.ts (lines 1067, 1456)\n\nThese appear to be leftover conflicts from previous merges that were not properly resolved. A human engineer should review each conflict and choose the correct resolution.",
+  "status": "pending",
+  "found_at": "2025-12-13T01:45:00Z"
+}
