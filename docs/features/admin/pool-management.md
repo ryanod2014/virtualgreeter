@@ -97,41 +97,11 @@ stateDiagram-v2
 | `handleAddAgentToPool` | `pools-client.tsx:1680` | Adds agent with priority rank |
 | `handleRemoveAgentFromPool` | `pools-client.tsx:1753` | Removes agent from pool |
 | `handleUpdateAgentPriority` | `pools-client.tsx:1722` | Changes agent's priority tier |
-| `showToast` | `pools-client.tsx:1547` | Displays success/error toast notifications |
 | `syncConfigToServer` | `pools-client.tsx:1541` | POSTs pool config to signaling server |
 | `PoolWidgetSettings` | `pools-client.tsx:829` | Custom widget settings per pool |
 | `AgentPriorityCard` | `pools-client.tsx:102` | Agent card with priority selector |
 | `RuleBuilder` | `pools-client.tsx:308` | Routing rule creation UI |
-
-### Toast Notification System (TKT-043)
-
-Pool management operations now provide immediate user feedback through toast notifications using Radix UI Toast components.
-
-**Success Notifications:**
-- "Pool created" - Shown after successful pool creation
-- "Agent added" - Shown when agent is added to pool
-- "Agent removed" - Shown when agent is removed from pool
-- "Priority updated" - Shown when agent priority tier changes
-- "Routing rule added" - Shown when new rule is created
-- "Routing rule deleted" - Shown when rule is removed
-- "Pool deleted" - Shown when pool is successfully deleted
-
-**Error Notifications:**
-- "Connection error" - Shown for network/fetch failures with recovery instructions
-- "Failed to create pool" - Shown for duplicate names (with specific message) or other creation errors
-- "Failed to add agent" - Shown when agent addition fails
-- "Failed to remove agent" - Shown when agent removal fails
-- "Failed to update priority" - Shown when priority update fails
-- "Failed to add routing rule" - Shown when rule creation fails
-- "Failed to delete routing rule" - Shown when rule deletion fails
-- "Failed to delete pool" - Shown when pool deletion fails
-
-**Implementation Details:**
-- Toast notifications auto-dismiss after 5 seconds
-- Network errors specifically show "Connection error" as title
-- Duplicate pool names show user-friendly message explaining the conflict
-- UI implements optimistic updates with rollback on failure
-- Error toasts include descriptive messages and recovery guidance
+| `showToast` | `pools-client.tsx:1562` | Shows success/error notifications (Added in TKT-043) |
 
 ### Data Flow
 
@@ -203,8 +173,8 @@ syncConfigToServer()
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
 |-------|-----------------|----------------|---------------|
-| Duplicate pool name | CREATE with existing name | Alert: "A pool named X already exists" | Choose different name |
-| Database save fails | Network error on any save | Error in console (silent fail) | Refresh page, retry |
+| Duplicate pool name | CREATE with existing name | Toast: "A pool named X already exists" | Choose different name |
+| Database save fails | Network error on any save | Toast notification with error message | Retry the operation |
 | Server sync fails | Signaling server unreachable | Console warning only | Rules saved to DB, will sync on next load |
 | RLS permission denied | Non-admin tries to modify | Operation fails silently | Must be admin |
 
@@ -279,13 +249,13 @@ syncConfigToServer()
 6. **Is the complexity justified?** ✅ Yes - Pools enable sophisticated routing without complexity overload.
 
 ### Identified Issues
-| Issue | Impact | Severity | Status | Suggested Fix |
-|-------|--------|----------|--------|--------------|
-| No pool rename/edit | Admin must delete and recreate to rename | 🟡 Medium | Open | Add inline edit for pool name |
-| No delete confirmation | Accidental deletion possible | 🟡 Medium | Open | Add confirmation modal |
-| Silent failures | Admin may not know save failed | 🟡 Medium | ✅ Fixed (TKT-043) | Toast notifications implemented |
-| Cannot sort/reorder pools | Pools shown in creation order | 🟢 Low | Open | Add drag-and-drop reorder |
-| Empty pool fallback | Visitors may get wrong agent | 🟡 Medium | Open | Show warning when pool empty |
+| Issue | Impact | Severity | Suggested Fix |
+|-------|--------|----------|--------------|
+| No pool rename/edit | Admin must delete and recreate to rename | 🟡 Medium | Add inline edit for pool name |
+| No delete confirmation | Accidental deletion possible | 🟡 Medium | Add confirmation modal |
+| ~~Silent failures~~ | ~~Admin may not know save failed~~ | ~~🟡 Medium~~ | ~~Add toast notifications~~ **(Fixed in TKT-043)** |
+| Cannot sort/reorder pools | Pools shown in creation order | 🟢 Low | Add drag-and-drop reorder |
+| Empty pool fallback | Visitors may get wrong agent | 🟡 Medium | Show warning when pool empty |
 
 ---
 
@@ -295,14 +265,11 @@ syncConfigToServer()
 |---------|------|-------|-------|
 | Server data fetching | `apps/dashboard/src/app/(app)/admin/pools/page.tsx` | 1-96 | Fetches pools, agents, paths |
 | Main client component | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1515-2778 | `PoolsClient` |
-| Toast notification handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1547-1555 | `showToast()` - TKT-043 |
-| Toast state management | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1539 | Toast array state |
-| Toast UI component | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 2885-2917 | Radix UI Toast implementation |
-| Pool creation handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1637-1677 | `handleAddPool()` with toast |
-| Pool deletion handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1772-1780 | `handleDeletePool()` with toast |
-| Agent add handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1680-1718 | `handleAddAgentToPool()` with toast |
-| Agent priority update | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1722-1751 | `handleUpdateAgentPriority()` with toast |
-| Agent remove handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1753-1770 | `handleRemoveAgentFromPool()` with toast |
+| Pool creation handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1637-1677 | `handleAddPool()` |
+| Pool deletion handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1772-1780 | `handleDeletePool()` |
+| Agent add handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1680-1718 | `handleAddAgentToPool()` |
+| Agent priority update | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1722-1751 | `handleUpdateAgentPriority()` |
+| Agent remove handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1753-1770 | `handleRemoveAgentFromPool()` |
 | Server sync function | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1541-1574 | `syncConfigToServer()` |
 | Widget settings component | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 829-1366 | `PoolWidgetSettings` |
 | Agent priority card | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 102-158 | `AgentPriorityCard` |

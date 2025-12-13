@@ -37,9 +37,19 @@ vi.mock("lucide-react", () => ({
   Sun: () => <div data-testid="sun-icon" />,
   Moon: () => <div data-testid="moon-icon" />,
   Droplets: () => <div data-testid="droplets-icon" />,
-  AlertTriangle: () => <div data-testid="alert-triangle-icon" />,
   CheckCircle2: () => <div data-testid="check-circle-icon" />,
   AlertCircle: () => <div data-testid="alert-circle-icon" />,
+}));
+
+// Mock Radix UI Toast
+vi.mock("@radix-ui/react-toast", () => ({
+  Root: ({ children, ...props }: any) => <div data-testid="toast-root" {...props}>{children}</div>,
+  Title: ({ children }: any) => <div data-testid="toast-title">{children}</div>,
+  Description: ({ children }: any) => <div data-testid="toast-description">{children}</div>,
+  Viewport: ({ children }: any) => <div data-testid="toast-viewport">{children}</div>,
+  Action: ({ children }: any) => <button data-testid="toast-action">{children}</button>,
+  Provider: ({ children }: any) => <div>{children}</div>,
+  Close: ({ children }: any) => <button data-testid="toast-close">{children}</button>,
 }));
 
 // Mock Supabase client
@@ -767,7 +777,6 @@ describe("PoolsClient", () => {
       expect(screen.getByText("Create a New Pool")).toBeInTheDocument();
     });
   });
+
+
 });
-
-
-
