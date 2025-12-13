@@ -290,21 +290,22 @@ kill_all_agents() {
 }
 
 cleanup_qa_worktrees() {
-    print_header "Cleaning Up QA Worktrees"
+    print_header "Cleaning Up Legacy QA Worktrees"
     
     local WORKTREE_BASE="$MAIN_REPO_DIR/../agent-worktrees"
     
-    # Find all qa-* worktrees
+    # Find any legacy qa-* worktrees (from old behavior - QA now reuses ticket worktrees)
     local QA_WORKTREES=$(ls -d "$WORKTREE_BASE"/qa-* 2>/dev/null || true)
     
     if [ -z "$QA_WORKTREES" ]; then
-        echo "No QA worktrees to clean up."
+        echo "No legacy QA worktrees to clean up."
+        echo "Note: QA now reuses the ticket worktree created by dev agent."
         return
     fi
     
     for worktree in $QA_WORKTREES; do
         local name=$(basename "$worktree")
-        echo "Removing worktree: $name"
+        echo "Removing legacy worktree: $name"
         git -C "$MAIN_REPO_DIR" worktree remove "$worktree" --force 2>/dev/null || rm -rf "$worktree"
         print_success "Removed: $name"
     done
@@ -436,7 +437,8 @@ launch_agent() {
     local TICKET_ID="$1"
     local SESSION_NAME="qa-$TICKET_ID"
     local WORKTREE_BASE="$MAIN_REPO_DIR/../agent-worktrees"
-    local WORKTREE_DIR="$WORKTREE_BASE/qa-$TICKET_ID"
+    # Reuse the same worktree as dev agent (one worktree per ticket through entire pipeline)
+    local WORKTREE_DIR="$WORKTREE_BASE/$TICKET_ID"
     
     # Calculate unique port for this ticket (enables parallel testing)
     local AGENT_PORT=$(get_port_for_ticket "$TICKET_ID")
@@ -515,32 +517,35 @@ EOF
     fi
     echo ""
     
-    # Setup worktree for isolated testing
-    echo "Setting up worktree for isolated testing..."
+    # Reuse existing worktree from dev agent (one worktree per ticket through entire pipeline)
+    echo "Checking for existing worktree..."
     mkdir -p "$WORKTREE_BASE"
     
-    # Remove existing worktree if present
     if [ -d "$WORKTREE_DIR" ]; then
-        git -C "$MAIN_REPO_DIR" worktree remove "$WORKTREE_DIR" --force 2>/dev/null || rm -rf "$WORKTREE_DIR"
-    fi
-    
-    # Create worktree from the ticket branch
-    cd "$MAIN_REPO_DIR"
-    git fetch origin --prune 2>/dev/null || true
-    
-    # Check if branch exists remotely or locally
-    if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH" 2>/dev/null; then
-        git worktree add "$WORKTREE_DIR" "origin/$BRANCH" --detach 2>/dev/null || \
-        git worktree add "$WORKTREE_DIR" "$BRANCH" 2>/dev/null
+        print_success "Reusing existing worktree: $WORKTREE_DIR"
+        # Pull latest changes and ensure we're on the right branch
+        cd "$WORKTREE_DIR"
+        git fetch origin 2>/dev/null || true
+        git checkout "$BRANCH" 2>/dev/null || true
     else
-        git worktree add "$WORKTREE_DIR" "$BRANCH" 2>/dev/null
+        # Worktree doesn't exist - create it (fallback for edge cases)
+        echo "Creating worktree (dev agent should have done this)..."
+        cd "$MAIN_REPO_DIR"
+        git fetch origin --prune 2>/dev/null || true
+        
+        if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH" 2>/dev/null; then
+            git worktree add "$WORKTREE_DIR" "origin/$BRANCH" --detach 2>/dev/null || \
+            git worktree add "$WORKTREE_DIR" "$BRANCH" 2>/dev/null
+        else
+            git worktree add "$WORKTREE_DIR" "$BRANCH" 2>/dev/null
+        fi
+        
+        if [ ! -d "$WORKTREE_DIR" ]; then
+            print_error "Failed to create worktree at $WORKTREE_DIR"
+            return 1
+        fi
+        print_success "Created worktree: $WORKTREE_DIR"
     fi
-    
-    if [ ! -d "$WORKTREE_DIR" ]; then
-        print_error "Failed to create worktree at $WORKTREE_DIR"
-        return 1
-    fi
-    print_success "Created worktree: $WORKTREE_DIR"
 
     # Copy .env files from main repo to worktree (required for Supabase connection)
     echo "Copying environment files to worktree..."
