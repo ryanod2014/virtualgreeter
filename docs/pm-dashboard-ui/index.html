@@ -3616,7 +3616,7 @@ pnpm build`}
     // ================= NEW PIPELINE VIEW =================
     // Combines Feature Inventory + All Tickets + In Progress + For Review
 
-    function NewPipelineView({ tickets, devStatus, agentOutputs, onSaveDevStatus, featuresList, findings, staging }) {
+    function NewPipelineView({ tickets, devStatus, agentOutputs, onSaveDevStatus, featuresList, findings, staging, runningSessions = [] }) {
       const [pipelineTab, setPipelineTab] = useState('inventory');
       const [selectedTicket, setSelectedTicket] = useState(null);
       const [selectedReviewItem, setSelectedReviewItem] = useState(null);
@@ -3820,6 +3820,26 @@ pnpm build`}
       const postQaCount = statusCounts.test_lock_pending + statusCounts.docs_pending + statusCounts.qa_approved;
       const readyToMergeCount = statusCounts.finalizing + statusCounts.ready_to_merge;
       const needsAttention = statusCounts.blocked + statusCounts.qa_failed;
+      
+      // ============ RUNNING AGENT COUNTS (from actual sessions) ============
+      // These show ACTUALLY RUNNING agents, not ticket statuses
+      // Note: agent_type values from DB can be: dev, qa, doc, test_lock, ticket, review
+      const runningAgentCounts = {
+        ticket: runningSessions.filter(s => s.agent_type === 'ticket').length,
+        dev: runningSessions.filter(s => s.agent_type === 'dev').length,
+        qa: runningSessions.filter(s => s.agent_type === 'qa').length,
+        doc: runningSessions.filter(s => s.agent_type === 'doc' || s.agent_type === 'docs').length,
+        test: runningSessions.filter(s => s.agent_type === 'test' || s.agent_type === 'tests' || s.agent_type === 'test_lock').length,
+        review: runningSessions.filter(s => s.agent_type === 'review').length,
+        total: runningSessions.length,
+      };
+      
+      // Count of merged tickets (for MERGE node)
+      const mergedCount = statusCounts.merged;
+      
+      // Count of tickets where review agent completed successfully (DONE)
+      // These are tickets with status 'done' (review passed on merged changes)
+      const reviewDoneCount = tickets.filter(t => t.status === 'done').length + legacyOnlyCount;
       
       // Pipeline Node Component
       const PipelineNode = ({ label, count, color, icon, isActive, onClick, size = 'normal', pulse = false }) => (
@@ -4025,41 +4045,55 @@ flowchart LR
         DECISION -->|no| INBOX
     end
     
-    DECISION -->|yes| TICKET_AGENT["🎫 ${statusCounts.in_progress || 0} TICKET AGENT"]
+    DECISION -->|yes| TICKET_AGENT["🎫 ${runningAgentCounts.ticket} TICKET AGENT"]
     TICKET_AGENT -.->|needs human| INBOX
     TICKET_AGENT --> ALL_TICKETS["${statusCounts.ready} TICKETS"]
     
     ALL_TICKETS --> BATCH["📦 ${nextBatchCount} BATCH"]
-    BATCH --> DEV["🤖 ${statusCounts.in_progress} DEV AGENT"]
+    BATCH --> DEV["🤖 ${runningAgentCounts.dev} DEV AGENT"]
     
-    DEV -->|pass| QA["🔍 ${statusCounts.qa_pending} QA AGENT"]
+    DEV -->|pass| QA_QUEUE["📋 ${statusCounts.qa_pending} QA Queue"]
+    QA_QUEUE --> QA["🔍 ${runningAgentCounts.qa} QA AGENT"]
     DEV -->|blocker| DEV_BLOCK{Block}
     DEV_BLOCK -.-> TICKET_AGENT
     
-    QA -->|pass| DOCS["📝 ${statusCounts.docs_pending} DOCS AGENT"]
-    QA -->|pass| TESTS["🔒 ${statusCounts.test_lock_pending} TESTS AGENT"]
+    QA -->|pass| DOCS_QUEUE["📋 ${statusCounts.docs_pending} Docs Queue"]
+    DOCS_QUEUE --> DOCS["📝 ${runningAgentCounts.doc} DOCS AGENT"]
+    QA -->|pass| TESTS_QUEUE["📋 ${statusCounts.test_lock_pending} Tests Queue"]
+    TESTS_QUEUE --> TESTS["🔒 ${runningAgentCounts.test} TESTS AGENT"]
     QA -->|blocker| QA_BLOCK{Block}
     QA_BLOCK -.-> TICKET_AGENT
     
-    DOCS --> MERGE["🔀 ${readyToMergeCount} MERGE"]
-    TESTS --> MERGE
-    MERGE --> REVIEW["🔎 ${totalDone} REVIEW AGENT"]
+    DOCS --> MERGE_QUEUE["📋 ${readyToMergeCount} Ready to Merge"]
+    TESTS --> MERGE_QUEUE
+    MERGE_QUEUE --> MERGED["🔀 ${mergedCount} MERGED"]
+    MERGED --> REVIEW["🔎 ${runningAgentCounts.review} REVIEW AGENT"]
     
+    REVIEW -->|pass| DONE["✅ ${reviewDoneCount} DONE"]
     REVIEW -.->|findings| FINDINGS
 
-    %% Styling
+    %% Styling - Agents (bright, active)
     style TICKET_AGENT fill:#fb923c33,stroke:#fb923c,stroke-width:3px,color:#fb923c
     style DEV fill:#f59e0b22,stroke:#f59e0b,stroke-width:2px,color:#f59e0b
     style QA fill:#ec489922,stroke:#ec4899,stroke-width:2px,color:#ec4899
+    style DOCS fill:#14b8a622,stroke:#14b8a6,stroke-width:2px,color:#14b8a6
+    style TESTS fill:#06b6d422,stroke:#06b6d4,stroke-width:2px,color:#06b6d4
+    style REVIEW fill:#a855f722,stroke:#a855f7,stroke-width:2px,color:#a855f7
+    
+    %% Styling - Queues (dimmer, waiting)
+    style QA_QUEUE fill:#64748b22,stroke:#64748b,stroke-width:1px,color:#94a3b8
+    style DOCS_QUEUE fill:#64748b22,stroke:#64748b,stroke-width:1px,color:#94a3b8
+    style TESTS_QUEUE fill:#64748b22,stroke:#64748b,stroke-width:1px,color:#94a3b8
+    style MERGE_QUEUE fill:#64748b22,stroke:#64748b,stroke-width:1px,color:#94a3b8
+    
+    %% Styling - Status nodes
     style HUMAN fill:#22c55e22,stroke:#22c55e,stroke-width:2px,color:#22c55e
     style INBOX_AGENT fill:#22c55e22,stroke:#22c55e,stroke-width:2px,color:#22c55e
     style INBOX fill:#3b82f622,stroke:#3b82f6,stroke-width:2px,color:#3b82f6
     style FINDINGS fill:#a855f722,stroke:#a855f7,stroke-width:2px,color:#a855f7
     style TRIAGE fill:#a855f722,stroke:#a855f7,stroke-width:2px,color:#a855f7
-    style REVIEW fill:#a855f722,stroke:#a855f7,stroke-width:2px,color:#a855f7
-    style DOCS fill:#14b8a622,stroke:#14b8a6,stroke-width:2px,color:#14b8a6
-    style TESTS fill:#06b6d422,stroke:#06b6d4,stroke-width:2px,color:#06b6d4
-    style MERGE fill:#22c55e22,stroke:#22c55e,stroke-width:2px,color:#22c55e
+    style MERGED fill:#22c55e22,stroke:#22c55e,stroke-width:2px,color:#22c55e
+    style DONE fill:#10b98122,stroke:#10b981,stroke-width:3px,color:#10b981
     style DEV_BLOCK fill:#ef444422,stroke:#ef4444,stroke-width:2px,color:#ef4444
     style QA_BLOCK fill:#ef444422,stroke:#ef4444,stroke-width:2px,color:#ef4444
     style ALL_TICKETS fill:#6366f122,stroke:#6366f1,stroke-width:2px,color:#6366f1
@@ -4099,7 +4133,7 @@ flowchart LR
           if (iframeRef.current) {
             iframeRef.current.srcdoc = html;
           }
-        }, [staging, inboxCount, statusCounts, totalDone, readyToMergeCount, nextBatchCount]);
+        }, [staging, inboxCount, statusCounts, totalDone, readyToMergeCount, nextBatchCount, runningAgentCounts, mergedCount, reviewDoneCount]);
 
         return (
           <div style={{ marginBottom: '24px' }}>
@@ -4129,22 +4163,33 @@ flowchart LR
               
               {/* Legend */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', borderTop: '1px solid rgba(99,102,241,0.15)' }}>
-                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#64748b' }}>
                     <span style={{ width: '20px', height: '2px', background: '#94a3b8' }} /> Flow
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#64748b' }}>
                     <span style={{ width: '20px', height: '0', borderTop: '2px dashed #94a3b8' }} /> Feedback/Blocker
-                      </span>
-                    </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(16,185,129,0.1)', borderRadius: '8px' }}>
-                  <span style={{ fontSize: '16px' }}>✅</span>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#10b981' }}>{totalDone}</span>
-                  <span style={{ fontSize: '10px', color: '#64748b' }}>done</span>
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#64748b', marginLeft: '12px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: runningAgentCounts.total > 0 ? '#22c55e' : '#64748b', boxShadow: runningAgentCounts.total > 0 ? '0 0 8px #22c55e' : 'none' }} />
+                    {runningAgentCounts.total} agents running
+                  </span>
                 </div>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'rgba(34,197,94,0.1)', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '14px' }}>🔀</span>
+                    <span style={{ fontSize: '16px', fontWeight: 700, color: '#22c55e' }}>{mergedCount}</span>
+                    <span style={{ fontSize: '10px', color: '#64748b' }}>merged</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'rgba(16,185,129,0.1)', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '14px' }}>✅</span>
+                    <span style={{ fontSize: '16px', fontWeight: 700, color: '#10b981' }}>{reviewDoneCount}</span>
+                    <span style={{ fontSize: '10px', color: '#64748b' }}>done</span>
+                  </div>
                 </div>
-                </div>
-                </div>
+              </div>
+            </div>
+          </div>
         );
       };
 
@@ -4163,16 +4208,9 @@ flowchart LR
               { id: 'qa', label: 'QA', count: tickets.filter(t => t.status === 'qa_pending').length, color: '#ec4899' },
               { id: 'postqa', label: 'Tests+Docs', count: tickets.filter(t => ['qa_approved', 'qa_passed', 'test_lock_pending', 'docs_pending'].includes(t.status)).length, color: '#06b6d4' },
               { id: 'blocked', label: 'Blocked', count: tickets.filter(t => t.status === 'blocked' || t.status === 'qa_failed').length, color: '#ef4444' },
-              { id: 'merge', label: 'Ready', count: tickets.filter(t => t.status === 'ready_to_merge' || t.status === 'finalizing').length, color: '#22c55e' },
-              { id: 'merged', label: 'Done', count: (() => {
-                const dbMerged = tickets.filter(t => t.status === 'merged' || t.status === 'done');
-                const dbIds = new Set(dbMerged.map(t => t.id?.toUpperCase()));
-                const legacy = (agentOutputs?.qaResults || []).filter(qa => 
-                  (qa.fileName || '').toUpperCase().includes('PASSED') && 
-                  qa.ticketId && !dbIds.has(qa.ticketId.toUpperCase())
-                ).reduce((s, qa) => { s.add(qa.ticketId.toUpperCase()); return s; }, new Set()).size;
-                return dbMerged.length + legacy;
-              })(), color: '#10b981' }
+              { id: 'merge', label: 'To Merge', count: tickets.filter(t => t.status === 'ready_to_merge' || t.status === 'finalizing').length, color: '#22c55e' },
+              { id: 'merged', label: 'Merged', count: mergedCount, color: '#22c55e' },
+              { id: 'done', label: 'Done', count: reviewDoneCount, color: '#10b981' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -7165,6 +7203,7 @@ You are a Dev Agent. Read docs/workflow/DEV_AGENT_SOP.md then execute: docs/prom
                   featuresList={featuresList}
                   findings={findings}
                   staging={staging}
+                  runningSessions={runningSessions}
                 />}
                 {view === 'launch' && <LaunchView 
                   tickets={tickets}
