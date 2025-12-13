@@ -89,6 +89,21 @@ router.put('/:id', (req, res) => {
     if (req.body.status && req.body.status !== oldStatus) {
       console.log(`📋 ${req.params.id}: ${oldStatus} → ${req.body.status} (via PUT)`);
       
+      // Release file locks when transitioning to retry/failure states
+      // This ensures dev agent can acquire locks on the next iteration
+      const lockReleaseStatuses = ['qa_failed', 'blocked', 'continuation_ready'];
+      if (lockReleaseStatuses.includes(req.body.status) && db.locks && db.sessions) {
+        const sessions = db.sessions.list({ ticket_id: req.params.id });
+        let locksReleased = 0;
+        for (const s of sessions) {
+          const released = db.locks.release(s.id);
+          if (released > 0) locksReleased += released;
+        }
+        if (locksReleased > 0) {
+          console.log(`🔓 Released ${locksReleased} file locks for ${req.params.id} (status → ${req.body.status})`);
+        }
+      }
+      
       // Log event if available
       if (db.logEvent) {
         db.logEvent('ticket_status_changed', 'system', 'ticket', req.params.id, {

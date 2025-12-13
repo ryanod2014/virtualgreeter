@@ -247,18 +247,53 @@ echo -e "${BLUE}Launching Claude Code in tmux session: $SESSION_NAME${NC}"
 TMUX_SCRIPT="/tmp/ticket-agent-$TICKET_UPPER.sh"
 cat > "$TMUX_SCRIPT" << 'SCRIPT_EOF'
 #!/bin/bash
-cd "$1"
-echo "=== Ticket Agent: $2 ==="
-echo "Session ID: $3"
-echo "Blocker: $4"
+MAIN_DIR="$1"
+TICKET_ID="$2"
+SESSION_ID="$3"
+BLOCKER="$4"
+PROMPT="$5"
+LOG="$6"
+API_URL="$7"
+
+cd "$MAIN_DIR"
+echo "=== Ticket Agent: $TICKET_ID ==="
+echo "Session ID: $SESSION_ID"
+echo "Blocker: $BLOCKER"
 echo "Started: $(date)"
 echo ""
-claude --model claude-opus-4-20250514 -p "$5" --dangerously-skip-permissions 2>&1 | tee "$6"
+claude --model claude-opus-4-20250514 -p "$PROMPT" --dangerously-skip-permissions 2>&1 | tee "$LOG"
 echo ""
-echo "Signaling completion..."
-curl -s -X POST "$7/api/v2/agents/$3/complete" \
-  -H "Content-Type: application/json" \
-  -d '{"success": true}' || echo "Could not signal completion"
+echo "=== Completed: $(date) ==="
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST-RUN: Ensure ticket status was properly updated
+# ─────────────────────────────────────────────────────────────────────────────
+echo "Running post-run checks..."
+
+# Check ticket status - should be continuation_ready
+TICKET_STATUS=$(curl -s "$API_URL/api/v2/tickets/$TICKET_ID" 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+
+if [ "$TICKET_STATUS" = "continuation_ready" ]; then
+    echo "✓ Ticket status is continuation_ready - pipeline will continue"
+    curl -s -X POST "$API_URL/api/v2/agents/$SESSION_ID/complete" \
+      -H "Content-Type: application/json" \
+      -d '{"success": true}' || echo "Could not signal completion"
+elif [ "$TICKET_STATUS" = "qa_failed" ] || [ "$TICKET_STATUS" = "blocked" ]; then
+    echo "⚠ Ticket Agent crashed without updating status (still $TICKET_STATUS)"
+    echo "Setting to continuation_ready as failsafe..."
+    curl -s -X PUT "$API_URL/api/v2/tickets/$TICKET_ID" \
+      -H "Content-Type: application/json" \
+      -d '{"status": "continuation_ready"}' 2>/dev/null
+    curl -s -X POST "$API_URL/api/v2/agents/$SESSION_ID/complete" \
+      -H "Content-Type: application/json" \
+      -d '{"success": true}' || echo "Could not signal completion"
+else
+    echo "✓ Ticket status: $TICKET_STATUS"
+    curl -s -X POST "$API_URL/api/v2/agents/$SESSION_ID/complete" \
+      -H "Content-Type: application/json" \
+      -d '{"success": true}' || echo "Could not signal completion"
+fi
+
 echo ""
 echo "Agent finished. Press Enter to close."
 read
