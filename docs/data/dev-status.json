@@ -47,6 +47,13 @@
       "started_at": "2025-12-08T07:28:50Z",
       "completed_at": "2025-12-08T07:41:12Z",
       "completion_file": "docs/agent-output/completions/TKT-016-2025-12-08T0741.md"
+    },
+    {
+      "ticket_id": "TKT-016",
+      "branch": "agent/tkt-016-webrtc-ice-restart",
+      "started_at": "2025-12-13T10:16:00Z",
+      "completed_at": "2025-12-13T10:19:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-016-2025-12-13T1019.md"
     }
   ],
   "retry_history": []
