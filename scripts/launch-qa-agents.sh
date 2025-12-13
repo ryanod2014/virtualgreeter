@@ -109,7 +109,7 @@ get_port_for_ticket() {
 }
 
 # Start a Cloudflare tunnel and return the public URL
-# This enables PM to access magic links from anywhere (not just localhost)
+# This enables remote access for debugging if needed
 start_cloudflare_tunnel() {
     local PORT="$1"
     local TICKET_ID="$2"
@@ -204,9 +204,9 @@ check_prerequisites() {
         exit 1
     fi
     
-    # Check cloudflared for tunnel support (enables remote magic link access)
+    # Check cloudflared for tunnel support (optional remote access)
     if ! command -v cloudflared &> /dev/null; then
-        print_warning "cloudflared not found. Magic links will only work locally."
+        print_warning "cloudflared not found. Remote access will not be available."
         print_warning "Install with: brew install cloudflared"
         print_warning "This enables PM to access previews from anywhere."
     else
@@ -629,7 +629,7 @@ for t in data.get('tickets', []):
         print_warning "HYBRID TICKET DETECTED - Will test BOTH API and UI"
     elif [ "$HAS_UI_FILES" = "true" ]; then
         TICKET_TYPE="ui"
-        print_warning "UI TICKET DETECTED - Will require PM approval via magic link"
+        print_success "UI TICKET DETECTED - Browser testing with Playwright"
     else
         TICKET_TYPE="api"
         print_success "API/Backend ticket - Will auto-merge after QA"
@@ -686,7 +686,6 @@ You MUST complete BOTH workflows:
 2. THEN: UI Testing (docs/workflow/UI_TICKET_QA_WORKFLOW.md)
    - Test UI components with Playwright
    - Test for each role (admin, agent)
-   - Generate magic links for PM review
 
 Your test plan MUST have sections for BOTH API and UI tests.
 Your self-audit MUST verify BOTH types of testing were done.
@@ -694,9 +693,9 @@ Your self-audit MUST verify BOTH types of testing were done.
 UI TICKET - Browser testing required
 
 Read: docs/workflow/UI_TICKET_QA_WORKFLOW.md
-- Test with Playwright
+- Test with Playwright browser automation
 - Test each role separately
-- Generate magic links for PM review
+- Take screenshots as evidence
 '; else echo '
 API/BACKEND TICKET - Execution-based testing required
 
@@ -719,8 +718,7 @@ SESSION INFO:
   Other QA agents may be running on different ports simultaneously.
   
   🌐 TUNNEL URL: $TUNNEL_URL
-  Use this URL for magic links! PM can access from anywhere.
-  (If tunnel unavailable, falls back to localhost:$AGENT_PORT)
+  (Used for remote access if needed)
   
 Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/heartbeat
 
@@ -747,10 +745,10 @@ $(if [ \"$TICKET_TYPE\" = \"hybrid\" ] || [ \"$HAS_API_FILES\" = \"true\" ]; the
 
 $(if [ \"$TICKET_TYPE\" = \"hybrid\" ] || [ \"$HAS_UI_FILES\" = \"true\" ]; then echo '
 ### UI TESTS - ROLES TO TEST
-| Role | User Email | Tests | Magic Link? |
-|------|-----------|-------|-------------|
-| Admin | qa-admin-$TICKET_ID@greetnow.test | [list] | Yes |
-| Agent | qa-agent-$TICKET_ID@greetnow.test | [list] | Yes |
+| Role | User Email | Tests |
+|------|-----------|-------|
+| Admin | qa-admin-$TICKET_ID@greetnow.test | [list] |
+| Agent | qa-agent-$TICKET_ID@greetnow.test | [list] |
 
 ### UI TESTS - SCENARIOS
 | # | Scenario | User Action | Expected Result |
@@ -820,12 +818,7 @@ For EACH role in your test plan:
   3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
   4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
   5. Test feature WITH the API you just verified, take screenshots
-  6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
-       -H \"Content-Type: application/json\" \\
-       -d '\"'\"'{\"ticket_id\":\"$TICKET_ID\",\"user_email\":\"...\",\"preview_base_url\":\"$TUNNEL_URL\"}'\"'\"'
-  7. REPEAT for next role
-  
-  🌐 Magic links use TUNNEL URL - PM can access from anywhere!
+  6. REPEAT for next role
 '; elif [ \"$TICKET_TYPE\" = \"ui\" ]; then echo '
 UI TICKETS - For EACH role:
   1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
@@ -833,12 +826,7 @@ UI TICKETS - For EACH role:
   3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
   4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
   5. Test feature at http://localhost:$AGENT_PORT, take screenshot
-  6. Generate magic link with TUNNEL URL: curl -X POST http://localhost:3456/api/v2/review-tokens \\
-       -H \"Content-Type: application/json\" \\
-       -d '\"'\"'{\"ticket_id\":\"$TICKET_ID\",\"user_email\":\"...\",\"preview_base_url\":\"$TUNNEL_URL\"}'\"'\"'
-  7. REPEAT for next role
-  
-  🌐 Magic links will use TUNNEL URL ($TUNNEL_URL) - PM can access from anywhere!
+  6. REPEAT for next role
 '; else echo '
 API/BACKEND TICKETS - For EACH endpoint:
   1. curl -X POST/GET the endpoint
@@ -871,15 +859,14 @@ API Testing:
 - [ ] Verified state changes
 
 UI Testing:
-- Roles in AC: ___ | Users created: ___ | Magic links: ___
+- Roles in AC: ___ | Users created: ___
 - Screenshots taken: ___
 - [ ] All role numbers match
-- [ ] Each role has its own magic link
 
 ⛔ HYBRID TICKETS: Both sections must be complete!
 '; elif [ \"$TICKET_TYPE\" = \"ui\" ]; then echo '
 ### UI Testing
-- Roles in AC: ___ | Users created: ___ | Magic links: ___
+- Roles in AC: ___ | Users created: ___
 - All numbers must match!
 '; else echo '
 ### API Testing
@@ -899,36 +886,6 @@ If PASS:
      $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md
      
      Include: Test plan, all test results, evidence, self-audit
-  
-  ─────────────────────────────────────────────────────────────
-  FOR UI TICKETS: Create inbox with magic_links (PLURAL!)
-  ─────────────────────────────────────────────────────────────
-  
-  Write: $MAIN_REPO_DIR/docs/agent-output/inbox/$TICKET_ID.json
-  
-  {
-    \"ticket_id\": \"$TICKET_ID\",
-    \"title\": \"[title]\",
-    \"type\": \"ui_review\",
-    \"status\": \"pending\",
-    \"created_at\": \"[ISO timestamp]\",
-    \"message\": \"QA verified ALL roles. PM please confirm each.\",
-    \"branch\": \"$BRANCH\",
-    \"tunnel_url\": \"$TUNNEL_URL\",
-    \"qa_report\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-[timestamp].md\",
-    \"screenshots\": [
-      {\"name\": \"Admin View\", \"path\": \"...\"},
-      {\"name\": \"Agent View\", \"path\": \"...\"}
-    ],
-    \"magic_links\": [
-      {\"role\": \"admin\", \"url\": \"$TUNNEL_URL/login?token=...\", \"what_pm_sees\": \"...\"},
-      {\"role\": \"agent\", \"url\": \"$TUNNEL_URL/login?token=...\", \"what_pm_sees\": \"...\"}
-    ],
-    \"test_setup\": \"[how test accounts are configured]\",
-    \"acceptance_criteria\": [\"list from ticket\"]
-  }
-  
-  🌐 Magic links use TUNNEL_URL ($TUNNEL_URL) - PM can click from anywhere!
   
   ─────────────────────────────────────────────────────────────
   IF PASS: Update ticket status (pipeline handles merge!)
@@ -991,15 +948,15 @@ REMEMBER: If you didn't EXECUTE it, you didn't TEST it.
     local PROMPT_TEMP_FILE="$MAIN_REPO_DIR/.agent-logs/qa-$TICKET_ID-prompt.txt"
     echo "$CLAUDE_PROMPT" > "$PROMPT_TEMP_FILE"
     
-    # Start Cloudflare tunnel for remote access to magic links
+    # Start Cloudflare tunnel for remote access (optional)
     echo "Starting Cloudflare tunnel for remote preview access..."
     local TUNNEL_URL=$(start_cloudflare_tunnel "$AGENT_PORT" "$TICKET_ID")
     
     if [ -n "$TUNNEL_URL" ]; then
         print_success "Tunnel started: $TUNNEL_URL"
-        echo -e "  ${CYAN}PM can access magic links from anywhere!${NC}"
+        echo -e "  ${CYAN}Remote access available via tunnel${NC}"
     else
-        print_warning "Tunnel not available - magic links will use localhost:$AGENT_PORT"
+        print_warning "Tunnel not available - using localhost:$AGENT_PORT"
         TUNNEL_URL="http://localhost:$AGENT_PORT"
     fi
     
