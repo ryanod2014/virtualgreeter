@@ -59,6 +59,25 @@ export function PauseAccountModal({
   const resumeDate = new Date();
   resumeDate.setMonth(resumeDate.getMonth() + selectedMonths);
 
+  const formatDateWithTimezone = (date: Date) => {
+    // Format: "Dec 15, 2025 at 12:00 AM PST"
+    const dateStr = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const timeStr = date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const timezoneStr = date.toLocaleTimeString("en-US", {
+      timeZoneName: "short",
+    }).split(" ").pop(); // Extract timezone abbreviation (e.g., "PST")
+
+    return `${dateStr} at ${timeStr} ${timezoneStr}`;
+  };
+
   const handlePause = async () => {
     setIsSubmitting(true);
     try {
@@ -150,7 +169,7 @@ export function PauseAccountModal({
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span>Resumes on {resumeDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+                    <span>Resumes on {formatDateWithTimezone(resumeDate)}</span>
                   </li>
                 </ul>
               </div>
@@ -258,12 +277,17 @@ export function PauseAccountModal({
               </div>
 
               {/* Resume date info */}
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20">
-                <PlayCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Your subscription will auto-resume on </span>
-                  <span className="font-medium">{resumeDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+              <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20">
+                <div className="flex items-center gap-3 mb-1">
+                  <PlayCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Your subscription will auto-resume on </span>
+                    <span className="font-medium">{formatDateWithTimezone(resumeDate)}</span>
+                  </div>
                 </div>
+                <p className="text-xs text-muted-foreground ml-8">
+                  All times shown in your local timezone
+                </p>
               </div>
             </div>
           )}
