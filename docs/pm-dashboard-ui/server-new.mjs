@@ -183,7 +183,7 @@ scheduler.registerHandler('doc_agent', async (job) => {
       
       // Auto-processable blockers → Launch TICKET AGENT to create smart continuation
       // This matches the mermaid chart: DEV/QA --> blocker --> TICKET AGENT --> TICKETS
-      const autoProcessTypes = ['QA-FAILED', 'CI-FAILED', 'REGRESSION-FAILED', 'UI-REJECTED', 'DEV-BLOCKED'];
+      const autoProcessTypes = ['QA-FAILED', 'QA_FAILED', 'QA_FAILURE', 'CI-FAILED', 'REGRESSION-FAILED', 'UI-REJECTED', 'DEV-BLOCKED', 'DEV_BLOCKED'];
       if (!autoProcessTypes.some(t => blockerType.toUpperCase().includes(t))) {
         console.log(`⚠️ Unknown blocker type ${blockerType} for ${ticketId} → Inbox`);
         dbModule.tickets.update(ticketId, { status: 'blocked' });
