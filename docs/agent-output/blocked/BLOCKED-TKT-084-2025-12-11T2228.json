@@ -1,0 +1,69 @@
+{
+  "id": "BLOCKED-TKT-084-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-084",
+  "severity": "critical",
+  "title": "File lock conflict and ticket overlap with TKT-083",
+  "feature": "Agent Management",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-11T22:28:41Z",
+
+  "issue": "TKT-084 cannot start because of file lock conflicts with TKT-083. Both tickets are trying to solve the same problem (reactivating inactive agents) but with overlapping file modifications. TKT-083 is currently running and has locked 'apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx' and 'apps/dashboard/src/features/admin/components/InviteAgentModal.tsx', both of which are in TKT-084's files_to_modify list. Additionally, both tickets have nearly identical requirements: adding a 'Reactivate' button in the agents list UI, handling billing seat addition, and allowing admins to reactivate inactive agents. TKT-083 is focused on enabling re-invitation of previously removed users, while TKT-084 is focused on adding a dedicated reactivation flow. These appear to be duplicate solutions to the same problem (Findings F-414 and F-016).",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Cancel TKT-084 as duplicate — TKT-083 already covers reactivation through the invite flow. Once TKT-083 completes, the ability to reactivate inactive agents will exist. TKT-084 would be redundant.",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Wait for TKT-083 to complete, then reassess TKT-084 — Let TKT-083 finish first. If reactivation through invite flow is insufficient, then proceed with TKT-084 to add a dedicated reactivation API endpoint and modal. This would mean having TWO ways to reactivate: via invite flow (TKT-083) and via dedicated reactivation button (TKT-084).",
+      "recommended": false
+    },
+    {
+      "id": 3,
+      "label": "Cancel TKT-083 and proceed with TKT-084 — Kill the TKT-083 agent, unlock files, and implement TKT-084's dedicated reactivation approach instead. This creates a separate reactivation flow distinct from the invite flow.",
+      "recommended": false
+    },
+    {
+      "id": 4,
+      "label": "Merge the tickets — Combine TKT-083 and TKT-084 into a single ticket that implements both: (1) allow re-invitation of inactive agents through the invite flow, AND (2) add a dedicated 'Reactivate' button/modal for a more explicit reactivation action. This would give admins two options.",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 1 because TKT-083's approach of modifying the invite flow to check is_active status and allow re-invitation solves the same problem as TKT-084. Both findings (F-414 and F-016) describe the inability to bring back removed agents, and TKT-083's solution addresses this. Adding a separate reactivation API and modal (TKT-084) would be redundant unless there's a specific UX reason to have TWO different reactivation methods.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-084",
+    "ticket_version": 1,
+    "branch": "agent/tkt-084-add-reactivation-flow-for-non",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Read Dev Agent SOP",
+        "Read ticket spec for TKT-084",
+        "Retrieved full ticket details from tickets.json",
+        "Retrieved finding F-016 details",
+        "Read agent management feature documentation",
+        "Attempted to register agent session"
+      ],
+      "remaining": [
+        "Resolve file lock conflict and ticket overlap ← BLOCKED HERE",
+        "Read existing code files",
+        "Implement reactivation modal component",
+        "Implement reactivation API endpoint",
+        "Add reactivate button to agents UI",
+        "Test and verify acceptance criteria"
+      ],
+      "stopped_at": {
+        "file": null,
+        "line": null,
+        "context": "Cannot register agent session due to file lock conflict. The agent-cli.sh returned 'Error: File lock conflict' because TKT-083 has already locked overlapping files."
+      },
+      "notes_for_next_agent": "Analysis of both tickets shows significant overlap in requirements and file modifications. Both are trying to solve the problem of reactivating inactive agents (F-414 and F-016). TKT-083 modifies the invite flow to allow re-invitation of inactive agents, while TKT-084 wants to create a dedicated reactivation endpoint and modal. From the feature documentation (agent-management.md line 211), the current system blocks re-inviting removed users with 'User already exists' error. The PM should decide whether both approaches are needed or if one solution is sufficient."
+    }
+  }
+}
