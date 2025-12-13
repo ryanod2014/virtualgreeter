@@ -19,8 +19,6 @@ import {
   getAllSpecialGroups,
   type Country,
 } from "@/lib/utils/countries";
-import { ModeChangeConfirmationModal } from "@/features/blocklist/ModeChangeConfirmationModal";
-
 // Create a lookup map for quick country retrieval
 const COUNTRY_MAP = new Map(COUNTRIES.map((c) => [c.code, c]));
 
@@ -32,7 +30,14 @@ interface Props {
 }
 
 export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initialMode, initialGeoFailureHandling }: Props) {
-  const [countryList, setCountryList] = useState<string[]>(initialBlockedCountries);
+  // Separate state for blocklist and allowlist countries
+  const [blocklistCountries, setBlocklistCountries] = useState<string[]>(
+    initialMode === "blocklist" ? initialBlockedCountries : []
+  );
+  const [allowlistCountries, setAllowlistCountries] = useState<string[]>(
+    initialMode === "allowlist" ? initialBlockedCountries : []
+  );
+
   const [mode, setMode] = useState<CountryListMode>(initialMode);
   const [geoFailureHandling, setGeoFailureHandling] = useState<"allow" | "block">(initialGeoFailureHandling);
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,14 +46,24 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initia
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [pendingMode, setPendingMode] = useState<CountryListMode | null>(null);
   
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClient();
+
+  // Get the current mode's country list
+  const countryList = mode === "blocklist" ? blocklistCountries : allowlistCountries;
+
+  // Setter for the current mode's country list
+  const setCountryList = (countries: string[] | ((prev: string[]) => string[])) => {
+    if (mode === "blocklist") {
+      setBlocklistCountries(countries);
+    } else {
+      setAllowlistCountries(countries);
+    }
+  };
 
   const hasChanges =
     JSON.stringify([...countryList].sort()) !== JSON.stringify([...initialBlockedCountries].sort()) ||
@@ -195,27 +210,8 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initia
   }, [isDropdownOpen]);
 
   const handleModeChange = (newMode: CountryListMode) => {
-    // If switching modes and there are countries selected, show confirmation modal
-    if (countryList.length > 0 && newMode !== mode) {
-      setPendingMode(newMode);
-      setIsModalOpen(true);
-    } else {
-      // No countries selected, switch immediately
-      setMode(newMode);
-    }
-  };
-
-  const handleConfirmModeChange = () => {
-    if (pendingMode) {
-      setMode(pendingMode);
-      setCountryList([]);
-      setPendingMode(null);
-    }
-  };
-
-  const handleCancelModeChange = () => {
-    setPendingMode(null);
-    setIsModalOpen(false);
+    // Simply switch modes - the country lists are preserved in separate state
+    setMode(newMode);
   };
 
   const handleSave = async () => {
@@ -769,16 +765,6 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initia
           <li>• VPN users may bypass this restriction by appearing from a different country</li>
         </ul>
       </div>
-
-      {/* Mode Change Confirmation Modal */}
-      <ModeChangeConfirmationModal
-        isOpen={isModalOpen}
-        onClose={handleCancelModeChange}
-        onConfirm={handleConfirmModeChange}
-        countryCount={countryList.length}
-        fromMode={mode}
-        toMode={pendingMode || mode}
-      />
     </div>
   );
 }
