@@ -777,38 +777,17 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
   }
   
   // =========================================================================
-  // STEP 5: QA approved → Check for UI changes, route accordingly
+  // STEP 5: QA approved → Proceed to finalizing (Test+Doc agents)
   // =========================================================================
   if (newStatus === 'qa_approved') {
     if (!automationConfig.autoQueueOnQaPass) {
       console.log(`🔒 autoQueueOnQaPass disabled - not auto-processing ${ticketId} after QA approval`);
     } else {
-      // Check if ticket has UI changes
-      const filesToModify = ticket.files_to_modify || [];
-      const hasUIChanges = filesToModify.some(f => 
-        f.includes('/components/') || 
-        f.includes('/app/') || 
-        f.endsWith('.tsx') ||
-        f.endsWith('.css')
-      );
-      
-      if (hasUIChanges) {
-        console.log(`🖼️ UI changes detected for ${ticketId} - routing to inbox for screenshot review`);
-        // Create inbox item for human screenshot review
-        createInboxItem(ticketId, {
-          type: 'ui_review',
-          message: 'UI changes detected - please review screenshots',
-          branch: ticket.branch,
-          files: filesToModify.filter(f => f.endsWith('.tsx') || f.endsWith('.css'))
-        });
-        // Don't auto-proceed - wait for human approval via inbox
-      } else {
-        // No UI changes - proceed directly to finalizing
-        console.log(`📝 No UI changes for ${ticketId} - proceeding to finalizing`);
-        dbModule.tickets.update(ticketId, { status: 'finalizing' });
-        // Recursively call to trigger finalizing handler
-        handleTicketStatusChange(ticketId, 'qa_approved', 'finalizing', ticket);
-      }
+      // No human UI review step - proceed directly to finalizing
+      // (QA agent already verified UI via Playwright browser testing)
+      console.log(`✅ QA approved for ${ticketId} - proceeding to finalizing`);
+      dbModule.tickets.update(ticketId, { status: 'finalizing' });
+      handleTicketStatusChange(ticketId, 'qa_approved', 'finalizing', ticket);
     }
   }
   
