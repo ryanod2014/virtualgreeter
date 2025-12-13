@@ -932,7 +932,9 @@ function isSessionAlive(sessionName) {
 function retryStaleJob(job) {
   if (!dbModule?.jobs) return;
   
-  const retryCount = (job.payload?.retry_count || 0) + 1;
+  // Parse payload if it's a JSON string
+  const payload = typeof job.payload === 'string' ? JSON.parse(job.payload) : (job.payload || {});
+  const retryCount = (payload.retry_count || 0) + 1;
   
   if (retryCount > MAX_JOB_RETRIES) {
     console.log(`❌ Job ${job.job_type} for ${job.ticket_id} exceeded max retries`);
@@ -963,7 +965,7 @@ function retryStaleJob(job) {
     ticket_id: job.ticket_id,
     branch: job.branch,
     priority: job.priority || 2,
-    payload: { ...job.payload, retry_count: retryCount }
+    payload: { ...payload, retry_count: retryCount }
   });
   
   startJobWorker();
@@ -1202,9 +1204,16 @@ function launchTicketAgent(job) {
     // Clean up any conflicting worktrees first
     cleanupConflictingWorktrees(job.ticket_id, job.branch);
     
-    const args = [scriptPath, job.ticket_id, job.id || 'manual'];
-    if (job.payload?.blocker_file) {
-      args.push(job.payload.blocker_file);
+    // Parse payload if it's a JSON string
+    const payload = typeof job.payload === 'string' ? JSON.parse(job.payload) : (job.payload || {});
+    
+    const args = [scriptPath, job.ticket_id];
+    if (payload.blocker_file) {
+      args.push('--blocker', payload.blocker_file);
+      console.log(`📎 Passing blocker file: ${payload.blocker_file}`);
+    }
+    if (payload.triggered_by) {
+      args.push('--type', payload.triggered_by);
     }
     
     const proc = spawn('bash', args, {
@@ -1805,20 +1814,15 @@ function handleTestDocAgentCompletion(job, agentType, success) {
       return;
     }
     
-    // AUTO-MERGE DISABLED - Set to ready_to_merge for manual merge
-    // This prevents agent merges from overwriting main branch changes
-    dbModule.tickets.update(ticketId, { status: 'ready_to_merge' });
-    console.log(`✅ ${ticketId} ready for manual merge (branch: ${ticket.branch})`);
-    
-    // Original auto-merge code (disabled):
-    // const mergeResult = mergeBranchToMain(ticketId, ticket.branch);
-    // if (mergeResult.success) {
-    //   dbModule.tickets.update(ticketId, { status: 'merged' });
-    //   console.log(`🎉 ${ticketId} merged to main after finalizing!`);
-    // } else {
-    //   console.error(`❌ Merge failed for ${ticketId}: ${mergeResult.error}`);
-    //   dbModule.tickets.update(ticketId, { status: 'blocked' });
-    // }
+    // AUTO-MERGE ENABLED - Merge feature branch to main
+    const mergeResult = mergeBranchToMain(ticketId, ticket.branch);
+    if (mergeResult.success) {
+      dbModule.tickets.update(ticketId, { status: 'merged' });
+      console.log(`🎉 ${ticketId} merged to main after finalizing!`);
+    } else {
+      console.error(`❌ Merge failed for ${ticketId}: ${mergeResult.error}`);
+      dbModule.tickets.update(ticketId, { status: 'blocked' });
+    }
   }
 }
 

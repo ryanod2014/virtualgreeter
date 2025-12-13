@@ -1,0 +1,43 @@
+{
+  "type": "inbox_item",
+  "category": "duplicate_work",
+  "severity": "medium",
+  "ticket_id": "TKT-045",
+  "title": "Agent Assigned to Already-Completed Ticket",
+  "created_at": "2025-12-12T19:13:48Z",
+  "source_blocker": "docs/agent-output/blocked/ENV-TKT-045-20251208T100412.json",
+
+  "issue": "Dev agent was assigned to TKT-045, but this ticket was already completed and merged to main on 2025-12-08 (commit c9d3f01 and 33af288).",
+
+  "evidence": {
+    "merge_commits": [
+      "c9d3f01 - Merge TKT-045: Exclude dismissed surveys from PMF calculation - QA Passed",
+      "33af288 - Merge agent/tkt-045 - TKT-045 QA approved"
+    ],
+    "merge_date": "2025-12-08",
+    "agent_assigned_date": "2025-12-08T10:04:12Z",
+    "agent_wasted_time": "30 minutes"
+  },
+
+  "root_cause": "Ticket tracking not updated after merge. Dispatcher assigned agent to ticket that was already completed.",
+
+  "human_actions_required": [
+    "1. Verify merge commits (c9d3f01, 33af288) contain correct implementation",
+    "2. Update ticket status in tickets.json to 'merged' or 'completed'",
+    "3. Clean up agent worktree for tkt-045 if it still exists",
+    "4. Investigate dispatcher logic - why was completed ticket assigned?",
+    "5. Archive blocker file to docs/agent-output/archive/"
+  ],
+
+  "impact": "Low - work was already done, just wasted 30min of agent time",
+
+  "questions_for_pm": [
+    "Should we add a pre-flight check to prevent assignment of merged tickets?",
+    "Is there a ticket status field that should have been updated post-merge?"
+  ],
+
+  "related_files": [
+    "apps/dashboard/src/features/surveys/ellis-survey-modal.tsx",
+    "apps/dashboard/src/app/(app)/platform/feedback/page.tsx"
+  ]
+}

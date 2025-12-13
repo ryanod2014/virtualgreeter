@@ -1,0 +1,12 @@
+{
+  "ticket_id": "TKT-022",
+  "blocker_type": "qa_failure",
+  "branch": "agent/tkt-022",
+  "summary": "QA validation failed - button click handler not working correctly",
+  "failures": [
+    "Expected onClick to trigger form submission but it did nothing",
+    "Console shows 'undefined is not a function' error"
+  ],
+  "recommendation": "Check the onClick handler binding and ensure the function is properly defined",
+  "blocked_at": "$(date -Iseconds)"
+}

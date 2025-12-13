@@ -160,6 +160,25 @@ export function BillingSettingsClient({ organization, usedSeats, purchasedSeats:
     });
   };
 
+  const formatDateWithTimezone = (date: Date) => {
+    // Format: "Dec 15, 2025 at 12:00 AM PST"
+    const dateStr = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const timeStr = date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const timezoneStr = date.toLocaleTimeString("en-US", {
+      timeZoneName: "short",
+    }).split(" ").pop(); // Extract timezone abbreviation (e.g., "PST")
+
+    return `${dateStr} at ${timeStr} ${timezoneStr}`;
+  };
+
   // Handle seat count changes
   const handleSeatChange = async (newCount: number) => {
     if (newCount < usedSeats) {
@@ -786,14 +805,10 @@ export function BillingSettingsClient({ organization, usedSeats, purchasedSeats:
               <div>
                 <h3 className="font-semibold text-blue-600 mb-1">Account Paused</h3>
                 <p className="text-sm text-muted-foreground max-w-lg">
-                  Your account is paused — no charges while you&apos;re away. All your recordings, settings, and 
+                  Your account is paused — no charges while you&apos;re away. All your recordings, settings, and
                   agent configurations are safely preserved. Your subscription will automatically resume on{" "}
                   <span className="font-medium text-foreground">
-                    {new Date(organization.pause_ends_at).toLocaleDateString("en-US", {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {formatDateWithTimezone(new Date(organization.pause_ends_at))}
                   </span>.
                 </p>
               </div>

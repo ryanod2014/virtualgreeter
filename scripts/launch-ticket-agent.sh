@@ -122,110 +122,115 @@ fi
 # Create the prompt file
 PROMPT_FILE="$MAIN_REPO_DIR/.agent-prompt-ticket-$TICKET_UPPER.md"
 cat > "$PROMPT_FILE" << EOF
-# Ticket Agent: Create Continuation for $TICKET_UPPER
+# EXECUTE IMMEDIATELY: Create Continuation for $TICKET_UPPER
 
-> **Type:** Continuation Ticket Creation
-> **Original Ticket:** $TICKET_UPPER
-> **Branch:** \`$TICKET_BRANCH\`
-> **Current Iteration:** $CURRENT_ITERATION
-> **Session ID:** \`$DB_SESSION_ID\`
+**DO NOT ASK QUESTIONS. EXECUTE THESE STEPS IN ORDER.**
 
 ---
 
-## Your Mission
+## Context
 
-Read docs/workflow/TICKET_AGENT_SOP.md and create a continuation ticket for $TICKET_UPPER.
+- **Ticket:** $TICKET_UPPER - "$TICKET_TITLE"
+- **Branch:** \`$TICKET_BRANCH\` (already exists)
+- **Current Iteration:** $CURRENT_ITERATION → creating v$NEXT_ITERATION
+- **Blocker File:** \`$BLOCKER_FILE\`
 
----
+### Blocker Details
 
-## Original Ticket Info
-
-**Title:** $TICKET_TITLE
-
-**Branch:** \`$TICKET_BRANCH\` (already exists - continuation uses same branch)
-
-**Files to Modify:**
-$FILES_TO_MODIFY
-
----
-
-## Blocker Info
-
-**Blocker File:** \`$BLOCKER_FILE\`
-
-**Blocker Context:**
 \`\`\`json
 $BLOCKER_CONTEXT
 \`\`\`
 
 ---
 
-## Your Task
+## STEP 1: Analyze the Blocker
 
-Follow TICKET_AGENT_SOP.md exactly:
+Run these commands to understand what happened:
 
-1. **Read the blocker** to understand why the previous attempt failed
+\`\`\`bash
+# See what the previous dev attempt changed
+git fetch origin
+git log --oneline -5 origin/$TICKET_BRANCH
 
-2. **Gather context:**
-   \`\`\`bash
-   # Get git diff of what was attempted
-   git fetch origin
-   git diff main..origin/$TICKET_BRANCH -- .
-
-   # Get commit history
-   git log --oneline -10 origin/$TICKET_BRANCH
-
-   # Check for previous continuation attempts
-   ls docs/prompts/active/dev-agent-$TICKET_UPPER-v*.md 2>/dev/null
-   \`\`\`
-
-3. **Determine if human needed:**
-   - If blocker type is \`clarification\`, \`environment\`, or \`external_setup\` → route to inbox
-   - If blocker type is \`qa_failure\`, \`regression_failure\`, or \`ci_failure\` → create continuation
-
-4. **Create continuation ticket:**
-   \`\`\`bash
-   ./scripts/agent-cli.sh update-ticket $TICKET_UPPER \\
-     --status continuation_ready \\
-     --iteration $NEXT_ITERATION
-   \`\`\`
-
-5. **Generate prompt file** at: \`docs/prompts/active/dev-agent-$TICKET_UPPER-v$NEXT_ITERATION.md\`
-   
-   Use the template from TICKET_AGENT_SOP.md - include:
-   - What v$CURRENT_ITERATION Dev Agent changed (from git diff)
-   - Why it failed (from blocker)
-   - Key mistake to avoid
-   - Full failure details
-   - Original acceptance criteria
-
-6. **Archive the blocker file:**
-   \`\`\`bash
-   mv $MAIN_REPO_DIR/docs/agent-output/blocked/$BLOCKER_FILE \\
-      $MAIN_REPO_DIR/docs/agent-output/archive/
-   \`\`\`
-
-7. **Signal completion:**
-   \`\`\`bash
-   ./scripts/agent-cli.sh complete --session $DB_SESSION_ID
-   \`\`\`
+# Check if there are build errors
+cd apps/dashboard && pnpm build 2>&1 | head -50
+\`\`\`
 
 ---
 
-## Output Report
+## STEP 2: Create the Continuation Prompt
 
-When done, write a summary:
+Write this file: \`docs/prompts/active/dev-agent-$TICKET_UPPER-v$NEXT_ITERATION.md\`
+
+Use this template:
 
 \`\`\`markdown
-## Ticket Agent Report
+# Dev Agent Continuation: $TICKET_UPPER-v$NEXT_ITERATION
 
-**Action:** Created continuation
-**Continuation ID:** $TICKET_UPPER-v$NEXT_ITERATION
-**Prompt File:** docs/prompts/active/dev-agent-$TICKET_UPPER-v$NEXT_ITERATION.md
+> **Type:** Continuation (retry from blocker)
+> **Original Ticket:** $TICKET_UPPER
+> **Branch:** \\\`$TICKET_BRANCH\\\` (ALREADY EXISTS)
+> **Attempt:** v$NEXT_ITERATION
 
-**Source:** Blocker: $BLOCKER_FILE
+---
 
-**Ready for:** Dev Agent pickup
+## PREVIOUS ATTEMPT FAILED
+
+[Summarize the blocker - what went wrong, why it failed]
+
+---
+
+## YOUR TASK
+
+1. [Fix step 1 based on blocker analysis]
+2. [Fix step 2]
+3. Verify with: \\\`pnpm typecheck && pnpm build\\\`
+4. Commit and push
+
+---
+
+## Verification
+
+After fixes:
+\\\`\\\`\\\`bash
+curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_UPPER \\\\
+  -H 'Content-Type: application/json' \\\\
+  -d '{"status": "dev_complete"}'
+\\\`\\\`\\\`
+\`\`\`
+
+---
+
+## STEP 3: Update Ticket Status
+
+\`\`\`bash
+curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_UPPER \\
+  -H "Content-Type: application/json" \\
+  -d '{"status": "continuation_ready", "iteration": $NEXT_ITERATION}'
+\`\`\`
+
+---
+
+## STEP 4: Archive Blocker (if exists)
+
+\`\`\`bash
+if [ -f "docs/agent-output/blocked/$BLOCKER_FILE" ]; then
+  mkdir -p docs/agent-output/archive
+  mv "docs/agent-output/blocked/$BLOCKER_FILE" docs/agent-output/archive/
+fi
+\`\`\`
+
+---
+
+## STEP 5: Done
+
+Print this report and exit:
+
+\`\`\`
+✅ Ticket Agent Complete
+- Created: docs/prompts/active/dev-agent-$TICKET_UPPER-v$NEXT_ITERATION.md  
+- Status: continuation_ready
+- Next: Dev Agent will pick up automatically
 \`\`\`
 EOF
 

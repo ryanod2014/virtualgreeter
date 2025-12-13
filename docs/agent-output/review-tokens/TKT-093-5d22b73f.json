@@ -1,0 +1,11 @@
+{
+  "token": "5d22b73f7bf897801b20f91f9e3f6bb5723a00084bc4b87b57634aac57175ffd",
+  "ticket_id": "TKT-093",
+  "user_email": "qa-admin-tkt093-20251213032214@greetnow.test",
+  "user_password": "QATest-TKT-093!",
+  "redirect_path": "/admin/settings/billing",
+  "preview_base_url": "http://localhost:3193",
+  "created_at": "2025-12-13T03:25:45.065Z",
+  "expires_at": "2025-12-20T03:25:45.065Z",
+  "used_count": 0
+}

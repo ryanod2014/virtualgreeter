@@ -1,0 +1,12 @@
+{
+  "id": "INBOX-TKT-045-2025-12-13T02-23-18",
+  "ticket_id": "TKT-045",
+  "type": "ui_review",
+  "message": "UI changes detected - please review screenshots",
+  "branch": "agent/tkt-045",
+  "files": [
+    "apps/dashboard/src/features/feedback/SurveyModal.tsx"
+  ],
+  "created_at": "2025-12-13T02:23:18.070Z",
+  "status": "pending"
+}

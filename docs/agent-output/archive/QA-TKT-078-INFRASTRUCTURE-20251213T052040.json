@@ -1,0 +1,97 @@
+{
+  "ticket_id": "TKT-078",
+  "ticket_title": "Add Logging for Malformed URL Routing Fallback",
+  "branch": "agent/tkt-078",
+  "blocked_at": "2025-12-13T05:20:40Z",
+  "blocker_type": "infrastructure",
+  "summary": "Browser testing blocked by pre-existing merge conflicts - code implementation verified correct",
+  "code_verification_complete": true,
+  "acceptance_criteria_status": {
+    "AC1": {
+      "criterion": "Malformed URLs are logged for debugging",
+      "code_verified": true,
+      "browser_tested": false,
+      "evidence": "console.warn added in pool-manager.ts:222 and redis-pool-manager.ts:308 with URL string and error context"
+    },
+    "AC2": {
+      "criterion": "Dashboard shows warning for unusual URL patterns",
+      "code_verified": true,
+      "browser_tested": false,
+      "evidence": "Malformed URL detection (lines 216-226), warning banner (lines 689-706), and per-row warning icons (lines 1209-1241) implemented in calls-client.tsx"
+    },
+    "AC3": {
+      "criterion": "F-109 is resolved",
+      "code_verified": true,
+      "browser_tested": false,
+      "evidence": "All requirements from F-109 implemented: server-side logging and dashboard warnings for malformed URLs"
+    }
+  },
+  "infrastructure_issues": [
+    {
+      "issue": "Pre-existing merge conflicts prevent dashboard from compiling",
+      "files_affected": [
+        "apps/dashboard/src/features/surveys/ellis-survey-modal.tsx",
+        "apps/server/src/features/signaling/socket-handlers.ts",
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx",
+        "apps/widget/src/features/webrtc/useWebRTC.test.ts"
+      ],
+      "error": "Merge conflict markers (<<<<<<< HEAD, =======, >>>>>>>) cause compilation failures",
+      "pre_existing": true,
+      "documented_by": "Dev agent in completion report TKT-078-2025-12-13T041506.md"
+    },
+    {
+      "issue": "Worktree has incomplete checkout - no source files available",
+      "impact": "Cannot run dashboard from worktree directory",
+      "workaround_attempted": "Checked out branch in main repo, but merge conflicts prevent compilation"
+    },
+    {
+      "issue": "Cloudflare tunnel not responding",
+      "tunnel_url": "https://alabama-arising-rpg-additions.trycloudflare.com",
+      "error": "502 Bad Gateway",
+      "impact": "Cannot use tunnel for remote PM review"
+    }
+  ],
+  "code_review_summary": {
+    "server_logging": {
+      "files": ["apps/server/src/features/routing/pool-manager.ts", "apps/server/src/features/routing/redis-pool-manager.ts"],
+      "implementation": "Added console.warn in catch blocks with malformed URL string and error message",
+      "assessment": "✅ Correct - logs provide debugging context without exposing PII"
+    },
+    "dashboard_warning_banner": {
+      "file": "apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx",
+      "lines": "689-706",
+      "implementation": "Amber warning banner with AlertTriangle icon, shows count and explanatory message",
+      "assessment": "✅ Correct - non-intrusive, informative, only shows when malformed URLs present"
+    },
+    "url_column_warning_icon": {
+      "file": "apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx",
+      "lines": "1209-1241",
+      "implementation": "Detects malformed URLs with try/catch URL constructor, shows warning triangle icon, hides external link icon for malformed URLs",
+      "assessment": "✅ Correct - clear visual indicator, prevents broken links"
+    }
+  },
+  "test_artifacts_created": {
+    "test_user": {
+      "email": "qa-admin-tkt078-20251213051645@greetnow.test",
+      "password": "QATest-TKT-078!",
+      "role": "admin",
+      "org_id": "cd5a2b4f-7f62-4498-9d2a-7f5e691104af",
+      "magic_url": "http://localhost:3000/api/review-login?token=c3978d80a13e2a3fac3f718dc98cd5a2ad5411d6f010ba606189d7040dc8a881"
+    },
+    "note": "Test user created successfully, but cannot test UI due to compilation errors"
+  },
+  "recommendation": "Fix pre-existing merge conflicts first, then re-run QA with browser testing. Code implementation is correct and ready for visual verification once infrastructure is fixed.",
+  "dispatch_action": "route_to_inbox_human",
+  "pm_action_required": {
+    "priority": "high",
+    "action": "Resolve merge conflicts in main branch",
+    "files_to_fix": [
+      "apps/dashboard/src/features/surveys/ellis-survey-modal.tsx",
+      "apps/server/src/features/signaling/socket-handlers.ts",
+      "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx",
+      "apps/widget/src/features/webrtc/useWebRTC.test.ts"
+    ],
+    "then": "Re-run QA agent for TKT-078 with clean infrastructure"
+  },
+  "requeue_when": "Merge conflicts resolved and dashboard compiles successfully"
+}

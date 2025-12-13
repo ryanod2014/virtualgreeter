@@ -1,0 +1,65 @@
+{
+  "type": "inbox_item",
+  "category": "invalid_ticket",
+  "severity": "critical",
+  "ticket_id": "TKT-064",
+  "title": "Invalid Ticket Blocked 8 Agents (7 Dev + 1 QA)",
+  "created_at": "2025-12-12T19:13:48Z",
+  "source_blocker": "docs/agent-output/blocked/QA-TKT-064-FAILED-20251212T1933.json",
+  "qa_report": "docs/agent-output/qa-results/QA-TKT-064-FAILED-20251212T1933.md",
+
+  "issue": "TKT-064 appears to be an 'explain this to me' request rather than an implementation ticket. It lacks all required specifications per Dev Agent SOP 1.2, yet 8 agents were assigned to it.",
+
+  "evidence": {
+    "dev_agents_blocked": 7,
+    "qa_agents_blocked": 1,
+    "total_agents_wasted": 8,
+    "first_block_date": "2025-12-06T02:30:00Z",
+    "implementation_commits": 0,
+    "blocker_confirmations": 7,
+    "escalation_reports": 1,
+    "commit_history": "Only blocker confirmations, no actual implementation"
+  },
+
+  "ticket_issues": {
+    "files_to_modify": "EMPTY",
+    "goal": "Vague ('Custom response')",
+    "acceptance_criteria": "Non-testable, generic boilerplate",
+    "approach": "Missing",
+    "similar_code": "Missing"
+  },
+
+  "root_cause": "PM routing bug - ticket was 'explain this to me' request from human, not an implementation request. Should not have been converted to dev ticket.",
+
+  "qa_recommendation": "CLOSE TKT-064 AS INVALID - Human already got explanation they requested",
+
+  "human_decisions_required": [
+    {
+      "option": 1,
+      "label": "Close as Invalid (Recommended)",
+      "description": "Mark TKT-064 as invalid/closed. Human already received explanation.",
+      "action": "Update ticket status to 'invalid' or 'closed'"
+    },
+    {
+      "option": 2,
+      "label": "Create New Ticket with Proper Specs",
+      "description": "If work IS actually needed, create NEW ticket with proper files_to_modify, approach, testable AC",
+      "action": "Create TKT-XXX with complete specifications"
+    },
+    {
+      "option": 3,
+      "label": "Fix PM Routing Logic",
+      "description": "Prevent future routing of explanation-only requests to dev agents",
+      "action": "Add validation to check blocker files before re-assigning tickets"
+    }
+  ],
+
+  "impact": "HIGH - Wasted 8 agent sessions, ongoing waste if not fixed",
+
+  "process_improvement_needed": "PM must check docs/agent-output/blocked/ before assigning tickets, especially after multiple blocks",
+
+  "related_files": [
+    "docs/agent-output/blocked/BLOCKED-TKT-064-2025-12-06T0230.json (may be archived)",
+    "docs/agent-output/completions/TKT-064-ESCALATION-2025-12-12T0930.md"
+  ]
+}

@@ -1,0 +1,140 @@
+{
+  "type": "inbox_item",
+  "category": "merge_conflicts",
+  "severity": "high",
+  "ticket_id": "TKT-095",
+  "title": "TKT-095 Failed QA 3 Times Due to Merge Conflicts and Missing Implementation",
+  "created_at": "2025-12-12T19:13:48Z",
+  "source_blockers": [
+    "docs/agent-output/blocked/QA-TKT-095-FAILED-20251212T1651.json",
+    "docs/agent-output/blocked/QA-TKT-095-FAILED-20251212T1656.json",
+    "docs/agent-output/blocked/QA-TKT-095-V2-FAILED-20251212T1703.json"
+  ],
+
+  "issue": "TKT-095 has failed QA three times with different issues: v1 had unresolved merge conflicts (twice), v2 has no implementation at all.",
+
+  "attempt_history": [
+    {
+      "version": "v1 (first QA)",
+      "branch": "agent/tkt-095",
+      "commit": "aa8a3ec",
+      "issue": "Unresolved merge conflicts in CobrowseViewer.tsx and ellis-survey-modal.tsx",
+      "conflict_sources": ["agent/tkt-052", "agent/tkt-045"],
+      "status": "Implementation exists but cannot build"
+    },
+    {
+      "version": "v1 (second QA)",
+      "branch": "agent/tkt-095",
+      "issue": "Same merge conflicts still unresolved",
+      "additional_issue": "tsconfig.json modifications removed test file exclusions",
+      "status": "Same as first attempt"
+    },
+    {
+      "version": "v2",
+      "branch": "agent/tkt-095-v2",
+      "issue": "Branch created but ZERO implementation (no commits, identical to main)",
+      "git_diff": "Empty - no changes from main",
+      "status": "No implementation whatsoever"
+    }
+  ],
+
+  "working_implementation_exists": {
+    "location": "agent/tkt-095 branch",
+    "commit": "aa8a3ec",
+    "commit_message": "TKT-095: Add validation for Facebook Pixel settings",
+    "files_modified": [
+      "apps/dashboard/src/app/(app)/admin/settings/organization/organization-settings-client.tsx",
+      "apps/server/src/app/api/organization/update-settings/route.ts"
+    ],
+    "qa_note": "Code review suggests implementation is correct, just needs clean build"
+  },
+
+  "merge_conflicts": {
+    "file_1": {
+      "path": "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx",
+      "conflict_markers": 8,
+      "source": "agent/tkt-052",
+      "related_to_tkt_095": false
+    },
+    "file_2": {
+      "path": "apps/dashboard/src/features/surveys/ellis-survey-modal.tsx",
+      "conflict_markers": 3,
+      "source": "agent/tkt-045",
+      "related_to_tkt_095": false
+    },
+    "file_3": {
+      "path": "apps/widget/tsconfig.json",
+      "issue": "Test exclusions removed"
+    },
+    "file_4": {
+      "path": "apps/server/tsconfig.json",
+      "issue": "Test exclusions removed"
+    },
+    "file_5": {
+      "path": "apps/dashboard/tsconfig.json",
+      "issue": "Test exclusions removed"
+    }
+  },
+
+  "resolution_options": [
+    {
+      "option": 1,
+      "label": "Cherry-Pick Approach (Recommended)",
+      "description": "Create clean branch from main and cherry-pick the working commit",
+      "steps": [
+        "git checkout -b agent/tkt-095-v3 main",
+        "git cherry-pick aa8a3ec",
+        "Resolve any conflicts that arise (should be minimal)",
+        "pnpm typecheck && pnpm build",
+        "Submit for QA"
+      ],
+      "pros": "Clean slate, avoids unrelated conflicts",
+      "cons": "Slight risk of cherry-pick conflicts"
+    },
+    {
+      "option": 2,
+      "label": "Fix Conflicts on V1 Branch",
+      "description": "Manually resolve all merge conflicts on agent/tkt-095",
+      "steps": [
+        "git checkout agent/tkt-095",
+        "Resolve conflicts in CobrowseViewer.tsx (8 markers)",
+        "Resolve conflicts in ellis-survey-modal.tsx (3 markers)",
+        "Revert tsconfig.json changes (restore test exclusions)",
+        "pnpm typecheck && pnpm build",
+        "Submit for QA"
+      ],
+      "pros": "Keeps existing branch",
+      "cons": "Time-consuming, dealing with unrelated code"
+    },
+    {
+      "option": 3,
+      "label": "Re-implement on V2 Branch",
+      "description": "Add the actual implementation to agent/tkt-095-v2",
+      "steps": [
+        "git checkout agent/tkt-095-v2",
+        "Cherry-pick aa8a3ec OR manually re-implement feature",
+        "pnpm typecheck && pnpm build",
+        "Submit for QA"
+      ],
+      "pros": "Uses existing v2 branch",
+      "cons": "Same as option 1, just different branch name"
+    }
+  ],
+
+  "human_decision_required": "Choose resolution strategy (Option 1 recommended)",
+
+  "impact": "Medium - Feature implementation exists and appears correct, just needs clean build path",
+
+  "qa_assessment": {
+    "implementation_quality": "CORRECT (per code review)",
+    "validation_logic": "Properly implemented",
+    "error_messages": "Clear and actionable",
+    "confidence": "Medium - looks correct but not executed due to build errors"
+  },
+
+  "recommended_action": "Option 1 (cherry-pick) - fastest path to clean QA",
+
+  "estimated_time": "30 minutes to create clean branch + 1 hour for QA re-test",
+
+  "follow_up_needed": "After resolving TKT-095, investigate why dev agent created v2 branch with no implementation"
+}

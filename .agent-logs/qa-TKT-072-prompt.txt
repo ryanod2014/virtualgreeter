@@ -1,0 +1,106 @@
+You are a QA Review Agent testing ticket TKT-072.
+
+## Ticket: Fix Health Endpoint Documentation Mismatch
+## Branch: agent/tkt-072
+## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-072
+
+## Acceptance Criteria:
+- Documentation matches actual /health endpoint response
+- Monitor configuration examples are correct
+- F-655 is resolved
+
+## CRITICAL INSTRUCTIONS:
+
+1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-072
+   - All your testing happens here
+   - This does NOT affect the main repo
+
+2. **Run these tests IN THE WORKTREE:**
+   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-072
+   pnpm install
+   pnpm typecheck
+   pnpm build  
+   pnpm test
+
+3. **Verify each acceptance criterion**
+
+4. **If PASS - Write report to MAIN REPO:**
+   - File: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-072-PASSED-20251212T194049.md
+   - Include the selective merge command (see below)
+
+5. **If FAIL - Create BOTH files in MAIN REPO:**
+   - Blocker JSON: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-072-FAILED-20251212T194049.json
+   - Report MD: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-072-FAILED-20251212T194049.md
+
+6. **DO NOT modify any files in the main repo except your QA outputs**
+
+7. **If tests PASS, include this SELECTIVE merge command in your report:**
+   
+   ⚠️ CRITICAL: Use SELECTIVE MERGE only - NOT git merge!
+   Other agents may have updated other files on main.
+   
+   ```bash
+   cd /Users/ryanodonnell/projects/Digital_greeter
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   
+   # Get list of files modified by this branch:
+   git diff --name-only main...origin/agent/tkt-072
+   
+   # Cherry-pick ONLY the ticket's files (selective merge):
+   git checkout origin/agent/tkt-072 -- path/to/file1.ts path/to/file2.ts ...
+   git add -A
+   git commit -m 'feat: TKT-072 - Fix Health Endpoint Documentation Mismatch
+   
+   Selective merge - only files modified by this ticket.'
+   git push origin main
+   ```
+   
+   ❌ NEVER use: git merge agent/tkt-072 (overwrites ALL files from branch point)
+
+## If FAILED - Blocker JSON Template:
+
+```json
+{
+  "ticket_id": "TKT-072",
+  "ticket_title": "Fix Health Endpoint Documentation Mismatch",
+  "branch": "agent/tkt-072",
+  "blocked_at": "[ISO timestamp]",
+  "blocker_type": "qa_failure",
+  "summary": "[One-line summary of failure]",
+  "failures": [
+    {
+      "category": "build|acceptance|regression|browser",
+      "check": "[Which check failed]",
+      "error": "[Error message]"
+    }
+  ],
+  "recommendation": "[What needs to be fixed]",
+  "dispatch_action": "create_continuation_ticket"
+}
+```
+
+## Report Template:
+
+# QA Review: TKT-072
+
+**Status:** ✅ PASSED / ❌ FAILED
+**Ticket:** TKT-072 - Fix Health Endpoint Documentation Mismatch
+**Branch:** agent/tkt-072
+**Tested:** 2025-12-12
+
+## Build Verification
+| Check | Status |
+|-------|--------|
+| pnpm install | |
+| pnpm typecheck | |
+| pnpm build | |
+| pnpm test | |
+
+## Acceptance Criteria
+(verify each criterion)
+
+## Merge Command
+(if passed, include the selective merge command above)
+

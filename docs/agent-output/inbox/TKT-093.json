@@ -1,0 +1,71 @@
+{
+  "ticket_id": "TKT-093",
+  "title": "Fix Timezone Display for Pause End Date",
+  "type": "ui_review",
+  "status": "pending",
+  "created_at": "2025-12-13T03:25:46Z",
+  "message": "QA verified timezone display feature. PM please review the timezone formatting in pause modal and paused account banner.",
+  "branch": "agent/tkt-093",
+  "tunnel_url": "",
+  "qa_report": "docs/agent-output/qa-results/QA-TKT-093-PASSED-20251213T032546.md",
+  "screenshots": [
+    {
+      "name": "Pause Modal - 1 Month Option",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-093/pause-modal-1month-timezone.png",
+      "description": "Shows resume date with timezone: Jan 12, 2026 at 8:23 PM MST"
+    },
+    {
+      "name": "Pause Modal - 2 Months Option",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-093/pause-modal-2months-timezone.png",
+      "description": "Date updates correctly: Feb 12, 2026 at 8:24 PM MST"
+    },
+    {
+      "name": "Pause Modal - 3 Months Option",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-093/pause-modal-3months-timezone.png",
+      "description": "Date updates correctly: Mar 12, 2026 at 8:24 PM MST"
+    },
+    {
+      "name": "Paused Account - Banner and Completion Modal",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-093/paused-banner-and-modal-timezone.png",
+      "description": "Both banner and completion modal show timezone"
+    },
+    {
+      "name": "Paused Account - Banner Only",
+      "path": "docs/agent-output/qa-results/screenshots/TKT-093/paused-banner-only-timezone.png",
+      "description": "Final view of paused banner with timezone"
+    }
+  ],
+  "magic_links": [
+    {
+      "role": "admin",
+      "url": "http://localhost:3193/api/review-login?token=5d22b73f7bf897801b20f91f9e3f6bb5723a00084bc4b87b57634aac57175ffd",
+      "what_pm_sees": "Billing page with paused account banner showing 'Your subscription will automatically resume on Jan 12, 2026 at 8:24 PM MST'"
+    }
+  ],
+  "preview_port": 3193,
+  "test_setup": "Admin user's account is paused for 1 month. Banner displays resume date with explicit timezone abbreviation (MST).",
+  "acceptance_criteria": [
+    "Users can clearly see what timezone the pause end date uses",
+    "No confusion about when account will actually resume",
+    "Date display is consistent across all billing UI",
+    "F-064 is resolved"
+  ],
+  "test_summary": {
+    "total_tests": 6,
+    "passed": 6,
+    "failed": 0,
+    "evidence_pieces": 5,
+    "roles_tested": 1,
+    "roles_required": 1
+  },
+  "key_findings": [
+    "✅ formatDateWithTimezone() helper correctly formats dates with timezone abbreviation",
+    "✅ Timezone displayed in pause modal for all duration options (1, 2, 3 months)",
+    "✅ Paused account banner shows timezone",
+    "✅ Completion modal shows timezone",
+    "✅ Explanatory text 'All times shown in your local timezone' present",
+    "✅ Date updates dynamically when duration changes",
+    "✅ Consistent format across all UI locations"
+  ],
+  "pm_action_required": "Review UI timezone display via magic link. Verify the format is clear and resolves F-064 confusion."
+}

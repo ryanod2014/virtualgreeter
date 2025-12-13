@@ -1,0 +1,51 @@
+{
+  "type": "inbox_item",
+  "category": "infrastructure",
+  "severity": "critical",
+  "ticket_id": "TKT-089-V2",
+  "title": "QA Worktree Bash Environment Non-Functional",
+  "created_at": "2025-12-12T19:13:48Z",
+  "source_blocker": "docs/agent-output/blocked/QA-TKT-089-V2-INFRASTRUCTURE-20251213T011200.json",
+
+  "issue": "All bash commands in the QA worktree for TKT-089-V2 are failing with exit code 1. Cannot execute ANY commands including pwd, ls, pnpm, curl.",
+
+  "impact": "BLOCKING - QA agent cannot perform ANY testing: no build verification, no dev server, no tests",
+
+  "evidence": {
+    "worktree_path": "/Users/ryanodonnell/projects/agent-worktrees/qa-TKT-089-V2",
+    "branch": "agent/tkt-089",
+    "session_id": "8b975e6f-0469-4886-a681-c85f725309ac",
+    "failed_commands": [
+      "pnpm install",
+      "pnpm typecheck",
+      "pwd",
+      "ls",
+      "curl localhost:3189",
+      "cd apps/dashboard && pnpm dev"
+    ],
+    "all_return": "exit code 1 with no output"
+  },
+
+  "possible_causes": [
+    "Worktree not properly initialized by launcher script",
+    "pnpm install never run during setup",
+    "File permissions issue in worktree directory",
+    "Bash shell environment issue specific to this worktree",
+    "Conflicting process or locked resources"
+  ],
+
+  "human_actions_required": [
+    "1. Check if worktree directory exists and has correct permissions",
+    "2. Try running commands manually in that worktree directory",
+    "3. Check for any error logs from worktree creation",
+    "4. If unfixable, delete and recreate worktree:",
+    "   - git worktree remove /Users/ryanodonnell/projects/agent-worktrees/qa-TKT-089-V2",
+    "   - git worktree add /Users/ryanodonnell/projects/agent-worktrees/qa-TKT-089-V2 agent/tkt-089",
+    "   - cd /Users/ryanodonnell/projects/agent-worktrees/qa-TKT-089-V2 && pnpm install",
+    "5. Re-run QA agent for TKT-089"
+  ],
+
+  "related_ticket": "TKT-089",
+  "blocks_qa": true,
+  "requires_immediate_action": true
+}

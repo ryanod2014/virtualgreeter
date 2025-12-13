@@ -1,0 +1,54 @@
+{
+  "ticket_id": "TKT-078",
+  "blocker_type": "qa_failure",
+  "summary": "Critical: Unresolved merge conflicts prevent dashboard from loading - cannot execute QA tests",
+  "failures": [
+    {
+      "test": "Dashboard Load",
+      "expected": "Dashboard loads at /admin route",
+      "actual": "500 Internal Server Error due to merge conflict markers in 5 files",
+      "severity": "critical",
+      "files_affected": [
+        "apps/dashboard/src/app/(app)/platform/feedback/page.tsx",
+        "apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx",
+        "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx",
+        "apps/dashboard/src/features/surveys/ellis-survey-modal.tsx"
+      ]
+    },
+    {
+      "test": "All UI Tests",
+      "expected": "Execute 5 test scenarios for malformed URL handling",
+      "actual": "0 tests executed - dashboard not accessible",
+      "severity": "critical"
+    }
+  ],
+  "code_quality_assessment": {
+    "tkt_078_changes": "PASS - Code changes are correct and follow requirements",
+    "branch_quality": "FAIL - Branch has unresolved merge conflicts",
+    "note": "The actual TKT-078 implementation is correct. The blocker is due to merge conflicts in files NOT modified by TKT-078."
+  },
+  "tests_executed": 0,
+  "tests_passed": 0,
+  "tests_failed": 0,
+  "tests_blocked": 5,
+  "acceptance_criteria_verified": "0/3 (0%) - Cannot verify runtime behavior",
+  "evidence_collected": {
+    "code_review": "Complete",
+    "runtime_testing": "Blocked",
+    "screenshots": "None - dashboard won't load",
+    "server_logs": "None - cannot trigger routing",
+    "magic_links": "None - cannot access dashboard"
+  },
+  "dispatch_action": "resolve_conflicts_and_retest",
+  "required_fixes": [
+    "Resolve merge conflicts in apps/dashboard/src/app/(app)/platform/feedback/page.tsx",
+    "Resolve merge conflicts in apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx",
+    "Resolve merge conflicts in apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx (4 conflicts)",
+    "Resolve merge conflicts in apps/dashboard/src/features/surveys/ellis-survey-modal.tsx",
+    "Verify dashboard loads successfully after conflict resolution",
+    "Resubmit for QA testing"
+  ],
+  "qa_agent_notes": "This is not a failure of the TKT-078 implementation itself. The code changes for logging and dashboard warnings are correctly implemented. However, the branch cannot be merged due to pre-existing merge conflicts that break the application. These conflicts appear to have existed on the branch before TKT-078 work began, or were introduced during a failed merge with main.",
+  "created_at": "2025-12-13T04:56:00Z",
+  "session_id": "8def1323-8379-4533-853d-76a6c0444d26"
+}

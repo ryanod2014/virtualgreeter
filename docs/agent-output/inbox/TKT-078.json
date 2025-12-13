@@ -1,0 +1,94 @@
+{
+  "ticket_id": "TKT-078",
+  "title": "Add Logging for Malformed URL Routing Fallback",
+  "type": "infrastructure_blocker",
+  "status": "blocked",
+  "created_at": "2025-12-13T05:20:40Z",
+  "message": "QA blocked by pre-existing merge conflicts. Code implementation verified correct - needs infrastructure fix then browser testing.",
+  "branch": "agent/tkt-078",
+  "qa_report": "docs/agent-output/qa-results/QA-TKT-078-BLOCKED-20251213T052040.md",
+  "blocker_file": "docs/agent-output/blocked/QA-TKT-078-INFRASTRUCTURE-20251213T052040.json",
+  "code_verification": {
+    "status": "VERIFIED_CORRECT",
+    "acceptance_criteria": [
+      {
+        "criterion": "AC1: Malformed URLs are logged for debugging",
+        "code_status": "✅ Implemented correctly",
+        "files": ["apps/server/src/features/routing/pool-manager.ts", "apps/server/src/features/routing/redis-pool-manager.ts"],
+        "evidence": "console.warn added in catch blocks with URL string and error context"
+      },
+      {
+        "criterion": "AC2: Dashboard shows warning for unusual URL patterns",
+        "code_status": "✅ Implemented correctly",
+        "files": ["apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx"],
+        "evidence": "Warning banner (lines 689-706) and per-row warning icons (lines 1209-1241) with proper detection logic"
+      },
+      {
+        "criterion": "AC3: F-109 is resolved",
+        "code_status": "✅ Implemented correctly",
+        "evidence": "All F-109 requirements (server logging + dashboard warnings) are implemented"
+      }
+    ],
+    "summary": "All three acceptance criteria are implemented correctly per code review. Implementation is production-ready once infrastructure is fixed."
+  },
+  "infrastructure_blocker": {
+    "blocker_type": "pre_existing_merge_conflicts",
+    "severity": "blocks_all_qa_testing",
+    "files_with_conflicts": [
+      "apps/dashboard/src/features/surveys/ellis-survey-modal.tsx",
+      "apps/server/src/features/signaling/socket-handlers.ts",
+      "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx",
+      "apps/widget/src/features/webrtc/useWebRTC.test.ts"
+    ],
+    "impact": "Dashboard cannot compile - browser testing impossible",
+    "pre_existing": true,
+    "documented_by": "Dev agent completion report"
+  },
+  "test_user": {
+    "email": "qa-admin-tkt078-20251213051645@greetnow.test",
+    "password": "QATest-TKT-078!",
+    "role": "admin",
+    "org_id": "cd5a2b4f-7f62-4498-9d2a-7f5e691104af",
+    "magic_link": "http://localhost:3000/api/review-login?token=c3978d80a13e2a3fac3f718dc98cd5a2ad5411d6f010ba606189d7040dc8a881",
+    "note": "Magic link created but cannot be tested until dashboard compiles. PM can use after fixing merge conflicts."
+  },
+  "pm_action_required": {
+    "priority": "HIGH",
+    "steps": [
+      {
+        "step": 1,
+        "action": "Resolve merge conflicts in the 4 files listed above",
+        "note": "These are pre-existing and not caused by TKT-078"
+      },
+      {
+        "step": 2,
+        "action": "Verify dashboard compiles: cd apps/dashboard && pnpm dev"
+      },
+      {
+        "step": 3,
+        "action": "Re-run QA agent for TKT-078",
+        "command": "./scripts/launch-qa-agents.sh TKT-078"
+      },
+      {
+        "step": 4,
+        "action": "Review magic link with test user (credentials above)",
+        "expected_result": "Should see warning banner and icons for malformed URLs"
+      }
+    ]
+  },
+  "what_pm_will_verify": [
+    "Warning banner appears with amber styling and AlertTriangle icon",
+    "Banner shows correct count of malformed URLs",
+    "Per-row warning icons appear for malformed URLs only",
+    "External link icons hidden for malformed URLs",
+    "Tooltip on hover explains \"Malformed URL - treated as path\"",
+    "Server logs show console.warn messages for malformed URLs"
+  ],
+  "acceptance_criteria": [
+    "Malformed URLs are logged for debugging",
+    "Dashboard shows warning for unusual URL patterns",
+    "F-109 is resolved"
+  ],
+  "qa_confidence": "HIGH - Code implementation is correct, only blocked by infrastructure",
+  "estimated_retest_time": "15 minutes once infrastructure fixed"
+}

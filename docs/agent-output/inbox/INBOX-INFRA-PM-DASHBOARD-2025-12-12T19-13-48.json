@@ -1,0 +1,79 @@
+{
+  "type": "inbox_item",
+  "category": "infrastructure",
+  "severity": "critical",
+  "ticket_id": "TKT-089-V2-V3",
+  "title": "PM Dashboard API Not Running - Blocking All QA Browser Tests",
+  "created_at": "2025-12-12T19:13:48Z",
+  "source_blocker": "docs/agent-output/blocked/QA-TKT-089-V2-V3-INFRASTRUCTURE-20251213T012700.json",
+
+  "issue": "PM Dashboard API (port 3456) is not running. QA agents cannot create test users or authenticate for browser testing.",
+
+  "impact": "BLOCKING - All UI tickets requiring browser testing cannot be verified. QA agents forced to violate SOP (code review only).",
+
+  "evidence": {
+    "required_api": "http://localhost:3456",
+    "endpoint_needed": "/api/v2/qa/create-test-user",
+    "affected_tickets": ["TKT-089", "All future UI tickets"],
+    "qa_session_blocked": "48e4353b-d5aa-4e3d-a82c-ebbda459ee68"
+  },
+
+  "what_works": [
+    "Dashboard server starts on port 3000",
+    "Login page loads",
+    "Build passes (pre-existing errors verified)",
+    "Code inspection possible"
+  ],
+
+  "what_is_blocked": [
+    "Test user creation",
+    "Browser authentication",
+    "Access to /admin/settings/* pages",
+    "Playwright MCP programmatic testing",
+    "ALL acceptance criteria verification"
+  ],
+
+  "human_actions_required": [
+    {
+      "option": 1,
+      "label": "Start PM Dashboard (Recommended)",
+      "description": "Start the PM Dashboard API server",
+      "command": "node docs/pm-dashboard-ui/server.js",
+      "note": "Should start on port 3456. Verify with: curl http://localhost:3456/api/health"
+    },
+    {
+      "option": 2,
+      "label": "Provide Test Credentials",
+      "description": "Manually create test user in Supabase and provide credentials",
+      "action": "Create admin user, provide email/password to agent"
+    },
+    {
+      "option": 3,
+      "label": "Accept Code Review Exception",
+      "description": "For TKT-089 specifically, accept code review as QA evidence (violates SOP)",
+      "note": "QA agent confirmed implementation appears correct via code inspection"
+    },
+    {
+      "option": 4,
+      "label": "Deploy to Staging",
+      "description": "Deploy branch to staging environment with existing test users",
+      "action": "Manual deployment and testing in staging"
+    }
+  ],
+
+  "qa_sop_violation": "Per QA SOP: 'If your evidence is \"I read the code\", your QA is INVALID.' UI tickets REQUIRE browser testing.",
+
+  "process_improvement": "Consider adding PM Dashboard to agent launcher script so it auto-starts with agents",
+
+  "recommended_solution": "Option 1 - Start PM Dashboard. It's needed for all future QA work anyway.",
+
+  "affected_acceptance_criteria": [
+    "AC1: Switching from blocklist to allowlist preserves blocklist selections",
+    "AC2: Switching from allowlist to blocklist preserves allowlist selections",
+    "AC3: Can switch between modes multiple times without losing data",
+    "AC4: Saving updates the database with the currently active mode's list",
+    "AC5: F-038 is resolved"
+  ],
+
+  "code_quality_note": "QA agent's code review shows TKT-089-V3 implementation appears correct with proper dual-state tracking. Just needs browser verification."
+}
