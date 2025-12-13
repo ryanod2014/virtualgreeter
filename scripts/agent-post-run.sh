@@ -237,7 +237,32 @@ curl -s -X PUT "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" \
     || log_warning "Could not update ticket status"
 
 # -----------------------------------------------------------------------------
-# Step 8: Final status
+# Step 8: Cleanup stale processes (vite/vitest)
+# -----------------------------------------------------------------------------
+log "Cleaning up vite/vitest processes from this worktree..."
+
+# Kill any vite/vitest spawned from this worktree
+VITE_KILLED=0
+VITEST_KILLED=0
+
+# Get PIDs of vite processes tied to this worktree
+for pid in $(pgrep -f "vite.*$WORKTREE_DIR" 2>/dev/null); do
+    kill -9 "$pid" 2>/dev/null && VITE_KILLED=$((VITE_KILLED + 1))
+done
+
+# Get PIDs of vitest processes tied to this worktree
+for pid in $(pgrep -f "vitest.*$WORKTREE_DIR" 2>/dev/null); do
+    kill -9 "$pid" 2>/dev/null && VITEST_KILLED=$((VITEST_KILLED + 1))
+done
+
+if [ $VITE_KILLED -gt 0 ] || [ $VITEST_KILLED -gt 0 ]; then
+    log_success "Killed $VITE_KILLED vite and $VITEST_KILLED vitest processes"
+else
+    log "No stale vite/vitest processes found"
+fi
+
+# -----------------------------------------------------------------------------
+# Step 9: Final status
 # -----------------------------------------------------------------------------
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

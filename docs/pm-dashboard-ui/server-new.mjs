@@ -282,6 +282,18 @@ scheduler.registerHandler('regression_test', async (job) => {
         }
       }
       
+      // Cleanup tmux sessions for this ticket
+      const tmuxPrefixes = ['agent-', 'qa-', 'test-', 'doc-'];
+      for (const prefix of tmuxPrefixes) {
+        const sessionName = prefix + ticketId;
+        try {
+          execSync(`tmux kill-session -t ${sessionName} 2>/dev/null`, { encoding: 'utf8' });
+          console.log(`  ✓ Killed tmux: ${sessionName}`);
+        } catch (e) {
+          // Session doesn't exist - that's fine
+        }
+      }
+      
       return { success: true, action: 'merged', ticketId, filesCount: allowedFiles.length };
       
     } catch (e) {

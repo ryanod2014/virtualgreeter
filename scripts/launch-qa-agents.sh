@@ -997,6 +997,29 @@ claude --model claude-opus-4-20250514 --dangerously-skip-permissions -p "\$(cat 
 echo ''
 echo '=== Completed: \$(date) ==='
 
+# Failsafe: Ensure blocker file exists if QA failed
+echo 'Checking if blocker file needed...'
+TICKET_STATUS=\$(curl -s "http://localhost:3456/api/v2/tickets/$TICKET_ID" 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+if [ "\$TICKET_STATUS" = "qa_failed" ] || [ "\$TICKET_STATUS" = "blocked" ]; then
+    # Check if blocker file already exists
+    if ! ls "$MAIN_REPO_DIR/docs/agent-output/blocked/QA-$TICKET_ID"*.json 2>/dev/null | head -1; then
+        echo 'Creating failsafe blocker file...'
+        mkdir -p "$MAIN_REPO_DIR/docs/agent-output/blocked"
+        cat > "$MAIN_REPO_DIR/docs/agent-output/blocked/QA-$TICKET_ID-FAILSAFE-\$(date +%Y%m%dT%H%M).json" << BLOCKER_EOF
+{
+  "ticket_id": "$TICKET_ID",
+  "blocker_type": "qa_failure",
+  "summary": "QA failed - agent did not create blocker file",
+  "created_at": "\$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "dispatch_action": "create_continuation_ticket"
+}
+BLOCKER_EOF
+        echo '✓ Created failsafe blocker file'
+    else
+        echo '✓ Blocker file already exists'
+    fi
+fi
+
 # Cleanup tunnel on exit
 pkill -f "cloudflared.*localhost:$AGENT_PORT" 2>/dev/null || true
 
