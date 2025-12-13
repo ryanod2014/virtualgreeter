@@ -96,6 +96,7 @@ Provides a centralized interface for admins to manage their team of agents who c
 | "Continue" (invite form) | agents-client.tsx | Shows cost confirmation modal | UI state change |
 | "Confirm & Send" | agents-client.tsx → /api/invites/send | Creates invite, updates billing, sends email | DB: invites, Stripe, Resend |
 | Revoke invite | agents-client.tsx → /api/invites/revoke | Deletes invite, credits seat | DB: delete, billing API |
+| Resend invite | agents-client.tsx → agents/actions.ts | Retries email sending for failed invites | Email: Resend API, DB: update email_status |
 | Remove agent | agents-client.tsx → /api/agents/remove | Soft deletes agent, removes from pools | DB: update agent_profiles, delete pool_members, billing API |
 | Accept invite | accept-invite page | Creates user, agent_profile, marks accepted | DB: users, agent_profiles, invites |
 
@@ -104,8 +105,10 @@ Provides a centralized interface for admins to manage their team of agents who c
 |-------------------|------|---------|
 | `AgentsClient` | `apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx` | Main UI component for agent management |
 | `AgentsPage` | `apps/dashboard/src/app/(app)/admin/agents/page.tsx` | Server component fetching agents, invites, stats |
-| `POST /api/invites/send` | `apps/dashboard/src/app/api/invites/send/route.ts` | Creates invite, handles billing, sends email |
+| `POST /api/invites/send` | `apps/dashboard/src/app/api/invites/send/route.ts` | Creates invite, handles billing, sends email with retry |
 | `POST /api/invites/revoke` | `apps/dashboard/src/app/api/invites/revoke/route.ts` | Deletes invite, credits billing seat |
+| `resendInviteEmail` | `apps/dashboard/src/app/(dashboard)/agents/actions.ts` | Server action to retry failed invite emails |
+| `sendEmailWithRetry` | `apps/dashboard/src/lib/email.ts` | Email retry logic (3 attempts, exponential backoff) |
 | `POST /api/agents/remove` | `apps/dashboard/src/app/api/agents/remove/route.ts` | Soft deletes agent, removes from pools |
 | `POST /api/billing/seats` | `apps/dashboard/src/app/api/billing/seats/route.ts` | Updates seat count in billing system |
 | `AcceptInvitePage` | `apps/dashboard/src/app/accept-invite/page.tsx` | Invite acceptance UI and account creation |
@@ -133,9 +136,15 @@ INVITE FLOW
     │   │   └─► If exceeds purchasedSeats → Stripe expand subscription
     │   │   └─► If fails → DELETE invite (rollback)
     │   │
-    │   └─► Email: Resend sends invite with token URL
+    │   ├─► Email: sendEmailWithRetry() attempts up to 3 times
+    │   │   ├─► Attempt 1 → Fail → Wait 1s
+    │   │   ├─► Attempt 2 → Fail → Wait 2s
+    │   │   ├─► Attempt 3 → Fail → Mark email_status='failed'
+    │   │   └─► Success → Mark email_status='sent'
+    │   │
+    │   └─► If email failed → Return warning + show Resend button
     │
-    └─► Client: Update UI state (pendingInvites, billingInfo)
+    └─► Client: Update UI state (pendingInvites, billingInfo, email status)
 
 ACCEPT FLOW
     │
@@ -207,7 +216,7 @@ REMOVE FLOW
 | 17 | Add myself (reactivate) | Admin was previously removed | Reactivates profile, charges seat | ✅ | |
 | 18 | Add myself (already agent) | Admin already active agent | Option hidden (isCurrentUserAgent) | ✅ | |
 | 19 | Billing API fails during invite | Stripe error | Invite is deleted (rollback) | ✅ | |
-| 20 | Email send fails | Resend API error | Invite created, email auto-retried (up to 3 attempts), marked as 'failed' if all retries fail | ✅ | Admin sees status badge and can resend |
+| 20 | Email send fails | Resend API error | Automatically retries up to 3 times with exponential backoff (1s, 2s delays), marks invite as "failed" if all attempts fail, admin sees warning toast with "Resend Invite" button | ✅ | Retry mechanism added in TKT-011 |
 | 21 | Re-invite removed user | Email in users but deactivated | Error: "User already exists" | ⚠️ | Can't re-invite (by design) |
 
 ### Error States
@@ -221,7 +230,6 @@ REMOVE FLOW
 | "Agent not found" | Invalid agent ID | Toast error | Refresh page |
 | "Agent already deactivated" | Double-remove | Toast error | None needed |
 | "Failed to add billing seat" | Stripe error | Form error | Try again later |
-| "Email delivery failed" | All 3 email retry attempts fail | Warning toast + 'failed' badge on invite | Click 'Resend Invite' button |
 
 ---
 
@@ -236,9 +244,8 @@ REMOVE FLOW
 | 2 | Choose "Invite Someone" | Form appears | ✅ | |
 | 3 | Fill email/name/role | Fields update, cost preview shown | ✅ | Clear prepaid vs extra cost messaging |
 | 4 | Click "Continue" | Confirmation modal with billing summary | ✅ | |
-| 5 | Click "Confirm & Send" | Loading state → Success (or warning if email fails) | ✅ | |
-| 6 | See pending invite in list | Shows with "Sent" or "Failed" badge | ✅ | Email status visible |
-| 7 | (If failed) Click "Resend Invite" | Retry email delivery | ✅ | Manual recovery option |
+| 5 | Click "Confirm & Send" | Loading state → Success | ✅ | |
+| 6 | See pending invite in list | Shows with "Pending" badge | ✅ | |
 
 **Remove Flow:**
 | Step | User Action | System Response | Clear? | Issues |
@@ -260,7 +267,6 @@ REMOVE FLOW
 - **Cost Indicators:** Green for "Included", Amber for "+$X/mo"
 - **Status Colors:** Green=Available, Yellow=In Simulation, Blue=In Call, Gray=Offline
 - **Pending Invites:** Distinct section with expiration dates
-- **Email Status Badges:** Green "Sent" badge for successful delivery, Red "Failed" badge for delivery failures
 
 ### Accessibility
 - Keyboard navigation: ✅ Add agent row is focusable and keyboard accessible
@@ -293,8 +299,7 @@ REMOVE FLOW
 | Concern | Mitigation |
 |---------|------------|
 | Invite without billing | Billing called AFTER invite creation; rollback on failure |
-| Email delivery failure | Automatic retry up to 3 attempts with exponential backoff (1s, 2s) |
-| Failed email visibility | Email status tracked in DB, visible badge in UI, manual resend button |
+| Orphaned billing seat | Email failure doesn't rollback invite (invite exists) |
 | Race condition on accept | DB unique constraint on users prevents double creation |
 | Soft delete data preservation | FK to call_logs is SET NULL, agent_id preserved |
 
@@ -315,6 +320,7 @@ REMOVE FLOW
 |-------|--------|----------|--------------|
 | Agent removal doesn't end active calls | Call continues after agent "removed" | 🟡 Medium | Consider emitting call:end on removal |
 | Can't re-invite removed users | Users with inactive agent_profile can't be re-invited | 🟡 Medium | Check is_active or allow re-invitation |
+| ~~Email send failure silent~~ | ~~Invite created but invitee never notified~~ | ✅ Fixed | ~~Add retry mechanism or alert admin~~ RESOLVED in TKT-011 |
 | No bulk invite | Must invite one at a time | 🟢 Low | Add CSV upload for enterprise |
 
 ---
@@ -323,16 +329,17 @@ REMOVE FLOW
 
 | Purpose | File | Lines | Notes |
 |---------|------|-------|-------|
-| Main agents client component | `apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx` | 1-2594 | All invite/remove UI, resend button |
+| Main agents client component | `apps/dashboard/src/app/(app)/admin/agents/agents-client.tsx` | 1-2594 | All invite/remove UI + email status badges |
 | Server component data fetching | `apps/dashboard/src/app/(app)/admin/agents/page.tsx` | 1-303 | Fetches agents, invites, stats |
-| Send invite API | `apps/dashboard/src/app/api/invites/send/route.ts` | 1-161 | Token gen, billing, email with retry |
-| Email helper library | `apps/dashboard/src/lib/email.ts` | 1-120 | sendEmailWithRetry, sendInviteEmail |
+| Send invite API | `apps/dashboard/src/app/api/invites/send/route.ts` | 1-160 | Token gen, billing, email with retry |
 | Revoke invite API | `apps/dashboard/src/app/api/invites/revoke/route.ts` | 1-71 | Delete + credit seat |
+| Resend invite action | `apps/dashboard/src/app/(dashboard)/agents/actions.ts` | 15-82 | Server action for retry |
+| Email retry library | `apps/dashboard/src/lib/email.ts` | 1-120 | Retry logic + templates |
 | Remove agent API | `apps/dashboard/src/app/api/agents/remove/route.ts` | 1-82 | Soft delete + pool removal |
 | Seat management API | `apps/dashboard/src/app/api/billing/seats/route.ts` | 1-118 | Pre-paid seats logic |
 | Accept invite page | `apps/dashboard/src/app/accept-invite/page.tsx` | 1-376 | Account creation flow |
 | Invites table schema | `supabase/migrations/20251127000000_add_invites.sql` | 1-53 | DB schema + RLS |
-| Email status migration | `supabase/migrations/20251206000000_add_invite_email_status.sql` | 1-19 | email_status field |
+| Email status migration | `supabase/migrations/20251206000000_add_invite_email_status.sql` | 1-18 | email_status column |
 | Soft delete migration | `supabase/migrations/20251127800000_soft_delete_and_billing.sql` | 1-83 | is_active, Stripe fields |
 
 ---
@@ -351,11 +358,13 @@ REMOVE FLOW
 
 2. **How to handle re-inviting a previously removed user?** Current logic blocks this with "User already exists" error. May need a reactivation flow instead.
 
-3. **Is 7-day invite expiration appropriate?** Hardcoded in DB default. Should it be configurable per-org?
+3. **Should email failures be more visible?** Currently only logs to console. Admin might not know invite wasn't delivered.
 
-4. **What happens if Stripe is down during invite?** Currently fails and rolls back invite. Should there be a retry mechanism?
+4. **Is 7-day invite expiration appropriate?** Hardcoded in DB default. Should it be configurable per-org?
 
-5. **Should admins be able to see deactivated agents?** Currently filtered out entirely. May be useful for audit/history.
+5. **What happens if Stripe is down during invite?** Currently fails and rolls back invite. Should there be a retry mechanism?
+
+6. **Should admins be able to see deactivated agents?** Currently filtered out entirely. May be useful for audit/history.
 
 
 
