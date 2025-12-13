@@ -101,6 +101,7 @@ stateDiagram-v2
 | `PoolWidgetSettings` | `pools-client.tsx:829` | Custom widget settings per pool |
 | `AgentPriorityCard` | `pools-client.tsx:102` | Agent card with priority selector |
 | `RuleBuilder` | `pools-client.tsx:308` | Routing rule creation UI |
+| `showToast` | `pools-client.tsx:1562` | Shows success/error notifications (Added in TKT-043) |
 
 ### Data Flow
 
@@ -172,8 +173,8 @@ syncConfigToServer()
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
 |-------|-----------------|----------------|---------------|
-| Duplicate pool name | CREATE with existing name | Alert: "A pool named X already exists" | Choose different name |
-| Database save fails | Network error on any save | Error in console (silent fail) | Refresh page, retry |
+| Duplicate pool name | CREATE with existing name | Toast: "A pool named X already exists" | Choose different name |
+| Database save fails | Network error on any save | Toast notification with error message | Retry the operation |
 | Server sync fails | Signaling server unreachable | Console warning only | Rules saved to DB, will sync on next load |
 | RLS permission denied | Non-admin tries to modify | Operation fails silently | Must be admin |
 
@@ -252,7 +253,7 @@ syncConfigToServer()
 |-------|--------|----------|--------------|
 | No pool rename/edit | Admin must delete and recreate to rename | 🟡 Medium | Add inline edit for pool name |
 | No delete confirmation | Accidental deletion possible | 🟡 Medium | Add confirmation modal |
-| Silent failures | Admin may not know save failed | 🟡 Medium | Add toast notifications |
+| ~~Silent failures~~ | ~~Admin may not know save failed~~ | ~~🟡 Medium~~ | ~~Add toast notifications~~ **(Fixed in TKT-043)** |
 | Cannot sort/reorder pools | Pools shown in creation order | 🟢 Low | Add drag-and-drop reorder |
 | Empty pool fallback | Visitors may get wrong agent | 🟡 Medium | Show warning when pool empty |
 
