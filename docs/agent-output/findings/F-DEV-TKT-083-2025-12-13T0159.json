@@ -1,0 +1,25 @@
+{
+  "id": "F-DEV-TKT-083-1",
+  "source": "dev-agent-TKT-083",
+  "title": "Pre-existing merge conflicts and type errors blocking typecheck",
+  "category": "bug",
+  "severity": "high",
+  "issue": "The codebase contains unresolved merge conflicts and type errors in multiple files that prevent `pnpm typecheck` from passing. These are pre-existing issues unrelated to TKT-083 changes.",
+  "files_affected": [
+    "apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx",
+    "apps/dashboard/src/app/(app)/platform/feedback/page.tsx",
+    "apps/dashboard/src/features/cobrowse/CobrowseViewer.tsx",
+    "apps/dashboard/src/features/surveys/ellis-survey-modal.tsx",
+    "apps/dashboard/src/features/webrtc/use-webrtc.test.ts",
+    "apps/widget/src/features/webrtc/useWebRTC.test.ts"
+  ],
+  "errors": [
+    "TS1185: Merge conflict marker encountered (multiple files)",
+    "TS1128: Declaration or statement expected (test files)",
+    "TS1005: Various syntax errors due to unresolved conflicts"
+  ],
+  "suggestion": "Resolve merge conflicts in affected files and ensure clean merge from main branch. Files show merge conflict markers (<<<<<<, =======, >>>>>>>) that need manual resolution.",
+  "impact": "Blocks CI/CD pipeline typecheck validation. Prevents verification of new code changes. Affects developer workflow.",
+  "status": "pending",
+  "found_at": "2025-12-13T01:59:00Z"
+}
