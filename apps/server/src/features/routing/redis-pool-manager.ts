@@ -303,7 +303,10 @@ export class RedisPoolManager {
       url.searchParams.forEach((value, key) => {
         queryParams.set(key.toLowerCase(), value);
       });
-    } catch {
+    } catch (error) {
+      // Log malformed URL for debugging (F-109)
+      console.warn(`[RedisPoolManager] Malformed URL detected: "${pageUrl}" - treating as path. Error: ${error instanceof Error ? error.message : 'Invalid URL format'}`);
+
       path = pageUrl.startsWith("/") ? pageUrl : `/${pageUrl}`;
       const queryIndex = path.indexOf("?");
       if (queryIndex !== -1) {

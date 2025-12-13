@@ -217,16 +217,19 @@ export class PoolManager {
       url.searchParams.forEach((value, key) => {
         queryParams.set(key.toLowerCase(), value);
       });
-    } catch {
+    } catch (error) {
+      // Log malformed URL for debugging (F-109)
+      console.warn(`[PoolManager] Malformed URL detected: "${pageUrl}" - treating as path. Error: ${error instanceof Error ? error.message : 'Invalid URL format'}`);
+
       // If not a valid URL, treat it as a path
       path = pageUrl.startsWith("/") ? pageUrl : `/${pageUrl}`;
-      
+
       // Try to extract query params from path
       const queryIndex = path.indexOf("?");
       if (queryIndex !== -1) {
         const queryString = path.substring(queryIndex + 1);
         path = path.substring(0, queryIndex);
-        
+
         queryString.split("&").forEach(param => {
           const [key, value] = param.split("=");
           if (key) {

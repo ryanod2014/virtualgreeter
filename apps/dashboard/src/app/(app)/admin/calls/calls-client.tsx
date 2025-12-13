@@ -167,13 +167,13 @@ export function CallsClient({
   // Apply URL conditions filtering client-side
   const filteredCalls = useMemo(() => {
     if (filters.urlConditions.length === 0) return calls;
-    
+
     return calls.filter((call) => {
       // All conditions must match (AND logic)
       return filters.urlConditions.every((condition: FilterCondition) => {
         const url = call.page_url || "";
         let valueToCheck = "";
-        
+
         try {
           const parsedUrl = new URL(url);
           switch (condition.type) {
@@ -191,10 +191,10 @@ export function CallsClient({
           // If URL parsing fails, use the raw URL for matching
           valueToCheck = url;
         }
-        
+
         const searchValue = condition.value.toLowerCase();
         const checkValue = valueToCheck.toLowerCase();
-        
+
         switch (condition.matchType) {
           case "is_exactly":
             return checkValue === searchValue;
@@ -212,6 +212,18 @@ export function CallsClient({
       });
     });
   }, [calls, filters.urlConditions]);
+
+  // Check for malformed URLs in call logs (F-109)
+  const malformedUrlCount = useMemo(() => {
+    return filteredCalls.filter(call => {
+      try {
+        new URL(call.page_url);
+        return false;
+      } catch {
+        return true;
+      }
+    }).length;
+  }, [filteredCalls]);
 
   const stats = calculateAgentStats(filteredCalls, dispositions);
 
@@ -673,6 +685,25 @@ export function CallsClient({
           </div>
         )}
       </div>
+
+      {/* Malformed URL Warning (F-109) */}
+      {malformedUrlCount > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-amber-500 mb-1">
+                Malformed URLs Detected
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">{malformedUrlCount}</span> call{malformedUrlCount !== 1 ? 's' : ''} in this dataset {malformedUrlCount !== 1 ? 'have' : 'has'} invalid URL formats.
+                These URLs are being treated as paths for routing purposes, which may cause unexpected routing behavior.
+                Check your widget integration to ensure pageUrl values are properly formatted.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Coverage Card - Shows visitor coverage based on agent availability */}
       <div className={`rounded-2xl p-6 mb-6 hover-lift border ${
@@ -1175,20 +1206,39 @@ function CallLogRow({
       </td>
       <td className="px-6 py-4">
         <div className="flex items-center gap-2 max-w-[200px]">
-          <span
-            className="text-sm text-muted-foreground truncate"
-            title={call.page_url}
-          >
-            {call.page_url}
-          </span>
-          <a
-            href={call.page_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-primary flex-shrink-0"
-          >
-            <ExternalLink className="w-3 h-3" />
-          </a>
+          {(() => {
+            // Check if URL is malformed (F-109)
+            let isMalformed = false;
+            try {
+              new URL(call.page_url);
+            } catch {
+              isMalformed = true;
+            }
+
+            return (
+              <>
+                {isMalformed && (
+                  <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" title="Malformed URL - treated as path" />
+                )}
+                <span
+                  className="text-sm text-muted-foreground truncate"
+                  title={call.page_url}
+                >
+                  {call.page_url}
+                </span>
+                {!isMalformed && (
+                  <a
+                    href={call.page_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-primary flex-shrink-0"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </>
+            );
+          })()}
         </div>
       </td>
       <td className="px-6 py-4">
