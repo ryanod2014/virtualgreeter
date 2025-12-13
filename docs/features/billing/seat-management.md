@@ -114,12 +114,15 @@ ADMIN INVITES AGENT
     │   │   └─► SELECT COUNT(*) FROM agent_profiles WHERE org_id = ? AND is_active = true
     │   │
     │   ├─► Count pending agent invites
-    │   │   └─► SELECT COUNT(*) FROM invites WHERE org_id = ? AND role = 'agent' 
+    │   │   └─► SELECT COUNT(*) FROM invites WHERE org_id = ? AND role = 'agent'
     │   │       AND accepted_at IS NULL AND expires_at > NOW()
     │   │
     │   ├─► currentUsedSeats = activeAgentCount + pendingInviteCount
     │   │
     │   ├─► newUsedSeats = currentUsedSeats + quantity
+    │   │
+    │   ├─► IF action === "add" AND newUsedSeats > 50:
+    │   │   └─► ERROR: "Maximum seat limit is 50" (400)
     │   │
     │   ├─► needsExpansion = newUsedSeats > purchasedSeats?
     │   │
@@ -170,11 +173,14 @@ ADMIN MANUALLY CHANGES SEAT COUNT
 | 13 | Set seats to 0 | Manual attempt | Clamped to minimum 1 | ✅ | `Math.max(1, seatCount)` |
 | 14 | Negative seat count | Malicious input | Clamped to minimum 1 | ✅ | |
 | 15 | Float seat count | `seatCount: 2.5` | Floored to 2 | ✅ | `Math.floor()` |
+| 16 | Exceed 50 seat limit | Add seats when total > 50 | ERROR: "Maximum seat limit is 50" | ✅ | Enforced in seats API |
+| 17 | Organization at 50 seats | Try to add more seats | Blocked with error | ✅ | Grandfathered orgs > 50 can't add more |
 
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
 |-------|-----------------|----------------|---------------|
 | "Cannot reduce below usage" | Trying to set seats < used | Error message with current usage count | Remove agents/invites first |
+| "Maximum seat limit is 50" | Trying to add seats > 50 total | Error message stating limit | Stay at or below 50 seats |
 | "Failed to update seats" | Stripe API error | Generic error toast | Retry, check payment method |
 | "Admin access required" | Non-admin tries to change | 403 error | Must be admin role |
 | "Organization not found" | Invalid org state | 404 error | Contact support |
@@ -228,7 +234,6 @@ ADMIN MANUALLY CHANGES SEAT COUNT
 | Cross-org manipulation | org_id derived from authenticated user's profile |
 | Rate limiting | No explicit rate limit ⚠️ |
 | Input validation | Type coercion (number), min/max bounds |
-| API bypass for seat limit | 50-seat maximum enforced in API (TKT-022) |
 
 ### Reliability
 | Concern | Mitigation |
@@ -286,7 +291,7 @@ ADMIN MANUALLY CHANGES SEAT COUNT
 ---
 
 ## 10. OPEN QUESTIONS
-1. ~~**Should there be a maximum seat limit?**~~ ✅ **RESOLVED (TKT-022):** 50-seat maximum now enforced in API. Existing orgs over limit are grandfathered.
+1. ~~**Should there be a maximum seat limit?**~~ **RESOLVED (TKT-022):** Maximum seat limit of 50 is now enforced in the API. Organizations already above 50 seats are grandfathered but cannot add more seats.
 2. **Should seat reduction trigger immediate Stripe update or at next billing cycle?** Currently immediate with proration
 3. **How to handle seat changes during trial period?** Currently no special handling - trial organizations follow same flow
 4. **Should expired invites auto-free seats?** Currently they're just not counted - no explicit cleanup
