@@ -84,17 +84,18 @@ fi
 echo "Setting up worktree..."
 mkdir -p "$WORKTREE_BASE"
 
+cd "$MAIN_REPO_DIR"
+git fetch origin --quiet
+
 if [ -d "$WORKTREE_DIR" ]; then
     echo -e "${YELLOW}⚠ Worktree exists, updating...${NC}"
     cd "$WORKTREE_DIR"
     git fetch origin --quiet
     git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH" "origin/$BRANCH"
-    git pull origin "$BRANCH" --quiet 2>/dev/null || true
+    git reset --hard "origin/$BRANCH"
 else
-    cd "$MAIN_REPO_DIR"
-    git fetch origin --quiet
-    git worktree add "$WORKTREE_DIR" "origin/$BRANCH" 2>/dev/null || \
-        git worktree add "$WORKTREE_DIR" "$BRANCH"
+    # Create worktree tracking the remote branch properly
+    git worktree add -B "$BRANCH" "$WORKTREE_DIR" "origin/$BRANCH"
 fi
 
 cd "$WORKTREE_DIR"
@@ -105,8 +106,9 @@ echo "Installing dependencies..."
 pnpm install --frozen-lockfile --quiet 2>/dev/null || pnpm install --quiet
 
 # Get the modified files (app code only, no tests)
-MERGE_BASE=$(git merge-base main "origin/$BRANCH" 2>/dev/null || git merge-base main HEAD)
-MODIFIED_FILES=$(git diff --name-only "$MERGE_BASE" HEAD 2>/dev/null | grep -E "^apps/|^packages/" | grep -v "\.test\." | grep -v "tsconfig" | grep -v "\.d\.ts" || echo "")
+# Compare origin/main with origin/BRANCH to get actual changed files (not local HEAD)
+MERGE_BASE=$(git merge-base origin/main "origin/$BRANCH" 2>/dev/null || git merge-base main HEAD)
+MODIFIED_FILES=$(git diff --name-only "$MERGE_BASE" "origin/$BRANCH" 2>/dev/null | grep -E "^apps/|^packages/" | grep -v "\.test\." | grep -v "tsconfig" | grep -v "\.d\.ts" || echo "")
 
 if [ -z "$MODIFIED_FILES" ]; then
     echo -e "${YELLOW}⚠ No app files to test for $TICKET_UPPER${NC}"
