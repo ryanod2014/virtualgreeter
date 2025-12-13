@@ -31,12 +31,9 @@ interface Props {
 
 export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initialMode, initialGeoFailureHandling }: Props) {
   // Separate state for blocklist and allowlist countries
-  const [blocklistCountries, setBlocklistCountries] = useState<string[]>(
-    initialMode === "blocklist" ? initialBlockedCountries : []
-  );
-  const [allowlistCountries, setAllowlistCountries] = useState<string[]>(
-    initialMode === "allowlist" ? initialBlockedCountries : []
-  );
+  // Both states are initialized with the same data so switching modes preserves selections
+  const [blocklistCountries, setBlocklistCountries] = useState<string[]>(initialBlockedCountries);
+  const [allowlistCountries, setAllowlistCountries] = useState<string[]>(initialBlockedCountries);
 
   const [mode, setMode] = useState<CountryListMode>(initialMode);
   const [geoFailureHandling, setGeoFailureHandling] = useState<"allow" | "block">(initialGeoFailureHandling);
