@@ -43,7 +43,7 @@ async function compressHTML(html: string): Promise<{ compressed: string; isCompr
     // Convert to base64
     let binary = '';
     for (let i = 0; i < uint8Array.byteLength; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
+      binary += String.fromCharCode(uint8Array[i]!);
     }
     const compressed = btoa(binary);
 
