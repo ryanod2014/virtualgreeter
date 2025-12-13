@@ -997,27 +997,41 @@ claude --model claude-opus-4-20250514 --dangerously-skip-permissions -p "\$(cat 
 echo ''
 echo '=== Completed: \$(date) ==='
 
-# Failsafe: Ensure blocker file exists if QA failed
-echo 'Checking if blocker file needed...'
-TICKET_STATUS=\$(curl -s "http://localhost:3456/api/v2/tickets/$TICKET_ID" 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
-if [ "\$TICKET_STATUS" = "qa_failed" ] || [ "\$TICKET_STATUS" = "blocked" ]; then
-    # Check if blocker file already exists
-    if ! ls "$MAIN_REPO_DIR/docs/agent-output/blocked/QA-$TICKET_ID"*.json 2>/dev/null | head -1; then
-        echo 'Creating failsafe blocker file...'
-        mkdir -p "$MAIN_REPO_DIR/docs/agent-output/blocked"
-        cat > "$MAIN_REPO_DIR/docs/agent-output/blocked/QA-$TICKET_ID-FAILSAFE-\$(date +%Y%m%dT%H%M).json" << BLOCKER_EOF
-{
-  "ticket_id": "$TICKET_ID",
-  "blocker_type": "qa_failure",
-  "summary": "QA failed - agent did not create blocker file",
-  "created_at": "\$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "dispatch_action": "create_continuation_ticket"
-}
-BLOCKER_EOF
-        echo '✓ Created failsafe blocker file'
+# ─────────────────────────────────────────────────────────────────────────────
+# POST-RUN: Ensure session is properly closed
+# ─────────────────────────────────────────────────────────────────────────────
+echo 'Running post-run checks...'
+
+# Check if session is still running (QA agent didn't call /complete or /block)
+SESSION_STATUS=\$(curl -s "http://localhost:3456/api/v2/agents/$DB_SESSION_ID" 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+
+if [ "\$SESSION_STATUS" = "running" ]; then
+    echo '⚠ Session still running - QA agent exited without proper cleanup'
+    
+    # Check ticket status to determine what happened
+    TICKET_STATUS=\$(curl -s "http://localhost:3456/api/v2/tickets/$TICKET_ID" 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+    
+    if [ "\$TICKET_STATUS" = "qa_passed" ] || [ "\$TICKET_STATUS" = "qa_approved" ]; then
+        # QA passed but forgot to mark session complete
+        echo '✓ Ticket passed QA - marking session complete'
+        curl -s -X POST "http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete" \
+            -H "Content-Type: application/json" \
+            -d '{"completion_file": null}' 2>/dev/null
+    elif [ "\$TICKET_STATUS" = "qa_failed" ] || [ "\$TICKET_STATUS" = "blocked" ]; then
+        # QA failed but forgot to mark session blocked
+        echo '✓ Ticket failed QA - marking session blocked'
+        curl -s -X POST "http://localhost:3456/api/v2/agents/$DB_SESSION_ID/block" \
+            -H "Content-Type: application/json" \
+            -d '{"blocker_type": "qa_failure", "summary": "QA failed - session cleanup"}' 2>/dev/null
     else
-        echo '✓ Blocker file already exists'
+        # QA agent crashed without updating anything - mark as crashed
+        echo '✗ QA agent crashed without updating status - marking session crashed'
+        curl -s -X POST "http://localhost:3456/api/v2/agents/$DB_SESSION_ID/crash" \
+            -H "Content-Type: application/json" \
+            -d '{"reason": "Agent exited without updating ticket or session status"}' 2>/dev/null
     fi
+else
+    echo "✓ Session already closed (status: \$SESSION_STATUS)"
 fi
 
 # Cleanup tunnel on exit

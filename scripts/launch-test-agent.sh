@@ -117,12 +117,19 @@ MODIFIED_FILES=$(git diff --name-only "$MERGE_BASE" "origin/$BRANCH" 2>/dev/null
 
 if [ -z "$MODIFIED_FILES" ]; then
     echo -e "${YELLOW}⚠ No app files to test for $TICKET_UPPER${NC}"
-    # Still register and complete the session
-    curl -s -X POST "$DASHBOARD_URL/api/v2/agents/start" \
+    # Register session and immediately mark it complete
+    REGISTER_RESULT=$(curl -s -X POST "$DASHBOARD_URL/api/v2/agents/start" \
         -H "Content-Type: application/json" \
-        -d "{\"ticket_id\": \"$TICKET_UPPER\", \"agent_type\": \"test_lock\", \"tmux_session\": \"$SESSION_NAME\"}" 2>/dev/null
-    # Immediately complete
-    echo -e "${GREEN}✓ No files to test - marking complete${NC}"
+        -d "{\"ticket_id\": \"$TICKET_UPPER\", \"agent_type\": \"test_lock\", \"tmux_session\": \"$SESSION_NAME\"}" 2>/dev/null)
+    
+    # Extract session ID and mark complete so pipeline can continue
+    SESSION_ID=$(echo "$REGISTER_RESULT" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+    if [ -n "$SESSION_ID" ]; then
+        curl -s -X POST "$DASHBOARD_URL/api/v2/agents/$SESSION_ID/complete" \
+            -H "Content-Type: application/json" \
+            -d '{"completion_file": null}' 2>/dev/null
+        echo -e "${GREEN}✓ No files to test - session marked complete${NC}"
+    fi
     exit 0
 fi
 
