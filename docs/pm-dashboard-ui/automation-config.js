@@ -7,7 +7,7 @@
 
 const automationConfig = {
   enabled: true,
-  testTickets: ['TKT-093'],  // Phase 1 test: TKT-093 (Timezone Display fix)
+  testTickets: ['TKT-078', 'TKT-093'],  // Pipeline tests
   autoQueueOnDevComplete: true,
   autoQueueOnQaPass: true,
   autoDispatchOnBlock: true,
