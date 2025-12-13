@@ -129,13 +129,15 @@ fi
 # Create the prompt file
 PROMPT_FILE="$WORKTREE_DIR/.agent-prompt-doc.md"
 cat > "$PROMPT_FILE" << EOF
-# EXECUTE IMMEDIATELY: Update Documentation for $TICKET_UPPER
+# Doc Agent: Update Documentation for $TICKET_UPPER
 
-**DO NOT ASK QUESTIONS. EXECUTE THESE STEPS IN ORDER.**
+> **FIRST:** Read the full SOP: \`docs/workflow/DOC_AGENT_SOP.md\`
+>
+> The SOP contains the 10-section format, quality checklist, and Mode 2 process.
 
 ---
 
-## Context
+## Context (Mode 2: Post-QA Update)
 
 - **Ticket:** $TICKET_UPPER - "$TICKET_TITLE"
 - **Issue:** $TICKET_ISSUE
@@ -150,48 +152,74 @@ $(echo "$MODIFIED_FILES" | while read f; do [ -n "$f" ] && echo "- \`$f\`"; done
 
 ---
 
-## STEP 1: Analyze What Changed
+## Follow Mode 2 Process from SOP
 
-Read each modified file and understand what was added/changed:
+### STEP 1: Understand What Changed
 
 \`\`\`bash
-$(echo "$MODIFIED_FILES" | while read f; do [ -n "$f" ] && echo "cat $f | head -100"; done)
+# See what the Dev Agent modified
+git diff main..HEAD --name-only
+
+# Read the ticket completion report
+cat docs/agent-output/completions/$TICKET_UPPER*.md 2>/dev/null | head -50
 \`\`\`
 
----
+For each modified file, understand:
+- What behavior changed?
+- What new scenarios are possible?
+- What edge cases were added/fixed?
 
-## STEP 2: Find Related Docs
+### STEP 2: Find Existing Docs
 
 \`\`\`bash
+# Check if docs exist for this feature
 ls docs/features/
-# Find the category that matches this ticket's files
+cat docs/features/admin/*.md | head -20  # For admin changes
+cat docs/features/billing/*.md | head -20  # For billing changes
 \`\`\`
 
----
+### STEP 3: Update Documentation
 
-## STEP 3: Update Documentation (if needed)
+**Use the 10-section format from the SOP:**
 
-**Decision tree:**
-- Did behavior change? → Update the feature doc
-- New function/component added? → Add to CODE REFERENCES section
-- New edge case? → Add to EDGE CASES section
-- Just a bug fix with no behavior change? → No doc update needed
+If behavior changed, update these sections in the relevant doc:
+1. **WHAT IT DOES** - If purpose changed
+2. **HOW IT WORKS** - If flow changed  
+3. **DETAILED LOGIC** - Update function references, triggers
+4. **EDGE CASES** - Add new scenarios
+5. **CODE REFERENCES** - Update file paths and line numbers
 
-If no doc update needed, print "No documentation changes required" and skip to STEP 5.
+**Reference an existing doc for format:**
+\`\`\`bash
+cat docs/features/visitor/widget-lifecycle.md | head -100
+\`\`\`
 
----
+### STEP 4: Write Completion Report
 
-## STEP 4: Commit (if you made changes)
+**File:** \`docs/agent-output/doc-tracker/$TICKET_UPPER-\$(date +%Y%m%dT%H%M).md\`
+
+\`\`\`markdown
+# Doc Complete: $TICKET_UPPER
+
+- **Ticket:** $TICKET_UPPER
+- **Status:** COMPLETE
+- **Doc File:** [path to doc updated or "No changes needed"]
+- **Sections Updated:** [list sections]
+- **Completed At:** [timestamp]
+\`\`\`
+
+### STEP 5: Commit (if you made changes)
 
 \`\`\`bash
 git add docs/
-git commit -m "docs($TICKET_LOWER): Update documentation for $TICKET_UPPER"
+git commit -m "docs($TICKET_LOWER): Update documentation for $TICKET_UPPER
+
+Sections updated:
+- [list sections updated]"
 git push origin $BRANCH
 \`\`\`
 
----
-
-## STEP 5: Signal Completion
+### STEP 6: Signal Completion
 
 \`\`\`bash
 curl -X POST $DASHBOARD_URL/api/v2/agents/$DB_SESSION_ID/complete \\
@@ -199,11 +227,17 @@ curl -X POST $DASHBOARD_URL/api/v2/agents/$DB_SESSION_ID/complete \\
   -d '{"success": true}'
 \`\`\`
 
-Print:
-\`\`\`
-✅ Doc Agent Complete
-- Docs updated: [list files or "none needed"]
-\`\`\`
+---
+
+## Quality Checklist (from SOP)
+
+Before marking complete:
+- [ ] Every code path is documented
+- [ ] Scenarios match actual code behavior
+- [ ] Edge cases are covered
+- [ ] Error states documented
+- [ ] Used 10-section format
+- [ ] Completion report written
 EOF
 
 echo -e "${GREEN}✓ Created prompt: $PROMPT_FILE${NC}"
