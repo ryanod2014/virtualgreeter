@@ -1,0 +1,13 @@
+{
+  "id": "F-DEV-TKT-071-1",
+  "source": "dev-agent-TKT-071",
+  "title": "Pre-existing merge conflict markers blocking build",
+  "category": "bug",
+  "severity": "critical",
+  "file": "apps/server/src/features/signaling/socket-handlers.ts",
+  "line": 641,
+  "issue": "Build fails due to unresolved merge conflict markers in three files: socket-handlers.ts (lines 641-667 has <<<<<<< HEAD and ======= markers from tkt-004d, tkt-005e merges), socket-handlers.test.ts (lines 438-441 has conflict from tkt-062 merge), and organization.test.ts (line 67 has invalid backtick character causing TS1127 error). These conflicts are pre-existing from previous merges and were not fully resolved. The previous TKT-071 agent cleaned up geolocation.ts (commit c3e67f8) but missed these files.",
+  "suggestion": "Manually resolve the merge conflicts by: (1) In socket-handlers.ts: Choose the correct version of the canAgentGoAvailable vs isOrgPaused logic around lines 641-667, (2) In socket-handlers.test.ts: Keep or remove the TIMING import at line 439, (3) In organization.test.ts: Fix the template literal at line 67 - appears to have wrong character encoding for backticks",
+  "status": "pending",
+  "found_at": "2025-12-13T01:48:00Z"
+}
