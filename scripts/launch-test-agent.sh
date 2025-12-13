@@ -157,9 +157,11 @@ fi
 # Create the prompt file
 PROMPT_FILE="$WORKTREE_DIR/.agent-prompt-test.md"
 cat > "$PROMPT_FILE" << EOF
-# EXECUTE IMMEDIATELY: Add Test Coverage for $TICKET_UPPER
+# TEST LOCK Agent: $TICKET_UPPER
 
-**DO NOT ASK QUESTIONS. EXECUTE THESE STEPS IN ORDER.**
+> **FIRST:** Read the full SOP: \`docs/workflow/TEST_LOCK_AGENT_SOP.md\`
+> 
+> The SOP contains critical patterns for mocking, UI testing, and quality requirements.
 
 ---
 
@@ -177,58 +179,45 @@ $(echo "$MODIFIED_FILES" | while read f; do [ -n "$f" ] && echo "- \`$f\`"; done
 
 ---
 
-## STEP 1: Analyze Each File
+## REQUIRED: Follow the 3-Step Process from SOP
 
-For each file above, read it and identify:
-- All exported functions/components
-- Happy paths, edge cases, error conditions
-- What behaviors need to be locked in
+### STEP 1: BRAINSTORM (Before writing any tests)
 
----
+For each file above, document ALL behaviors:
 
-## STEP 2: Check Existing Test Patterns
+\`\`\`markdown
+## Brainstorm for $TICKET_UPPER
+
+### [filename.ts]
+| Function | Behaviors to Test |
+|----------|-------------------|
+| \`functionA\` | 1. happy path, 2. empty input, 3. error case |
+| \`functionB\` | 1. returns X when Y, 2. throws when Z |
+
+Total behaviors to lock in: [N]
+\`\`\`
+
+### STEP 2: Check Existing Patterns
 
 \`\`\`bash
-# Find existing tests near the files
-find apps/dashboard/src -name "*.test.ts" -o -name "*.test.tsx" | head -5
+# Read the SOP for mock patterns
+cat docs/workflow/TEST_LOCK_AGENT_SOP.md | grep -A 50 "Mocking Patterns"
+
+# Check reference tests
 cat apps/server/src/features/routing/pool-manager.test.ts | head -100
+cat apps/dashboard/src/features/pools/DeletePoolModal.test.tsx | head -100
 \`\`\`
 
----
+### STEP 3: Write Tests
 
-## STEP 3: Write Tests
-
-Create test files next to source files (e.g., \`foo.ts\` → \`foo.test.ts\`).
-
-**For each file's public functions:**
+**For EACH behavior identified in Step 1:**
 - One \`it()\` block per behavior
-- Test happy path, edge cases, error conditions
-- Use \`vi.mock()\` for dependencies
-- For UI components: add \`/** @vitest-environment jsdom */\` at top
+- Use patterns from SOP for mocking Supabase, Stripe, icons
+- For UI: add \`/** @vitest-environment jsdom */\` at top
+- Mock lucide-react icons (see SOP)
 
-**Test structure:**
-\`\`\`typescript
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-// Mock dependencies BEFORE imports
-vi.mock("@/lib/dependency", () => ({ fn: vi.fn() }));
-
-import { functionUnderTest } from "./file";
-
-describe("functionName", () => {
-  beforeEach(() => { vi.clearAllMocks(); });
-  
-  it("returns X when given Y", () => {
-    // Arrange
-    // Act  
-    // Assert
-  });
-  
-  it("throws error when input is empty", () => {
-    // ...
-  });
-});
-\`\`\`
+**Test file location:** Same directory as source file
+- \`apps/dashboard/src/lib/foo.ts\` → \`apps/dashboard/src/lib/foo.test.ts\`
 
 ---
 
@@ -246,13 +235,27 @@ All tests MUST pass. If a test fails, fix the test (you test CURRENT behavior).
 
 \`\`\`bash
 git add .
-git commit -m "test($TICKET_LOWER): Add test coverage for $TICKET_UPPER"
+git commit -m "test($TICKET_LOWER): Add test coverage for $TICKET_UPPER
+
+Behaviors locked:
+- [list key behaviors tested]"
 git push origin $BRANCH
 \`\`\`
 
 ---
 
-## STEP 6: Signal Completion
+## STEP 6: Write Completion Report
+
+**File:** \`docs/agent-output/test-lock/$TICKET_UPPER-\$(date +%Y%m%dT%H%M).md\`
+
+Include:
+- Test files created
+- Behaviors locked per file (table format)
+- Test count and pass status
+
+---
+
+## STEP 7: Signal Completion
 
 \`\`\`bash
 curl -X POST $DASHBOARD_URL/api/v2/agents/$DB_SESSION_ID/complete \\
@@ -260,12 +263,18 @@ curl -X POST $DASHBOARD_URL/api/v2/agents/$DB_SESSION_ID/complete \\
   -d '{"success": true}'
 \`\`\`
 
-Print:
-\`\`\`
-✅ Test Agent Complete
-- Created: [list test files]
-- Tests: [count] passing
-\`\`\`
+---
+
+## Quality Checklist (from SOP)
+
+Before marking complete:
+- [ ] Every exported function has tests
+- [ ] Every code path covered (happy, edge, error)
+- [ ] Test names describe specific behaviors
+- [ ] All tests pass
+- [ ] Followed existing mock patterns
+- [ ] Tests in correct location (same dir as source)
+- [ ] Completion report written
 EOF
 
 echo -e "${GREEN}✓ Created prompt: $PROMPT_FILE${NC}"
