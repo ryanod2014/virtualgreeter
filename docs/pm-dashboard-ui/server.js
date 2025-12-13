@@ -715,19 +715,29 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
   }
   
   // =========================================================================
-  // STEP 3: QA failed OR blocked → Queue dispatch agent
+  // STEP 3: QA failed OR blocked → Queue Ticket Agent to create continuation
   // =========================================================================
   if (newStatus === 'qa_failed' || newStatus === 'blocked') {
     if (!automationConfig.autoDispatchOnBlock) {
-      console.log(`🔒 autoDispatchOnBlock disabled - not auto-queuing dispatch for ${ticketId}`);
+      console.log(`🔒 autoDispatchOnBlock disabled - not auto-queuing ticket agent for ${ticketId}`);
     } else {
-      console.log(`📨 Queueing dispatch agent for ${ticketId}`);
+      // Find the blocker file for context
+      const blockerDir = path.join(PROJECT_ROOT, 'docs/agent-output/blocked');
+      let blockerFile = null;
+      if (fs.existsSync(blockerDir)) {
+        const files = fs.readdirSync(blockerDir)
+          .filter(f => f.toLowerCase().includes(ticketId.toLowerCase()) && f.endsWith('.json'))
+          .sort();
+        if (files.length > 0) blockerFile = files[files.length - 1];
+      }
+      
+      console.log(`🎫 Queueing Ticket Agent for ${ticketId}`);
       dbModule.jobs.create({
-        job_type: 'dispatch',
+        job_type: 'ticket_agent',
         ticket_id: ticketId,
         branch: ticket.branch,
         priority: 4,
-        payload: { triggered_by: newStatus }
+        payload: { triggered_by: newStatus, blocker_file: blockerFile }
       });
       startJobWorker();
     }
@@ -903,6 +913,7 @@ function getSessionNameForJob(job) {
     case 'qa_launch': return `qa-${ticketId}`;
     case 'test_agent': return `test-${ticketId}`;
     case 'doc_agent': return `doc-${ticketId}`;
+    case 'ticket_agent': return `ticket-${ticketId}`;
     default: return null;
   }
 }
@@ -1039,8 +1050,8 @@ async function processNextJob() {
       case 'dev_launch':
         result = await launchDevAgent(claimed);
         break;
-      case 'dispatch':
-        result = await runDispatchAgent(claimed);
+      case 'ticket_agent':
+        result = await launchTicketAgent(claimed);
         break;
       case 'worktree_cleanup':
         cleanupConflictingWorktrees(claimed.ticket_id, claimed.branch);
@@ -1173,20 +1184,30 @@ function createRegressionBlocker(job, output) {
 }
 
 /**
- * Run dispatch agent to process blockers and create continuation tickets
+ * Launch Ticket Agent (AI) to create continuation tickets from blockers
+ * Uses docs/workflow/TICKET_AGENT_SOP.md as the prompt
  */
-function runDispatchAgent(job) {
+function launchTicketAgent(job) {
   return new Promise((resolve, reject) => {
-    const scriptPath = path.join(PROJECT_ROOT, 'scripts/run-dispatch-agent.sh');
+    const scriptPath = path.join(PROJECT_ROOT, 'scripts/launch-ticket-agent.sh');
     
     if (!fs.existsSync(scriptPath)) {
-      reject(new Error('Dispatch script not found'));
+      console.log(`⚠️ Ticket agent script not found at ${scriptPath}`);
+      reject(new Error('Ticket agent script not found'));
       return;
     }
     
-    console.log(`📨 Running dispatch agent...`);
+    console.log(`🎫 Launching Ticket Agent for ${job.ticket_id}...`);
     
-    const proc = spawn('bash', [scriptPath], {
+    // Clean up any conflicting worktrees first
+    cleanupConflictingWorktrees(job.ticket_id, job.branch);
+    
+    const args = [scriptPath, job.ticket_id, job.id || 'manual'];
+    if (job.payload?.blocker_file) {
+      args.push(job.payload.blocker_file);
+    }
+    
+    const proc = spawn('bash', args, {
       cwd: PROJECT_ROOT,
       env: process.env
     });
@@ -1205,14 +1226,15 @@ function runDispatchAgent(job) {
     });
     
     proc.on('close', (code) => {
-      // After dispatch completes, check for new continuation tickets
-      // and queue dev_launch for each
-      setTimeout(() => checkForNewContinuationTickets(), 5000);
-      
-      resolve({ 
-        completed: code === 0, 
-        output: (stdout + stderr).slice(-3000) 
-      });
+      if (code === 0) {
+        console.log(`✅ Ticket Agent launched for ${job.ticket_id}`);
+        // After ticket agent creates continuation, check for new prompts
+        setTimeout(() => checkForNewContinuationTickets(), 5000);
+        resolve({ launched: true, output: stdout.slice(-2000) });
+      } else {
+        console.log(`⚠️ Ticket Agent exited with code ${code}`);
+        resolve({ launched: false, output: (stdout + stderr).slice(-2000) });
+      }
     });
     
     proc.on('error', (err) => {
@@ -4612,10 +4634,10 @@ function handleAPI(req, res, body) {
           } else {
             newStatus = 'qa_failed';
           }
-        } else if (agent_type === 'dispatch') {
-          // Dispatch completed, check for continuation tickets
+        } else if (agent_type === 'ticket') {
+          // Ticket Agent completed, check for continuation tickets
           checkForNewContinuationTickets();
-          newStatus = null;  // Don't change ticket status
+          newStatus = null;  // Don't change ticket status directly
         }
         
         if (newStatus && ticket_id) {
@@ -4638,31 +4660,49 @@ function handleAPI(req, res, body) {
     return true;
   }
 
-  // POST /api/v2/blockers/scan - Scan for new blockers and trigger dispatch
+  // POST /api/v2/blockers/scan - Scan for new blockers and queue Ticket Agents
   if (req.method === 'POST' && url === '/api/v2/blockers/scan') {
     try {
       const blockedDir = path.join(PROJECT_ROOT, 'docs/agent-output/blocked');
-      const files = fs.readdirSync(blockedDir).filter(f => f.endsWith('.json'));
+      const files = fs.existsSync(blockedDir) 
+        ? fs.readdirSync(blockedDir).filter(f => f.endsWith('.json'))
+        : [];
       
       console.log(`🔍 Scanning ${files.length} blocker files...`);
+      let queued = 0;
       
-      if (files.length > 0 && dbModule?.jobs) {
-        // Queue dispatch agent if not already running
-        const pendingDispatch = dbModule.jobs.list({ status: 'pending', job_type: 'dispatch' });
-        const runningDispatch = dbModule.jobs.list({ status: 'running', job_type: 'dispatch' });
-        
-        if (pendingDispatch.length === 0 && runningDispatch.length === 0) {
-          dbModule.jobs.create({
-            job_type: 'dispatch',
-            priority: 2,
-            payload: { triggered_by: 'blocker_scan', blocker_count: files.length }
-          });
-          startJobWorker();
+      for (const file of files) {
+        try {
+          const blocker = JSON.parse(fs.readFileSync(path.join(blockedDir, file), 'utf8'));
+          const ticketId = blocker.ticket_id?.toUpperCase();
+          
+          if (ticketId && dbModule?.jobs) {
+            // Check if ticket_agent already pending for this ticket
+            const existingJobs = dbModule.jobs.getForTicket(ticketId);
+            const hasPending = existingJobs.some(j => 
+              j.job_type === 'ticket_agent' && ['pending', 'running'].includes(j.status)
+            );
+            
+            if (!hasPending) {
+              dbModule.jobs.create({
+                job_type: 'ticket_agent',
+                ticket_id: ticketId,
+                branch: blocker.branch,
+                priority: 3,
+                payload: { triggered_by: 'blocker_scan', blocker_file: file }
+              });
+              queued++;
+            }
+          }
+        } catch (e) {
+          console.error(`Error processing blocker ${file}:`, e.message);
         }
       }
       
+      if (queued > 0) startJobWorker();
+      
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ scanned: files.length, dispatch_queued: files.length > 0 }));
+      res.end(JSON.stringify({ scanned: files.length, ticket_agents_queued: queued }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
