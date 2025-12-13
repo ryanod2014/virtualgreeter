@@ -379,6 +379,14 @@ function scanForNewBlockers() {
             const ticketId = blocker.ticket_id?.toUpperCase();
             
             if (ticketId && dbModule?.tickets) {
+              // Check whitelist before processing
+              if (automationConfig.testTickets && automationConfig.testTickets.length > 0) {
+                const isWhitelisted = automationConfig.testTickets.some(prefix => ticketId.startsWith(prefix));
+                if (!isWhitelisted) {
+                  console.log(`⏭️ Skipping blocker for ${ticketId} - not in whitelist`);
+                  continue;
+                }
+              }
               console.log(`🚨 New blocker detected: ${file} for ${ticketId}`);
               
               // Update ticket status to trigger dispatch
@@ -455,6 +463,14 @@ function scanForNewBlockers() {
                                   ticket.branch;  // Must have a branch to merge
               
               if (shouldMerge) {
+                // Check whitelist before processing
+                if (automationConfig.testTickets && automationConfig.testTickets.length > 0) {
+                  const isWhitelisted = automationConfig.testTickets.some(prefix => ticketId.startsWith(prefix));
+                  if (!isWhitelisted) {
+                    console.log(`⏭️ Skipping QA result for ${ticketId} - not in whitelist`);
+                    continue;
+                  }
+                }
                 console.log(`✅ QA PASS detected for ${ticketId} - advancing to qa_approved`);
                 
                 // Set to qa_approved - this triggers Test+Doc agents via handleTicketStatusChange
@@ -632,6 +648,18 @@ function handleTicketStatusChange(ticketId, oldStatus, newStatus, ticket) {
   if (!automationConfig.enabled) {
     console.log(`🔒 Automation DISABLED - not auto-processing ${ticketId}: ${oldStatus} → ${newStatus}`);
     return;
+  }
+  
+  // ==========================================================================
+  // WHITELIST CHECK - if testTickets is set, only process those tickets
+  // Uses prefix matching: ['TKT-072'] matches TKT-072, TKT-072-V2, etc.
+  // ==========================================================================
+  if (automationConfig.testTickets && automationConfig.testTickets.length > 0) {
+    const isWhitelisted = automationConfig.testTickets.some(prefix => ticketId.startsWith(prefix));
+    if (!isWhitelisted) {
+      console.log(`⏭️ Skipping ${ticketId} - not in test whitelist [${automationConfig.testTickets.join(', ')}]`);
+      return;
+    }
   }
   
   console.log(`📋 Ticket ${ticketId}: ${oldStatus} → ${newStatus}`);

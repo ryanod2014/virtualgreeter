@@ -6,10 +6,11 @@
  */
 
 const automationConfig = {
-  enabled: false,
-  autoQueueOnDevComplete: false,
-  autoQueueOnQaPass: false,
-  autoDispatchOnBlock: false,
+  enabled: true,
+  testTickets: ['TKT-072'],  // Only process TKT-072 (and its continuations)
+  autoQueueOnDevComplete: true,
+  autoQueueOnQaPass: true,
+  autoDispatchOnBlock: true,
   maxParallelDevAgents: 2,
   maxParallelQaAgents: 2,
   maxIterations: 5,
