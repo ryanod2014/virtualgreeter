@@ -1261,6 +1261,14 @@ function checkForNewContinuationTickets() {
       
       const ticketId = match[1].toUpperCase();
       
+      // WHITELIST CHECK - only process whitelisted tickets
+      if (automationConfig.testTickets && automationConfig.testTickets.length > 0) {
+        const isWhitelisted = automationConfig.testTickets.some(prefix => ticketId.startsWith(prefix));
+        if (!isWhitelisted) {
+          continue;  // Skip non-whitelisted tickets silently
+        }
+      }
+      
       // Check if this ticket already has a dev_launch job pending/running
       if (dbModule?.jobs) {
         const existingJobs = dbModule.jobs.getForTicket(ticketId);
