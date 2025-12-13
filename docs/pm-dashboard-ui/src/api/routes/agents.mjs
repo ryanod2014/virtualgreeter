@@ -125,6 +125,14 @@ router.post('/:sessionId/complete', async (req, res) => {
     // NOTE: File locks are NOT released here - they persist until ticket is merged
     // This prevents other agents from modifying the same files during QA/review
     
+    // Emit session completed event for other modules to react
+    const { eventBus } = await import('../../events/eventBus.mjs');
+    eventBus.emit('agent:session:completed', {
+      ticketId: session.ticket_id,
+      agentType: session.agent_type,
+      sessionId: session.id
+    });
+    
     // If this was a dev agent, transition ticket to dev_complete
     if (session.agent_type === 'dev' && session.ticket_id) {
       try {

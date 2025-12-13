@@ -119,38 +119,57 @@ scheduler.registerHandler('regression_test', async (job) => {
   
   scheduler.registerHandler('test_agent', async (job) => {
     const ticket = dbModule.tickets.get(job.ticket_id);
-    const result = await agentLauncher.launchTest(ticket);
-    
-    // Check if both test and doc are done → queue selective merge
-    await checkFinalizingComplete(job.ticket_id, 'test');
-    
-    return result;
+    return await agentLauncher.launchTest(ticket);
+    // NOTE: Don't check for completion here - the job completes when script launches,
+    // but the agent session completes later. We listen for session completion below.
   });
   
   scheduler.registerHandler('doc_agent', async (job) => {
     const ticket = dbModule.tickets.get(job.ticket_id);
-    const result = await agentLauncher.launchDoc(ticket);
-    
-    // Check if both test and doc are done → queue selective merge
-    await checkFinalizingComplete(job.ticket_id, 'doc');
-    
-    return result;
+    return await agentLauncher.launchDoc(ticket);
+    // NOTE: Don't check for completion here - see above.
   });
   
-  // Helper: Check if both test+doc are done, then queue merge
+  // Listen for agent session completion to trigger merge check
+  eventBus.on('agent:session:completed', async ({ ticketId, agentType, sessionId }) => {
+    console.log(`🏁 Session completed: ${ticketId} / ${agentType}`);
+    
+    // Only check for test/doc completion
+    if (agentType === 'test' || agentType === 'test_lock' || agentType === 'doc') {
+      await checkFinalizingComplete(ticketId, agentType);
+    }
+  });
+  
+  // Helper: Check if both test+doc SESSIONS are done, then queue merge
+  // NOTE: We check sessions, not jobs, because jobs complete when the script launches,
+  // but sessions complete when the agent actually finishes its work.
   async function checkFinalizingComplete(ticketId, completedType) {
-    // Get all jobs for this ticket
-    const jobs = dbModule.jobs?.list ? dbModule.jobs.list({ ticket_id: ticketId }) : [];
+    // Get all sessions for this ticket
+    const sessions = dbModule.sessions?.list ? dbModule.sessions.list({ ticket_id: ticketId }) : [];
     
-    const testJobs = jobs.filter(j => j.job_type === 'test_agent');
-    const docJobs = jobs.filter(j => j.job_type === 'doc_agent');
+    // Check for completed test and doc sessions
+    // agent_type could be 'test', 'test_lock', or 'test_agent'
+    const testDone = sessions.some(s => 
+      (s.agent_type === 'test' || s.agent_type === 'test_lock' || s.agent_type === 'test_agent') && 
+      s.status === 'completed'
+    );
+    const docDone = sessions.some(s => 
+      (s.agent_type === 'doc' || s.agent_type === 'doc_agent') && 
+      s.status === 'completed'
+    );
     
-    const testDone = testJobs.some(j => j.status === 'completed');
-    const docDone = docJobs.some(j => j.status === 'completed');
+    console.log(`📊 ${ticketId} finalizing check: test=${testDone ? '✅' : '⏳'} doc=${docDone ? '✅' : '⏳'}`);
     
     // If both are done, queue selective merge
     if (testDone && docDone) {
-      console.log(`✅ Both test+doc complete for ${ticketId}, queuing selective merge...`);
+      // Double-check ticket is still in finalizing (prevent duplicate merges)
+      const ticket = dbModule.tickets.get(ticketId);
+      if (ticket?.status !== 'finalizing') {
+        console.log(`⚠️ ${ticketId} not in finalizing (${ticket?.status}), skipping merge`);
+        return;
+      }
+      
+      console.log(`✅ Both test+doc sessions complete for ${ticketId}, queuing selective merge...`);
       
       // Update status to ready_to_merge
       dbModule.tickets.update(ticketId, { status: 'ready_to_merge' });
@@ -160,8 +179,6 @@ scheduler.registerHandler('regression_test', async (job) => {
         ticketId,
         payload: { triggered_by: 'finalizing_complete' }
       });
-    } else {
-      console.log(`⏳ ${ticketId}: test=${testDone ? '✅' : '⏳'} doc=${docDone ? '✅' : '⏳'}`);
     }
   }
   
