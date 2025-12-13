@@ -657,289 +657,154 @@ for t in data.get('tickets', []):
         print_success "Registered QA session: $DB_SESSION_ID"
     fi
     
-    # Build the Claude command - run in worktree, selective merge
-    CLAUDE_PROMPT="You are a QA Review Agent. You are REPLACING a human QA team.
+    # Build the Claude command - short prompt that references the SOP
+    CLAUDE_PROMPT="# QA Review Agent: $TICKET_ID
 
-═══════════════════════════════════════════════════════════════
-⛔ FORBIDDEN SHORTCUTS - READ THIS FIRST (ALL TICKET TYPES)
-═══════════════════════════════════════════════════════════════
+> **FIRST:** Read the full SOP: \`docs/workflow/QA_REVIEW_AGENT_SOP.md\`
+>
+> The SOP contains the 3-step process, forbidden shortcuts, and quality checklists.
 
-These phrases = AUTOMATIC REJECTION:
-❌ 'Verified via code inspection' → EXECUTE, don't READ
-❌ 'Unit tests pass' → Mocks don't prove real behavior
-❌ 'Logic appears correct' → RUN IT to verify
-❌ For UI: Testing one role and inferring others work → TEST EACH ROLE
+---
 
-THE GOLDEN RULE: If your evidence is 'I read the code', your QA is INVALID.
+## Session Context
 
-═══════════════════════════════════════════════════════════════
-TICKET TYPE: $TICKET_TYPE
-═══════════════════════════════════════════════════════════════
+| Key | Value |
+|-----|-------|
+| **Ticket** | $TICKET_ID |
+| **Branch** | $BRANCH |
+| **Type** | $TICKET_TYPE (HAS_UI: $HAS_UI_FILES, HAS_API: $HAS_API_FILES) |
+| **Session ID** | $DB_SESSION_ID |
+| **Worktree** | $WORKTREE_DIR |
+| **Dashboard Port** | $AGENT_PORT (use this for ALL testing!) |
+| **Tunnel URL** | $TUNNEL_URL |
+
+---
+
+## Type-Specific Workflow
 
 $(if [ \"$TICKET_TYPE\" = \"hybrid\" ]; then echo '
-⚠️  HYBRID TICKET - YOU MUST TEST BOTH API AND UI! ⚠️
+⚠️ **HYBRID TICKET** - You MUST test BOTH API and UI!
 
-This ticket modifies BOTH backend/API files AND UI components.
-You MUST complete BOTH workflows:
-
-1. FIRST: API/Backend Testing (docs/workflow/NON_UI_TICKET_QA_WORKFLOW.md)
-   - Test all API endpoints with curl
+1. **API Testing FIRST:** Read \`docs/workflow/NON_UI_TICKET_QA_WORKFLOW.md\`
+   - Test all endpoints with curl
    - Verify request/response behavior
-   - Test error cases and edge cases
-   - Document all curl commands and responses
+   - Test error cases (400, 401, 404)
 
-2. THEN: UI Testing (docs/workflow/UI_TICKET_QA_WORKFLOW.md)
-   - Test UI components with Playwright
-   - Test for each role (admin, agent)
-
-Your test plan MUST have sections for BOTH API and UI tests.
-Your self-audit MUST verify BOTH types of testing were done.
+2. **UI Testing SECOND:** Read \`docs/workflow/UI_TICKET_QA_WORKFLOW.md\`
+   - Test with Playwright browser automation
+   - Test EACH role separately (admin, agent)
+   - Take screenshots as evidence
 '; elif [ \"$TICKET_TYPE\" = \"ui\" ]; then echo '
-UI TICKET - Browser testing required
+**UI TICKET** - Browser testing required
 
-Read: docs/workflow/UI_TICKET_QA_WORKFLOW.md
+Read: \`docs/workflow/UI_TICKET_QA_WORKFLOW.md\`
 - Test with Playwright browser automation
-- Test each role separately
+- Test EACH role separately
 - Take screenshots as evidence
 '; else echo '
-API/BACKEND TICKET - Execution-based testing required
+**API/BACKEND TICKET** - Execution-based testing required
 
-Read: docs/workflow/NON_UI_TICKET_QA_WORKFLOW.md
+Read: \`docs/workflow/NON_UI_TICKET_QA_WORKFLOW.md\`
 - Test all endpoints with curl
 - Verify responses and state changes
-- Auto-merge after QA passes
+- Document request/response pairs
 '; fi)
 
-GENERAL: docs/workflow/QA_REVIEW_AGENT_SOP.md
+---
 
-SESSION INFO:
-  TICKET: $TICKET_ID | BRANCH: $BRANCH | TYPE: $TICKET_TYPE
-  HAS_UI: $HAS_UI_FILES | HAS_API: $HAS_API_FILES
-  SESSION_ID: $DB_SESSION_ID
-  WORKTREE: $WORKTREE_DIR
-  
-  ⚠️  YOUR DASHBOARD PORT: $AGENT_PORT
-  This port is unique to your ticket - use it for all testing!
-  Other QA agents may be running on different ports simultaneously.
-  
-  🌐 TUNNEL URL: $TUNNEL_URL
-  (Used for remote access if needed)
-  
-Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/heartbeat
+## Follow 3-Step Process from SOP
 
-═══════════════════════════════════════════════════════════════
-PHASE 1: CREATE YOUR TEST PLAN (BEFORE any testing!)
-═══════════════════════════════════════════════════════════════
+### STEP 1: BRAINSTORM
 
-Write this FIRST:
+Before any testing, think through:
+- What are ALL the ways this could break?
+- What edge cases should I test?
+- What error states should I verify?
 
-\`\`\`markdown
-## Test Plan for $TICKET_ID
-## TICKET TYPE: $TICKET_TYPE
+### STEP 2: PLAN
 
-$(if [ \"$TICKET_TYPE\" = \"hybrid\" ] || [ \"$HAS_API_FILES\" = \"true\" ]; then echo '
-### API/BACKEND TESTS (Minimum 5)
-| # | Endpoint/Operation | Method | Input | Expected | 
-|---|-------------------|--------|-------|----------|
-| 1 | /api/example | POST | {valid data} | 200 + success |
-| 2 | /api/example | POST | {} | 400 + error |
-| 3 | /api/example | POST | {invalid} | 400 + validation |
-| 4 | /api/example | GET | unauthorized | 401 |
-| 5 | /api/example/:id | GET | bad id | 404 |
-'; fi)
+Write a test plan BEFORE executing:
+- List ALL tests you will run
+- For UI: List EACH role you will test
+- For API: List EACH endpoint you will hit
 
-$(if [ \"$TICKET_TYPE\" = \"hybrid\" ] || [ \"$HAS_UI_FILES\" = \"true\" ]; then echo '
-### UI TESTS - ROLES TO TEST
-| Role | User Email | Tests |
-|------|-----------|-------|
-| Admin | qa-admin-$TICKET_ID@greetnow.test | [list] |
-| Agent | qa-agent-$TICKET_ID@greetnow.test | [list] |
+### STEP 3: EXECUTE
 
-### UI TESTS - SCENARIOS
-| # | Scenario | User Action | Expected Result |
-|---|----------|-------------|-----------------|
-| 1 | Happy path | [action] | [result] |
-| 2 | Error state | [trigger error] | [error UI] |
-| 3 | Edge case | [boundary] | [behavior] |
-'; fi)
+Run your plan. For EACH test:
+- Execute the test
+- Capture evidence (curl response / screenshot)
+- Document pass/fail
 
-### ARTIFACT TRACKING
-| Test | Type | Executed? | Evidence | Pass/Fail |
-|------|------|-----------|----------|-----------|
-| [test] | API/UI | ☐ | [pending] | [pending] |
-\`\`\`
+---
 
-⚠️ DO NOT proceed until test plan is written!
+## Start Dashboard on YOUR Port
 
-═══════════════════════════════════════════════════════════════
-PHASE 2: BUILD VERIFICATION
-═══════════════════════════════════════════════════════════════
-
-pnpm install && pnpm typecheck && pnpm lint && pnpm build && pnpm test
-
-If fails: Check if same errors on main. Pre-existing = try pnpm dev anyway.
-New errors = FAIL ticket.
-
-═══════════════════════════════════════════════════════════════
-PHASE 3: EXECUTE TESTS (One at a time, with evidence)
-═══════════════════════════════════════════════════════════════
-
-⚠️  START DASHBOARD ON YOUR ASSIGNED PORT ($AGENT_PORT):
-
+\`\`\`bash
 cd apps/dashboard
 PORT=$AGENT_PORT pnpm dev &
 sleep 10
-
-# Verify it's running on YOUR port
 curl -s http://localhost:$AGENT_PORT | head -1
+\`\`\`
 
-# ALL your testing should use http://localhost:$AGENT_PORT
-# (NOT port 3000 - other agents may be using that!)
+---
 
-$(if [ \"$TICKET_TYPE\" = \"hybrid\" ]; then echo '
-═══════════════════════════════════════════════════════════════
-⚠️  HYBRID: Complete BOTH sections below!
-═══════════════════════════════════════════════════════════════
+## On Completion
 
-PART A: API/BACKEND TESTING (Do this FIRST!)
-───────────────────────────────────────────
-For EACH endpoint in your test plan:
-  1. curl -X POST/GET the endpoint
-  2. Capture full response
-  3. Test error cases (missing fields, invalid types, unauthorized)
-  4. Verify DB state changes via API
-  5. Document request/response pairs
+**IF PASS:**
 
-Example:
-  curl -s -X POST http://localhost:3001/api/endpoint \\
-    -H \"Content-Type: application/json\" \\
-    -d \"{...}\" | jq .
+1. Write QA report: \`$MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md\`
 
-PART B: UI TESTING (Do this AFTER API testing passes!)
-──────────────────────────────────────────────────────
-For EACH role in your test plan:
-  1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
-  2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
-  3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
-  4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
-  5. Test feature WITH the API you just verified, take screenshots
-  6. REPEAT for next role
-'; elif [ \"$TICKET_TYPE\" = \"ui\" ]; then echo '
-UI TICKETS - For EACH role:
-  1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
-  2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
-  3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
-  4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
-  5. Test feature at http://localhost:$AGENT_PORT, take screenshot
-  6. REPEAT for next role
-'; else echo '
-API/BACKEND TICKETS - For EACH endpoint:
-  1. curl -X POST/GET the endpoint
-  2. Capture full response
-  3. Test error cases (missing fields, invalid types)
-  4. Verify DB state changes
-  5. Document request/response pairs
-'; fi)
+2. Update ticket status:
+   \`\`\`bash
+   curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID \\
+     -H 'Content-Type: application/json' \\
+     -d '{\"status\": \"qa_passed\"}'
+   \`\`\`
 
-═══════════════════════════════════════════════════════════════
-PHASE 4: SELF-AUDIT (Before marking complete)
-═══════════════════════════════════════════════════════════════
+3. Mark session complete:
+   \`\`\`bash
+   curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete \\
+     -H 'Content-Type: application/json' \\
+     -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
+   \`\`\`
 
-Answer honestly:
+**IF FAIL:**
 
-### General (ALL tickets)
-- Total tests executed: ___ (should be ≥5)
-- Evidence pieces: ___ (responses/screenshots)
-- [ ] No 'verified via code inspection' phrases
-- [ ] Every test has execution evidence
+1. Write blocker file: \`$MAIN_REPO_DIR/docs/agent-output/blocked/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).json\`
 
-$(if [ \"$TICKET_TYPE\" = \"hybrid\" ]; then echo '
-### HYBRID TICKET - BOTH SECTIONS REQUIRED!
+   \`\`\`json
+   {
+     \"ticket_id\": \"$TICKET_ID\",
+     \"blocker_type\": \"qa_failure\",
+     \"summary\": \"[one-line summary]\",
+     \"failures\": [{\"test\": \"...\", \"expected\": \"...\", \"actual\": \"...\"}],
+     \"dispatch_action\": \"create_continuation_ticket\"
+   }
+   \`\`\`
 
-API Testing:
-- API endpoints tested: ___
-- curl commands executed: ___
-- Responses captured: ___
-- [ ] Tested error cases (400, 401, 404)
-- [ ] Verified state changes
+2. Write QA report: \`$MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).md\`
 
-UI Testing:
-- Roles in AC: ___ | Users created: ___
-- Screenshots taken: ___
-- [ ] All role numbers match
+3. Update status:
+   \`\`\`bash
+   curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/block \\
+     -H 'Content-Type: application/json' \\
+     -d '{\"blocker_type\": \"qa_failure\", \"summary\": \"[summary]\"}'
+   curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID \\
+     -H 'Content-Type: application/json' \\
+     -d '{\"status\": \"qa_failed\"}'
+   \`\`\`
 
-⛔ HYBRID TICKETS: Both sections must be complete!
-'; elif [ \"$TICKET_TYPE\" = \"ui\" ]; then echo '
-### UI Testing
-- Roles in AC: ___ | Users created: ___
-- All numbers must match!
-'; else echo '
-### API Testing
-- Endpoints tested: ___
-- curl commands executed: ___
-- Error cases tested: ___
-'; fi)
+---
 
-⛔ DO NOT mark complete until self-audit passes!
+## Heartbeat (every 5-10 min)
 
-If PASS:
-  ═══════════════════════════════════════════════════════════════
-  DELIVERABLES (Both UI and Non-UI)
-  ═══════════════════════════════════════════════════════════════
-  
-  1. Write QA Report:
-     $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md
-     
-     Include: Test plan, all test results, evidence, self-audit
-  
-  ─────────────────────────────────────────────────────────────
-  IF PASS: Update ticket status (pipeline handles merge!)
-  ─────────────────────────────────────────────────────────────
-  
-  Update ticket to qa_passed (do NOT merge yourself):
-  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID \\
-    -H 'Content-Type: application/json' \\
-    -d '{\"status\": \"qa_passed\"}'
-  
-  ⚠️ DO NOT MERGE! The pipeline runner will:
-  1. Launch Docs Agent and Tests Agent on the same branch
-  2. Wait for both to complete
-  3. Auto-merge with selective file checkout
-  4. Launch Review Agent
-  
-  Your job is ONLY to verify and update status to qa_passed.
-  
-  ─────────────────────────────────────────────────────────────
-  Mark QA session complete
-  ─────────────────────────────────────────────────────────────
-  
-  curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete \\
-    -H 'Content-Type: application/json' \\
-    -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
+\`\`\`bash
+curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/heartbeat
+\`\`\`
 
-If FAIL:
-  ═══════════════════════════════════════════════════════════════
-  
-  Write BOTH files:
-  1. $MAIN_REPO_DIR/docs/agent-output/blocked/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).json
-  2. $MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).md
-  
-  JSON format:
-  {
-    \"ticket_id\": \"$TICKET_ID\",
-    \"blocker_type\": \"qa_failure\",
-    \"summary\": \"[one-line summary]\",
-    \"failures\": [{\"test\": \"...\", \"expected\": \"...\", \"actual\": \"...\"}],
-    \"dispatch_action\": \"create_continuation_ticket\"
-  }
-  
-  Update status:
-  curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/block -d '{\"blocker_type\": \"qa_failure\", ...}'
-  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID -d '{\"status\": \"qa_failed\"}'
+---
 
-═══════════════════════════════════════════════════════════════
-REMEMBER: If you didn't EXECUTE it, you didn't TEST it.
-═══════════════════════════════════════════════════════════════"
+⛔ **REMEMBER:** If you didn't EXECUTE it, you didn't TEST it. Read the SOP!"
 
     # Launch in tmux - run in worktree directory
     # Use remain-on-exit so the session stays after claude exits
