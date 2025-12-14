@@ -92,7 +92,7 @@ Recording Settings provides organization admins control over call recording beha
 |--------------|---------------|--------------|--------------|
 | Save Settings | Recording Settings UI | Updates `organizations.recording_settings` | Cache cleared server-side |
 | Call Ends | Agent dashboard | `stopRecording()` called | Recording uploaded to storage |
-| Recording Upload | `use-call-recording.ts` | Uploads WebM to Supabase Storage | Updates `call_logs.recording_url` |
+| Recording Upload | `/api/recordings/upload` | Uploads WebM with random UUID to private bucket | Updates `call_logs.recording_url` with UUID only |
 | Transcription Trigger | Recording upload completion | POST to `/api/transcription/process` | Deepgram API called |
 | Transcription Complete | API route | Stores transcription in call_logs | Usage record created |
 | AI Summary Trigger | After transcription | OpenAI API called | Summary stored in call_logs |
@@ -144,9 +144,9 @@ CALL RECORDING FLOW
     └─► stopRecording()
         ├─► Stop MediaRecorder
         ├─► Create Blob from chunks
-        ├─► Upload to Supabase Storage
-        │       └─► Path: {orgId}/{callLogId}_{timestamp}.webm
-        ├─► Update call_logs.recording_url
+        ├─► POST /api/recordings/upload with blob
+        │       └─► Server generates UUID, stores at: {orgId}/{uuid}.webm
+        ├─► Update call_logs.recording_url with UUID only (not full path)
         └─► Trigger transcription (fire-and-forget POST)
 
 TRANSCRIPTION FLOW
@@ -266,8 +266,9 @@ TRANSCRIPTION FLOW
 | Concern | Mitigation |
 |---------|------------|
 | Unauthorized access | Admin-only route guard in page.tsx |
-| Cross-org recording access | Storage policies check organization_id |
-| Recording URL exposure | Private bucket, auth required |
+| Cross-org recording access | API validates org ownership before generating signed URLs |
+| Recording URL exposure | Private bucket + signed URLs with 1-hour expiry |
+| URL predictability | Random UUIDs prevent guessing recording paths |
 | API key exposure | Server-side only (env variables) |
 | Transcription data privacy | Org-isolated, RLS on call_logs |
 
@@ -314,7 +315,7 @@ TRANSCRIPTION FLOW
 | Call settings cache | `apps/server/src/lib/call-settings.ts` | 1-98 | Server-side settings fetch |
 | RecordingSettings type | `packages/domain/src/database.types.ts` | 49-60 | TypeScript interface |
 | Recording bucket migration | `supabase/migrations/20251127200000_recording_settings.sql` | 1-109 | Initial recording setup |
-| Storage bucket setup | `supabase/migrations/20251127600000_recordings_bucket.sql` | 1-97 | Bucket + policies |
+| Storage bucket setup | `supabase/migrations/20251127600000_recordings_bucket.sql` | 1-97 | Private bucket + RLS policies |
 | Transcription columns | `supabase/migrations/20251130000000_add_transcription_summary.sql` | 1-92 | call_logs schema |
 | Retention cron setup | `supabase/migrations/20251130110000_setup_recording_cleanup_cron.sql` | 1-36 | Daily cleanup job |
 | Call logs display | `apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx` | 993-1317 | Recording/transcription UI |
