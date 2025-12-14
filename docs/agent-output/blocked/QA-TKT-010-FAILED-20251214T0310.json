@@ -1,0 +1,23 @@
+{
+  "ticket_id": "TKT-010",
+  "blocker_type": "qa_failure",
+  "summary": "Unable to test due to server not responding and lack of test credentials",
+  "failures": [
+    {
+      "test": "Server API endpoint testing",
+      "expected": "Server responds to API calls on port 3001",
+      "actual": "Server process exists but all HTTP requests timeout after 5 seconds"
+    },
+    {
+      "test": "Dashboard authentication",
+      "expected": "Test credentials available for admin user",
+      "actual": "No test credentials found in codebase, cannot access dashboard functionality"
+    },
+    {
+      "test": "End-to-end agent removal flow",
+      "expected": "Can simulate admin removing agent during active call",
+      "actual": "Cannot test without working server and authenticated access"
+    }
+  ],
+  "dispatch_action": "create_continuation_ticket"
+}

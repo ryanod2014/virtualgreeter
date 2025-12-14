@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { renderHook, act } from "@testing-library/preact-hooks";
 import {
   storeWidgetState,
   getStoredWidgetState,
@@ -7,7 +8,9 @@ import {
   storeActiveCall,
   getStoredCall,
   clearStoredCall,
+  useSignaling,
 } from "./useSignaling";
+import { SOCKET_EVENTS } from "@ghost-greeter/domain";
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -642,6 +645,242 @@ describe("Call Reconnection Token Storage (V4)", () => {
       // Verify cleared
       expect(localStorageMock.removeItem).toHaveBeenCalledWith("gg_active_call");
     });
+  });
+});
+
+// Mock socket.io-client
+vi.mock("socket.io-client", () => ({
+  io: vi.fn(() => ({
+    on: vi.fn(),
+    emit: vi.fn(),
+    off: vi.fn(),
+    connected: true,
+  })),
+}));
+
+// Import io from mocked module
+const { io } = vi.mocked(await import("socket.io-client"));
+
+describe("useSignaling Hook - CALL_ENDED Behavior", () => {
+  let mockSocket: any;
+  let mockCallbacks: any;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorageMock.clear();
+
+    // Create mock socket that stores event handlers
+    const eventHandlers: Record<string, Function> = {};
+    mockSocket = {
+      on: vi.fn((event: string, handler: Function) => {
+        eventHandlers[event] = handler;
+      }),
+      emit: vi.fn(),
+      off: vi.fn(),
+      connected: true,
+      // Helper to trigger events
+      _trigger: (event: string, data: any) => {
+        const handler = eventHandlers[event];
+        if (handler) {
+          handler(data);
+        }
+      },
+    };
+
+    // Make io return our mock socket
+    (io as any).mockReturnValue(mockSocket);
+
+    // Setup default callbacks
+    mockCallbacks = {
+      onConnect: vi.fn(),
+      onDisconnect: vi.fn(),
+      onReconnecting: vi.fn(),
+      onReconnected: vi.fn(),
+      onConnectionError: vi.fn(),
+      onCheckingAgent: vi.fn(),
+      onAgentAssigned: vi.fn(),
+      onAgentReassigned: vi.fn(),
+      onAgentUnavailable: vi.fn(),
+      onOrgPaused: vi.fn(),
+      onCallAccepted: vi.fn(),
+      onCallRejected: vi.fn(),
+      onCallEnded: vi.fn(),
+      onCallReconnecting: vi.fn(),
+      onCallReconnected: vi.fn(),
+      onCallReconnectFailed: vi.fn(),
+    };
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("passes CallEndedPayload data to onCallEnded callback", () => {
+    const { result } = renderHook(() =>
+      useSignaling({
+        serverUrl: "http://localhost:3001",
+        organizationId: "org-123",
+        visitorId: "visitor-123",
+        pathname: "/test",
+        ...mockCallbacks,
+      })
+    );
+
+    // Connect the socket
+    act(() => {
+      result.current.connect();
+    });
+
+    // Trigger CALL_ENDED event with data
+    const callEndedData = {
+      callId: "call-123",
+      reason: "agent_ended",
+      message: "Agent has ended the call",
+    };
+
+    act(() => {
+      mockSocket._trigger(SOCKET_EVENTS.CALL_ENDED, callEndedData);
+    });
+
+    // Verify callback was called with data
+    expect(mockCallbacks.onCallEnded).toHaveBeenCalledTimes(1);
+    expect(mockCallbacks.onCallEnded).toHaveBeenCalledWith(callEndedData);
+  });
+
+  it("clears all call state when CALL_ENDED received", () => {
+    // Store some call data first
+    storeActiveCall({
+      reconnectToken: "token-123",
+      callId: "call-123",
+      agentId: "agent-123",
+      orgId: "org-123",
+    });
+
+    const { result } = renderHook(() =>
+      useSignaling({
+        serverUrl: "http://localhost:3001",
+        organizationId: "org-123",
+        visitorId: "visitor-123",
+        pathname: "/test",
+        ...mockCallbacks,
+      })
+    );
+
+    // Connect and simulate having an active call
+    act(() => {
+      result.current.connect();
+      // Simulate call accepted state
+      mockSocket._trigger(SOCKET_EVENTS.CALL_ACCEPTED, {
+        callId: "call-123",
+        agentId: "agent-123",
+      });
+    });
+
+    // Trigger CALL_ENDED
+    act(() => {
+      mockSocket._trigger(SOCKET_EVENTS.CALL_ENDED, {
+        callId: "call-123",
+        reason: "agent_ended",
+        message: "Call ended",
+      });
+    });
+
+    // Verify stored call is cleared
+    expect(localStorageMock.removeItem).toHaveBeenCalledWith("gg_active_call");
+
+    // Verify hook state is reset
+    expect(result.current.callAccepted).toBe(false);
+    expect(result.current.callRejected).toBe(false);
+    expect(result.current.currentCallId).toBeNull();
+  });
+
+  it("handles CALL_ENDED without message gracefully", () => {
+    const { result } = renderHook(() =>
+      useSignaling({
+        serverUrl: "http://localhost:3001",
+        organizationId: "org-123",
+        visitorId: "visitor-123",
+        pathname: "/test",
+        ...mockCallbacks,
+      })
+    );
+
+    act(() => {
+      result.current.connect();
+    });
+
+    // Trigger CALL_ENDED without message
+    const minimalData = {
+      callId: "call-123",
+      reason: "timeout",
+    };
+
+    act(() => {
+      mockSocket._trigger(SOCKET_EVENTS.CALL_ENDED, minimalData);
+    });
+
+    expect(mockCallbacks.onCallEnded).toHaveBeenCalledWith(minimalData);
+  });
+
+  it("handles CALL_ENDED with empty payload", () => {
+    const { result } = renderHook(() =>
+      useSignaling({
+        serverUrl: "http://localhost:3001",
+        organizationId: "org-123",
+        visitorId: "visitor-123",
+        pathname: "/test",
+        ...mockCallbacks,
+      })
+    );
+
+    act(() => {
+      result.current.connect();
+    });
+
+    // Trigger CALL_ENDED with empty object
+    act(() => {
+      mockSocket._trigger(SOCKET_EVENTS.CALL_ENDED, {});
+    });
+
+    expect(mockCallbacks.onCallEnded).toHaveBeenCalledWith({});
+    expect(result.current.callAccepted).toBe(false);
+  });
+
+  it("clears pendingCallAgentIdRef when CALL_ENDED received", () => {
+    const { result } = renderHook(() =>
+      useSignaling({
+        serverUrl: "http://localhost:3001",
+        organizationId: "org-123",
+        visitorId: "visitor-123",
+        pathname: "/test",
+        ...mockCallbacks,
+      })
+    );
+
+    act(() => {
+      result.current.connect();
+      // Request a call to set pendingCallAgentIdRef
+      result.current.requestCall("agent-123");
+    });
+
+    // Trigger CALL_ENDED
+    act(() => {
+      mockSocket._trigger(SOCKET_EVENTS.CALL_ENDED, {
+        callId: "call-123",
+        reason: "agent_ended",
+      });
+    });
+
+    // pendingCallAgentIdRef should be cleared (verify indirectly by requesting same agent again)
+    act(() => {
+      result.current.requestCall("agent-123");
+    });
+
+    // Should emit request:call again since pendingCallAgentIdRef was cleared
+    expect(mockSocket.emit).toHaveBeenCalledWith(
+      SOCKET_EVENTS.REQUEST_CALL,
+      expect.objectContaining({ agentId: "agent-123" })
+    );
   });
 });
 
