@@ -1,0 +1,9 @@
+{
+  "ticket_id": "TKT-034",
+  "branch": "agent/tkt-034",
+  "started_at": "2025-12-14T04:44:16Z",
+  "files_locking": [
+    "apps/dashboard/src/features/call-logs/CallLogsTable.tsx",
+    "apps/dashboard/src/app/api/call-logs/route.ts"
+  ]
+}

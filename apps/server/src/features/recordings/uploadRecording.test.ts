@@ -11,7 +11,7 @@ const mockUpload = vi.fn();
 const mockUpdate = vi.fn();
 const mockEq = vi.fn();
 
-vi.mock("../../lib/supabase", () => ({
+vi.mock("../../lib/supabase.js", () => ({
   supabase: {
     storage: {
       from: vi.fn(() => ({

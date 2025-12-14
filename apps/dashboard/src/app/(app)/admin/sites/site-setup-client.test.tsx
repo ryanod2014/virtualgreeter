@@ -77,6 +77,7 @@ describe("SiteSetupClient", () => {
     auto_hide_delay: null,
     show_minimize_button: false,
     theme: "dark" as const,
+    cobrowse_enabled: true,
   };
 
   const defaultProps = {
@@ -655,6 +656,102 @@ describe("SiteSetupClient", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // COBROWSE ENABLED FIELD (NEW BEHAVIOR)
+  // ---------------------------------------------------------------------------
+  describe("Cobrowse Enabled Field", () => {
+    it("includes cobrowse_enabled in default settings", () => {
+      expect(defaultWidgetSettings.cobrowse_enabled).toBe(true);
+    });
+
+    it("saves cobrowse_enabled field when saving settings", async () => {
+      mockSupabaseUpdate.mockResolvedValue({ error: null });
+
+      render(<SiteSetupClient {...defaultProps} />);
+
+      // Change a setting to enable save
+      const smallButton = screen.getByText("Small").closest("button");
+      fireEvent.click(smallButton!);
+
+      const saveButton = screen.getByText("Save Changes");
+      fireEvent.click(saveButton);
+
+      await waitFor(() => {
+        expect(mockSupabaseUpdate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            widget_settings: expect.objectContaining({
+              cobrowse_enabled: true,
+            }),
+          }),
+        );
+      });
+    });
+
+    it("preserves cobrowse_enabled as true when resetting to defaults", async () => {
+      // Start with custom settings
+      const customSettings = {
+        ...defaultWidgetSettings,
+        size: "small" as const,
+        position: "top-left" as const,
+        cobrowse_enabled: true,
+      };
+
+      render(<SiteSetupClient {...defaultProps} initialWidgetSettings={customSettings} />);
+
+      const resetButton = screen.getByText("Reset to Default Settings").closest("button");
+      fireEvent.click(resetButton!);
+
+      // Save the reset settings
+      const saveButton = screen.getByText("Save Changes");
+      fireEvent.click(saveButton);
+
+      await waitFor(() => {
+        expect(mockSupabaseUpdate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            widget_settings: expect.objectContaining({
+              cobrowse_enabled: true,
+            }),
+          }),
+        );
+      });
+    });
+
+    it("includes cobrowse_enabled when initializing with custom settings", () => {
+      const customSettings = {
+        size: "small" as const,
+        position: "center" as const,
+        devices: "mobile" as const,
+        trigger_delay: 0,
+        auto_hide_delay: 60,
+        show_minimize_button: true,
+        theme: "glass" as const,
+        cobrowse_enabled: true,
+      };
+
+      render(<SiteSetupClient {...defaultProps} initialWidgetSettings={customSettings} />);
+
+      // Component should render without errors
+      expect(screen.getByText("Widget Settings")).toBeInTheDocument();
+    });
+
+    it("handles missing cobrowse_enabled in initial settings gracefully", () => {
+      const settingsWithoutCobrowse = {
+        size: "medium" as const,
+        position: "bottom-right" as const,
+        devices: "all" as const,
+        trigger_delay: 3,
+        auto_hide_delay: null,
+        show_minimize_button: false,
+        theme: "dark" as const,
+      };
+
+      // Should not throw when cobrowse_enabled is missing
+      render(<SiteSetupClient {...defaultProps} initialWidgetSettings={settingsWithoutCobrowse as any} />);
+
+      expect(screen.getByText("Widget Settings")).toBeInTheDocument();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // EDGE CASES
   // ---------------------------------------------------------------------------
   describe("Edge Cases", () => {
@@ -690,6 +787,7 @@ describe("SiteSetupClient", () => {
         auto_hide_delay: 120,
         show_minimize_button: true,
         theme: "light" as const,
+        cobrowse_enabled: true,
       };
       render(<SiteSetupClient {...defaultProps} initialWidgetSettings={customSettings} />);
 

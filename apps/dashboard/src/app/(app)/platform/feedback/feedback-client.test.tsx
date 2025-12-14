@@ -668,6 +668,70 @@ describe("FeedbackClient", () => {
 
       expect(screen.queryByText("Attachments")).not.toBeInTheDocument();
     });
+
+    it("handles PMF survey with null disappointment_level gracefully", () => {
+      const nullDisappointmentSurvey = {
+        ...mockPmfSurvey,
+        id: "pmf-null",
+        disappointment_level: null as any,
+      };
+      render(
+        <FeedbackClient
+          {...defaultProps}
+          pmfSurveys={[nullDisappointmentSurvey]}
+        />
+      );
+
+      const pmfTab = screen.getByRole("button", { name: /PMF Surveys/ });
+      fireEvent.click(pmfTab);
+
+      // Should not crash and should display some default (likely "Not disappointed")
+      expect(screen.getByText("Not disappointed")).toBeInTheDocument();
+    });
+
+    it("handles PMF modal with null disappointment_level gracefully", () => {
+      const nullDisappointmentSurvey = {
+        ...mockPmfSurvey,
+        id: "pmf-null",
+        disappointment_level: null as any,
+      };
+      render(
+        <FeedbackClient
+          {...defaultProps}
+          pmfSurveys={[nullDisappointmentSurvey]}
+        />
+      );
+
+      const pmfTab = screen.getByRole("button", { name: /PMF Surveys/ });
+      fireEvent.click(pmfTab);
+
+      // Click to open modal
+      const surveyItem = screen.getByText("Not disappointed").closest("div[class*='cursor-pointer']");
+      fireEvent.click(surveyItem!);
+
+      // Should show modal without crashing
+      expect(screen.getByText("PMF Survey Response")).toBeInTheDocument();
+    });
+
+    it("handles undefined disappointment_level gracefully", () => {
+      const undefinedDisappointmentSurvey = {
+        ...mockPmfSurvey,
+        id: "pmf-undefined",
+        disappointment_level: undefined as any,
+      };
+      render(
+        <FeedbackClient
+          {...defaultProps}
+          pmfSurveys={[undefinedDisappointmentSurvey]}
+        />
+      );
+
+      const pmfTab = screen.getByRole("button", { name: /PMF Surveys/ });
+      fireEvent.click(pmfTab);
+
+      // Should not crash and should display default
+      expect(screen.getByText("Not disappointed")).toBeInTheDocument();
+    });
   });
 });
 

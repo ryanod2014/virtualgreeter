@@ -38,12 +38,13 @@ Call Logs serves as the primary reporting interface for all call data in the pla
 
 ### High-Level Flow (Happy Path)
 1. User navigates to Call Logs page (`/admin/calls` for admin, `/dashboard/calls` for agent)
-2. Server fetches call data from `call_logs` table for the date range (default: last 30 days)
+2. Server fetches call data from `call_logs` table for the date range (default: last 30 days, 50 records per page)
 3. Server calculates statistics from the fetched data
-4. Client renders statistics cards, optional filters panel, and call table
-5. User can apply filters (date, agent, status, disposition, pool, URL, duration, country)
-6. User can play recordings, view transcriptions, expand AI summaries
-7. User can export filtered results to CSV
+4. Client renders statistics cards, optional filters panel, call table, and pagination controls
+5. User can apply filters (date, agent, status, disposition, pool, URL, duration, country) - resets to page 1
+6. User can navigate between pages using Previous/Next buttons or page numbers - preserves filters
+7. User can play recordings, view transcriptions, expand AI summaries
+8. User can export filtered results to CSV
 
 ### Data Flow Diagram
 
@@ -138,6 +139,7 @@ stateDiagram-v2
 | Transcription expand | Transcribed badge click | Expands row to show transcription | Local state change |
 | AI Summary expand | AI Summary badge click | Expands row to show summary | Local state change |
 | CSV export | Export CSV button click | Generates CSV using Web Worker with progress tracking | File download, non-blocking UI |
+| Page change | Previous/Next/Page button click | Fetches data for specified page | URL params updated (page, limit), preserves filters |
 
 ### Key Functions/Components
 | Function/Component | File | Purpose |
@@ -149,6 +151,7 @@ stateDiagram-v2
 | `calculateAgentStats` | `apps/dashboard/src/lib/stats/agent-stats.ts` | Calculates all call statistics from call data |
 | `exportCallLogsToCSV` | `apps/dashboard/src/features/call-logs/exportCSV.ts` | Exports call logs to CSV using Web Worker |
 | `csvWorker` | `apps/dashboard/src/features/call-logs/csvWorker.ts` | Web Worker for non-blocking CSV generation |
+| `goToPage` | `apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx` | Navigates to specific page while preserving filters |
 | `createCallLog` | `apps/server/src/lib/call-logger.ts` | Creates new call log entry on call request |
 | `markCallAccepted` | `apps/server/src/lib/call-logger.ts` | Updates log when call accepted |
 | `markCallEnded` | `apps/server/src/lib/call-logger.ts` | Updates log when call completes |
@@ -210,7 +213,7 @@ stateDiagram-v2
 | 5 | Very long call (>1hr) | Call duration exceeds 1 hour | Duration displayed as "1h 23m" | ✅ | formatDuration handles |
 | 6 | Call with no agent assigned | Abandoned/orphan | agent column shows "Unknown" | ✅ | Null agent handled |
 | 7 | Filtering returns zero results | No matching calls | Empty state shown | ✅ | "No calls found" message |
-| 8 | 500+ calls in date range | Large data set | Shows first 500 with warning | ✅ | "(limit reached)" message |
+| 8 | Many calls in date range | Large data set | Shows paginated results (50 per page) | ✅ | Pagination controls shown |
 | 9 | Deleted agent's calls | Agent soft-deleted | Shows "Unknown" for agent name | ✅ | Null handling |
 | 10 | Deleted pool's calls | Pool deleted | Pool filter excludes, call shows | ⚠️ | pool_id remains in call record |
 | 11 | Call from blocked country | Geo-blocked visitor | Excluded from coverage stats | ✅ | Blocklist filtering applied |
@@ -221,6 +224,7 @@ stateDiagram-v2
 | 16 | Timezone display | Different timezone user | Uses browser's locale | ✅ | toLocaleTimeString |
 | 17 | Call in progress (accepted) | Active call | Appears with status "Accepted" | ✅ | No duration yet |
 | 18 | Agent without profile | Missing profile setup | "No Agent Profile" message | ✅ | Agent page only |
+| 19 | Filter change on later page | User on page 3 applies new filter | Returns to page 1 with new results | ✅ | Prevents viewing non-existent pages |
 
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
@@ -250,6 +254,7 @@ stateDiagram-v2
 | 8 | Click Transcribed badge | Row expands with text | ✅ | Scrollable if long |
 | 9 | Click AI Summary badge | Row expands with summary | ✅ | Formatted text |
 | 10 | Click Export CSV | Progress indicator shows export status (0-100%), file downloads when complete | ✅ | UI remains responsive during export |
+| 11 | Navigate pages | Previous/Next buttons or page numbers | Page loads with next/previous set of results | ✅ | Filters preserved across pages |
 
 **Agent View:**
 | Step | User Action | System Response | Clear? | Issues |
@@ -272,10 +277,10 @@ stateDiagram-v2
 ### Performance
 | Concern | Implementation | Status |
 |---------|----------------|--------|
-| Large data sets | 500 record limit per query | ✅ Mitigated |
+| Large data sets | Paginated queries (50 records per page) | ✅ Mitigated |
 | Complex joins | Single query with relations | ✅ Efficient |
-| Client-side filtering | URL conditions filtered after fetch | ⚠️ Could be slow with 500 records |
-| Stats calculation | Done on full result set client-side | ✅ Fast for 500 records |
+| Client-side filtering | URL conditions filtered after fetch | ✅ Fast with 50 records per page |
+| Stats calculation | Done on full result set client-side | ✅ Fast for paginated results |
 | CSV generation | Web Worker-based, non-blocking | ✅ Exports run off main thread with progress tracking |
 
 ### Security
