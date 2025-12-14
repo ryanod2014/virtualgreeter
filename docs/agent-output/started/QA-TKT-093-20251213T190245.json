@@ -1,0 +1,14 @@
+{
+  "agent_type": "qa",
+  "session_id": "922da6c0-3cfc-421c-aa07-9804959d8032",
+  "ticket_id": "TKT-093",
+  "branch": "agent/tkt-093",
+  "started_at": "2025-12-13T19:02:45Z",
+  "session_info": {
+    "worktree": "/Users/ryanodonnell/projects/agent-worktrees/TKT-093",
+    "dashboard_port": 3193,
+    "ticket_type": "hybrid",
+    "has_ui": true,
+    "has_api": true
+  }
+}

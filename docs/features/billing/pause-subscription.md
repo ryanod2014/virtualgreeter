@@ -58,6 +58,12 @@ stateDiagram-v2
 | `paused` | Subscription temporarily frozen | Admin selects pause | Manual resume, auto-resume, cancel |
 | `cancelled` | Subscription terminated | Admin completes cancellation | N/A (end state) |
 
+### Date/Time Display
+The pause functionality displays dates with explicit timezone information to prevent confusion:
+- Format: "Dec 15, 2025 at 12:00 AM PST (Dec 14, 2025 at 8:00 AM UTC)"
+- Shows both local timezone and UTC reference
+- Includes explanatory text: "Displaying your local timezone with UTC reference to avoid confusion"
+
 ---
 
 ## 3. DETAILED LOGIC
@@ -79,7 +85,7 @@ stateDiagram-v2
 | `resumeAccount()` | `apps/dashboard/src/app/(app)/admin/settings/billing/actions.ts` | Server action to resume organization |
 | `BillingSettingsClient` | `apps/dashboard/src/app/(app)/admin/settings/billing/billing-settings-client.tsx` | Main billing page with paused banner |
 | `handleStripeWebhook` | `apps/server/src/features/billing/stripe-webhook-handler.ts` | Handles Stripe subscription status changes |
-| `formatDateWithTimezone()` | Both modal and billing-settings-client | Formats dates with timezone info for clarity |
+| `formatDateWithTimezone()` | Both modal and billing-settings-client | Formats dates with local timezone and UTC reference for clarity |
 
 ### Data Flow
 
@@ -170,7 +176,7 @@ ADMIN RESUMES MANUALLY
 | 16 | Widget visibility during pause | Visitor loads site | **Widget still shows** - server doesn't check pause status | ❌ | TODO in code comments |
 | 17 | Multiple pauses in sequence | Pause → Resume → Pause | Works, all events logged to history | ✅ | No pause limit enforced |
 | 18 | Pause with optional reason blank | Admin leaves reason empty | Reason stored as null | ✅ | Works |
-| 19 | User in different timezone | Admin views resume date | Date displayed in their local timezone with abbreviation | ✅ | Prevents confusion about actual resume time |
+| 19 | User in different timezone | Admin views resume date | Date displayed in local timezone + UTC reference (e.g., "Dec 15, 2025 at 12:00 AM PST (Dec 14, 2025 at 8:00 AM UTC)") | ✅ | Fixed in TKT-093: Prevents confusion about actual resume time |
 
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
@@ -201,14 +207,15 @@ ADMIN RESUMES MANUALLY
 | Step | User Action | System Response | Clear? | Issues |
 |------|------------|-----------------|--------|--------|
 | 1 | View billing page while paused | Blue "Account Paused" banner shown | ✅ | Clear status |
-| 2 | See resume date | Date displayed with time and timezone (e.g., "Dec 15, 2025 at 12:00 AM PST") | ✅ | Clear expectation with timezone context |
+| 2 | See resume date | Date displayed with local timezone and UTC reference (e.g., "Dec 15, 2025 at 12:00 AM PST (Dec 14, 2025 at 8:00 AM UTC)") | ✅ | Enhanced clarity with dual timezone display |
 | 3 | Click "Resume Now" | Loading, then page reloads active | ✅ | Good feedback |
 
-**Date Formatting:**
-- Resume dates are displayed in the user's local timezone with explicit timezone abbreviation (e.g., "PST", "EST")
-- Format: "Dec 15, 2025 at 12:00 AM PST"
-- This prevents confusion about when the account will actually resume
-- A clarification note states "All times shown in your local timezone" in the pause modal
+**Date Formatting (Updated in TKT-093):**
+- Resume dates now display both local timezone and UTC reference
+- Format: "Dec 15, 2025 at 12:00 AM PST (Dec 14, 2025 at 8:00 AM UTC)"
+- Includes explanatory text: "Displaying your local timezone with UTC reference to avoid confusion"
+- This dual-timezone display eliminates any ambiguity about when the account will resume
+- Addresses Finding F-064 where users were confused about timezone handling
 
 ### Accessibility
 - Keyboard navigation: ⚠️ Modal focus trap not verified
@@ -301,14 +308,14 @@ None of these are implemented.
 |---------|------|-------|-------|
 | Pause UI Modal | `apps/dashboard/src/app/(app)/admin/settings/billing/pause-account-modal.tsx` | 1-342 | Full modal component |
 | Duration options | `apps/dashboard/src/app/(app)/admin/settings/billing/pause-account-modal.tsx` | 27-43 | 1, 2, 3 months |
-| Date formatting (modal) | `apps/dashboard/src/app/(app)/admin/settings/billing/pause-account-modal.tsx` | 62-79 | formatDateWithTimezone utility |
-| Resume date display (modal) | `apps/dashboard/src/app/(app)/admin/settings/billing/pause-account-modal.tsx` | 172, 285 | Shows date with timezone |
-| Timezone clarification note | `apps/dashboard/src/app/(app)/admin/settings/billing/pause-account-modal.tsx` | 288-290 | "All times shown in your local timezone" |
+| Date formatting (modal) | `apps/dashboard/src/app/(app)/admin/settings/billing/pause-account-modal.tsx` | 62-79 | formatDateWithTimezone utility (updated in TKT-093) |
+| Resume date display (modal) | `apps/dashboard/src/app/(app)/admin/settings/billing/pause-account-modal.tsx` | 172, 284 | Shows date with local + UTC timezone |
+| Timezone clarification note | `apps/dashboard/src/app/(app)/admin/settings/billing/pause-account-modal.tsx` | 289 | "Displaying your local timezone with UTC reference to avoid confusion" |
 | Pause action | `apps/dashboard/src/app/(app)/admin/settings/billing/actions.ts` | 70-139 | Server action |
 | Resume action | `apps/dashboard/src/app/(app)/admin/settings/billing/actions.ts` | 141-194 | Server action |
 | Billing page | `apps/dashboard/src/app/(app)/admin/settings/billing/billing-settings-client.tsx` | 1-967 | Main billing UI |
-| Date formatting (billing) | `apps/dashboard/src/app/(app)/admin/settings/billing/billing-settings-client.tsx` | 163-180 | formatDateWithTimezone utility |
-| Paused banner | `apps/dashboard/src/app/(app)/admin/settings/billing/billing-settings-client.tsx` | 798-826 | Shows when paused with timezone |
+| Date formatting (billing) | `apps/dashboard/src/app/(app)/admin/settings/billing/billing-settings-client.tsx` | 163-198 | formatDateWithTimezone utility (updated in TKT-093 with UTC) |
+| Paused banner | `apps/dashboard/src/app/(app)/admin/settings/billing/billing-settings-client.tsx` | 798-826 | Shows when paused with local + UTC timezone |
 | Resume button handler | `apps/dashboard/src/app/(app)/admin/settings/billing/billing-settings-client.tsx` | 141-153 | handleResumeAccount |
 | DB migration | `supabase/migrations/20251127900000_account_pause.sql` | 1-88 | Schema changes |
 | Pause history table | `supabase/migrations/20251127900000_account_pause.sql` | 44-88 | History tracking |
