@@ -214,6 +214,8 @@ export interface Database {
           pause_ends_at: string | null;
           pause_months: number | null;
           pause_reason: string | null;
+          // Grace period tracking
+          subscription_ends_at: string | null;
           // GreetNow retargeting (platform-admin controlled)
           greetnow_retargeting_enabled: boolean;
           created_at: string;
