@@ -1,61 +1,107 @@
 {
   "meta": {
-    "last_updated": "2025-12-05",
-    "version": "2.0",
-    "note": "Blockers now in findings.json with type: 'blocker'. Observations also in findings.json."
+    "last_updated": "2025-12-05T08:47:09.320Z",
+    "version": "2.1",
+    "note": "Built from agent-output files (source of truth)"
   },
   "in_progress": [],
   "completed": [
     {
-      "ticket_id": "SEC-001",
-      "branch": "agent/SEC-001-api-auth",
-      "started_at": "2025-12-05T12:00:00Z",
-      "completed_at": "2025-12-05T12:39:00Z",
-      "completion_file": "docs/agent-output/completions/SEC-001-2025-12-05T1230.md"
+      "ticket_id": "TKT-015",
+      "branch": "agent/tkt-015",
+      "started_at": "2025-12-06T08:00:00Z",
+      "completed_at": "2025-12-06T08:04:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-015-2025-12-06T0800.md"
     },
     {
-      "ticket_id": "TKT-006",
-      "branch": "agent/TKT-006-middleware-redirect",
-      "started_at": "2025-12-05T16:00:00Z",
-      "completed_at": "2025-12-05T16:15:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-006-2025-12-05T1600.md"
+      "ticket_id": "SEC-001",
+      "branch": "agent/SEC-001-api-auth",
+      "completed_at": "2025-12-05T08:46:05.005Z",
+      "completion_file": "docs/agent-output/completions/SEC-001-2025-12-05T1230.md"
     },
     {
       "ticket_id": "TKT-001",
       "branch": "agent/TKT-001-cobrowse-sanitization",
-      "started_at": "2025-12-05T14:30:00Z",
-      "completed_at": "2025-12-05T18:30:00Z",
+      "completed_at": "2025-12-05T08:46:05.033Z",
       "completion_file": "docs/agent-output/completions/TKT-001-2025-12-05T1430.md"
     },
     {
       "ticket_id": "TKT-003",
       "branch": "agent/TKT-003-cancel-copy",
-      "started_at": "2025-12-05T12:00:00Z",
-      "completed_at": "2025-12-05T19:35:00Z",
+      "completed_at": "2025-12-05T08:46:05.062Z",
       "completion_file": "docs/agent-output/completions/TKT-003-2025-12-05T1935.md"
     },
     {
-      "ticket_id": "TKT-038",
-      "branch": "agent/tkt-038-add-delete-confirmation-for-po",
-      "started_at": "2025-12-05T15:00:00Z",
-      "completed_at": "2025-12-05T15:30:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-038-2025-12-05T1530.md"
+      "ticket_id": "TKT-004D",
+      "branch": "main",
+      "completed_at": "2025-12-05T08:46:05.103Z",
+      "completion_file": "docs/agent-output/completions/TKT-004d-2025-12-06T0630.md"
+    },
+    {
+      "ticket_id": "TKT-006",
+      "branch": "agent/TKT-006-middleware-redirect",
+      "completed_at": "2025-12-05T08:46:05.145Z",
+      "completion_file": "docs/agent-output/completions/TKT-006-2025-12-05T1600.md"
+    },
+    {
+      "ticket_id": "TKT-007",
+      "branch": "main",
+      "completed_at": "2025-12-05T08:46:05.175Z",
+      "completion_file": "docs/agent-output/completions/TKT-007-2025-12-06T0600.md"
+    },
+    {
+      "ticket_id": "TKT-016",
+      "branch": "main",
+      "completed_at": "2025-12-05T08:46:05.204Z",
+      "completion_file": "docs/agent-output/completions/TKT-016-2025-12-06T0600.md"
+    },
+    {
+      "ticket_id": "TKT-017",
+      "branch": "main",
+      "completed_at": "2025-12-05T08:46:05.235Z",
+      "completion_file": "docs/agent-output/completions/TKT-017-2025-12-06T0630.md"
     },
     {
       "ticket_id": "TKT-018",
       "branch": "agent/tkt-018-transcription-auto-retry-with",
-      "started_at": "2025-12-05T21:00:00Z",
-      "completed_at": "2025-12-08T15:45:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-018-2025-12-08T1545.md",
-      "note": "Fixed missing type definitions in process/route.ts (continuation)"
+      "completed_at": "2025-12-05T08:46:08.702Z",
+      "completion_file": "docs/agent-output/completions/TKT-018-2025-12-06T0300.md"
     },
     {
-      "ticket_id": "TKT-018",
-      "branch": "agent/tkt-018-transcription-auto-retry-with",
-      "started_at": "2025-12-13T11:30:00Z",
-      "completed_at": "2025-12-13T11:50:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-018-2025-12-13T1150.md"
+      "ticket_id": "TKT-019",
+      "branch": "main",
+      "completed_at": "2025-12-05T08:46:05.264Z",
+      "completion_file": "docs/agent-output/completions/TKT-019-2025-12-06T0600.md"
+    },
+    {
+      "ticket_id": "TKT-022",
+      "branch": "agent/tkt-022-enforce-seat-limit-in-api",
+      "completed_at": "2025-12-05T08:46:10.367Z",
+      "completion_file": "docs/agent-output/completions/TKT-022-2025-12-05T1430.md"
+    },
+    {
+      "ticket_id": "TKT-062",
+      "branch": "main",
+      "completed_at": "2025-12-05T08:46:05.294Z",
+      "completion_file": "docs/agent-output/completions/TKT-062-2025-12-06T0600.md"
     }
   ],
-  "retry_history": []
+  "retry_history": [],
+  "regression_results": {
+    "TKT-022": {
+      "passed": true,
+      "passedCount": 176,
+      "failedCount": 0,
+      "testedAt": "2025-12-05T08:00:00Z",
+      "note": "All tests passed - new seat limit feature doesn't break existing behavior"
+    },
+    "TKT-006": {
+      "running": false,
+      "passed": false,
+      "passedCount": 4,
+      "failedCount": 7,
+      "output": "eeter/dashboard:test:     \u001b[90m352| \u001b[39m  })\u001b[33m;\u001b[39m\n@ghost-greeter/dashboard:test: \n@ghost-greeter/dashboard:test: \u001b[31m\u001b[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯\u001b[22m\u001b[39m\n@ghost-greeter/dashboard:test: \n@ghost-greeter/dashboard:test: \u001b[2m Test Files \u001b[22m \u001b[1m\u001b[31m1 failed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[1m\u001b[32m7 passed\u001b[39m\u001b[22m\u001b[90m (8)\u001b[39m\n@ghost-greeter/dashboard:test: \u001b[2m      Tests \u001b[22m \u001b[1m\u001b[31m7 failed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[1m\u001b[32m169 passed\u001b[39m\u001b[22m\u001b[90m (176)\u001b[39m\n@ghost-greeter/dashboard:test: \u001b[2m   Start at \u001b[22m 01:46:38\n@ghost-greeter/dashboard:test: \u001b[2m   Duration \u001b[22m 6.36s\u001b[2m (transform 2.85s, setup 0ms, collect 4.79s, tests 1.21s, environment 3ms, prepare 4.93s)\u001b[22m\n@ghost-greeter/dashboard:test: \n@ghost-greeter/dashboard:test:  ELIFECYCLE  Test failed. See above for more details.\n@ghost-greeter/dashboard:test: ERROR: command finished with error: command (/Users/ryanodonnell/projects/Digital_greeter/apps/dashboard) /Users/ryanodonnell/Library/pnpm/.tools/pnpm/8.15.0/bin/pnpm run test exited (1)\n@ghost-greeter/dashboard#test: command (/Users/ryanodonnell/projects/Digital_greeter/apps/dashboard) /Users/ryanodonnell/Library/pnpm/.tools/pnpm/8.15.0/bin/pnpm run test exited (1)\n\n Tasks:    4 successful, 5 total\nCached:    2 cached, 5 total\n  Time:    10.996s \nFailed:    @ghost-greeter/dashboard#test\n\n ERROR  run failed: command  exited (1)\n ELIFECYCLE  Test failed. See above for more details.\nYour branch is up to date with 'origin/main'.\nOn branch main\nYour branch is up to date with 'origin/main'.\n\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n  (use \"git restore <file>...\" to discard changes in working directory)\n\tmodified:   docs/data/decisions.json\n\tmodified:   docs/data/dev-status.json\n\tmodified:   docs/pm-dashboard-ui/index.html\n\tmodified:   docs/pm-dashboard-ui/server.js\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")\nDropped refs/stash@{0} (ed64aebf3c21a15267cc9cbed08716d5cc013b4f)\n",
+      "testedAt": "2025-12-05T08:46:45.747Z"
+    }
+  }
 }

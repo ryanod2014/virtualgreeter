@@ -1,0 +1,7 @@
+{
+  "agent_type": "qa-review",
+  "ticket_id": "TKT-030",
+  "started_at": "2025-12-13T13:00:00Z",
+  "branch": "agent/tkt-030",
+  "status": "in_progress"
+}

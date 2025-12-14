@@ -8,6 +8,7 @@
 import { Router } from 'express';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { existsSync, readdirSync, writeFileSync } from 'fs';
 import config from '../../config.mjs';
 import { readJSON, scanFeaturesDir, scanAgentOutputsLocal, buildDevStatus } from '../../utils/fileScanner.mjs';
 
@@ -78,6 +79,308 @@ function cleanupOrphanedSessions() {
   }
 }
 
+/**
+ * Check worktrees for QA reports and auto-commit/progress them
+ * 
+ * This failsafe ensures tickets progress even if the QA agent
+ * forgot to commit or signal completion.
+ */
+function checkWorktreeQAReports() {
+  if (!db?.tickets) return { progressed: 0 };
+  
+  try {
+    // Get tickets stuck in qa_pending
+    const qaPendingTickets = db.tickets.list?.()?.filter(t => t.status === 'qa_pending') || [];
+    let progressed = 0;
+    
+    const WORKTREE_BASE = join(config.paths.projectRoot, '..', 'agent-worktrees');
+    
+    for (const ticket of qaPendingTickets) {
+      const ticketId = ticket.id;
+      const worktreeDir = join(WORKTREE_BASE, ticketId);
+      const qaResultsDir = join(worktreeDir, 'docs', 'agent-output', 'qa-results');
+      
+      try {
+        // Check if worktree exists
+        if (!existsSync(worktreeDir)) continue;
+        
+        // Look for QA-PASSED report
+        if (existsSync(qaResultsDir)) {
+          const files = readdirSync(qaResultsDir);
+          const passedReport = files.find(f => 
+            f.toUpperCase().includes(ticketId.toUpperCase()) && 
+            f.toUpperCase().includes('PASSED') &&
+            f.endsWith('.md')
+          );
+          
+          if (passedReport) {
+            console.log(`📋 Found uncommitted QA report for ${ticketId}: ${passedReport}`);
+            
+            // Auto-commit the report
+            try {
+              const reportPath = join(qaResultsDir, passedReport);
+              
+              // Get the branch name
+              const branch = execSync(`cd "${worktreeDir}" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""`, { encoding: 'utf8' }).trim();
+              
+              // Stage and commit
+              execSync(`cd "${worktreeDir}" && git add "${reportPath}" 2>/dev/null`, { encoding: 'utf8' });
+              execSync(`cd "${worktreeDir}" && git commit -m "qa(${ticketId.toLowerCase()}): QA passed (auto-committed by pipeline)" --allow-empty 2>/dev/null || true`, { encoding: 'utf8' });
+              
+              // Push to remote
+              if (branch && branch !== 'HEAD') {
+                execSync(`cd "${worktreeDir}" && git push origin HEAD:${branch} 2>/dev/null || true`, { encoding: 'utf8' });
+              }
+              
+              console.log(`✅ Auto-committed QA report for ${ticketId}`);
+            } catch (gitErr) {
+              console.log(`⚠️ Could not auto-commit for ${ticketId}: ${gitErr.message}`);
+            }
+            
+            // Update ticket status to qa_passed
+            try {
+              db.tickets.updateStatus(ticketId, 'qa_passed');
+              progressed++;
+              console.log(`✅ Progressed ${ticketId} to qa_passed`);
+            } catch (dbErr) {
+              console.log(`⚠️ Could not update ${ticketId} status: ${dbErr.message}`);
+            }
+          }
+          
+          // Also check for FAILED reports
+          const failedReport = files.find(f => 
+            f.toUpperCase().includes(ticketId.toUpperCase()) && 
+            f.toUpperCase().includes('FAILED') &&
+            (f.endsWith('.md') || f.endsWith('.json'))
+          );
+          
+          if (failedReport && !passedReport) {
+            console.log(`❌ Found QA FAILED report for ${ticketId}: ${failedReport}`);
+            try {
+              db.tickets.updateStatus(ticketId, 'qa_failed');
+              progressed++;
+              console.log(`⚠️ Marked ${ticketId} as qa_failed`);
+            } catch (dbErr) {
+              console.log(`⚠️ Could not update ${ticketId} status: ${dbErr.message}`);
+            }
+          }
+        }
+      } catch (ticketErr) {
+        // Skip this ticket on error
+      }
+    }
+    
+    return { progressed };
+  } catch (e) {
+    return { progressed: 0, error: e.message };
+  }
+}
+
+/**
+ * Check worktrees for Test/Doc agent completion reports and auto-commit them
+ * 
+ * For tickets in docs_tests_pending, checks if:
+ * - Test agent wrote: docs/agent-output/test-lock/TKT-XXX-*.md
+ * - Doc agent wrote: docs/agent-output/doc-tracker/TKT-XXX-*.md
+ * 
+ * Auto-commits the reports and marks sessions as complete.
+ */
+function checkWorktreeDocsTestsReports() {
+  if (!db?.tickets || !db?.sessions) return { completed: 0 };
+  
+  try {
+    // Get tickets in docs_tests_pending
+    const pendingTickets = db.tickets.list?.()?.filter(t => t.status === 'docs_tests_pending') || [];
+    let completed = 0;
+    
+    const WORKTREE_BASE = join(config.paths.projectRoot, '..', 'agent-worktrees');
+    
+    for (const ticket of pendingTickets) {
+      const ticketId = ticket.id;
+      const worktreeDir = join(WORKTREE_BASE, ticketId);
+      
+      if (!existsSync(worktreeDir)) continue;
+      
+      // Check for test-lock completion report
+      const testLockDir = join(worktreeDir, 'docs', 'agent-output', 'test-lock');
+      let testReportFound = false;
+      
+      if (existsSync(testLockDir)) {
+        try {
+          const files = readdirSync(testLockDir);
+          const testReport = files.find(f => 
+            f.toUpperCase().includes(ticketId.toUpperCase()) && 
+            f.endsWith('.md')
+          );
+          
+          if (testReport) {
+            testReportFound = true;
+            console.log(`🧪 Found test-lock report for ${ticketId}: ${testReport}`);
+            
+            // Check if we have an incomplete test_lock session
+            const sessions = db.sessions.getByTicket?.(ticketId) || [];
+            const testSession = sessions.find(s => 
+              s.agent_type === 'test_lock' && s.status !== 'completed'
+            );
+            
+            if (testSession) {
+              // Auto-commit
+              try {
+                execSync(`cd "${worktreeDir}" && git add docs/agent-output/test-lock/ 2>/dev/null || true`, { encoding: 'utf8' });
+                execSync(`cd "${worktreeDir}" && git add "*.test.ts" "*.test.tsx" 2>/dev/null || true`, { encoding: 'utf8' });
+                execSync(`cd "${worktreeDir}" && git commit -m "test(${ticketId.toLowerCase()}): Add tests (auto-committed by pipeline)" 2>/dev/null || true`, { encoding: 'utf8' });
+                
+                const branch = execSync(`cd "${worktreeDir}" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""`, { encoding: 'utf8' }).trim();
+                if (branch && branch !== 'HEAD') {
+                  execSync(`cd "${worktreeDir}" && git push origin HEAD:${branch} 2>/dev/null || true`, { encoding: 'utf8' });
+                }
+                console.log(`✅ Auto-committed test files for ${ticketId}`);
+              } catch (e) {
+                // Ignore git errors
+              }
+              
+              // Mark session complete
+              try {
+                db.sessions.complete(testSession.id, `docs/agent-output/test-lock/${testReport}`);
+                completed++;
+                console.log(`✅ Marked test_lock session complete for ${ticketId}`);
+              } catch (e) {
+                // Ignore
+              }
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+      
+      // Check for doc-tracker completion report
+      const docTrackerDir = join(worktreeDir, 'docs', 'agent-output', 'doc-tracker');
+      let docReportFound = false;
+      
+      if (existsSync(docTrackerDir)) {
+        try {
+          const files = readdirSync(docTrackerDir);
+          const docReport = files.find(f => 
+            f.toUpperCase().includes(ticketId.toUpperCase()) && 
+            f.endsWith('.md')
+          );
+          
+          if (docReport) {
+            docReportFound = true;
+            console.log(`📝 Found doc-tracker report for ${ticketId}: ${docReport}`);
+            
+            // Check if we have an incomplete doc session
+            const sessions = db.sessions.getByTicket?.(ticketId) || [];
+            const docSession = sessions.find(s => 
+              s.agent_type === 'doc' && s.status !== 'completed'
+            );
+            
+            if (docSession) {
+              // Auto-commit
+              try {
+                execSync(`cd "${worktreeDir}" && git add docs/ 2>/dev/null || true`, { encoding: 'utf8' });
+                execSync(`cd "${worktreeDir}" && git commit -m "docs(${ticketId.toLowerCase()}): Update docs (auto-committed by pipeline)" 2>/dev/null || true`, { encoding: 'utf8' });
+                
+                const branch = execSync(`cd "${worktreeDir}" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""`, { encoding: 'utf8' }).trim();
+                if (branch && branch !== 'HEAD') {
+                  execSync(`cd "${worktreeDir}" && git push origin HEAD:${branch} 2>/dev/null || true`, { encoding: 'utf8' });
+                }
+                console.log(`✅ Auto-committed doc files for ${ticketId}`);
+              } catch (e) {
+                // Ignore git errors
+              }
+              
+              // Mark session complete
+              try {
+                db.sessions.complete(docSession.id, `docs/agent-output/doc-tracker/${docReport}`);
+                completed++;
+                console.log(`✅ Marked doc session complete for ${ticketId}`);
+              } catch (e) {
+                // Ignore
+              }
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+    }
+    
+    return { completed };
+  } catch (e) {
+    return { completed: 0, error: e.message };
+  }
+}
+
+/**
+ * Auto-route blocked/failed tickets to Ticket Agent for continuation
+ * 
+ * When QA fails, creates a continuation ticket so dev can fix the issues.
+ */
+function routeBlockedTicketsToTicketAgent() {
+  if (!db?.tickets) return { routed: 0 };
+  
+  try {
+    // Get tickets stuck in blocked or qa_failed status
+    const blockedTickets = db.tickets.list?.()?.filter(t => 
+      t.status === 'blocked' || t.status === 'qa_failed'
+    ) || [];
+    
+    let routed = 0;
+    const PROJECT_ROOT = config.paths.projectRoot;
+    
+    for (const ticket of blockedTickets) {
+      const ticketId = ticket.id;
+      
+      // Check if we've already tried to route this ticket (avoid infinite loops)
+      // Look for existing continuation ticket or blocker handling
+      const continuationMarker = join(PROJECT_ROOT, 'docs', 'agent-output', 'blocked', `ROUTED-${ticketId}.json`);
+      
+      if (existsSync(continuationMarker)) {
+        continue; // Already routed
+      }
+      
+      console.log(`🔄 Routing blocked ticket ${ticketId} to Ticket Agent...`);
+      
+      try {
+        // Try to create continuation via ticket-agent-cli
+        execSync(
+          `node scripts/ticket-agent-cli.js continue --ticket ${ticketId}`,
+          { cwd: PROJECT_ROOT, encoding: 'utf8', timeout: 30000 }
+        );
+        
+        // Mark as routed
+        writeFileSync(continuationMarker, JSON.stringify({
+          ticket_id: ticketId,
+          routed_at: new Date().toISOString(),
+          original_status: ticket.status
+        }));
+        
+        routed++;
+        console.log(`✅ Created continuation for ${ticketId}`);
+      } catch (e) {
+        console.log(`⚠️ Could not route ${ticketId}: ${e.message}`);
+        
+        // Still mark as attempted to avoid retry spam
+        try {
+          writeFileSync(continuationMarker, JSON.stringify({
+            ticket_id: ticketId,
+            routed_at: new Date().toISOString(),
+            error: e.message
+          }));
+        } catch (writeErr) {
+          // Ignore
+        }
+      }
+    }
+    
+    return { routed };
+  } catch (e) {
+    return { routed: 0, error: e.message };
+  }
+}
+
 // GET /api/v2/data - Comprehensive data endpoint (matches legacy /api/data)
 router.get('/', async (req, res) => {
   try {
@@ -88,6 +391,24 @@ router.get('/', async (req, res) => {
     const cleanupResult = cleanupOrphanedSessions();
     if (cleanupResult.cleaned > 0) {
       console.log(`🧹 Cleaned up ${cleanupResult.cleaned} orphaned session(s)`);
+    }
+    
+    // Auto-detect and progress QA reports in worktrees (failsafe)
+    const qaResult = checkWorktreeQAReports();
+    if (qaResult.progressed > 0) {
+      console.log(`📋 Auto-progressed ${qaResult.progressed} ticket(s) from worktree QA reports`);
+    }
+    
+    // Auto-detect and complete Docs/Tests agents from worktree reports (failsafe)
+    const docsTestsResult = checkWorktreeDocsTestsReports();
+    if (docsTestsResult.completed > 0) {
+      console.log(`📋 Auto-completed ${docsTestsResult.completed} docs/test session(s) from worktree reports`);
+    }
+    
+    // Auto-route blocked/failed tickets to Ticket Agent (failsafe)
+    const routeResult = routeBlockedTicketsToTicketAgent();
+    if (routeResult.routed > 0) {
+      console.log(`🔄 Auto-routed ${routeResult.routed} blocked ticket(s) to Ticket Agent`);
     }
     
     // Scan features directory

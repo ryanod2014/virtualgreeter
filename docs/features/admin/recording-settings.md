@@ -43,13 +43,8 @@ Recording Settings provides organization admins control over call recording beha
 6. Admin optionally enables AI summary ($0.02/min)
 7. Admin customizes AI summary format (optional)
 8. Admin clicks "Save Changes"
-9. If retention is reduced and recordings will be deleted:
-   - System counts affected recordings
-   - Retention warning modal appears showing impact
-   - Admin must type "DELETE" to confirm
-   - System triggers retroactive deletion
-10. Settings stored in `organizations.recording_settings`
-11. All subsequent calls are recorded automatically
+9. Settings stored in `organizations.recording_settings`
+10. All subsequent calls are recorded automatically
 
 ### State Machine
 
@@ -96,10 +91,8 @@ Recording Settings provides organization admins control over call recording beha
 | Event/Trigger | Where It Fires | What It Does | Side Effects |
 |--------------|---------------|--------------|--------------|
 | Save Settings | Recording Settings UI | Updates `organizations.recording_settings` | Cache cleared server-side |
-| Retention Reduction | Save with lower retention | Counts affected recordings via `countAffectedRecordings` | Shows retention warning modal |
-| Confirm Deletion | Type "DELETE" in modal | Calls `triggerRetentionDeletion` | Retroactively deletes old recordings |
 | Call Ends | Agent dashboard | `stopRecording()` called | Recording uploaded to storage |
-| Recording Upload | `use-call-recording.ts` | Uploads WebM to Supabase Storage | Updates `call_logs.recording_url` |
+| Recording Upload | `/api/recordings/upload` | Uploads WebM with random UUID to private bucket | Updates `call_logs.recording_url` with UUID only |
 | Transcription Trigger | Recording upload completion | POST to `/api/transcription/process` | Deepgram API called |
 | Transcription Complete | API route | Stores transcription in call_logs | Usage record created |
 | AI Summary Trigger | After transcription | OpenAI API called | Summary stored in call_logs |
@@ -109,9 +102,6 @@ Recording Settings provides organization admins control over call recording beha
 | Function/Component | File | Purpose |
 |-------------------|------|---------|
 | `RecordingSettingsClient` | `apps/dashboard/src/app/(app)/admin/settings/recordings/recording-settings-client.tsx` | Settings UI component |
-| `RetentionWarningModal` | `apps/dashboard/src/app/(app)/admin/settings/recordings/RetentionWarningModal.tsx` | Modal for confirming retroactive deletion |
-| `countAffectedRecordings` | `apps/dashboard/src/app/(app)/admin/settings/recordings/actions.ts` | Server action to count recordings that will be deleted |
-| `triggerRetentionDeletion` | `apps/dashboard/src/app/(app)/admin/settings/recordings/actions.ts` | Server action to retroactively delete old recordings |
 | `useCallRecording` | `apps/dashboard/src/features/webrtc/use-call-recording.ts` | Recording hook for agent dashboard |
 | `startRecording` | `use-call-recording.ts` | Starts MediaRecorder with video composite |
 | `stopRecording` | `use-call-recording.ts` | Stops recording, uploads to storage |
@@ -154,9 +144,9 @@ CALL RECORDING FLOW
     └─► stopRecording()
         ├─► Stop MediaRecorder
         ├─► Create Blob from chunks
-        ├─► Upload to Supabase Storage
-        │       └─► Path: {orgId}/{callLogId}_{timestamp}.webm
-        ├─► Update call_logs.recording_url
+        ├─► POST /api/recordings/upload with blob
+        │       └─► Server generates UUID, stores at: {orgId}/{uuid}.webm
+        ├─► Update call_logs.recording_url with UUID only (not full path)
         └─► Trigger transcription (fire-and-forget POST)
 
 TRANSCRIPTION FLOW
@@ -222,14 +212,6 @@ TRANSCRIPTION FLOW
 | 18 | Custom AI format with empty text | Save blank format | Uses default format | ✅ | Null coalescing |
 | 19 | Non-admin accesses page | Direct URL | Redirected to /dashboard | ✅ | Auth check in page.tsx |
 | 20 | Agent refreshes during recording | Page refresh | Recording lost | ⚠️ | No recovery mechanism |
-| 21 | Reduce retention from Forever to 30 days | Change retention and save | Modal shows count of affected recordings | ✅ | Must type "DELETE" to confirm |
-| 22 | Reduce retention from 365 to 7 days | Change retention and save | Modal shows recordings older than 7 days | ✅ | Confirmation required |
-| 23 | Increase retention period | Change to longer retention | Normal save, no modal | ✅ | No retroactive effect |
-| 24 | Reduce retention with no old recordings | Change retention and save | Normal save, no modal | ✅ | `countAffectedRecordings` returns 0 |
-| 25 | Cancel retention warning modal | Click X or backdrop | Settings revert, no deletion | ✅ | Modal closes without saving |
-| 26 | Type wrong confirmation text | Type anything other than "DELETE" | Confirm button stays disabled | ✅ | Case-sensitive check |
-| 27 | Retention deletion fails | Server error during deletion | Error shown, settings not saved | ✅ | Transaction rolled back |
-| 28 | Count affected recordings fails | Server error during count | Error shown, modal doesn't open | ✅ | Save aborted |
 
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
@@ -241,8 +223,6 @@ TRANSCRIPTION FLOW
 | AI_SUMMARY_FAILED | OpenAI API error | "Summary Failed" badge | Transcription still available |
 | DEEPGRAM_NOT_CONFIGURED | Missing API key | Processing skipped | Configure env variable |
 | OPENAI_NOT_CONFIGURED | Missing API key | AI summary skipped | Configure env variable |
-| COUNT_AFFECTED_FAILED | Database error during count | Error message in UI | Retry save operation |
-| RETENTION_DELETION_FAILED | Delete operation fails | "Failed to trigger deletion" in modal | Retry or contact support |
 
 ---
 
@@ -262,9 +242,6 @@ TRANSCRIPTION FLOW
 | 9 | View recording in Call Logs | Play button visible | ✅ | Video modal opens |
 | 10 | View transcription | Click "Transcribed" badge | ✅ | Expands inline |
 | 11 | View AI summary | Click "AI Summary" badge | ✅ | Expands inline |
-| 12 | Reduce retention period | Select shorter retention | Warning modal appears | ✅ | Shows affected recordings count |
-| 13 | Confirm deletion in modal | Type "DELETE" | Confirm button enables | ✅ | Red destructive button |
-| 14 | Cancel retention modal | Click X or backdrop | Modal closes | ✅ | Settings unchanged |
 
 ### Accessibility
 - Keyboard navigation: ✅ All toggles and buttons focusable
@@ -289,8 +266,9 @@ TRANSCRIPTION FLOW
 | Concern | Mitigation |
 |---------|------------|
 | Unauthorized access | Admin-only route guard in page.tsx |
-| Cross-org recording access | Storage policies check organization_id |
-| Recording URL exposure | Private bucket, auth required |
+| Cross-org recording access | API validates org ownership before generating signed URLs |
+| Recording URL exposure | Private bucket + signed URLs with 1-hour expiry |
+| URL predictability | Random UUIDs prevent guessing recording paths |
 | API key exposure | Server-side only (env variables) |
 | Transcription data privacy | Org-isolated, RLS on call_logs |
 
@@ -329,17 +307,15 @@ TRANSCRIPTION FLOW
 
 | Purpose | File | Lines | Notes |
 |---------|------|-------|-------|
-| Recording Settings UI | `apps/dashboard/src/app/(app)/admin/settings/recordings/recording-settings-client.tsx` | 1-500+ | Full settings form with retention warning |
+| Recording Settings UI | `apps/dashboard/src/app/(app)/admin/settings/recordings/recording-settings-client.tsx` | 1-428 | Full settings form |
 | Settings page loader | `apps/dashboard/src/app/(app)/admin/settings/recordings/page.tsx` | 1-36 | Server component, auth check |
-| Retention Warning Modal | `apps/dashboard/src/app/(app)/admin/settings/recordings/RetentionWarningModal.tsx` | 1-200+ | Confirmation modal for retroactive deletion |
-| Server Actions | `apps/dashboard/src/app/(app)/admin/settings/recordings/actions.ts` | 1-108 | Count and delete affected recordings |
 | Recording hook | `apps/dashboard/src/features/webrtc/use-call-recording.ts` | 1-321 | Start/stop recording, upload |
 | Transcription API | `apps/dashboard/src/app/api/transcription/process/route.ts` | 1-340 | POST endpoint |
 | Transcription service | `apps/server/src/lib/transcription-service.ts` | 1-366 | Deepgram + OpenAI integration |
 | Call settings cache | `apps/server/src/lib/call-settings.ts` | 1-98 | Server-side settings fetch |
 | RecordingSettings type | `packages/domain/src/database.types.ts` | 49-60 | TypeScript interface |
 | Recording bucket migration | `supabase/migrations/20251127200000_recording_settings.sql` | 1-109 | Initial recording setup |
-| Storage bucket setup | `supabase/migrations/20251127600000_recordings_bucket.sql` | 1-97 | Bucket + policies |
+| Storage bucket setup | `supabase/migrations/20251127600000_recordings_bucket.sql` | 1-97 | Private bucket + RLS policies |
 | Transcription columns | `supabase/migrations/20251130000000_add_transcription_summary.sql` | 1-92 | call_logs schema |
 | Retention cron setup | `supabase/migrations/20251130110000_setup_recording_cleanup_cron.sql` | 1-36 | Daily cleanup job |
 | Call logs display | `apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx` | 993-1317 | Recording/transcription UI |

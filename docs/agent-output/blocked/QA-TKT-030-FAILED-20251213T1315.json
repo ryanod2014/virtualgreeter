@@ -1,0 +1,33 @@
+{
+  "ticket_id": "TKT-030",
+  "ticket_title": "No Grace Period Implementation",
+  "branch": "agent/tkt-030",
+  "blocked_at": "2025-12-13T13:15:00Z",
+  "blocker_type": "qa_failure",
+  "summary": "Tests failing - stripe webhook handler test expects different behavior than implemented",
+  "failures": [
+    {
+      "category": "test_failure",
+      "criterion": "Unit tests must pass",
+      "expected": "All tests passing including stripe-webhook-handler.test.ts",
+      "actual": "stripe-webhook-handler test fails - expects only subscription_status update but code also updates plan and subscription_ends_at",
+      "evidence": "Test expects toHaveBeenCalledWith({ subscription_status: 'cancelled' }) but actual call includes { subscription_status: 'cancelled', plan: 'free', subscription_ends_at: null }"
+    },
+    {
+      "category": "implementation_mismatch",
+      "criterion": "Implementation matches test expectations",
+      "expected": "Webhook handler should only update subscription_status",
+      "actual": "Webhook handler updates subscription_status, plan to 'free', and clears subscription_ends_at",
+      "evidence": "stripe-webhook-handler.ts lines 216-220 show all three fields being updated"
+    },
+    {
+      "category": "test_infrastructure",
+      "criterion": "Geolocation tests must pass",
+      "expected": "Geolocation tests using fallback behavior should work",
+      "actual": "Geolocation tests failing - expects non-null results but gets null",
+      "evidence": "geolocation.test.ts failing at lines 133 and 192"
+    }
+  ],
+  "recommendation": "Fix the failing tests to match the actual implementation. The grace period functionality appears to be correctly implemented but the tests need to be updated to reflect the actual behavior.",
+  "dispatch_action": "create_continuation_ticket"
+}

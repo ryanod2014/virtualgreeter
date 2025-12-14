@@ -107,12 +107,29 @@ function generateTicketId() {
 // Prompt File Generation
 // =============================================================================
 
+/**
+ * Safely parse a field that might be a JSON string or already an array
+ */
+function safeParseArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch (e) {
+      return [];
+    }
+  }
+  return [];
+}
+
 function generateContinuationPrompt(ticket, blocker, previousAttempts) {
   const iteration = (ticket.iteration || 1);
   const branch = ticket.branch || `agent/tkt-${ticket.id.toLowerCase()}`;
   
-  const diffSummary = ticket.branch ? getGitDiff(ticket.branch, 
-    JSON.parse(ticket.files_to_modify || '[]')) : 'No previous changes';
+  const filesToModify = Array.isArray(ticket.files_to_modify) 
+    ? ticket.files_to_modify 
+    : safeParseArray(ticket.files_to_modify);
+  const diffSummary = ticket.branch ? getGitDiff(ticket.branch, filesToModify) : 'No previous changes';
   const commitLog = ticket.branch ? getGitLog(ticket.branch) : 'No commits yet';
   
   const attemptHistory = previousAttempts.map((a, i) => 
@@ -193,19 +210,19 @@ ${blocker.recommendation || 'Fix the issues identified above'}
 
 ## Original Acceptance Criteria
 
-${(JSON.parse(ticket.acceptance_criteria || '[]')).map(ac => `- [ ] ${ac}`).join('\n') || '- See original ticket'}
+${(safeParseArray(ticket.acceptance_criteria)).map(ac => `- [ ] ${ac}`).join('\n') || '- See original ticket'}
 
 ---
 
 ## Files in Scope
 
-${(JSON.parse(ticket.files_to_modify || '[]')).map(f => `- \`${f}\``).join('\n') || '- See original ticket'}
+${(safeParseArray(ticket.files_to_modify)).map(f => `- \`${f}\``).join('\n') || '- See original ticket'}
 
 ---
 
 ## Risks to Avoid
 
-${(JSON.parse(ticket.risks || '[]')).map(r => `- ${r}`).join('\n') || '- Follow existing patterns'}
+${(safeParseArray(ticket.risks)).map(r => `- ${r}`).join('\n') || '- Follow existing patterns'}
 
 ---
 
@@ -245,47 +262,47 @@ ${ticket.issue || finding?.suggested_fix || 'Implement the required changes'}
 ## Context
 
 **Feature Docs:**
-${(JSON.parse(ticket.feature_docs || '[]')).map(d => `- ${d}`).join('\n') || '- Check docs/features/ for relevant documentation'}
+${(safeParseArray(ticket.feature_docs)).map(d => `- ${d}`).join('\n') || '- Check docs/features/ for relevant documentation'}
 
 **Similar Code:**
-${(JSON.parse(ticket.similar_code || '[]')).map(c => `- ${c}`).join('\n') || '- Search codebase for similar patterns'}
+${(safeParseArray(ticket.similar_code)).map(c => `- ${c}`).join('\n') || '- Search codebase for similar patterns'}
 
 ---
 
 ## Scope
 
 ### Files to Modify
-${(JSON.parse(ticket.files_to_modify || '[]')).map(f => `- \`${f}\``).join('\n') || '- Determine based on task'}
+${(safeParseArray(ticket.files_to_modify)).map(f => `- \`${f}\``).join('\n') || '- Determine based on task'}
 
 ### Files to Read (Context Only)
-${(JSON.parse(ticket.files_to_read || '[]')).map(f => `- \`${f}\``).join('\n') || '- Related files for context'}
+${(safeParseArray(ticket.files_to_read)).map(f => `- \`${f}\``).join('\n') || '- Related files for context'}
 
 ### Out of Scope
-${(JSON.parse(ticket.out_of_scope || '[]')).map(o => `- ${o}`).join('\n') || '- Do NOT modify unrelated files\n- Do NOT add features beyond scope'}
+${(safeParseArray(ticket.out_of_scope)).map(o => `- ${o}`).join('\n') || '- Do NOT modify unrelated files\n- Do NOT add features beyond scope'}
 
 ---
 
 ## Fix Required
 
-${(JSON.parse(ticket.fix_required || '[]')).map((f, i) => `${i + 1}. ${f}`).join('\n') || '1. Implement the required changes\n2. Add appropriate tests\n3. Update documentation if needed'}
+${(safeParseArray(ticket.fix_required)).map((f, i) => `${i + 1}. ${f}`).join('\n') || '1. Implement the required changes\n2. Add appropriate tests\n3. Update documentation if needed'}
 
 ---
 
 ## Acceptance Criteria
 
-${(JSON.parse(ticket.acceptance_criteria || '[]')).map(ac => `- [ ] ${ac}`).join('\n') || '- [ ] Feature works as described\n- [ ] No regressions introduced'}
+${(safeParseArray(ticket.acceptance_criteria)).map(ac => `- [ ] ${ac}`).join('\n') || '- [ ] Feature works as described\n- [ ] No regressions introduced'}
 
 ---
 
 ## Risks to Avoid
 
-${(JSON.parse(ticket.risks || '[]')).map(r => `- ${r}`).join('\n') || '- Follow existing patterns\n- Test edge cases'}
+${(safeParseArray(ticket.risks)).map(r => `- ${r}`).join('\n') || '- Follow existing patterns\n- Test edge cases'}
 
 ---
 
 ## Dev Checks
 
-${(JSON.parse(ticket.dev_checks || '[]')).map(c => `- [ ] ${c}`).join('\n') || '- [ ] pnpm typecheck passes\n- [ ] pnpm build passes\n- [ ] pnpm test passes'}
+${(safeParseArray(ticket.dev_checks)).map(c => `- [ ] ${c}`).join('\n') || '- [ ] pnpm typecheck passes\n- [ ] pnpm build passes\n- [ ] pnpm test passes'}
 
 ---
 
@@ -382,8 +399,9 @@ const commands = {
     }
     
     // Get original ticket
-    const originalTicket = await request('GET', `/api/v2/tickets/${originalTicketId}`);
-    if (!originalTicket) throw new Error(`Ticket ${originalTicketId} not found`);
+    const ticketResponse = await request('GET', `/api/v2/tickets/${originalTicketId}`);
+    const originalTicket = ticketResponse?.ticket || ticketResponse;
+    if (!originalTicket || !originalTicket.id) throw new Error(`Ticket ${originalTicketId} not found`);
     
     // Determine iteration
     const currentIteration = originalTicket.iteration || 1;
@@ -399,7 +417,7 @@ const commands = {
     };
     
     // Create continuation ticket in DB
-    const continuation = await request('POST', '/api/v2/tickets', {
+    const continuationData = {
       id: newTicketId,
       title: `${originalTicket.title} (Retry ${newIteration})`,
       priority: originalTicket.priority,
@@ -421,7 +439,13 @@ const commands = {
       parent_ticket_id: originalTicketId,
       iteration: newIteration,
       branch: originalTicket.branch,
-    });
+    };
+    
+    const continuationResponse = await request('POST', '/api/v2/tickets', continuationData);
+    const continuation = continuationResponse?.ticket || continuationResponse || continuationData;
+    
+    // Ensure continuation has id for prompt generation
+    if (!continuation.id) continuation.id = newTicketId;
     
     // Generate prompt file
     const promptContent = generateContinuationPrompt(continuation, blocker, []);

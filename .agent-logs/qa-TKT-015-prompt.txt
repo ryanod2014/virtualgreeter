@@ -1,96 +1,136 @@
-You are a QA Review Agent testing ticket TKT-015.
+# QA Review Agent: TKT-015
 
-## Ticket: Secure Recording URLs with Signed Access
-## Branch: agent/tkt-015
-## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-015
+> **FIRST:** Read the full SOP: `docs/workflow/QA_REVIEW_AGENT_SOP.md`
+>
+> The SOP contains the 3-step process, forbidden shortcuts, and quality checklists.
 
-## Acceptance Criteria:
-- New recordings go to private bucket
-- Recording URLs are signed with 1-hour expiration
-- URLs contain randomized UUIDs (not predictable org/call pattern)
-- Playback works with signed URLs
-- URL refreshes automatically if user watches longer than 1 hour
+---
 
-## CRITICAL INSTRUCTIONS:
+## Session Context
 
-1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-015
-   - All your testing happens here
-   - This does NOT affect the main repo
+| Key | Value |
+|-----|-------|
+| **Ticket** | TKT-015 |
+| **Branch** | agent/tkt-015 |
+| **Type** | ui (HAS_UI: true, HAS_API: false) |
+| **Session ID** | b0bbd01e-7c5f-47af-97bb-f43eadccb9fd |
+| **Worktree** | /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/TKT-015 |
+| **Dashboard Port** | 3115 (use this for ALL testing!) |
+| **Tunnel URL** |  |
 
-2. **Run these tests IN THE WORKTREE:**
-   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-015
-   pnpm install
-   pnpm typecheck
-   pnpm build  
-   pnpm test
+---
 
-3. **Verify each acceptance criterion**
+## Type-Specific Workflow
 
-4. **If PASS - Write report to MAIN REPO:**
-   - File: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-015-PASSED-20251206T220115.md
-   - Include the selective merge command (see below)
 
-5. **If FAIL - Create BOTH files in MAIN REPO:**
-   - Blocker JSON: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-015-FAILED-20251206T220115.json
-   - Report MD: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-015-FAILED-20251206T220115.md
+**UI TICKET** - Browser testing required
 
-6. **DO NOT modify any files in the main repo except your QA outputs**
+Read: \`docs/workflow/UI_TICKET_QA_WORKFLOW.md\`
+- Test with Playwright browser automation
+- Test EACH role separately
+- Take screenshots as evidence
 
-7. **If tests PASS, include this merge command in your report:**
-   ```bash
-   cd /Users/ryanodonnell/projects/Digital_greeter
-   git fetch origin main
-   git checkout main
-   git pull origin main
-   # Cherry-pick ONLY the ticket's files:
-   git checkout origin/agent/tkt-015 -- apps/server/src/features/recordings/uploadRecording.ts apps/server/src/features/recordings/getRecordingUrl.ts apps/dashboard/src/features/recordings/RecordingPlayer.tsx
-   git add apps/server/src/features/recordings/uploadRecording.ts apps/server/src/features/recordings/getRecordingUrl.ts apps/dashboard/src/features/recordings/RecordingPlayer.tsx
-   git commit -m 'feat: TKT-015 - Secure Recording URLs with Signed Access'
-   git push origin main
-   ```
+---
 
-## If FAILED - Blocker JSON Template:
+## Follow 3-Step Process from SOP
 
-```json
-{
-  "ticket_id": "TKT-015",
-  "ticket_title": "Secure Recording URLs with Signed Access",
-  "branch": "agent/tkt-015",
-  "blocked_at": "[ISO timestamp]",
-  "blocker_type": "qa_failure",
-  "summary": "[One-line summary of failure]",
-  "failures": [
-    {
-      "category": "build|acceptance|regression|browser",
-      "check": "[Which check failed]",
-      "error": "[Error message]"
-    }
-  ],
-  "recommendation": "[What needs to be fixed]",
-  "dispatch_action": "create_continuation_ticket"
-}
+### STEP 1: BRAINSTORM
+
+Before any testing, think through:
+- What are ALL the ways this could break?
+- What edge cases should I test?
+- What error states should I verify?
+
+### STEP 2: PLAN
+
+Write a test plan BEFORE executing:
+- List ALL tests you will run
+- For UI: List EACH role you will test
+- For API: List EACH endpoint you will hit
+
+### STEP 3: EXECUTE
+
+Run your plan. For EACH test:
+- Execute the test
+- Capture evidence (curl response / screenshot)
+- Document pass/fail
+
+---
+
+## Start Dashboard on YOUR Port
+
+```bash
+cd apps/dashboard
+PORT=3115 pnpm dev &
+sleep 10
+curl -s http://localhost:3115 | head -1
 ```
 
-## Report Template:
+---
 
-# QA Review: TKT-015
+## On Completion
 
-**Status:** ✅ PASSED / ❌ FAILED
-**Ticket:** TKT-015 - Secure Recording URLs with Signed Access
-**Branch:** agent/tkt-015
-**Tested:** 2025-12-06
+**IF PASS:**
 
-## Build Verification
-| Check | Status |
-|-------|--------|
-| pnpm install | |
-| pnpm typecheck | |
-| pnpm build | |
-| pnpm test | |
+1. Write QA report: `docs/agent-output/qa-results/QA-TKT-015-PASSED-$(date +%Y%m%dT%H%M).md`
 
-## Acceptance Criteria
-(verify each criterion)
+2. Commit and push your report:
+   ```bash
+   git add docs/agent-output/qa-results/
+   git commit -m "qa(TKT-015): QA passed"
+   git push origin HEAD:agent/tkt-015
+   ```
+   
+   *(If you forget this step, the pipeline will auto-detect and commit it for you)*
 
-## Merge Command
-(if passed, include the selective merge command above)
+3. Update ticket status:
+   ```bash
+   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-015 \
+     -H 'Content-Type: application/json' \
+     -d '{"status": "qa_passed"}'
+   ```
 
+4. Mark session complete:
+   ```bash
+   curl -X POST http://localhost:3456/api/v2/agents/b0bbd01e-7c5f-47af-97bb-f43eadccb9fd/complete \
+     -H 'Content-Type: application/json' \
+     -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-015-PASSED.md"}'
+   ```
+
+**IF FAIL:**
+  
+1. Write blocker file: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-015-FAILED-$(date +%Y%m%dT%H%M).json`
+  
+   ```json
+  {
+    "ticket_id": "TKT-015",
+    "blocker_type": "qa_failure",
+    "summary": "[one-line summary]",
+    "failures": [{"test": "...", "expected": "...", "actual": "..."}],
+    "dispatch_action": "create_continuation_ticket"
+  }
+   ```
+
+2. Write QA report: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-015-FAILED-$(date +%Y%m%dT%H%M).md`
+
+3. Update status:
+   ```bash
+   curl -X POST http://localhost:3456/api/v2/agents/b0bbd01e-7c5f-47af-97bb-f43eadccb9fd/block \
+     -H 'Content-Type: application/json' \
+     -d '{"blocker_type": "qa_failure", "summary": "[summary]"}'
+   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-015 \
+     -H 'Content-Type: application/json' \
+     -d '{"status": "qa_failed"}'
+   ```
+
+---
+
+## Heartbeat (every 5-10 min)
+
+```bash
+curl -X POST http://localhost:3456/api/v2/agents/b0bbd01e-7c5f-47af-97bb-f43eadccb9fd/heartbeat
+```
+
+---
+
+⛔ **REMEMBER:** If you didn't EXECUTE it, you didn't TEST it. Read the SOP!

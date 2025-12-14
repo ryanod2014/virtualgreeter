@@ -1,7 +1,7 @@
 # Feature: Video Recordings (A8)
 
 ## Quick Summary
-Video Recordings captures video calls for playback, automatically transcribes them, and generates AI-powered summaries. Agents and admins can review call recordings from their respective call logs pages with inline playback, download options, expandable transcriptions, and AI summaries.
+Video Recordings captures video calls for playback, automatically transcribes them, and generates AI-powered summaries. Recordings are stored securely with randomized UUIDs and accessed via signed URLs with automatic refresh. Agents and admins can review call recordings from their respective call logs pages with inline playback, download options, expandable transcriptions, and AI summaries.
 
 ## Affected Users
 - [x] Website Visitor (recorded, but cannot access recordings)
@@ -16,7 +16,9 @@ Video Recordings captures video calls for playback, automatically transcribes th
 ### Purpose
 Video Recordings enables organizations to capture, store, and review all video calls for quality assurance, training, and compliance purposes. The feature includes:
 - Automatic video recording of both agent and visitor streams
-- Cloud storage with configurable retention periods
+- Secure cloud storage with randomized UUIDs (not predictable org/call patterns)
+- Signed URLs with 1-hour expiration and automatic refresh
+- Configurable retention periods
 - Automatic transcription via Deepgram
 - AI-powered call summaries via OpenAI
 - Playback interface with native video controls
@@ -40,12 +42,14 @@ Video Recordings enables organizations to capture, store, and review all video c
 2. Agent accepts call; recording starts automatically
 3. Both video streams are composited side-by-side on canvas
 4. Audio from both parties is mixed together
-5. Call ends; recording stops and uploads to Supabase Storage
-6. Recording URL saved to `call_logs` table
-7. If transcription enabled: background job transcribes audio via Deepgram
-8. If AI summary enabled: summary generated from transcription via OpenAI
-9. Agent/Admin views recordings in respective Call Logs page
-10. Click play → video modal opens with native controls
+5. Call ends; recording stops and uploads via `/api/recordings/upload`
+6. Server generates random UUID and stores file in private bucket
+7. Recording ID (not full URL) saved to `call_logs` table
+8. If transcription enabled: background job transcribes audio via Deepgram
+9. If AI summary enabled: summary generated from transcription via OpenAI
+10. Agent/Admin views recordings in respective Call Logs page
+11. Click play → RecordingPlayer fetches signed URL from `/api/recordings/url`
+12. Video modal opens with native controls and automatic URL refresh
 
 ### State Machine
 
@@ -101,7 +105,9 @@ Recording States:
 | `recording_settings.enabled = true` | Admin Settings | Enables recording globally | Agents will record all calls |
 | `call:accepted` | Server socket | Triggers `startRecording()` | MediaRecorder starts |
 | `call:ended` | Server socket | Triggers `stopRecording()` | Upload begins |
-| Recording upload complete | `use-call-recording.ts` | Updates call_logs.recording_url | Triggers `/api/transcription/process` |
+| Recording upload complete | `/api/recordings/upload` | Updates call_logs.recording_url with UUID | Triggers `/api/transcription/process` |
+| Signed URL requested | RecordingPlayer mount | Fetches from `/api/recordings/url` | Returns signed URL with 1hr expiry |
+| URL about to expire | RecordingPlayer timer (45 min) | Auto-refreshes signed URL | Maintains playback position |
 | Transcription complete | `transcription-service.ts` | Saves to call_logs.transcription | May trigger AI summary |
 | AI summary complete | `transcription-service.ts` | Saves to call_logs.ai_summary | N/A |
 
@@ -110,12 +116,15 @@ Recording States:
 |-------------------|------|---------|
 | `useCallRecording` | `apps/dashboard/src/features/webrtc/use-call-recording.ts` | Recording hook for WebRTC |
 | `startRecording` | `use-call-recording.ts` | Initializes canvas composite, MediaRecorder |
-| `stopRecording` | `use-call-recording.ts` | Stops recording, uploads, triggers processing |
+| `stopRecording` | `use-call-recording.ts` | Stops recording, uploads via API, triggers processing |
+| `POST /api/recordings/upload` | `apps/dashboard/src/app/api/recordings/upload/route.ts` | Server-side upload with UUID generation |
+| `POST /api/recordings/url` | `apps/dashboard/src/app/api/recordings/url/route.ts` | Generates signed URLs with 1hr expiry |
+| `RecordingPlayer` | `apps/dashboard/src/features/recordings/RecordingPlayer.tsx` | Video player with auto URL refresh |
 | `processCallRecording` | `apps/server/src/lib/transcription-service.ts` | Orchestrates transcription + AI summary |
 | `transcribeWithDeepgram` | `transcription-service.ts` | Calls Deepgram API |
 | `generateAISummary` | `transcription-service.ts` | Calls OpenAI API |
-| `CallsClient` | `apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx` | Admin call logs UI |
-| `AgentCallsClient` | `apps/dashboard/src/app/(app)/dashboard/calls/agent-calls-client.tsx` | Agent call logs UI |
+| `CallsClient` | `apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx` | Admin call logs UI with RecordingPlayer |
+| `AgentCallsClient` | `apps/dashboard/src/app/(app)/dashboard/calls/agent-calls-client.tsx` | Agent call logs UI with RecordingPlayer |
 | `CallLogRow` | Both client files | Table row with playback controls |
 | `RecordingSettingsClient` | `apps/dashboard/src/app/(app)/admin/settings/recordings/recording-settings-client.tsx` | Admin settings UI |
 
@@ -137,9 +146,10 @@ CALL ENDS
     ├─► stopRecording()
     │   ├─► MediaRecorder.stop()
     │   ├─► Combine chunks into Blob (video/webm)
-    │   ├─► Upload to Supabase: recordings/{orgId}/{callLogId}_{timestamp}.webm
-    │   ├─► Get public URL
-    │   ├─► Update call_logs.recording_url
+    │   ├─► POST /api/recordings/upload with blob + callLogId
+    │   │   ├─► Server generates randomUUID()
+    │   │   ├─► Upload to private bucket: recordings/{orgId}/{uuid}.webm
+    │   │   └─► Update call_logs.recording_url = uuid (not full URL)
     │   └─► POST /api/transcription/process { callLogId }
     │
 TRANSCRIPTION (background)
@@ -161,10 +171,18 @@ TRANSCRIPTION (background)
 PLAYBACK
     │
     ├─► User opens Call Logs page
-    ├─► Click play button on row with recording_url
-    ├─► Video modal opens with <video> element
+    ├─► Click play button on row with recording_url (UUID)
+    ├─► Video modal opens with RecordingPlayer component
+    │   ├─► RecordingPlayer mounts, shows loading state
+    │   ├─► POST /api/recordings/url { recordingId: uuid }
+    │   │   ├─► Verify user's org owns this recording
+    │   │   ├─► createSignedUrl(path, 3600) // 1 hour
+    │   │   └─► Return { signedUrl, expiresAt }
+    │   ├─► Set video src to signed URL
+    │   ├─► Schedule refresh for 45 min (15 min before expiry)
+    │   └─► Display expiration time to user
     ├─► Native browser controls: play/pause, seek, fullscreen
-    └─► Download button fetches blob and triggers download
+    └─► At 45 min: Auto-refresh signed URL without interrupting playback
 ```
 
 ---
@@ -189,9 +207,13 @@ PLAYBACK
 | 13 | Recording playback on mobile | Small screen | Modal responsive | ✅ | Native video controls |
 | 14 | Download fails | Fetch error | Opens URL in new tab | ✅ | Fallback behavior |
 | 15 | Recording deleted from storage | Retention policy | 404 on playback | ⚠️ | No UI indication |
-| 16 | Simultaneous playback | Multiple tabs | Both play independently | ✅ | |
+| 16 | Simultaneous playback | Multiple tabs | Both play independently | ✅ | Each gets own signed URL |
 | 17 | Rapid play/pause clicks | User behavior | Handled correctly | ✅ | State managed in component |
 | 18 | Transcription still processing | Immediate playback | Shows "Processing" badge | ✅ | |
+| 19 | Signed URL expires during playback | > 1 hour viewing | Auto-refreshes at 45 min | ✅ | RecordingPlayer handles refresh |
+| 20 | Predictable URL guessing | Security concern | Not possible | ✅ | Random UUIDs prevent guessing |
+| 21 | Cross-org recording access | Security attempt | 404 error | ✅ | API validates org ownership |
+| 22 | Direct storage URL access | Bypass signed URLs | Access denied | ✅ | Bucket is private |
 
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
@@ -203,6 +225,8 @@ PLAYBACK
 | PLAYBACK_404 | Recording deleted/missing | Video fails to load | Recording is gone |
 | DEEPGRAM_NOT_CONFIGURED | Missing API key | Transcription skipped | Admin adds API key |
 | OPENAI_NOT_CONFIGURED | Missing API key | AI summary skipped | Admin adds API key |
+| SIGNED_URL_FAILED | API error | RecordingPlayer shows error | Retry playback |
+| URL_REFRESH_FAILED | Network issue at 45 min | Playback may stop at 1 hour | Manual refresh |
 
 ---
 
@@ -226,12 +250,14 @@ PLAYBACK
 |------|------------|-----------------|--------|--------|
 | 1 | Navigate to Call Logs | Table loads with recordings | ✅ | |
 | 2 | See recording indicator | Video icon + Play button | ✅ | Red color indicates video |
-| 3 | Click play button | Modal opens, video autoplays | ✅ | |
-| 4 | Use video controls | Native browser controls | ✅ | Seek, volume, fullscreen |
-| 5 | Click Download | File downloads | ✅ | Falls back to new tab |
-| 6 | Click close/backdrop | Modal closes | ✅ | |
-| 7 | Expand transcription | Row expands with text | ✅ | Scrollable if long |
-| 8 | Expand AI summary | Row expands with formatted text | ✅ | Styled differently from transcription |
+| 3 | Click play button | Loading spinner → Modal opens | ✅ | RecordingPlayer fetches signed URL |
+| 4 | See loading state | "Loading recording..." message | ✅ | Clear feedback during URL fetch |
+| 5 | Video loads | Video autoplays with controls | ✅ | Seek, volume, fullscreen |
+| 6 | See expiration info | Small text shows URL expiry time | ✅ | User knows when refresh happens |
+| 7 | Watch > 45 minutes | URL auto-refreshes seamlessly | ✅ | No playback interruption |
+| 8 | Click close/backdrop | Modal closes | ✅ | |
+| 9 | Expand transcription | Row expands with text | ✅ | Scrollable if long |
+| 10 | Expand AI summary | Row expands with formatted text | ✅ | Styled differently from transcription |
 
 ### Accessibility
 - Keyboard navigation: ⚠️ Modal close via Escape not implemented
@@ -255,14 +281,14 @@ PLAYBACK
 ### Security
 | Concern | Mitigation |
 |---------|------------|
-| Unauthorized access | Recordings scoped to organization |
-| Cross-org access | Supabase RLS policies |
+| Unauthorized access | Recordings scoped to organization via API validation |
+| Cross-org access | API checks org ownership before generating signed URLs |
+| URL predictability | Random UUIDs prevent guessing recording URLs |
+| Direct storage access | Private bucket requires signed URLs |
+| URL expiration | 1-hour expiry with automatic refresh |
 | Privacy consent | Warning shown in admin settings |
 | API key exposure | Server-side only (Deepgram, OpenAI) |
-| Storage access | Private Supabase bucket with signed URLs |
-| Predictable URL patterns | Randomized UUID filenames, not sequential |
-| URL expiration | Signed URLs expire after 1 hour |
-| Direct file access | Private bucket requires authentication |
+| Storage access | Supabase Storage with org-based paths + RLS |
 
 ### Reliability
 | Concern | Mitigation |
@@ -272,6 +298,8 @@ PLAYBACK
 | Transcription failure | Status tracked, can retry manually |
 | Storage retention | Configurable 7d-forever |
 | Codec support | VP9 with VP8 fallback |
+| Signed URL generation | Server-side with error handling |
+| URL refresh timing | 15-minute buffer before expiry |
 
 ---
 
@@ -303,16 +331,16 @@ PLAYBACK
 |---------|------|-------|-------|
 | Recording hook | `apps/dashboard/src/features/webrtc/use-call-recording.ts` | 1-321 | Main recording logic |
 | Start recording | `use-call-recording.ts` | 36-196 | Canvas composite, MediaRecorder setup |
-| Stop recording | `use-call-recording.ts` | 198-312 | Upload + trigger transcription |
+| Stop recording | `use-call-recording.ts` | 198-312 | Upload via API + trigger transcription |
+| Upload API endpoint | `apps/dashboard/src/app/api/recordings/upload/route.ts` | 1-116 | Server-side upload with UUID generation |
+| Signed URL API endpoint | `apps/dashboard/src/app/api/recordings/url/route.ts` | 1-112 | Generate signed URLs with 1hr expiry |
+| Recording player component | `apps/dashboard/src/features/recordings/RecordingPlayer.tsx` | 1-170 | Video player with auto URL refresh |
 | Transcription service | `apps/server/src/lib/transcription-service.ts` | 1-367 | Deepgram + OpenAI integration |
 | Process call recording | `transcription-service.ts` | 189-340 | Main processing orchestration |
 | Admin calls page | `apps/dashboard/src/app/(app)/admin/calls/page.tsx` | 1-257 | Server component |
-| Admin calls client | `apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx` | 1-1320 | Client with modal |
-| Video modal | `calls-client.tsx` | 465-510 | Modal component |
-| Handle play recording | `calls-client.tsx` | 340-360 | Video vs audio detection |
+| Admin calls client | `apps/dashboard/src/app/(app)/admin/calls/calls-client.tsx` | Updated | Client with RecordingPlayer integration |
 | Agent calls page | `apps/dashboard/src/app/(app)/dashboard/calls/page.tsx` | 1-146 | Server component |
-| Agent calls client | `apps/dashboard/src/app/(app)/dashboard/calls/agent-calls-client.tsx` | 1-1040 | Client with modal |
-| Call log row | `agent-calls-client.tsx` | 751-1039 | Row with expandable sections |
+| Agent calls client | `apps/dashboard/src/app/(app)/dashboard/calls/agent-calls-client.tsx` | Updated | Client with RecordingPlayer integration |
 | Recording settings page | `apps/dashboard/src/app/(app)/admin/settings/recordings/page.tsx` | 1-36 | Server component |
 | Recording settings client | `apps/dashboard/src/app/(app)/admin/settings/recordings/recording-settings-client.tsx` | 1-428 | Full settings UI |
 | Call logger | `apps/server/src/lib/call-logger.ts` | 1-513 | Database integration |
@@ -335,6 +363,8 @@ PLAYBACK
 4. **Is 2.5Mbps bitrate appropriate?** May need adjustment for quality/size tradeoff
 5. **Should failed transcriptions auto-retry?** Currently requires manual intervention
 6. **What about GDPR right to deletion?** Retention policy exists but no per-recording delete UI
+7. **Should we migrate existing recordings to UUID format?** Currently out of scope per TKT-015
+8. **What if RecordingPlayer component fails to load?** No fallback to direct URL access
 
 
 

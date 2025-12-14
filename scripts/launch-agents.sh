@@ -154,12 +154,30 @@ get_prompt_file() {
     local TICKET_LOWER=$(echo "$TICKET_ID" | tr '[:upper:]' '[:lower:]')
     local TICKET_UPPER=$(echo "$TICKET_ID" | tr '[:lower:]' '[:upper:]')
     
+    # Check if this is a continuation ticket (e.g., TKT-010-V2, TKT-030-V3)
+    # Extract base ticket and iteration if so
+    local BASE_TICKET=""
+    local ITERATION=""
+    if echo "$TICKET_ID" | grep -qE '-[Vv][0-9]+$'; then
+        # This is a continuation ticket
+        BASE_TICKET=$(echo "$TICKET_ID" | sed -E 's/-[Vv][0-9]+$//')
+        ITERATION=$(echo "$TICKET_ID" | grep -oiE '[0-9]+$')
+        local BASE_LOWER=$(echo "$BASE_TICKET" | tr '[:upper:]' '[:lower:]')
+        
+        # For continuations, look for dev-agent-{base}-v{iteration}.md
+        local CONT_PROMPT="docs/prompts/active/dev-agent-${BASE_LOWER}-v${ITERATION}.md"
+        if [ -f "$CONT_PROMPT" ]; then
+            echo "$CONT_PROMPT"
+            return 0
+        fi
+    fi
+
     # Look for prompt file (try various naming conventions)
     for pattern in \
         "docs/prompts/active/dev-agent-${TICKET_LOWER}-v"*.md \
         "docs/prompts/active/dev-agent-${TICKET_UPPER}-v"*.md \
         "docs/prompts/active/dev-agent-${TICKET_ID}-v"*.md; do
-        
+
         # Use glob in worktree directory
         local MATCHES=$(ls $pattern 2>/dev/null | head -1 || true)
         if [ -n "$MATCHES" ]; then

@@ -1,95 +1,141 @@
-You are a QA Review Agent testing ticket TKT-010.
+# QA Review Agent: TKT-010
 
-## Ticket: Graceful Call End on Agent Removal
-## Branch: agent/tkt-010
-## Worktree: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-010
+> **FIRST:** Read the full SOP: `docs/workflow/QA_REVIEW_AGENT_SOP.md`
+>
+> The SOP contains the 3-step process, forbidden shortcuts, and quality checklists.
 
-## Acceptance Criteria:
-- Removing in-call agent triggers graceful call end
-- Visitor sees 'Agent has ended the call' message
-- Call is properly logged/ended in database
-- If agent not in call, removal proceeds normally
+---
 
-## CRITICAL INSTRUCTIONS:
+## Session Context
 
-1. **You are in an ISOLATED WORKTREE** at: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-010
-   - All your testing happens here
-   - This does NOT affect the main repo
+| Key | Value |
+|-----|-------|
+| **Ticket** | TKT-010 |
+| **Branch** | agent/tkt-010 |
+| **Type** | hybrid (HAS_UI: true, HAS_API: true) |
+| **Session ID** | 23bfccf5-21f5-4a64-8cd0-0d859837860e |
+| **Worktree** | /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/TKT-010 |
+| **Dashboard Port** | 3110 (use this for ALL testing!) |
+| **Tunnel URL** |  |
 
-2. **Run these tests IN THE WORKTREE:**
-   cd /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-010
-   pnpm install
-   pnpm typecheck
-   pnpm build  
-   pnpm test
+---
 
-3. **Verify each acceptance criterion**
+## Type-Specific Workflow
 
-4. **If PASS - Write report to MAIN REPO:**
-   - File: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-010-PASSED-20251206T225111.md
-   - Include the selective merge command (see below)
 
-5. **If FAIL - Create BOTH files in MAIN REPO:**
-   - Blocker JSON: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-010-FAILED-20251206T225111.json
-   - Report MD: /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-010-FAILED-20251206T225111.md
+⚠️ **HYBRID TICKET** - You MUST test BOTH API and UI!
 
-6. **DO NOT modify any files in the main repo except your QA outputs**
+1. **API Testing FIRST:** Read \`docs/workflow/NON_UI_TICKET_QA_WORKFLOW.md\`
+   - Test all endpoints with curl
+   - Verify request/response behavior
+   - Test error cases (400, 401, 404)
 
-7. **If tests PASS, include this merge command in your report:**
-   ```bash
-   cd /Users/ryanodonnell/projects/Digital_greeter
-   git fetch origin main
-   git checkout main
-   git pull origin main
-   # Cherry-pick ONLY the ticket's files:
-   git checkout origin/agent/tkt-010 -- apps/dashboard/src/app/(dashboard)/agents/actions.ts apps/server/src/features/agents/removeAgent.ts
-   git add apps/dashboard/src/app/(dashboard)/agents/actions.ts apps/server/src/features/agents/removeAgent.ts
-   git commit -m 'feat: TKT-010 - Graceful Call End on Agent Removal'
-   git push origin main
-   ```
+2. **UI Testing SECOND:** Read \`docs/workflow/UI_TICKET_QA_WORKFLOW.md\`
+   - Test with Playwright browser automation
+   - Test EACH role separately (admin, agent)
+   - Take screenshots as evidence
 
-## If FAILED - Blocker JSON Template:
+---
 
-```json
-{
-  "ticket_id": "TKT-010",
-  "ticket_title": "Graceful Call End on Agent Removal",
-  "branch": "agent/tkt-010",
-  "blocked_at": "[ISO timestamp]",
-  "blocker_type": "qa_failure",
-  "summary": "[One-line summary of failure]",
-  "failures": [
-    {
-      "category": "build|acceptance|regression|browser",
-      "check": "[Which check failed]",
-      "error": "[Error message]"
-    }
-  ],
-  "recommendation": "[What needs to be fixed]",
-  "dispatch_action": "create_continuation_ticket"
-}
+## Follow 3-Step Process from SOP
+
+### STEP 1: BRAINSTORM
+
+Before any testing, think through:
+- What are ALL the ways this could break?
+- What edge cases should I test?
+- What error states should I verify?
+
+### STEP 2: PLAN
+
+Write a test plan BEFORE executing:
+- List ALL tests you will run
+- For UI: List EACH role you will test
+- For API: List EACH endpoint you will hit
+
+### STEP 3: EXECUTE
+
+Run your plan. For EACH test:
+- Execute the test
+- Capture evidence (curl response / screenshot)
+- Document pass/fail
+
+---
+
+## Start Dashboard on YOUR Port
+
+```bash
+cd apps/dashboard
+PORT=3110 pnpm dev &
+sleep 10
+curl -s http://localhost:3110 | head -1
 ```
 
-## Report Template:
+---
 
-# QA Review: TKT-010
+## On Completion
 
-**Status:** ✅ PASSED / ❌ FAILED
-**Ticket:** TKT-010 - Graceful Call End on Agent Removal
-**Branch:** agent/tkt-010
-**Tested:** 2025-12-06
+**IF PASS:**
 
-## Build Verification
-| Check | Status |
-|-------|--------|
-| pnpm install | |
-| pnpm typecheck | |
-| pnpm build | |
-| pnpm test | |
+1. Write QA report: `docs/agent-output/qa-results/QA-TKT-010-PASSED-$(date +%Y%m%dT%H%M).md`
 
-## Acceptance Criteria
-(verify each criterion)
+2. Commit and push your report:
+   ```bash
+   git add docs/agent-output/qa-results/
+   git commit -m "qa(TKT-010): QA passed"
+   git push origin HEAD:agent/tkt-010
+   ```
+   
+   *(If you forget this step, the pipeline will auto-detect and commit it for you)*
 
-## Merge Command
-(if passed, include the selective merge command above)
+3. Update ticket status:
+   ```bash
+   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-010 \
+     -H 'Content-Type: application/json' \
+     -d '{"status": "qa_passed"}'
+   ```
 
+4. Mark session complete:
+   ```bash
+   curl -X POST http://localhost:3456/api/v2/agents/23bfccf5-21f5-4a64-8cd0-0d859837860e/complete \
+     -H 'Content-Type: application/json' \
+     -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-010-PASSED.md"}'
+   ```
+
+**IF FAIL:**
+  
+1. Write blocker file: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-010-FAILED-$(date +%Y%m%dT%H%M).json`
+  
+   ```json
+  {
+    "ticket_id": "TKT-010",
+    "blocker_type": "qa_failure",
+    "summary": "[one-line summary]",
+    "failures": [{"test": "...", "expected": "...", "actual": "..."}],
+    "dispatch_action": "create_continuation_ticket"
+  }
+   ```
+
+2. Write QA report: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-010-FAILED-$(date +%Y%m%dT%H%M).md`
+
+3. Update status:
+   ```bash
+   curl -X POST http://localhost:3456/api/v2/agents/23bfccf5-21f5-4a64-8cd0-0d859837860e/block \
+     -H 'Content-Type: application/json' \
+     -d '{"blocker_type": "qa_failure", "summary": "[summary]"}'
+   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-010 \
+     -H 'Content-Type: application/json' \
+     -d '{"status": "qa_failed"}'
+   ```
+
+---
+
+## Heartbeat (every 5-10 min)
+
+```bash
+curl -X POST http://localhost:3456/api/v2/agents/23bfccf5-21f5-4a64-8cd0-0d859837860e/heartbeat
+```
+
+---
+
+⛔ **REMEMBER:** If you didn't EXECUTE it, you didn't TEST it. Read the SOP!

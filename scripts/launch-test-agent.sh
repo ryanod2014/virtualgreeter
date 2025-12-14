@@ -110,10 +110,18 @@ else
     echo -e "${GREEN}✓ Dependencies already installed${NC}"
 fi
 
-# Get the modified files (app code only, no tests)
+# Get the modified files (app code only, no tests or docs)
 # Compare origin/main with origin/BRANCH to get actual changed files (not local HEAD)
 MERGE_BASE=$(git merge-base origin/main "origin/$BRANCH" 2>/dev/null || git merge-base main HEAD)
-MODIFIED_FILES=$(git diff --name-only "$MERGE_BASE" "origin/$BRANCH" 2>/dev/null | grep -E "^apps/|^packages/" | grep -v "\.test\." | grep -v "tsconfig" | grep -v "\.d\.ts" || echo "")
+MODIFIED_FILES=$(git diff --name-only "$MERGE_BASE" "origin/$BRANCH" 2>/dev/null | \
+    grep -E "^apps/|^packages/" | \
+    grep -E "\.(ts|tsx|js|jsx)$" | \
+    grep -v "\.test\." | \
+    grep -v "\.spec\." | \
+    grep -v "tsconfig" | \
+    grep -v "\.d\.ts" | \
+    grep -v "/docs/" | \
+    grep -v "__mocks__" || echo "")
 
 if [ -z "$MODIFIED_FILES" ]; then
     echo -e "${YELLOW}⚠ No app files to test for $TICKET_UPPER${NC}"
@@ -136,8 +144,60 @@ fi
 echo -e "${BLUE}Files to add tests for:${NC}"
 echo "$MODIFIED_FILES" | while read f; do [ -n "$f" ] && echo "  - $f"; done
 
-# Get ticket info from database
-TICKET_TITLE=$(curl -s --max-time 5 "$DASHBOARD_URL/api/v2/tickets/$TICKET_UPPER" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('title','$TICKET_UPPER'))" 2>/dev/null || echo "$TICKET_UPPER")
+# =============================================================================
+# GATHER RICH CONTEXT FOR WORLD-CLASS BEHAVIORAL TESTS
+# =============================================================================
+
+echo -e "${BLUE}Gathering ticket context...${NC}"
+
+# Get full ticket info from database
+TICKET_JSON=$(curl -s --max-time 5 "$DASHBOARD_URL/api/v2/tickets/$TICKET_UPPER" 2>/dev/null || echo "{}")
+TICKET_TITLE=$(echo "$TICKET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('title','$TICKET_UPPER'))" 2>/dev/null || echo "$TICKET_UPPER")
+TICKET_DESCRIPTION=$(echo "$TICKET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('description',''))" 2>/dev/null || echo "")
+ACCEPTANCE_CRITERIA=$(echo "$TICKET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('acceptance_criteria',''))" 2>/dev/null || echo "")
+
+# Get dev agent completion report if it exists
+DEV_COMPLETION_FILE=""
+DEV_COMPLETION_SUMMARY=""
+if [ -f "$WORKTREE_DIR/docs/agent-output/completions/$TICKET_UPPER.md" ]; then
+    DEV_COMPLETION_FILE="$WORKTREE_DIR/docs/agent-output/completions/$TICKET_UPPER.md"
+elif [ -f "$MAIN_REPO_DIR/docs/agent-output/completions/$TICKET_UPPER.md" ]; then
+    DEV_COMPLETION_FILE="$MAIN_REPO_DIR/docs/agent-output/completions/$TICKET_UPPER.md"
+fi
+
+if [ -n "$DEV_COMPLETION_FILE" ] && [ -f "$DEV_COMPLETION_FILE" ]; then
+    echo -e "${GREEN}✓ Found dev agent completion report${NC}"
+    # Extract key sections from completion report
+    DEV_COMPLETION_SUMMARY=$(cat "$DEV_COMPLETION_FILE" | head -100)
+fi
+
+# Generate git diff summary (what actually changed)
+echo -e "${BLUE}Analyzing code changes...${NC}"
+GIT_DIFF_STAT=$(git diff --stat "$MERGE_BASE" "origin/$BRANCH" -- $MODIFIED_FILES 2>/dev/null | tail -20)
+
+# Extract function/component signatures from changed files
+echo -e "${BLUE}Extracting function signatures...${NC}"
+FUNCTION_SIGNATURES=""
+for file in $MODIFIED_FILES; do
+    if [ -f "$WORKTREE_DIR/$file" ]; then
+        # Extract exported functions, components, and key signatures
+        FILE_SIGS=$(grep -E "^export (const|function|class|interface|type|async function)" "$WORKTREE_DIR/$file" 2>/dev/null | head -10 || echo "")
+        if [ -n "$FILE_SIGS" ]; then
+            FUNCTION_SIGNATURES="$FUNCTION_SIGNATURES
+### \`$file\`
+\`\`\`typescript
+$FILE_SIGS
+\`\`\`
+"
+        fi
+    fi
+done
+
+# Get the actual diff content (limited to avoid huge prompts)
+echo -e "${BLUE}Getting code diff...${NC}"
+CODE_DIFF=$(git diff "$MERGE_BASE" "origin/$BRANCH" -- $MODIFIED_FILES 2>/dev/null | head -300)
+
+echo -e "${GREEN}✓ Context gathered${NC}"
 
 # Register session in database
 echo "Registering session..."
@@ -154,108 +214,222 @@ else
     DB_SESSION_ID="test-$TICKET_UPPER-$(date +%s)"
 fi
 
-# Create the prompt file
+# Create the prompt file with RICH CONTEXT for world-class behavioral tests
 PROMPT_FILE="$WORKTREE_DIR/.agent-prompt-test.md"
-cat > "$PROMPT_FILE" << EOF
-# TEST LOCK Agent: $TICKET_UPPER
+cat > "$PROMPT_FILE" << 'PROMPT_HEADER'
+# TEST LOCK Agent: Write World-Class Behavioral Unit Tests
 
-> **FIRST:** Read the full SOP: \`docs/workflow/TEST_LOCK_AGENT_SOP.md\`
-> 
-> The SOP contains critical patterns for mocking, UI testing, and quality requirements.
+## 🎯 Your Mission
 
----
+Write **behavioral unit tests** that capture EVERY code path and edge case for this ticket's changes. Your tests should be so comprehensive that any future regression would be caught immediately.
 
-## Context
-
-- **Ticket:** $TICKET_UPPER - "$TICKET_TITLE"
-- **Branch:** \`$BRANCH\` (commit here, not main)
-- **Session ID:** \`$DB_SESSION_ID\`
+**Philosophy:** You are locking in CURRENT behavior as a snapshot. If code has a bug, test the buggy behavior. Tests prevent unintended changes, they don't define "correct."
 
 ---
 
-## Files to Add Tests For
+PROMPT_HEADER
+
+# Add ticket context
+cat >> "$PROMPT_FILE" << EOF
+## 📋 Ticket Context
+
+| Field | Value |
+|-------|-------|
+| **Ticket** | $TICKET_UPPER |
+| **Title** | $TICKET_TITLE |
+| **Branch** | \`$BRANCH\` |
+| **Session** | \`$DB_SESSION_ID\` |
+
+EOF
+
+# Add description if available
+if [ -n "$TICKET_DESCRIPTION" ]; then
+cat >> "$PROMPT_FILE" << EOF
+### Description
+$TICKET_DESCRIPTION
+
+EOF
+fi
+
+# Add acceptance criteria if available
+if [ -n "$ACCEPTANCE_CRITERIA" ]; then
+cat >> "$PROMPT_FILE" << EOF
+### Acceptance Criteria
+$ACCEPTANCE_CRITERIA
+
+EOF
+fi
+
+# Add dev agent completion summary if available
+if [ -n "$DEV_COMPLETION_SUMMARY" ]; then
+cat >> "$PROMPT_FILE" << EOF
+---
+
+## 📝 What the Dev Agent Built
+
+The dev agent completed this ticket. Here's their summary:
+
+<details>
+<summary>Dev Agent Completion Report</summary>
+
+$DEV_COMPLETION_SUMMARY
+
+</details>
+
+EOF
+fi
+
+# Add files to test with function signatures
+cat >> "$PROMPT_FILE" << EOF
+---
+
+## 📁 Files to Test
 
 $(echo "$MODIFIED_FILES" | while read f; do [ -n "$f" ] && echo "- \`$f\`"; done)
 
+EOF
+
+# Add function signatures if found
+if [ -n "$FUNCTION_SIGNATURES" ]; then
+cat >> "$PROMPT_FILE" << EOF
+### Key Exports to Test
+$FUNCTION_SIGNATURES
+
+EOF
+fi
+
+# Add git diff summary
+cat >> "$PROMPT_FILE" << EOF
 ---
 
-## REQUIRED: Follow the 3-Step Process from SOP
+## 🔍 What Changed (Git Diff Summary)
 
-### STEP 1: BRAINSTORM (Before writing any tests)
-
-For each file above, document ALL behaviors:
-
-\`\`\`markdown
-## Brainstorm for $TICKET_UPPER
-
-### [filename.ts]
-| Function | Behaviors to Test |
-|----------|-------------------|
-| \`functionA\` | 1. happy path, 2. empty input, 3. error case |
-| \`functionB\` | 1. returns X when Y, 2. throws when Z |
-
-Total behaviors to lock in: [N]
+\`\`\`
+$GIT_DIFF_STAT
 \`\`\`
 
-### STEP 2: Check Existing Patterns
+<details>
+<summary>Full Diff (click to expand)</summary>
+
+\`\`\`diff
+$CODE_DIFF
+\`\`\`
+
+</details>
+
+---
+
+## ✅ Your Process
+
+### Step 1: Analyze the Code Changes
+
+For EACH file above, identify ALL behaviors:
+
+| Behavior Type | What to Look For |
+|---------------|------------------|
+| **Happy paths** | Normal successful operations |
+| **Edge cases** | Empty inputs, null, undefined, boundary values |
+| **Error cases** | What throws, what returns error |
+| **Conditional branches** | if/else, switch, ternary outcomes |
+| **State changes** | Before/after, loading states, disabled states |
+| **User interactions** | Clicks, form submissions, keyboard events |
+
+### Step 2: Read Existing Test Patterns
 
 \`\`\`bash
-# Read the SOP for mock patterns
-cat docs/workflow/TEST_LOCK_AGENT_SOP.md | grep -A 50 "Mocking Patterns"
+# Reference: Server-side test patterns
+cat apps/server/src/features/routing/pool-manager.test.ts | head -80
 
-# Check reference tests
-cat apps/server/src/features/routing/pool-manager.test.ts | head -100
-cat apps/dashboard/src/features/pools/DeletePoolModal.test.tsx | head -100
+# Reference: UI component test patterns  
+cat apps/dashboard/src/features/pools/DeletePoolModal.test.tsx | head -80
 \`\`\`
 
-### STEP 3: Write Tests
+### Step 3: Write Comprehensive Tests
 
-**For EACH behavior identified in Step 1:**
-- One \`it()\` block per behavior
-- Use patterns from SOP for mocking Supabase, Stripe, icons
-- For UI: add \`/** @vitest-environment jsdom */\` at top
-- Mock lucide-react icons (see SOP)
+**CRITICAL RULES:**
+1. **One behavior per \`it()\` block** - Never test multiple behaviors together
+2. **Descriptive test names** - \`"returns error when subscription not found"\` not \`"handles error"\`
+3. **Test file location** - Same directory as source: \`foo.ts\` → \`foo.test.ts\`
+4. **For UI components** - Add \`/** @vitest-environment jsdom */\` at file top
 
-**Test file location:** Same directory as source file
-- \`apps/dashboard/src/lib/foo.ts\` → \`apps/dashboard/src/lib/foo.test.ts\`
+**Required Mocking Patterns:**
 
----
+\`\`\`typescript
+// For UI tests - ALWAYS mock lucide-react icons
+vi.mock("lucide-react", () => ({
+  AlertTriangle: () => <div data-testid="alert-icon" />,
+  Check: () => <div data-testid="check-icon" />,
+  X: () => <div data-testid="x-icon" />,
+  Loader2: () => <div data-testid="loader-icon" />,
+  Info: () => <div data-testid="info-icon" />,
+  // Add icons as needed
+}));
 
-## STEP 4: Verify Tests Pass
+// For Supabase
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: vi.fn(),
+}));
+
+// For Stripe
+vi.mock("@/lib/stripe", () => ({
+  stripe: {
+    subscriptions: { update: vi.fn(), cancel: vi.fn() },
+    customers: { retrieve: vi.fn() },
+  },
+}));
+\`\`\`
+
+### Step 4: Verify All Tests Pass
 
 \`\`\`bash
 pnpm test
 \`\`\`
 
-All tests MUST pass. If a test fails, fix the test (you test CURRENT behavior).
+If a test fails, **fix the test** - you're testing current behavior, not expected behavior.
 
----
-
-## STEP 5: Commit and Push
+### Step 5: Commit Your Tests
 
 \`\`\`bash
 git add .
-git commit -m "test($TICKET_LOWER): Add test coverage for $TICKET_UPPER
+git commit -m "test($TICKET_LOWER): Add comprehensive behavioral tests
 
 Behaviors locked:
 - [list key behaviors tested]"
 git push origin $BRANCH
 \`\`\`
 
----
-
-## STEP 6: Write Completion Report
+### Step 6: Write Completion Report
 
 **File:** \`docs/agent-output/test-lock/$TICKET_UPPER-\$(date +%Y%m%dT%H%M).md\`
 
-Include:
-- Test files created
-- Behaviors locked per file (table format)
-- Test count and pass status
+\`\`\`markdown
+# Test Lock Complete: $TICKET_UPPER
 
----
+## Summary
+- **Ticket:** $TICKET_UPPER - $TICKET_TITLE
+- **Status:** ✅ COMPLETE
+- **Tests Added:** [N] tests across [M] files
 
-## STEP 7: Signal Completion
+## Test Files Created
+
+| File | Behaviors Tested |
+|------|------------------|
+| \`path/to/file.test.ts\` | N behaviors |
+
+## Behaviors Locked
+
+### [filename.ts]
+| Function | Behaviors |
+|----------|-----------|
+| \`functionName\` | 1. happy path, 2. empty input, 3. error case |
+
+## Test Results
+\\\`\\\`\\\`
+✓ All [N] tests passing
+\\\`\\\`\\\`
+\`\`\`
+
+### Step 7: Signal Completion
 
 \`\`\`bash
 curl -X POST $DASHBOARD_URL/api/v2/agents/$DB_SESSION_ID/complete \\
@@ -265,16 +439,25 @@ curl -X POST $DASHBOARD_URL/api/v2/agents/$DB_SESSION_ID/complete \\
 
 ---
 
-## Quality Checklist (from SOP)
+## 🏆 Quality Bar: World-Class Tests
 
-Before marking complete:
-- [ ] Every exported function has tests
-- [ ] Every code path covered (happy, edge, error)
-- [ ] Test names describe specific behaviors
-- [ ] All tests pass
-- [ ] Followed existing mock patterns
-- [ ] Tests in correct location (same dir as source)
-- [ ] Completion report written
+Before completing, verify:
+
+- [ ] **Every exported function** has at least one test
+- [ ] **Every code path** is covered (use the diff to find ALL branches)
+- [ ] **Every edge case** from the ticket's acceptance criteria is tested
+- [ ] **Test names are specific** - reading them tells you exactly what's tested
+- [ ] **All tests pass** with \`pnpm test\`
+- [ ] **No console errors** in test output
+- [ ] **Mocks follow codebase patterns** (check existing tests)
+
+---
+
+## 📚 Reference: Full SOP
+
+For advanced patterns (timers, MediaStream, complex mocks), read:
+\`docs/workflow/TEST_LOCK_AGENT_SOP.md\`
+
 EOF
 
 echo -e "${GREEN}✓ Created prompt: $PROMPT_FILE${NC}"

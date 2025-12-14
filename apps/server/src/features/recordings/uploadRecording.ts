@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { supabase } from "../../lib/supabase.js";
+import { supabase } from "../../lib/supabase";
 
 interface UploadRecordingOptions {
   organizationId: string;

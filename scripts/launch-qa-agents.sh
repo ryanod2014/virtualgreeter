@@ -752,20 +752,29 @@ curl -s http://localhost:$AGENT_PORT | head -1
 
 **IF PASS:**
 
-1. Write QA report: \`$MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md\`
+1. Write QA report: \`docs/agent-output/qa-results/QA-$TICKET_ID-PASSED-\$(date +%Y%m%dT%H%M).md\`
 
-2. Update ticket status:
+2. Commit and push your report:
    \`\`\`bash
-  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID \\
-    -H 'Content-Type: application/json' \\
-    -d '{\"status\": \"qa_passed\"}'
+   git add docs/agent-output/qa-results/
+   git commit -m \"qa($TICKET_ID): QA passed\"
+   git push origin HEAD:$BRANCH
+   \`\`\`
+   
+   *(If you forget this step, the pipeline will auto-detect and commit it for you)*
+
+3. Update ticket status:
+   \`\`\`bash
+   curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID \\
+     -H 'Content-Type: application/json' \\
+     -d '{\"status\": \"qa_passed\"}'
    \`\`\`
 
-3. Mark session complete:
+4. Mark session complete:
    \`\`\`bash
-  curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete \\
-    -H 'Content-Type: application/json' \\
-    -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
+   curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete \\
+     -H 'Content-Type: application/json' \\
+     -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
    \`\`\`
 
 **IF FAIL:**
