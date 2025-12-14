@@ -538,6 +538,393 @@ describe("AgentCallsClient", () => {
       });
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // PAGINATION BEHAVIORS
+  // ---------------------------------------------------------------------------
+  describe("Pagination", () => {
+    describe("Display", () => {
+      it("shows pagination controls when totalPages > 1", () => {
+        render(<AgentCallsClient {...defaultProps} />);
+
+        expect(screen.getByText("Showing 1 to 50 of 100 calls")).toBeInTheDocument();
+        expect(screen.getByText("Previous")).toBeInTheDocument();
+        expect(screen.getByText("Next")).toBeInTheDocument();
+      });
+
+      it("hides pagination controls when totalPages = 1", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 1,
+            limit: 50,
+            totalCount: 30,
+            totalPages: 1,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        expect(screen.queryByText("Previous")).not.toBeInTheDocument();
+        expect(screen.queryByText("Next")).not.toBeInTheDocument();
+      });
+
+      it("shows correct range for middle page", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 2,
+            limit: 50,
+            totalCount: 120,
+            totalPages: 3,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        expect(screen.getByText("Showing 51 to 100 of 120 calls")).toBeInTheDocument();
+      });
+
+      it("shows correct range for last page with partial results", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 3,
+            limit: 50,
+            totalCount: 120,
+            totalPages: 3,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        expect(screen.getByText("Showing 101 to 120 of 120 calls")).toBeInTheDocument();
+      });
+
+      it("shows page numbers when totalPages > 1", () => {
+        render(<AgentCallsClient {...defaultProps} />);
+
+        expect(screen.getByText("1")).toBeInTheDocument();
+        expect(screen.getByText("2")).toBeInTheDocument();
+      });
+
+      it("highlights current page with primary color", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 2,
+            limit: 50,
+            totalCount: 150,
+            totalPages: 3,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        const currentPageButton = screen.getByText("2");
+        expect(currentPageButton.className).toContain("border-primary");
+        expect(currentPageButton.className).toContain("bg-primary");
+        expect(currentPageButton.className).toContain("text-primary-foreground");
+
+        const otherPageButton = screen.getByText("1");
+        expect(otherPageButton.className).not.toContain("border-primary");
+        expect(otherPageButton.className).toContain("border-border");
+      });
+    });
+
+    describe("Navigation Actions", () => {
+      it("navigates to next page when Next clicked", () => {
+        render(<AgentCallsClient {...defaultProps} />);
+
+        const nextButton = screen.getByText("Next");
+        fireEvent.click(nextButton);
+
+        expect(mockPush).toHaveBeenCalledWith(
+          expect.stringContaining("page=2")
+        );
+        expect(mockPush).toHaveBeenCalledWith(
+          expect.stringContaining("limit=50")
+        );
+      });
+
+      it("navigates to previous page when Previous clicked", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 2,
+            limit: 50,
+            totalCount: 100,
+            totalPages: 2,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        const prevButton = screen.getByText("Previous");
+        fireEvent.click(prevButton);
+
+        expect(mockPush).toHaveBeenCalledWith(
+          expect.stringContaining("page=1")
+        );
+        expect(mockPush).toHaveBeenCalledWith(
+          expect.stringContaining("limit=50")
+        );
+      });
+
+      it("navigates to specific page when page number clicked", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 1,
+            limit: 50,
+            totalCount: 200,
+            totalPages: 4,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        const page3Button = screen.getByText("3");
+        fireEvent.click(page3Button);
+
+        expect(mockPush).toHaveBeenCalledWith(
+          expect.stringContaining("page=3")
+        );
+      });
+
+      it("disables Previous button on first page", () => {
+        render(<AgentCallsClient {...defaultProps} />);
+
+        const prevButton = screen.getByText("Previous");
+        expect(prevButton).toBeDisabled();
+      });
+
+      it("disables Next button on last page", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 2,
+            limit: 50,
+            totalCount: 100,
+            totalPages: 2,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        const nextButton = screen.getByText("Next");
+        expect(nextButton).toBeDisabled();
+      });
+    });
+
+    describe("Page Number Display Logic", () => {
+      it("shows all page numbers when totalPages <= 5", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 1,
+            limit: 50,
+            totalCount: 200,
+            totalPages: 4,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        expect(screen.getByText("1")).toBeInTheDocument();
+        expect(screen.getByText("2")).toBeInTheDocument();
+        expect(screen.getByText("3")).toBeInTheDocument();
+        expect(screen.getByText("4")).toBeInTheDocument();
+      });
+
+      it("shows first 5 pages when currentPage <= 3", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 2,
+            limit: 50,
+            totalCount: 500,
+            totalPages: 10,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        expect(screen.getByText("1")).toBeInTheDocument();
+        expect(screen.getByText("2")).toBeInTheDocument();
+        expect(screen.getByText("3")).toBeInTheDocument();
+        expect(screen.getByText("4")).toBeInTheDocument();
+        expect(screen.getByText("5")).toBeInTheDocument();
+        expect(screen.queryByText("6")).not.toBeInTheDocument();
+      });
+
+      it("shows last 5 pages when currentPage >= totalPages - 2", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 9,
+            limit: 50,
+            totalCount: 500,
+            totalPages: 10,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        expect(screen.getByText("6")).toBeInTheDocument();
+        expect(screen.getByText("7")).toBeInTheDocument();
+        expect(screen.getByText("8")).toBeInTheDocument();
+        expect(screen.getByText("9")).toBeInTheDocument();
+        expect(screen.getByText("10")).toBeInTheDocument();
+        expect(screen.queryByText("5")).not.toBeInTheDocument();
+      });
+
+      it("shows centered pages when in middle", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 5,
+            limit: 50,
+            totalCount: 500,
+            totalPages: 10,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        expect(screen.getByText("3")).toBeInTheDocument();
+        expect(screen.getByText("4")).toBeInTheDocument();
+        expect(screen.getByText("5")).toBeInTheDocument();
+        expect(screen.getByText("6")).toBeInTheDocument();
+        expect(screen.getByText("7")).toBeInTheDocument();
+        expect(screen.queryByText("2")).not.toBeInTheDocument();
+        expect(screen.queryByText("8")).not.toBeInTheDocument();
+      });
+    });
+
+    describe("Filter Integration", () => {
+      it("resets to page 1 when applying filters", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 2,
+            limit: 50,
+            totalCount: 100,
+            totalPages: 2,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        // Open filters
+        fireEvent.click(screen.getByText("Filters"));
+
+        // Change a filter
+        fireEvent.click(screen.getByTestId("select-country"));
+
+        // Apply filters
+        const applyButton = screen.getByText("Apply");
+        fireEvent.click(applyButton);
+
+        expect(mockPush).toHaveBeenCalledWith(
+          expect.stringContaining("page=1")
+        );
+      });
+
+      it("preserves limit when applying filters", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 1,
+            limit: 100,
+            totalCount: 200,
+            totalPages: 2,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        // Open filters
+        fireEvent.click(screen.getByText("Filters"));
+
+        // Change a filter
+        fireEvent.click(screen.getByTestId("select-country"));
+
+        // Apply filters
+        const applyButton = screen.getByText("Apply");
+        fireEvent.click(applyButton);
+
+        expect(mockPush).toHaveBeenCalledWith(
+          expect.stringContaining("limit=100")
+        );
+      });
+    });
+
+    describe("Date Range Integration", () => {
+      it("resets to page 1 when changing date range", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 2,
+            limit: 50,
+            totalCount: 100,
+            totalPages: 2,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        fireEvent.click(screen.getByTestId("date-range-change"));
+
+        expect(mockPush).toHaveBeenCalledWith(
+          expect.stringContaining("page=1")
+        );
+      });
+
+      it("preserves limit when changing date range", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 1,
+            limit: 100,
+            totalCount: 200,
+            totalPages: 2,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        fireEvent.click(screen.getByTestId("date-range-change"));
+
+        expect(mockPush).toHaveBeenCalledWith(
+          expect.stringContaining("limit=100")
+        );
+      });
+    });
+
+    describe("Edge Cases", () => {
+      it("handles single page correctly", () => {
+        const props = {
+          ...defaultProps,
+          pagination: {
+            currentPage: 1,
+            limit: 50,
+            totalCount: 30,
+            totalPages: 1,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        // No pagination controls should appear
+        expect(screen.queryByText("Previous")).not.toBeInTheDocument();
+        expect(screen.queryByText("Next")).not.toBeInTheDocument();
+        expect(screen.queryByText("Showing 1 to 30 of 30 calls")).not.toBeInTheDocument();
+      });
+
+      it("handles empty results correctly", () => {
+        const props = {
+          ...defaultProps,
+          calls: [],
+          pagination: {
+            currentPage: 1,
+            limit: 50,
+            totalCount: 0,
+            totalPages: 0,
+          },
+        };
+        render(<AgentCallsClient {...props} />);
+
+        expect(screen.queryByText("Previous")).not.toBeInTheDocument();
+        expect(screen.queryByText("Next")).not.toBeInTheDocument();
+        expect(screen.getByText("No calls found")).toBeInTheDocument();
+      });
+    });
+  });
 });
 
 
