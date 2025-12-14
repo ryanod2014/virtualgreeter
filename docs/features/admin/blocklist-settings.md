@@ -56,6 +56,7 @@ Allows organization admins to control which countries can see and interact with 
 │                       ALLOWLIST MODE                             │
 ├─────────────────────────────────────────────────────────────────┤
 │  Empty List → All visitors allowed (lenient default)            │
+│              → ⚠️ Shows warning banner in UI                     │
 │  Countries in List → Only those countries ALLOWED, others BLOCKED │
 │  Unknown Country (geo fail) → BLOCKED                           │
 └─────────────────────────────────────────────────────────────────┘
@@ -136,7 +137,7 @@ VISITOR CONNECTS
 | 1 | Happy path - blocklist mode | Admin blocks CN, visitor from CN connects | Visitor silently disconnected | ✅ | |
 | 2 | Happy path - allowlist mode | Admin allows US only, visitor from US connects | Visitor allowed | ✅ | |
 | 3 | Empty blocklist | No countries in list | All visitors allowed worldwide | ✅ | |
-| 4 | Empty allowlist | No countries in list | All visitors allowed (lenient) | ✅ | Could be stricter but prevents lockout |
+| 4 | Empty allowlist | No countries in list | All visitors allowed (lenient) + warning banner shown | ✅ | Warning banner added in TKT-088 |
 | 5 | Geolocation fails - blocklist | IP lookup returns null | Visitor ALLOWED (fail-safe) | ✅ | |
 | 6 | Geolocation fails - allowlist | IP lookup returns null | Visitor BLOCKED | ✅ | Unknown = not in allowlist |
 | 7 | Private IP (localhost) | 127.0.0.1, 192.168.x | Geolocation skipped, returns null | ✅ | |
@@ -173,11 +174,13 @@ VISITOR CONNECTS
 | 7 | Remove country | Click X on badge | ✅ | |
 | 8 | Save changes | Loading spinner → success message | ✅ | 3s auto-dismiss |
 | 9 | No changes | Save button disabled | ✅ | |
+| 10 | Empty allowlist mode | Select allowlist with no countries | Warning banner appears: "Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access." | ✅ | TKT-088 enhancement |
 
 ### Visual Design
 - **Mode Selection:** Two large cards with icons (Ban for blocklist, CheckCircle2 for allowlist)
 - **Country Selector:** Dropdown with search, region quick-buttons, grouped country list
 - **Selected Countries:** Color-coded badges (red for blocklist, green for allowlist)
+- **Empty Allowlist Warning:** Amber warning banner with AlertTriangle icon when allowlist is empty (TKT-088)
 - **Info Box:** Orange warning explaining how blocking works, VPN caveat
 
 ### Accessibility
@@ -245,6 +248,7 @@ VISITOR CONNECTS
 | Main UI component | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 1-733 | Full settings UI |
 | Mode selection UI | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 330-381 | Blocklist/Allowlist toggle |
 | Country dropdown | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 398-629 | Portal-based dropdown |
+| Empty allowlist warning | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 464-472 | TKT-088 warning banner |
 | Save handler | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 198-224 | Supabase update |
 | Server page component | `apps/dashboard/src/app/(app)/admin/settings/blocklist/page.tsx` | 1-43 | Auth check, data fetch |
 | Country blocking logic | `apps/server/src/lib/country-blocklist.ts` | 91-132 | `isCountryBlocked()` |
@@ -277,7 +281,7 @@ VISITOR CONNECTS
 
 5. **Should we support time-based blocking?** E.g., block certain countries during off-hours. Not currently implemented.
 
-6. **Should we warn about empty allowlist?** Empty allowlist currently allows everyone (lenient). Could be confusing - admin might expect it to block everyone.
+6. ~~**Should we warn about empty allowlist?** Empty allowlist currently allows everyone (lenient). Could be confusing - admin might expect it to block everyone.~~ **RESOLVED in TKT-088:** Added warning banner that displays: "Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access."
 
 
 
