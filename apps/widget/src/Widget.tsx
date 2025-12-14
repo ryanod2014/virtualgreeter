@@ -376,8 +376,14 @@ export function Widget({ config }: WidgetProps) {
       // Agent temporarily unavailable - visitor keeps waiting
       console.log("[Widget] Call rejected - but visitor keeps waiting");
     },
-    onCallEnded: () => {
-      console.log("[Widget] Call ended - minimizing widget");
+    onCallEnded: (data) => {
+      console.log("[Widget] Call ended - minimizing widget", data);
+
+      // Show message if provided (e.g., "Agent has ended the call")
+      if (data?.message) {
+        showError(data.message); // Using error toast for now, but it's not ideal
+      }
+
       setState("minimized");
       setIsCameraOn(false);
       setIsMicOn(false);

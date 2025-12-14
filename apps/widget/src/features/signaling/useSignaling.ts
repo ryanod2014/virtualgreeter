@@ -8,6 +8,7 @@ import type {
   AgentUnavailablePayload,
   CallAcceptedPayload,
   CallRejectedPayload,
+  CallEndedPayload,
   CallReconnectedPayload,
   CallReconnectFailedPayload,
 } from "@ghost-greeter/domain";
@@ -179,7 +180,7 @@ interface UseSignalingOptions {
   onAgentUnavailable: (data: AgentUnavailablePayload) => void;
   onCallAccepted: (data: CallAcceptedPayload) => void;
   onCallRejected: (data: CallRejectedPayload) => void;
-  onCallEnded: () => void;
+  onCallEnded: (data: CallEndedPayload) => void;
   onCallReconnecting?: () => void;
   onCallReconnected?: (data: CallReconnectedPayload) => void;
   onCallReconnectFailed?: (data: CallReconnectFailedPayload) => void;
@@ -436,20 +437,20 @@ export function useSignaling(options: UseSignalingOptions): UseSignalingReturn {
     });
 
     // Call ended
-    socket.on(SOCKET_EVENTS.CALL_ENDED, () => {
-      console.log("[Widget] Call ended");
+    socket.on(SOCKET_EVENTS.CALL_ENDED, (data: CallEndedPayload) => {
+      console.log("[Widget] Call ended", data);
       setCallAccepted(false);
       setCallRejected(false);
       setCurrentCallId(null);
       currentRequestIdRef.current = null;
-      
+
       // Clear pending call tracking - call is over
       pendingCallAgentIdRef.current = null;
-      
+
       // Clear stored call data - call is over
       clearStoredCall();
-      
-      optionsRef.current.onCallEnded();
+
+      optionsRef.current.onCallEnded(data);
     });
 
     // Call reconnection events
