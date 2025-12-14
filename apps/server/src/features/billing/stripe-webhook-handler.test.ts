@@ -852,7 +852,11 @@ describe("Stripe Webhook Handler", () => {
 
       await handleStripeWebhook(mockReq as Request, mockRes as Response);
 
-      expect(mockUpdate).toHaveBeenCalledWith({ subscription_status: "cancelled" });
+      expect(mockUpdate).toHaveBeenCalledWith({
+        subscription_status: "cancelled",
+        plan: "free",
+        pause_ends_at: null
+      });
       expect(resJson).toHaveBeenCalledWith({ received: true });
     });
   });

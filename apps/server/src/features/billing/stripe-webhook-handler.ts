@@ -245,11 +245,13 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 
   // Update both subscription status to cancelled AND plan to free
   // This is the final step after a cancellation - user's paid period has ended
+  // Also clear pause_ends_at since the grace period has ended
   const { error } = await supabase
     .from("organizations")
     .update({
       subscription_status: "cancelled",
-      plan: "free"
+      plan: "free",
+      pause_ends_at: null
     })
     .eq("id", org.id);
 
