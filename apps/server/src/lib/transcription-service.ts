@@ -5,6 +5,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import type { RecordingSettings } from "@ghost-greeter/domain/database.types";
+import { processTranscriptionWithRetry, updateCallLogTranscription, canRetryTranscription } from "../features/transcription/processTranscription.js";
 
 // Pricing constants (2x API costs)
 const TRANSCRIPTION_COST_PER_MIN = 0.01; // ~2x Deepgram Nova-2 ($0.0043/min)
@@ -52,71 +53,10 @@ const supabase = supabaseUrl && supabaseServiceKey
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-interface TranscriptionResult {
-  success: boolean;
-  transcription?: string;
-  durationSeconds?: number;
-  error?: string;
-}
-
 interface AISummaryResult {
   success: boolean;
   summary?: string;
   error?: string;
-}
-
-/**
- * Transcribe audio using Deepgram
- */
-async function transcribeWithDeepgram(audioUrl: string): Promise<TranscriptionResult> {
-  if (!DEEPGRAM_API_KEY) {
-    return { success: false, error: "DEEPGRAM_API_KEY not configured" };
-  }
-
-  try {
-    console.log("[Transcription] Starting Deepgram transcription for:", audioUrl);
-
-    const response = await fetch("https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&diarize=true&punctuate=true", {
-      method: "POST",
-      headers: {
-        "Authorization": `Token ${DEEPGRAM_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: audioUrl,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[Transcription] Deepgram API error:", response.status, errorText);
-      return { success: false, error: `Deepgram API error: ${response.status}` };
-    }
-
-    const result = await response.json() as {
-      results?: { channels?: Array<{ alternatives?: Array<{ transcript?: string }> }> };
-      metadata?: { duration?: number };
-    };
-    
-    // Extract transcription from Deepgram response
-    const transcript = result.results?.channels?.[0]?.alternatives?.[0]?.transcript;
-    const durationSeconds = result.metadata?.duration;
-
-    if (!transcript) {
-      return { success: false, error: "No transcription returned from Deepgram" };
-    }
-
-    console.log("[Transcription] Completed, duration:", durationSeconds, "seconds");
-
-    return {
-      success: true,
-      transcription: transcript,
-      durationSeconds: durationSeconds,
-    };
-  } catch (error) {
-    console.error("[Transcription] Error:", error);
-    return { success: false, error: String(error) };
-  }
 }
 
 /**
@@ -232,36 +172,20 @@ export async function processCallRecording(callLogId: string): Promise<void> {
       .update({ transcription_status: "processing" })
       .eq("id", callLogId);
 
-    // 3. Transcribe the audio
-    const transcriptionResult = await transcribeWithDeepgram(callLog.recording_url);
-
-    if (!transcriptionResult.success) {
-      // Mark as failed
-      await supabase
-        .from("call_logs")
-        .update({
-          transcription_status: "failed",
-          transcription_error: transcriptionResult.error,
-        })
-        .eq("id", callLogId);
-      return;
-    }
+    // 3. Transcribe the audio with automatic retry
+    const transcriptionResult = await processTranscriptionWithRetry(callLog.recording_url);
 
     // Calculate cost based on duration
     const durationMinutes = (transcriptionResult.durationSeconds || callLog.duration_seconds || 0) / 60;
-    const transcriptionCost = durationMinutes * TRANSCRIPTION_COST_PER_MIN;
+    const transcriptionCost = transcriptionResult.success ? durationMinutes * TRANSCRIPTION_COST_PER_MIN : undefined;
 
-    // 4. Save transcription
-    await supabase
-      .from("call_logs")
-      .update({
-        transcription: transcriptionResult.transcription,
-        transcription_status: "completed",
-        transcription_duration_seconds: transcriptionResult.durationSeconds,
-        transcription_cost: transcriptionCost,
-        transcribed_at: new Date().toISOString(),
-      })
-      .eq("id", callLogId);
+    // 4. Update call log with result (success or failure)
+    await updateCallLogTranscription(supabase, callLogId, transcriptionResult, transcriptionCost);
+
+    if (!transcriptionResult.success) {
+      console.log(`[ProcessCall] Transcription failed after ${transcriptionResult.totalAttempts} attempts:`, transcriptionResult.error);
+      return;
+    }
 
     // 5. Record usage for billing
     await supabase
@@ -363,4 +287,7 @@ export function getServiceStatus(): { deepgram: boolean; openai: boolean; supaba
     supabase: !!supabase,
   };
 }
+
+// Re-export canRetryTranscription for UI use
+export { canRetryTranscription };
 

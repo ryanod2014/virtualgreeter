@@ -85,6 +85,7 @@ interface CallLogWithRelations extends CallLogForStats {
   // Transcription fields
   transcription: string | null;
   transcription_status: "pending" | "processing" | "completed" | "failed" | null;
+  transcription_retry_count?: number | null;
   // AI Summary fields
   ai_summary: string | null;
   ai_summary_status: "pending" | "processing" | "completed" | "failed" | null;
@@ -1033,9 +1034,12 @@ function CallLogRow({
   
   const hasTranscription = call.transcription_status === "completed" && call.transcription;
   const hasSummary = call.ai_summary_status === "completed" && call.ai_summary;
-  
-  // Show retry button for failed transcriptions with a recording
-  const canRetry = call.transcription_status === "failed" && call.recording_url && onTranscriptionRetry;
+
+  // Show retry button for failed transcriptions that have exhausted auto-retry attempts (3)
+  const canRetry = call.transcription_status === "failed" &&
+    call.recording_url &&
+    onTranscriptionRetry &&
+    (call.transcription_retry_count || 0) >= 3;
 
   const handleRetry = async () => {
     if (!onTranscriptionRetry || isRetrying) return;
