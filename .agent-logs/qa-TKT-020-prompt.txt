@@ -1,4 +1,4 @@
-# QA Review Agent: TKT-065
+# QA Review Agent: TKT-020
 
 > **FIRST:** Read the full SOP: `docs/workflow/QA_REVIEW_AGENT_SOP.md`
 >
@@ -10,12 +10,12 @@
 
 | Key | Value |
 |-----|-------|
-| **Ticket** | TKT-065 |
-| **Branch** | agent/tkt-065 |
+| **Ticket** | TKT-020 |
+| **Branch** | agent/tkt-020 |
 | **Type** | hybrid (HAS_UI: true, HAS_API: true) |
-| **Session ID** | aa6dffac-fa6e-4d64-90e5-8eef14053b58 |
-| **Worktree** | /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/TKT-065 |
-| **Dashboard Port** | 3165 (use this for ALL testing!) |
+| **Session ID** | b7856c7a-1561-4c37-8287-386ee6adc1e0 |
+| **Worktree** | /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/TKT-020 |
+| **Dashboard Port** | 3120 (use this for ALL testing!) |
 | **Tunnel URL** |  |
 
 ---
@@ -66,9 +66,9 @@ Run your plan. For EACH test:
 
 ```bash
 cd apps/dashboard
-PORT=3165 pnpm dev &
+PORT=3120 pnpm dev &
 sleep 10
-curl -s http://localhost:3165 | head -1
+curl -s http://localhost:3120 | head -1
 ```
 
 ---
@@ -77,29 +77,29 @@ curl -s http://localhost:3165 | head -1
 
 **IF PASS:**
 
-1. Write QA report: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-065-PASSED-$(date +%Y%m%dT%H%M).md`
+1. Write QA report: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-020-PASSED-$(date +%Y%m%dT%H%M).md`
 
 2. Update ticket status:
    ```bash
-   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-065 \
+   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-020 \
      -H 'Content-Type: application/json' \
      -d '{"status": "qa_passed"}'
    ```
 
 3. Mark session complete:
    ```bash
-   curl -X POST http://localhost:3456/api/v2/agents/aa6dffac-fa6e-4d64-90e5-8eef14053b58/complete \
+   curl -X POST http://localhost:3456/api/v2/agents/b7856c7a-1561-4c37-8287-386ee6adc1e0/complete \
      -H 'Content-Type: application/json' \
-     -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-065-PASSED.md"}'
+     -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-020-PASSED.md"}'
    ```
 
 **IF FAIL:**
 
-1. Write blocker file: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-065-FAILED-$(date +%Y%m%dT%H%M).json`
+1. Write blocker file: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-020-FAILED-$(date +%Y%m%dT%H%M).json`
 
    ```json
    {
-     "ticket_id": "TKT-065",
+     "ticket_id": "TKT-020",
      "blocker_type": "qa_failure",
      "summary": "[one-line summary]",
      "failures": [{"test": "...", "expected": "...", "actual": "..."}],
@@ -107,14 +107,14 @@ curl -s http://localhost:3165 | head -1
    }
    ```
 
-2. Write QA report: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-065-FAILED-$(date +%Y%m%dT%H%M).md`
+2. Write QA report: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-020-FAILED-$(date +%Y%m%dT%H%M).md`
 
 3. Update status:
    ```bash
-   curl -X POST http://localhost:3456/api/v2/agents/aa6dffac-fa6e-4d64-90e5-8eef14053b58/block \
+   curl -X POST http://localhost:3456/api/v2/agents/b7856c7a-1561-4c37-8287-386ee6adc1e0/block \
      -H 'Content-Type: application/json' \
      -d '{"blocker_type": "qa_failure", "summary": "[summary]"}'
-   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-065 \
+   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-020 \
      -H 'Content-Type: application/json' \
      -d '{"status": "qa_failed"}'
    ```
@@ -124,7 +124,7 @@ curl -s http://localhost:3165 | head -1
 ## Heartbeat (every 5-10 min)
 
 ```bash
-curl -X POST http://localhost:3456/api/v2/agents/aa6dffac-fa6e-4d64-90e5-8eef14053b58/heartbeat
+curl -X POST http://localhost:3456/api/v2/agents/b7856c7a-1561-4c37-8287-386ee6adc1e0/heartbeat
 ```
 
 ---
