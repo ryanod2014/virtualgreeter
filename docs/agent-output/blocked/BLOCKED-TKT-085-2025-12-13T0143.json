@@ -1,0 +1,55 @@
+{
+  "id": "BLOCKED-TKT-085-1",
+  "type": "blocker",
+  "source": "dev-agent-TKT-085",
+  "severity": "critical",
+  "title": "Ticket file paths don't match actual codebase structure",
+  "feature": "Agent Management",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-13T01:43:42Z",
+
+  "issue": "The ticket specifies three files to modify, but the actual file paths in the codebase are different:\n\n1. Ticket says: `apps/dashboard/src/app/api/agents/invite/route.ts`\n   Actual: `apps/dashboard/src/app/api/invites/send/route.ts` (this is the invite endpoint)\n\n2. Ticket says: `packages/database/src/schema.ts`\n   Actual: This project uses Supabase with SQL migrations in `supabase/migrations/`, not a TypeScript schema file. Schema changes require creating a new migration file.\n\n3. Ticket says: `apps/server/src/lib/billing/stripe-queue.ts`\n   Actual: This file doesn't exist yet and needs to be created (this one is fine).\n\nI need clarification on whether to:\nA) Proceed with the correct file paths (SQL migration + invites/send/route.ts)\nB) Wait for updated ticket with correct paths",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Proceed with correct paths — I'll create a new SQL migration for the billing_pending column and modify apps/dashboard/src/app/api/invites/send/route.ts instead of the non-existent agents/invite path",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Wait for ticket update — PM updates the ticket with correct file paths before I proceed"
+    }
+  ],
+
+  "recommendation": "Option 1 because I understand the intent: add billing resilience to the invite flow. The file paths in the ticket are just incorrect, but the implementation requirements are clear.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-085",
+    "ticket_version": 1,
+    "branch": "agent/tkt-085",
+    "progress": {
+      "commits": [],
+      "done": [
+        "Read and understood the invite flow at apps/dashboard/src/app/api/invites/send/route.ts",
+        "Read billing/seats route to understand Stripe integration",
+        "Found invites table schema in supabase/migrations/20251127000000_add_invites.sql",
+        "Reviewed stripe-webhook-handler.ts for async Stripe patterns"
+      ],
+      "remaining": [
+        "Create SQL migration to add billing_pending column to invites table ← BLOCKED",
+        "Create apps/server/src/lib/billing/stripe-queue.ts with retry logic",
+        "Modify invite route to queue billing updates instead of failing",
+        "Implement background sync job",
+        "Add admin notifications"
+      ],
+      "stopped_at": {
+        "file": "docs/prompts/active/dev-agent-TKT-085-v1.md",
+        "line": 33,
+        "context": "Analyzing files_to_modify list and discovered path mismatches"
+      },
+      "notes_for_next_agent": "The implementation approach is clear: add a billing_pending boolean to invites table, create a queue system for failed Stripe updates, and modify the invite endpoint to gracefully handle Stripe failures. The actual files are: (1) new SQL migration, (2) apps/server/src/lib/billing/stripe-queue.ts (new), (3) apps/dashboard/src/app/api/invites/send/route.ts (existing)"
+    }
+  }
+}
