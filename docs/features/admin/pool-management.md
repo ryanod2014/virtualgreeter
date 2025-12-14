@@ -97,11 +97,43 @@ stateDiagram-v2
 | `handleAddAgentToPool` | `pools-client.tsx:1680` | Adds agent with priority rank |
 | `handleRemoveAgentFromPool` | `pools-client.tsx:1753` | Removes agent from pool |
 | `handleUpdateAgentPriority` | `pools-client.tsx:1722` | Changes agent's priority tier |
+| `showToast` | `pools-client.tsx:1547` | Displays success/error toast notifications |
+| `handleAddRoutingRule` | `pools-client.tsx:1785` | Creates routing rule with catch-all validation (TKT-077) |
+| `handleUpdateRoutingRule` | `pools-client.tsx:1855` | Updates routing rule with catch-all validation (TKT-077) |
 | `syncConfigToServer` | `pools-client.tsx:1541` | POSTs pool config to signaling server |
 | `PoolWidgetSettings` | `pools-client.tsx:829` | Custom widget settings per pool |
 | `AgentPriorityCard` | `pools-client.tsx:102` | Agent card with priority selector |
 | `RuleBuilder` | `pools-client.tsx:308` | Routing rule creation UI |
-| `showToast` | `pools-client.tsx:1562` | Shows success/error notifications (Added in TKT-043) |
+
+### Toast Notification System (TKT-043)
+
+Pool management operations now provide immediate user feedback through toast notifications using Radix UI Toast components.
+
+**Success Notifications:**
+- "Pool created" - Shown after successful pool creation
+- "Agent added" - Shown when agent is added to pool
+- "Agent removed" - Shown when agent is removed from pool
+- "Priority updated" - Shown when agent priority tier changes
+- "Routing rule added" - Shown when new rule is created
+- "Routing rule deleted" - Shown when rule is removed
+- "Pool deleted" - Shown when pool is successfully deleted
+
+**Error Notifications:**
+- "Connection error" - Shown for network/fetch failures with recovery instructions
+- "Failed to create pool" - Shown for duplicate names (with specific message) or other creation errors
+- "Failed to add agent" - Shown when agent addition fails
+- "Failed to remove agent" - Shown when agent removal fails
+- "Failed to update priority" - Shown when priority update fails
+- "Failed to add routing rule" - Shown when rule creation fails
+- "Failed to delete routing rule" - Shown when rule deletion fails
+- "Failed to delete pool" - Shown when pool deletion fails
+
+**Implementation Details:**
+- Toast notifications auto-dismiss after 5 seconds
+- Network errors specifically show "Connection error" as title
+- Duplicate pool names show user-friendly message explaining the conflict
+- UI implements optimistic updates with rollback on failure
+- Error toasts include descriptive messages and recovery guidance
 
 ### Data Flow
 
@@ -165,18 +197,22 @@ syncConfigToServer()
 | 7 | Add agent already in pool | Admin tries to add existing member | Agent not shown in available list | ✅ | `getAvailableAgents()` filters |
 | 8 | Remove last agent from pool | Admin removes only agent | Pool shows "No agents assigned" | ✅ | Pool remains functional |
 | 9 | Pool with no agents | Visitor routed to empty pool | Falls back to ANY available agent | ⚠️ | May get agent from different pool |
-| 10 | Add routing rule to catch-all | Admin tries to add rule | Rule builder not shown, info message displayed | ✅ | Protected in UI |
+| 10 | Add routing rule to catch-all | Admin tries to add rule | Alert shown: "Routing rules cannot be added to the catch-all pool. This pool automatically receives all visitors not matched by other rules." | ✅ | Protected in UI and with user-friendly error |
 | 11 | Edit pool name | Not implemented | Cannot edit pool name after creation | ⚠️ | Feature gap |
 | 12 | Reorder agents by priority | Admin changes priority dropdown | Immediate update, grouped by tier | ✅ | |
 | 13 | All agents in pool set to Backup | Admin sets all to tier 3 | Leads still go to them (lowest priority first) | ✅ | Priority is relative |
+| 14 | Update routing rule on catch-all | Admin modifies existing rule | Alert shown: "Routing rules cannot be modified on the catch-all pool. This pool automatically receives all visitors not matched by other rules." | ✅ | Protected with user-friendly error |
+| 15 | Database trigger blocks rule on catch-all | Admin bypasses UI (API call) | Database error caught, alert shown with friendly message | ✅ | TKT-077: Defense in depth |
 
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
 |-------|-----------------|----------------|---------------|
-| Duplicate pool name | CREATE with existing name | Toast: "A pool named X already exists" | Choose different name |
-| Database save fails | Network error on any save | Toast notification with error message | Retry the operation |
+| Duplicate pool name | CREATE with existing name | Alert: "A pool named X already exists" | Choose different name |
+| Database save fails | Network error on any save | Toast notification with error message (TKT-043) | Refresh page, retry |
 | Server sync fails | Signaling server unreachable | Console warning only | Rules saved to DB, will sync on next load |
 | RLS permission denied | Non-admin tries to modify | Operation fails silently | Must be admin |
+| Routing rule on catch-all | Attempt to add/modify rule on catch-all pool | Alert: "Routing rules cannot be added to the catch-all pool..." | Create/use different pool |
+| Database trigger error | DB prevents rule on catch-all | Alert with user-friendly message (TKT-077) | Use different pool |
 
 ---
 
@@ -249,13 +285,13 @@ syncConfigToServer()
 6. **Is the complexity justified?** ✅ Yes - Pools enable sophisticated routing without complexity overload.
 
 ### Identified Issues
-| Issue | Impact | Severity | Suggested Fix |
-|-------|--------|----------|--------------|
-| No pool rename/edit | Admin must delete and recreate to rename | 🟡 Medium | Add inline edit for pool name |
-| No delete confirmation | Accidental deletion possible | 🟡 Medium | Add confirmation modal |
-| ~~Silent failures~~ | ~~Admin may not know save failed~~ | ~~🟡 Medium~~ | ~~Add toast notifications~~ **(Fixed in TKT-043)** |
-| Cannot sort/reorder pools | Pools shown in creation order | 🟢 Low | Add drag-and-drop reorder |
-| Empty pool fallback | Visitors may get wrong agent | 🟡 Medium | Show warning when pool empty |
+| Issue | Impact | Severity | Status | Suggested Fix |
+|-------|--------|----------|--------|--------------|
+| No pool rename/edit | Admin must delete and recreate to rename | 🟡 Medium | Open | Add inline edit for pool name |
+| No delete confirmation | Accidental deletion possible | 🟡 Medium | Open | Add confirmation modal |
+| Silent failures | Admin may not know save failed | 🟡 Medium | ✅ Fixed (TKT-043) | Toast notifications implemented |
+| Cannot sort/reorder pools | Pools shown in creation order | 🟢 Low | Open | Add drag-and-drop reorder |
+| Empty pool fallback | Visitors may get wrong agent | 🟡 Medium | Open | Show warning when pool empty |
 
 ---
 
@@ -265,11 +301,16 @@ syncConfigToServer()
 |---------|------|-------|-------|
 | Server data fetching | `apps/dashboard/src/app/(app)/admin/pools/page.tsx` | 1-96 | Fetches pools, agents, paths |
 | Main client component | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1515-2778 | `PoolsClient` |
-| Pool creation handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1637-1677 | `handleAddPool()` |
-| Pool deletion handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1772-1780 | `handleDeletePool()` |
-| Agent add handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1680-1718 | `handleAddAgentToPool()` |
-| Agent priority update | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1722-1751 | `handleUpdateAgentPriority()` |
-| Agent remove handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1753-1770 | `handleRemoveAgentFromPool()` |
+| Toast notification handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1547-1555 | `showToast()` - TKT-043 |
+| Toast state management | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1539 | Toast array state |
+| Toast UI component | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 2885-2917 | Radix UI Toast implementation |
+| Pool creation handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1637-1677 | `handleAddPool()` with toast |
+| Pool deletion handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1772-1780 | `handleDeletePool()` with toast |
+| Agent add handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1680-1718 | `handleAddAgentToPool()` with toast |
+| Agent priority update | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1722-1751 | `handleUpdateAgentPriority()` with toast |
+| Agent remove handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1753-1770 | `handleRemoveAgentFromPool()` with toast |
+| Routing rule add handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1785-1838 | `handleAddRoutingRule()` with catch-all check (TKT-077) |
+| Routing rule update handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1855-1904 | `handleUpdateRoutingRule()` with catch-all check (TKT-077) |
 | Server sync function | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1541-1574 | `syncConfigToServer()` |
 | Widget settings component | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 829-1366 | `PoolWidgetSettings` |
 | Agent priority card | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 102-158 | `AgentPriorityCard` |

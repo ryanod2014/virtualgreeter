@@ -185,10 +185,8 @@ class AgentLauncher {
       throw new Error('QA launch script not found');
     }
 
-    // Clean up conflicting worktrees
-    console.log(`🧹 Cleaning up conflicting worktrees for ${ticketId}...`);
-    this.cleanupConflictingWorktrees(ticketId, ticket.branch);
-
+    // NOTE: Do NOT cleanup worktrees here - QA should use the same worktree that Dev created
+    // The worktree contains the dev's committed code that needs to be tested
     console.log(`🔍 Launching QA agent for ${ticketId}...`);
 
     return new Promise((resolve, reject) => {

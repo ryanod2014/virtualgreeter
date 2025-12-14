@@ -7,7 +7,7 @@
 
 const automationConfig = {
   enabled: true,
-  testTickets: ['TKT-010', 'TKT-015', 'TKT-030'],  // Pipeline test: 3 new tickets
+  testTickets: ['TKT-034', 'TKT-050', 'TKT-068'],  // Pipeline test: 3 new tickets (round 2)
   autoQueueOnDevComplete: true,
   autoQueueOnQaPass: true,
   autoDispatchOnBlock: true,

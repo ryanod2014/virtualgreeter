@@ -199,9 +199,33 @@ scheduler.registerHandler('regression_test', async (job) => {
     
     try {
       const { execSync } = await import('child_process');
+      const { existsSync } = await import('fs');
+      const { join } = await import('path');
       const projectRoot = config.paths.projectRoot;
       
-      // Fetch latest from origin
+      // STEP 0: Push any unpushed commits from the worktree
+      // This ensures test/doc agent commits make it to origin before merge
+      const worktreePath = join(projectRoot, '..', 'agent-worktrees', ticketId);
+      if (existsSync(worktreePath)) {
+        try {
+          // Check for unpushed commits
+          const unpushed = execSync(
+            `git log origin/${branch}..HEAD --oneline 2>/dev/null || echo ""`,
+            { cwd: worktreePath, encoding: 'utf8' }
+          ).trim();
+          
+          if (unpushed) {
+            console.log(`📤 Pushing ${unpushed.split('\n').length} unpushed commit(s) from worktree...`);
+            execSync(`git push origin HEAD:${branch}`, { cwd: worktreePath, encoding: 'utf8' });
+            console.log(`✅ Worktree commits pushed to origin/${branch}`);
+          }
+        } catch (pushErr) {
+          console.warn(`⚠️ Could not push worktree commits: ${pushErr.message}`);
+          // Continue anyway - we'll try to merge what's on origin
+        }
+      }
+      
+      // Fetch latest from origin (now includes any pushed worktree commits)
       execSync('git fetch origin', { cwd: projectRoot, encoding: 'utf8' });
       
       // Get list of files changed on the branch vs main

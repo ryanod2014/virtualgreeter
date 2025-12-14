@@ -158,7 +158,7 @@ get_prompt_file() {
     # Extract base ticket and iteration if so
     local BASE_TICKET=""
     local ITERATION=""
-    if echo "$TICKET_ID" | grep -qE '-[Vv][0-9]+$'; then
+    if echo "$TICKET_ID" | grep -qE -- '-[Vv][0-9]+$'; then
         # This is a continuation ticket
         BASE_TICKET=$(echo "$TICKET_ID" | sed -E 's/-[Vv][0-9]+$//')
         ITERATION=$(echo "$TICKET_ID" | grep -oiE '[0-9]+$')

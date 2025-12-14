@@ -1,4 +1,4 @@
-# QA Review Agent: TKT-034
+# QA Review Agent: TKT-085
 
 > **FIRST:** Read the full SOP: `docs/workflow/QA_REVIEW_AGENT_SOP.md`
 >
@@ -10,12 +10,12 @@
 
 | Key | Value |
 |-----|-------|
-| **Ticket** | TKT-034 |
-| **Branch** | agent/tkt-034 |
+| **Ticket** | TKT-085 |
+| **Branch** | agent/tkt-085 |
 | **Type** | hybrid (HAS_UI: true, HAS_API: true) |
-| **Session ID** | a185b2ce-2dee-4c27-9960-baebac647b37 |
-| **Worktree** | /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/TKT-034 |
-| **Dashboard Port** | 3134 (use this for ALL testing!) |
+| **Session ID** | 9bfac9c9-75a8-4c94-aaf7-ce73b160557c |
+| **Worktree** | /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/TKT-085 |
+| **Dashboard Port** | 3185 (use this for ALL testing!) |
 | **Tunnel URL** |  |
 
 ---
@@ -66,9 +66,9 @@ Run your plan. For EACH test:
 
 ```bash
 cd apps/dashboard
-PORT=3134 pnpm dev &
+PORT=3185 pnpm dev &
 sleep 10
-curl -s http://localhost:3134 | head -1
+curl -s http://localhost:3185 | head -1
 ```
 
 ---
@@ -77,38 +77,38 @@ curl -s http://localhost:3134 | head -1
 
 **IF PASS:**
 
-1. Write QA report: `docs/agent-output/qa-results/QA-TKT-034-PASSED-$(date +%Y%m%dT%H%M).md`
+1. Write QA report: `docs/agent-output/qa-results/QA-TKT-085-PASSED-$(date +%Y%m%dT%H%M).md`
 
 2. Commit and push your report:
    ```bash
    git add docs/agent-output/qa-results/
-   git commit -m "qa(TKT-034): QA passed"
-   git push origin HEAD:agent/tkt-034
+   git commit -m "qa(TKT-085): QA passed"
+   git push origin HEAD:agent/tkt-085
    ```
    
    *(If you forget this step, the pipeline will auto-detect and commit it for you)*
 
 3. Update ticket status:
    ```bash
-   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-034 \
+   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-085 \
      -H 'Content-Type: application/json' \
      -d '{"status": "qa_passed"}'
    ```
 
 4. Mark session complete:
    ```bash
-   curl -X POST http://localhost:3456/api/v2/agents/a185b2ce-2dee-4c27-9960-baebac647b37/complete \
+   curl -X POST http://localhost:3456/api/v2/agents/9bfac9c9-75a8-4c94-aaf7-ce73b160557c/complete \
      -H 'Content-Type: application/json' \
-     -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-034-PASSED.md"}'
+     -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-085-PASSED.md"}'
    ```
 
 **IF FAIL:**
   
-1. Write blocker file: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-034-FAILED-$(date +%Y%m%dT%H%M).json`
+1. Write blocker file: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-085-FAILED-$(date +%Y%m%dT%H%M).json`
   
    ```json
   {
-    "ticket_id": "TKT-034",
+    "ticket_id": "TKT-085",
     "blocker_type": "qa_failure",
     "summary": "[one-line summary]",
     "failures": [{"test": "...", "expected": "...", "actual": "..."}],
@@ -116,14 +116,14 @@ curl -s http://localhost:3134 | head -1
   }
    ```
 
-2. Write QA report: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-034-FAILED-$(date +%Y%m%dT%H%M).md`
+2. Write QA report: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-085-FAILED-$(date +%Y%m%dT%H%M).md`
 
 3. Update status:
    ```bash
-   curl -X POST http://localhost:3456/api/v2/agents/a185b2ce-2dee-4c27-9960-baebac647b37/block \
+   curl -X POST http://localhost:3456/api/v2/agents/9bfac9c9-75a8-4c94-aaf7-ce73b160557c/block \
      -H 'Content-Type: application/json' \
      -d '{"blocker_type": "qa_failure", "summary": "[summary]"}'
-   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-034 \
+   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-085 \
      -H 'Content-Type: application/json' \
      -d '{"status": "qa_failed"}'
    ```
@@ -133,7 +133,7 @@ curl -s http://localhost:3134 | head -1
 ## Heartbeat (every 5-10 min)
 
 ```bash
-curl -X POST http://localhost:3456/api/v2/agents/a185b2ce-2dee-4c27-9960-baebac647b37/heartbeat
+curl -X POST http://localhost:3456/api/v2/agents/9bfac9c9-75a8-4c94-aaf7-ce73b160557c/heartbeat
 ```
 
 ---

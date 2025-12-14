@@ -478,6 +478,11 @@ tmux new-session -d -s "$SESSION_NAME" -c "$WORKTREE_DIR" \
      echo '' && \
      claude --model claude-opus-4-20250514 -p \"\$(cat '$PROMPT_FILE')\" --dangerously-skip-permissions 2>&1 | tee '$LOG_FILE'; \
      echo ''; \
+     echo 'Pushing any uncommitted changes...'; \
+     git add -A 2>/dev/null || true; \
+     git diff --cached --quiet || git commit -m \"test($TICKET_LOWER): Auto-commit test changes\" 2>/dev/null || true; \
+     git push origin HEAD:$BRANCH 2>/dev/null && echo '✅ Pushed to origin' || echo '⚠️ Push failed or nothing to push'; \
+     echo ''; \
      echo 'Signaling completion...'; \
      curl -s -X POST '$DASHBOARD_URL/api/v2/agents/$DB_SESSION_ID/complete' \
        -H 'Content-Type: application/json' \

@@ -1,0 +1,34 @@
+{
+  "ticket_id": "TKT-085",
+  "ticket_title": "Add Retry Mechanism for Stripe Billing Updates",
+  "branch": "agent/tkt-085",
+  "blocked_at": "2025-12-13T06:00:00Z",
+  "blocker_type": "ticket_specification_error",
+  "summary": "No implementation exists - dev agent blocked due to incorrect file paths in ticket",
+  "failures": [
+    {
+      "category": "specification",
+      "criterion": "Cannot test any acceptance criteria",
+      "expected": "Implementation using correct file paths",
+      "actual": "No code written - dev agent blocked on incorrect paths",
+      "evidence": "Only blocker files exist on branch, no code changes"
+    }
+  ],
+  "root_cause": {
+    "issue": "Ticket specifies non-existent file paths",
+    "incorrect_paths": [
+      "apps/dashboard/src/app/api/agents/invite/route.ts",
+      "packages/database/src/schema.ts"
+    ],
+    "correct_paths": [
+      "apps/dashboard/src/app/api/invites/send/route.ts",
+      "Supabase migration (no database package exists)"
+    ],
+    "blocker_history": [
+      "BLOCKED-TKT-085-2025-12-11T2053.json",
+      "BLOCKED-TKT-085-2025-12-14T0513.json"
+    ]
+  },
+  "recommendation": "Update ticket with correct file paths before re-attempting implementation",
+  "dispatch_action": "update_ticket_specification"
+}
