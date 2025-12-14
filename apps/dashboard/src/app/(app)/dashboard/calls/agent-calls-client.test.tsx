@@ -17,6 +17,7 @@ const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
   usePathname: () => "/dashboard/calls",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // Mock lucide-react icons
@@ -147,6 +148,12 @@ describe("AgentCallsClient", () => {
     dispositions: [],
     dateRange: { from: "2024-01-01T00:00:00Z", to: "2024-01-31T23:59:59Z" },
     currentFilters: {},
+    pagination: {
+      currentPage: 1,
+      limit: 50,
+      totalCount: 100,
+      totalPages: 2,
+    },
   };
 
   const mockCall = {
