@@ -98,6 +98,8 @@ stateDiagram-v2
 | `handleRemoveAgentFromPool` | `pools-client.tsx:1753` | Removes agent from pool |
 | `handleUpdateAgentPriority` | `pools-client.tsx:1722` | Changes agent's priority tier |
 | `showToast` | `pools-client.tsx:1547` | Displays success/error toast notifications |
+| `handleAddRoutingRule` | `pools-client.tsx:1785` | Creates routing rule with catch-all validation (TKT-077) |
+| `handleUpdateRoutingRule` | `pools-client.tsx:1855` | Updates routing rule with catch-all validation (TKT-077) |
 | `syncConfigToServer` | `pools-client.tsx:1541` | POSTs pool config to signaling server |
 | `PoolWidgetSettings` | `pools-client.tsx:829` | Custom widget settings per pool |
 | `AgentPriorityCard` | `pools-client.tsx:102` | Agent card with priority selector |
@@ -195,18 +197,22 @@ syncConfigToServer()
 | 7 | Add agent already in pool | Admin tries to add existing member | Agent not shown in available list | ✅ | `getAvailableAgents()` filters |
 | 8 | Remove last agent from pool | Admin removes only agent | Pool shows "No agents assigned" | ✅ | Pool remains functional |
 | 9 | Pool with no agents | Visitor routed to empty pool | Falls back to ANY available agent | ⚠️ | May get agent from different pool |
-| 10 | Add routing rule to catch-all | Admin tries to add rule | Rule builder not shown, info message displayed | ✅ | Protected in UI |
+| 10 | Add routing rule to catch-all | Admin tries to add rule | Alert shown: "Routing rules cannot be added to the catch-all pool. This pool automatically receives all visitors not matched by other rules." | ✅ | Protected in UI and with user-friendly error |
 | 11 | Edit pool name | Not implemented | Cannot edit pool name after creation | ⚠️ | Feature gap |
 | 12 | Reorder agents by priority | Admin changes priority dropdown | Immediate update, grouped by tier | ✅ | |
 | 13 | All agents in pool set to Backup | Admin sets all to tier 3 | Leads still go to them (lowest priority first) | ✅ | Priority is relative |
+| 14 | Update routing rule on catch-all | Admin modifies existing rule | Alert shown: "Routing rules cannot be modified on the catch-all pool. This pool automatically receives all visitors not matched by other rules." | ✅ | Protected with user-friendly error |
+| 15 | Database trigger blocks rule on catch-all | Admin bypasses UI (API call) | Database error caught, alert shown with friendly message | ✅ | TKT-077: Defense in depth |
 
 ### Error States
 | Error | When It Happens | What User Sees | Recovery Path |
 |-------|-----------------|----------------|---------------|
 | Duplicate pool name | CREATE with existing name | Alert: "A pool named X already exists" | Choose different name |
-| Database save fails | Network error on any save | Error in console (silent fail) | Refresh page, retry |
+| Database save fails | Network error on any save | Toast notification with error message (TKT-043) | Refresh page, retry |
 | Server sync fails | Signaling server unreachable | Console warning only | Rules saved to DB, will sync on next load |
 | RLS permission denied | Non-admin tries to modify | Operation fails silently | Must be admin |
+| Routing rule on catch-all | Attempt to add/modify rule on catch-all pool | Alert: "Routing rules cannot be added to the catch-all pool..." | Create/use different pool |
+| Database trigger error | DB prevents rule on catch-all | Alert with user-friendly message (TKT-077) | Use different pool |
 
 ---
 
@@ -303,6 +309,8 @@ syncConfigToServer()
 | Agent add handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1680-1718 | `handleAddAgentToPool()` with toast |
 | Agent priority update | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1722-1751 | `handleUpdateAgentPriority()` with toast |
 | Agent remove handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1753-1770 | `handleRemoveAgentFromPool()` with toast |
+| Routing rule add handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1785-1838 | `handleAddRoutingRule()` with catch-all check (TKT-077) |
+| Routing rule update handler | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1855-1904 | `handleUpdateRoutingRule()` with catch-all check (TKT-077) |
 | Server sync function | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 1541-1574 | `syncConfigToServer()` |
 | Widget settings component | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 829-1366 | `PoolWidgetSettings` |
 | Agent priority card | `apps/dashboard/src/app/(app)/admin/pools/pools-client.tsx` | 102-158 | `AgentPriorityCard` |
