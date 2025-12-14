@@ -48,6 +48,13 @@
       "completed_at": "2025-12-08T15:45:00Z",
       "completion_file": "docs/agent-output/completions/TKT-018-2025-12-08T1545.md",
       "note": "Fixed missing type definitions in process/route.ts (continuation)"
+    },
+    {
+      "ticket_id": "TKT-018",
+      "branch": "agent/tkt-018-transcription-auto-retry-with",
+      "started_at": "2025-12-13T11:30:00Z",
+      "completed_at": "2025-12-13T11:50:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-018-2025-12-13T1150.md"
     }
   ],
   "retry_history": []
