@@ -46,6 +46,7 @@ vi.mock("lucide-react", () => ({
   Plus: () => <div data-testid="plus-icon" />,
   Loader2: () => <div data-testid="loader-icon" />,
   AlertCircle: () => <div data-testid="alert-circle-icon" />,
+  Info: () => <div data-testid="info-icon" />,
 }));
 
 // Mock next/link
@@ -834,8 +835,6 @@ describe("BillingSettingsClient", () => {
     });
   });
 });
-
-
 
 
 

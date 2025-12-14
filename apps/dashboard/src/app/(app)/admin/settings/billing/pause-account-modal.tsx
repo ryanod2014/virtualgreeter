@@ -60,13 +60,13 @@ export function PauseAccountModal({
   resumeDate.setMonth(resumeDate.getMonth() + selectedMonths);
 
   const formatDateWithTimezone = (date: Date) => {
-    // Format: "Dec 15, 2025 at 12:00 AM PST"
-    const dateStr = date.toLocaleDateString("en-US", {
+    // Format local time
+    const localDateStr = date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
-    const timeStr = date.toLocaleTimeString("en-US", {
+    const localTimeStr = date.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
@@ -75,7 +75,22 @@ export function PauseAccountModal({
       timeZoneName: "short",
     }).split(" ").pop(); // Extract timezone abbreviation (e.g., "PST")
 
-    return `${dateStr} at ${timeStr} ${timezoneStr}`;
+    // Format UTC time
+    const utcDateStr = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    const utcTimeStr = date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "UTC",
+    });
+
+    // Return both local and UTC for clarity
+    return `${localDateStr} at ${localTimeStr} ${timezoneStr} (${utcDateStr} at ${utcTimeStr} UTC)`;
   };
 
   const handlePause = async () => {
@@ -169,7 +184,10 @@ export function PauseAccountModal({
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span>Resumes on {formatDateWithTimezone(resumeDate)}</span>
+                    <span>
+                      Resumes on<br />
+                      <span className="font-medium">{formatDateWithTimezone(resumeDate)}</span>
+                    </span>
                   </li>
                 </ul>
               </div>
@@ -282,11 +300,13 @@ export function PauseAccountModal({
                   <PlayCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
                   <div className="text-sm">
                     <span className="text-muted-foreground">Your subscription will auto-resume on </span>
-                    <span className="font-medium">{formatDateWithTimezone(resumeDate)}</span>
                   </div>
                 </div>
+                <div className="ml-8 text-sm font-medium mb-1">
+                  {formatDateWithTimezone(resumeDate)}
+                </div>
                 <p className="text-xs text-muted-foreground ml-8">
-                  All times shown in your local timezone
+                  Displaying your local timezone with UTC reference to avoid confusion. Your account will resume at exactly this time.
                 </p>
               </div>
             </div>

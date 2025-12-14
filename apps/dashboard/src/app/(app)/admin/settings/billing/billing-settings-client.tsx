@@ -23,6 +23,7 @@ import {
   Plus,
   Loader2,
   AlertCircle,
+  Info,
 } from "lucide-react";
 import type { Organization, BillingFrequency } from "@ghost-greeter/domain/database.types";
 import { CancelSubscriptionModal, type CancellationData } from "./cancel-subscription-modal";
@@ -161,13 +162,13 @@ export function BillingSettingsClient({ organization, usedSeats, purchasedSeats:
   };
 
   const formatDateWithTimezone = (date: Date) => {
-    // Format: "Dec 15, 2025 at 12:00 AM PST"
-    const dateStr = date.toLocaleDateString("en-US", {
+    // Format local time
+    const localDateStr = date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
-    const timeStr = date.toLocaleTimeString("en-US", {
+    const localTimeStr = date.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
@@ -176,7 +177,22 @@ export function BillingSettingsClient({ organization, usedSeats, purchasedSeats:
       timeZoneName: "short",
     }).split(" ").pop(); // Extract timezone abbreviation (e.g., "PST")
 
-    return `${dateStr} at ${timeStr} ${timezoneStr}`;
+    // Format UTC time
+    const utcDateStr = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    const utcTimeStr = date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "UTC",
+    });
+
+    // Return both local and UTC for clarity
+    return `${localDateStr} at ${localTimeStr} ${timezoneStr} (${utcDateStr} at ${utcTimeStr} UTC)`;
   };
 
   // Handle seat count changes
@@ -811,6 +827,12 @@ export function BillingSettingsClient({ organization, usedSeats, purchasedSeats:
                     {formatDateWithTimezone(new Date(organization.pause_ends_at))}
                   </span>.
                 </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  <span className="text-xs text-muted-foreground">
+                    Times are displayed in your local timezone with UTC reference for clarity
+                  </span>
+                </div>
               </div>
             </div>
             <button
