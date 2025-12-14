@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS: WidgetSettings = {
   auto_hide_delay: null,
   show_minimize_button: false,
   theme: "dark",
+  cobrowse_enabled: true,
 };
 
 interface DetectedSite {

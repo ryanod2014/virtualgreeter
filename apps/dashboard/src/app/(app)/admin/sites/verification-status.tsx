@@ -90,7 +90,6 @@ export function VerificationStatus({
     if (isVerified || pollingStopped) return;
 
     let interval: NodeJS.Timeout;
-    let timeout: NodeJS.Timeout;
     const startTime = Date.now();
 
     const setupNextPoll = () => {
@@ -135,7 +134,6 @@ export function VerificationStatus({
     // Cleanup function
     return () => {
       if (interval) clearInterval(interval);
-      if (timeout) clearTimeout(timeout);
     };
   }, [isVerified, pollingStopped, checkVerification]);
 

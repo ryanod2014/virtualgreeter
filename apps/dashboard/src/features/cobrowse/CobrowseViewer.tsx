@@ -29,8 +29,6 @@ export function CobrowseViewer({ snapshot, mousePosition, scrollPosition, select
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [scale, setScale] = useState(1);
-  const [hasReceivedFirstSnapshot, setHasReceivedFirstSnapshot] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
 
   /**
    * TKT-052: Tracks whether we've received the initial snapshot to show loading state

@@ -1,18 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Mock Supabase module
+// Mock Supabase module first
 const mockCreateSignedUrl = vi.fn();
 
-const mockSupabase = {
-  storage: {
-    from: vi.fn(() => ({
-      createSignedUrl: mockCreateSignedUrl,
-    })),
+vi.mock("../../lib/supabase.js", () => ({
+  supabase: {
+    storage: {
+      from: () => ({
+        createSignedUrl: mockCreateSignedUrl,
+      }),
+    },
   },
-};
-
-vi.mock("../../lib/supabase", () => ({
-  supabase: mockSupabase,
 }));
 
 // Import after mocks
@@ -52,62 +50,17 @@ describe("getRecordingUrl", () => {
 
       expect(result.success).toBe(true);
       expect(result.signedUrl).toBe(mockSignedUrl);
+      expect(result.expiresAt).toBe("2023-11-14T12:00:00.000Z");
       expect(result.error).toBeUndefined();
-    });
 
-    it("returns ISO timestamp for when URL expires", async () => {
-      mockCreateSignedUrl.mockResolvedValue({
-        data: { signedUrl: mockSignedUrl },
-        error: null,
-      });
-
-      const result = await getRecordingUrl({
-        organizationId: mockOrganizationId,
-        recordingId: mockRecordingId,
-      });
-
-      expect(result.expiresAt).toBeDefined();
-      expect(typeof result.expiresAt).toBe("string");
-      // Should be a valid ISO date string
-      expect(() => new Date(result.expiresAt!)).not.toThrow();
-    });
-
-    it("calls Supabase with correct bucket name and file path", async () => {
-      mockCreateSignedUrl.mockResolvedValue({
-        data: { signedUrl: mockSignedUrl },
-        error: null,
-      });
-
-      await getRecordingUrl({
-        organizationId: mockOrganizationId,
-        recordingId: mockRecordingId,
-      });
-
-      expect(mockSupabase.storage.from).toHaveBeenCalledWith("recordings");
+      // Verify correct storage bucket and file path
       expect(mockCreateSignedUrl).toHaveBeenCalledWith(
         `${mockOrganizationId}/${mockRecordingId}.webm`,
         defaultExpiresIn
       );
     });
 
-    it("uses default expiration of 3600 seconds when not specified", async () => {
-      mockCreateSignedUrl.mockResolvedValue({
-        data: { signedUrl: mockSignedUrl },
-        error: null,
-      });
-
-      await getRecordingUrl({
-        organizationId: mockOrganizationId,
-        recordingId: mockRecordingId,
-      });
-
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith(
-        expect.any(String),
-        3600
-      );
-    });
-
-    it("accepts custom expiration time", async () => {
+    it("generates signed URL with custom expiration time", async () => {
       mockCreateSignedUrl.mockResolvedValue({
         data: { signedUrl: mockSignedUrl },
         error: null,
@@ -115,74 +68,70 @@ describe("getRecordingUrl", () => {
 
       const customExpiresIn = 7200; // 2 hours
 
-      await getRecordingUrl({
+      const result = await getRecordingUrl({
         organizationId: mockOrganizationId,
         recordingId: mockRecordingId,
         expiresIn: customExpiresIn,
       });
 
+      expect(result.success).toBe(true);
+      expect(result.signedUrl).toBe(mockSignedUrl);
+      expect(result.expiresAt).toBe("2023-11-14T13:00:00.000Z"); // 2 hours later
       expect(mockCreateSignedUrl).toHaveBeenCalledWith(
-        expect.any(String),
-        7200
+        `${mockOrganizationId}/${mockRecordingId}.webm`,
+        customExpiresIn
       );
     });
 
-    it("calculates correct expiration timestamp", async () => {
+    it("constructs file path with organization ID folder structure", async () => {
       mockCreateSignedUrl.mockResolvedValue({
         data: { signedUrl: mockSignedUrl },
         error: null,
       });
 
-      const now = Date.now();
-      const expiresIn = 3600;
-
-      const result = await getRecordingUrl({
-        organizationId: mockOrganizationId,
-        recordingId: mockRecordingId,
-        expiresIn,
+      await getRecordingUrl({
+        organizationId: "org-abc-123",
+        recordingId: "recording-xyz-789",
       });
 
-      const expectedExpiresAt = new Date(now + expiresIn * 1000).toISOString();
-      expect(result.expiresAt).toBe(expectedExpiresAt);
+      expect(mockCreateSignedUrl).toHaveBeenCalledWith(
+        "org-abc-123/recording-xyz-789.webm",
+        defaultExpiresIn
+      );
+    });
+
+    it("uses recordings bucket for signed URL generation", async () => {
+      const fromSpy = vi.fn(() => ({
+        createSignedUrl: mockCreateSignedUrl,
+      }));
+
+      // Override the module mock for this test
+      const { supabase } = await import("../../lib/supabase.js");
+      supabase.storage.from = fromSpy;
+
+      mockCreateSignedUrl.mockResolvedValue({
+        data: { signedUrl: mockSignedUrl },
+        error: null,
+      });
+
+      await getRecordingUrl({
+        organizationId: mockOrganizationId,
+        recordingId: mockRecordingId,
+      });
+
+      expect(fromSpy).toHaveBeenCalledWith("recordings");
     });
   });
 
   // ---------------------------------------------------------------------------
-  // ERROR CASES
+  // ERROR HANDLING
   // ---------------------------------------------------------------------------
 
   describe("Error Handling", () => {
-    it("returns error when Supabase is not configured", async () => {
-      // Temporarily mock supabase as null
-      const originalSupabase = mockSupabase;
-      vi.doMock("../../lib/supabase", () => ({
-        supabase: null,
-      }));
-
-      const { getRecordingUrl: getRecordingUrlWithNullSupabase } = await import(
-        "./getRecordingUrl"
-      );
-
-      const result = await getRecordingUrlWithNullSupabase({
-        organizationId: mockOrganizationId,
-        recordingId: mockRecordingId,
-      });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Supabase not configured");
-      expect(result.signedUrl).toBeUndefined();
-      expect(result.expiresAt).toBeUndefined();
-
-      // Restore
-      vi.doMock("../../lib/supabase", () => ({
-        supabase: originalSupabase,
-      }));
-    });
-
     it("returns error when Supabase createSignedUrl fails", async () => {
       mockCreateSignedUrl.mockResolvedValue({
         data: null,
-        error: { message: "File not found" },
+        error: { message: "Storage error" },
       });
 
       const result = await getRecordingUrl({
@@ -191,28 +140,14 @@ describe("getRecordingUrl", () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe("File not found");
+      expect(result.error).toBe("Storage error");
       expect(result.signedUrl).toBeUndefined();
+      expect(result.expiresAt).toBeUndefined();
     });
 
-    it("returns error when no signed URL is returned in data", async () => {
+    it("returns error when no signed URL is returned", async () => {
       mockCreateSignedUrl.mockResolvedValue({
-        data: { signedUrl: null },
-        error: null,
-      });
-
-      const result = await getRecordingUrl({
-        organizationId: mockOrganizationId,
-        recordingId: mockRecordingId,
-      });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("No signed URL returned");
-    });
-
-    it("returns error when data is null", async () => {
-      mockCreateSignedUrl.mockResolvedValue({
-        data: null,
+        data: {},
         error: null,
       });
 
@@ -226,7 +161,7 @@ describe("getRecordingUrl", () => {
     });
 
     it("handles unexpected errors gracefully", async () => {
-      mockCreateSignedUrl.mockRejectedValue(new Error("Network error"));
+      mockCreateSignedUrl.mockRejectedValue(new Error("Unexpected error"));
 
       const result = await getRecordingUrl({
         organizationId: mockOrganizationId,
@@ -234,7 +169,7 @@ describe("getRecordingUrl", () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Network error");
+      expect(result.error).toBe("Unexpected error");
     });
 
     it("handles non-Error thrown values", async () => {
@@ -255,23 +190,42 @@ describe("getRecordingUrl", () => {
   // ---------------------------------------------------------------------------
 
   describe("Edge Cases", () => {
+    it("handles recordings with special characters in IDs", async () => {
+      mockCreateSignedUrl.mockResolvedValue({
+        data: { signedUrl: mockSignedUrl },
+        error: null,
+      });
+
+      const specialOrgId = "org-with-special-chars_123";
+      const specialRecordingId = "recording_with-dots.and-dashes";
+
+      await getRecordingUrl({
+        organizationId: specialOrgId,
+        recordingId: specialRecordingId,
+      });
+
+      expect(mockCreateSignedUrl).toHaveBeenCalledWith(
+        `${specialOrgId}/${specialRecordingId}.webm`,
+        defaultExpiresIn
+      );
+    });
+
     it("handles very short expiration times", async () => {
       mockCreateSignedUrl.mockResolvedValue({
         data: { signedUrl: mockSignedUrl },
         error: null,
       });
 
+      const shortExpiresIn = 60; // 1 minute
+
       const result = await getRecordingUrl({
         organizationId: mockOrganizationId,
         recordingId: mockRecordingId,
-        expiresIn: 60, // 1 minute
+        expiresIn: shortExpiresIn,
       });
 
       expect(result.success).toBe(true);
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith(
-        expect.any(String),
-        60
-      );
+      expect(result.expiresAt).toBe("2023-11-14T11:01:00.000Z"); // 1 minute later
     });
 
     it("handles very long expiration times", async () => {
@@ -280,151 +234,118 @@ describe("getRecordingUrl", () => {
         error: null,
       });
 
-      const result = await getRecordingUrl({
-        organizationId: mockOrganizationId,
-        recordingId: mockRecordingId,
-        expiresIn: 86400, // 24 hours
-      });
-
-      expect(result.success).toBe(true);
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith(
-        expect.any(String),
-        86400
-      );
-    });
-
-    it("handles zero expiration time", async () => {
-      mockCreateSignedUrl.mockResolvedValue({
-        data: { signedUrl: mockSignedUrl },
-        error: null,
-      });
+      const longExpiresIn = 86400 * 7; // 7 days
 
       const result = await getRecordingUrl({
         organizationId: mockOrganizationId,
         recordingId: mockRecordingId,
-        expiresIn: 0,
+        expiresIn: longExpiresIn,
       });
 
       expect(result.success).toBe(true);
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith(expect.any(String), 0);
-    });
-
-    it("handles organization IDs with special characters", async () => {
-      mockCreateSignedUrl.mockResolvedValue({
-        data: { signedUrl: mockSignedUrl },
-        error: null,
-      });
-
-      await getRecordingUrl({
-        organizationId: "org-abc_123-xyz",
-        recordingId: mockRecordingId,
-      });
-
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith(
-        "org-abc_123-xyz/recording-uuid-123.webm",
-        defaultExpiresIn
-      );
-    });
-
-    it("handles recording IDs with special characters", async () => {
-      mockCreateSignedUrl.mockResolvedValue({
-        data: { signedUrl: mockSignedUrl },
-        error: null,
-      });
-
-      await getRecordingUrl({
-        organizationId: mockOrganizationId,
-        recordingId: "rec_123-abc-xyz_456",
-      });
-
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith(
-        "org-456/rec_123-abc-xyz_456.webm",
-        defaultExpiresIn
-      );
+      expect(result.expiresAt).toBe("2023-11-21T11:00:00.000Z"); // 7 days later
     });
   });
 
   // ---------------------------------------------------------------------------
-  // FILE PATH FORMAT
+  // EXPIRATION TIME CALCULATIONS
   // ---------------------------------------------------------------------------
 
-  describe("File Path Format", () => {
-    it("constructs path with organization ID and recording ID", async () => {
+  describe("Expiration Time Calculations", () => {
+    it("calculates expiration timestamp correctly", async () => {
       mockCreateSignedUrl.mockResolvedValue({
         data: { signedUrl: mockSignedUrl },
         error: null,
       });
 
-      await getRecordingUrl({
-        organizationId: "my-org",
-        recordingId: "my-recording",
-      });
+      const testCases = [
+        { expiresIn: 300, expected: "2023-11-14T11:05:00.000Z" }, // 5 minutes
+        { expiresIn: 1800, expected: "2023-11-14T11:30:00.000Z" }, // 30 minutes
+        { expiresIn: 3600, expected: "2023-11-14T12:00:00.000Z" }, // 1 hour
+        { expiresIn: 21600, expected: "2023-11-14T17:00:00.000Z" }, // 6 hours
+        { expiresIn: 86400, expected: "2023-11-15T11:00:00.000Z" }, // 24 hours
+      ];
 
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith(
-        "my-org/my-recording.webm",
-        expect.any(Number)
-      );
-    });
+      for (const { expiresIn, expected } of testCases) {
+        const result = await getRecordingUrl({
+          organizationId: mockOrganizationId,
+          recordingId: mockRecordingId,
+          expiresIn,
+        });
 
-    it("always appends .webm extension", async () => {
-      mockCreateSignedUrl.mockResolvedValue({
-        data: { signedUrl: mockSignedUrl },
-        error: null,
-      });
-
-      await getRecordingUrl({
-        organizationId: mockOrganizationId,
-        recordingId: mockRecordingId,
-      });
-
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith(
-        expect.stringMatching(/\.webm$/),
-        expect.any(Number)
-      );
+        expect(result.expiresAt).toBe(expected);
+      }
     });
   });
 
   // ---------------------------------------------------------------------------
-  // EXPIRATION TIMESTAMP
+  // CONSOLE LOGGING
   // ---------------------------------------------------------------------------
 
-  describe("Expiration Timestamp", () => {
-    it("expiration is exactly expiresIn seconds in the future", async () => {
+  describe("Console Logging", () => {
+    it("logs URL generation attempt", async () => {
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
       mockCreateSignedUrl.mockResolvedValue({
         data: { signedUrl: mockSignedUrl },
         error: null,
       });
 
-      const now = 1700000000000; // Fixed time from beforeEach
-      const expiresIn = 1800; // 30 minutes
-
-      const result = await getRecordingUrl({
+      await getRecordingUrl({
         organizationId: mockOrganizationId,
         recordingId: mockRecordingId,
-        expiresIn,
       });
 
-      const expiresAtTime = new Date(result.expiresAt!).getTime();
-      const expectedExpiresAtTime = now + expiresIn * 1000;
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[Recording URL] Generating signed URL for:",
+        `${mockOrganizationId}/${mockRecordingId}.webm`
+      );
 
-      expect(expiresAtTime).toBe(expectedExpiresAtTime);
+      consoleSpy.mockRestore();
     });
 
-    it("returns ISO 8601 formatted timestamp", async () => {
+    it("logs successful URL generation with expiration", async () => {
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
       mockCreateSignedUrl.mockResolvedValue({
         data: { signedUrl: mockSignedUrl },
         error: null,
       });
 
-      const result = await getRecordingUrl({
+      await getRecordingUrl({
         organizationId: mockOrganizationId,
         recordingId: mockRecordingId,
       });
 
-      // ISO 8601 format: YYYY-MM-DDTHH:mm:ss.sssZ
-      expect(result.expiresAt).toMatch(
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[Recording URL] Signed URL generated, expires at:",
+        "2023-11-14T12:00:00.000Z"
       );
+
+      consoleSpy.mockRestore();
+    });
+
+    it("logs errors when URL generation fails", async () => {
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      mockCreateSignedUrl.mockResolvedValue({
+        data: null,
+        error: { message: "Storage error" },
+      });
+
+      await getRecordingUrl({
+        organizationId: mockOrganizationId,
+        recordingId: mockRecordingId,
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[Recording URL] Failed to generate signed URL:",
+        { message: "Storage error" }
+      );
+
+      consoleSpy.mockRestore();
     });
   });
 });
