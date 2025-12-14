@@ -11,6 +11,7 @@ import { execSync } from 'child_process';
 import { existsSync, readdirSync, writeFileSync } from 'fs';
 import config from '../../config.mjs';
 import { readJSON, scanFeaturesDir, scanAgentOutputsLocal, buildDevStatus } from '../../utils/fileScanner.mjs';
+import eventBus from '../../events/eventBus.mjs';
 
 const router = Router();
 
@@ -239,11 +240,18 @@ function checkWorktreeDocsTestsReports() {
                 // Ignore git errors
               }
               
-              // Mark session complete
+              // Mark session complete and emit event to trigger merge check
               try {
                 db.sessions.complete(testSession.id, `docs/agent-output/test-lock/${testReport}`);
                 completed++;
                 console.log(`✅ Marked test_lock session complete for ${ticketId}`);
+                
+                // Emit event so merge logic can react
+                eventBus.emit('agent:session:completed', {
+                  ticketId,
+                  agentType: 'test_lock',
+                  sessionId: testSession.id
+                });
               } catch (e) {
                 // Ignore
               }
@@ -291,11 +299,18 @@ function checkWorktreeDocsTestsReports() {
                 // Ignore git errors
               }
               
-              // Mark session complete
+              // Mark session complete and emit event to trigger merge check
               try {
                 db.sessions.complete(docSession.id, `docs/agent-output/doc-tracker/${docReport}`);
                 completed++;
                 console.log(`✅ Marked doc session complete for ${ticketId}`);
+                
+                // Emit event so merge logic can react
+                eventBus.emit('agent:session:completed', {
+                  ticketId,
+                  agentType: 'doc',
+                  sessionId: docSession.id
+                });
               } catch (e) {
                 // Ignore
               }

@@ -1,0 +1,136 @@
+# QA Review Agent: TKT-030-V2
+
+> **FIRST:** Read the full SOP: `docs/workflow/QA_REVIEW_AGENT_SOP.md`
+>
+> The SOP contains the 3-step process, forbidden shortcuts, and quality checklists.
+
+---
+
+## Session Context
+
+| Key | Value |
+|-----|-------|
+| **Ticket** | TKT-030-V2 |
+| **Branch** | agent/tkt-030-v2 |
+| **Type** | api (HAS_UI: false, HAS_API: false) |
+| **Session ID** | fa665e91-cd5d-4535-b24b-1bb75c89f5cc |
+| **Worktree** | /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/TKT-030-V2 |
+| **Dashboard Port** | 3130 (use this for ALL testing!) |
+| **Tunnel URL** |  |
+
+---
+
+## Type-Specific Workflow
+
+
+**API/BACKEND TICKET** - Execution-based testing required
+
+Read: \`docs/workflow/NON_UI_TICKET_QA_WORKFLOW.md\`
+- Test all endpoints with curl
+- Verify responses and state changes
+- Document request/response pairs
+
+---
+
+## Follow 3-Step Process from SOP
+
+### STEP 1: BRAINSTORM
+
+Before any testing, think through:
+- What are ALL the ways this could break?
+- What edge cases should I test?
+- What error states should I verify?
+
+### STEP 2: PLAN
+
+Write a test plan BEFORE executing:
+- List ALL tests you will run
+- For UI: List EACH role you will test
+- For API: List EACH endpoint you will hit
+
+### STEP 3: EXECUTE
+
+Run your plan. For EACH test:
+- Execute the test
+- Capture evidence (curl response / screenshot)
+- Document pass/fail
+
+---
+
+## Start Dashboard on YOUR Port
+
+```bash
+cd apps/dashboard
+PORT=3130 pnpm dev &
+sleep 10
+curl -s http://localhost:3130 | head -1
+```
+
+---
+
+## On Completion
+
+**IF PASS:**
+
+1. Write QA report: `docs/agent-output/qa-results/QA-TKT-030-V2-PASSED-$(date +%Y%m%dT%H%M).md`
+
+2. Commit and push your report:
+   ```bash
+   git add docs/agent-output/qa-results/
+   git commit -m "qa(TKT-030-V2): QA passed"
+   git push origin HEAD:agent/tkt-030-v2
+   ```
+   
+   *(If you forget this step, the pipeline will auto-detect and commit it for you)*
+
+3. Update ticket status:
+   ```bash
+   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-030-V2 \
+     -H 'Content-Type: application/json' \
+     -d '{"status": "qa_passed"}'
+   ```
+
+4. Mark session complete:
+   ```bash
+   curl -X POST http://localhost:3456/api/v2/agents/fa665e91-cd5d-4535-b24b-1bb75c89f5cc/complete \
+     -H 'Content-Type: application/json' \
+     -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-030-V2-PASSED.md"}'
+   ```
+
+**IF FAIL:**
+  
+1. Write blocker file: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-030-V2-FAILED-$(date +%Y%m%dT%H%M).json`
+  
+   ```json
+  {
+    "ticket_id": "TKT-030-V2",
+    "blocker_type": "qa_failure",
+    "summary": "[one-line summary]",
+    "failures": [{"test": "...", "expected": "...", "actual": "..."}],
+    "dispatch_action": "create_continuation_ticket"
+  }
+   ```
+
+2. Write QA report: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-030-V2-FAILED-$(date +%Y%m%dT%H%M).md`
+
+3. Update status:
+   ```bash
+   curl -X POST http://localhost:3456/api/v2/agents/fa665e91-cd5d-4535-b24b-1bb75c89f5cc/block \
+     -H 'Content-Type: application/json' \
+     -d '{"blocker_type": "qa_failure", "summary": "[summary]"}'
+   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-030-V2 \
+     -H 'Content-Type: application/json' \
+     -d '{"status": "qa_failed"}'
+   ```
+
+---
+
+## Heartbeat (every 5-10 min)
+
+```bash
+curl -X POST http://localhost:3456/api/v2/agents/fa665e91-cd5d-4535-b24b-1bb75c89f5cc/heartbeat
+```
+
+---
+
+⛔ **REMEMBER:** If you didn't EXECUTE it, you didn't TEST it. Read the SOP!
