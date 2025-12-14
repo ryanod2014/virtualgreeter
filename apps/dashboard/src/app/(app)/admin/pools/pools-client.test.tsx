@@ -63,6 +63,19 @@ vi.spyOn(console, "warn").mockImplementation(() => {});
 // Mock window.alert
 const mockAlert = vi.spyOn(window, "alert").mockImplementation(() => {});
 
+// Mock DeletePoolModal component
+vi.mock("@/features/pools/DeletePoolModal", () => ({
+  DeletePoolModal: ({ isOpen, onClose, onConfirm, poolName }: any) =>
+    isOpen ? (
+      <div data-testid="delete-pool-modal">
+        <h2>Delete Pool</h2>
+        <p>Are you sure you want to delete {poolName}?</p>
+        <button onClick={onConfirm}>Confirm</button>
+        <button onClick={onClose}>Cancel</button>
+      </div>
+    ) : null,
+}));
+
 import { PoolsClient } from "./pools-client";
 
 /**
@@ -563,9 +576,7 @@ describe("PoolsClient", () => {
   });
 
   describe("Pool Deletion - Database Delete", () => {
-    it("deletes pool immediately from database when delete button clicked (no confirmation)", async () => {
-      const { mockDelete, mockEq } = setupDeleteMock();
-
+    it("opens delete confirmation modal when delete button clicked", async () => {
       render(<PoolsClient {...defaultProps} pools={[mockPool]} />);
 
       // Find the trash icon button - get all trash icons and find the one in a button
@@ -583,15 +594,14 @@ describe("PoolsClient", () => {
       expect(deleteButton).toBeInTheDocument();
       fireEvent.click(deleteButton!);
 
-      // Current behavior: deletes immediately without confirmation modal
+      // Current behavior: opens a confirmation modal
       await waitFor(() => {
-        expect(mockSupabaseClient.from).toHaveBeenCalledWith("agent_pools");
-        expect(mockDelete).toHaveBeenCalled();
-        expect(mockEq).toHaveBeenCalledWith("id", "pool-1");
+        // The modal should appear with confirm/cancel buttons
+        expect(screen.getByText("Delete Pool")).toBeInTheDocument();
       });
     });
 
-    it("removes pool from list after successful deletion", async () => {
+    it("removes pool from list after confirming deletion", async () => {
       setupDeleteMock();
 
       render(<PoolsClient {...defaultProps} pools={[mockPool]} />);
@@ -601,8 +611,17 @@ describe("PoolsClient", () => {
       const deleteButton = trashIcon.closest("button");
       fireEvent.click(deleteButton!);
 
+      // Modal should appear
       await waitFor(() => {
-        // Pool should be removed from the list
+        expect(screen.getByText("Delete Pool")).toBeInTheDocument();
+      });
+
+      // Click confirm in modal
+      const confirmButton = screen.getByText("Confirm");
+      fireEvent.click(confirmButton);
+
+      // Now pool should be removed from the list
+      await waitFor(() => {
         expect(screen.queryByText("Sales Team")).not.toBeInTheDocument();
       });
     });
@@ -637,6 +656,15 @@ describe("PoolsClient", () => {
       const trashIcon = screen.getByTestId("trash-icon");
       const deleteButton = trashIcon.closest("button");
       fireEvent.click(deleteButton!);
+
+      // Modal should appear
+      await waitFor(() => {
+        expect(screen.getByText("Delete Pool")).toBeInTheDocument();
+      });
+
+      // Click confirm in modal
+      const confirmButton = screen.getByText("Confirm");
+      fireEvent.click(confirmButton);
 
       await waitFor(() => {
         // Sales Team should be removed
