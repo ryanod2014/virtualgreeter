@@ -56,14 +56,14 @@ describe("POST /api/agents/remove", () => {
   // Helper to setup Supabase mock with configurable returns
   function setupSupabaseMock(options: {
     profile?: { role: string; organization_id: string } | null;
-    agent?: { id: string; user_id: string; organization_id: string; is_active: boolean } | null;
+    agent?: { id: string; user_id: string; organization_id: string; is_active: boolean; status?: string } | null;
     userExists?: boolean;
     updateError?: boolean;
     deletePoolsError?: boolean;
   }) {
     const {
       profile = { role: "admin", organization_id: mockOrgId },
-      agent = { id: mockAgentProfileId, user_id: "other-user", organization_id: mockOrgId, is_active: true },
+      agent = { id: mockAgentProfileId, user_id: "other-user", organization_id: mockOrgId, is_active: true, status: "idle" },
       userExists = true,
       updateError = false,
       deletePoolsError = false,
@@ -211,6 +211,191 @@ describe("POST /api/agents/remove", () => {
 
       expect(response.status).toBe(400);
       expect(responseData.error).toBe("Agent already deactivated");
+    });
+  });
+
+  describe("In-call agent handling", () => {
+    beforeEach(() => {
+      // Set environment variables
+      process.env.NEXT_PUBLIC_SERVER_URL = "http://localhost:3001";
+      process.env.INTERNAL_API_KEY = "test-internal-key";
+    });
+
+    afterEach(() => {
+      delete process.env.NEXT_PUBLIC_SERVER_URL;
+      delete process.env.INTERNAL_API_KEY;
+    });
+
+    it("calls end-call API when agent status is in_call", async () => {
+      setupSupabaseMock({
+        agent: { id: mockAgentProfileId, user_id: "other-user", organization_id: mockOrgId, is_active: true, status: "in_call" },
+      });
+
+      const mockFetch = vi.spyOn(global, 'fetch');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+      const request = createMockRequest({ agentProfileId: mockAgentProfileId });
+      await POST(request);
+
+      // Verify end-call API was called
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:3001/api/agent/end-call",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            "Content-Type": "application/json",
+            "x-internal-api-key": "test-internal-key",
+          }),
+          body: JSON.stringify({ agentId: mockAgentProfileId }),
+        })
+      );
+    });
+
+    it("uses empty string for x-internal-api-key when INTERNAL_API_KEY is not set", async () => {
+      delete process.env.INTERNAL_API_KEY;
+
+      setupSupabaseMock({
+        agent: { id: mockAgentProfileId, user_id: "other-user", organization_id: mockOrgId, is_active: true, status: "in_call" },
+      });
+
+      const mockFetch = vi.spyOn(global, 'fetch');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+      const request = createMockRequest({ agentProfileId: mockAgentProfileId });
+      await POST(request);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "x-internal-api-key": "",
+          }),
+        })
+      );
+    });
+
+    it("continues with removal when end-call API returns error", async () => {
+      setupSupabaseMock({
+        agent: { id: mockAgentProfileId, user_id: "other-user", organization_id: mockOrgId, is_active: true, status: "in_call" },
+      });
+
+      const mockFetch = vi.spyOn(global, 'fetch');
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        text: async () => "Internal server error",
+      });
+
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const request = createMockRequest({ agentProfileId: mockAgentProfileId });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseData.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "[Remove Agent] Failed to end agent's call:",
+        "Internal server error"
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("continues with removal when end-call API throws exception", async () => {
+      setupSupabaseMock({
+        agent: { id: mockAgentProfileId, user_id: "other-user", organization_id: mockOrgId, is_active: true, status: "in_call" },
+      });
+
+      const mockFetch = vi.spyOn(global, 'fetch');
+      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const request = createMockRequest({ agentProfileId: mockAgentProfileId });
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseData.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "[Remove Agent] Error ending agent's call:",
+        expect.any(Error)
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("does not call end-call API when agent is not in_call", async () => {
+      setupSupabaseMock({
+        agent: { id: mockAgentProfileId, user_id: "other-user", organization_id: mockOrgId, is_active: true, status: "idle" },
+      });
+
+      const mockFetch = vi.spyOn(global, 'fetch');
+
+      const request = createMockRequest({ agentProfileId: mockAgentProfileId });
+      await POST(request);
+
+      // Only billing API should be called
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).not.toHaveBeenCalledWith(
+        expect.stringContaining("/api/agent/end-call"),
+        expect.anything()
+      );
+    });
+
+    it("logs call end attempt and success result", async () => {
+      setupSupabaseMock({
+        agent: { id: mockAgentProfileId, user_id: "other-user", organization_id: mockOrgId, is_active: true, status: "in_call" },
+      });
+
+      const mockFetch = vi.spyOn(global, 'fetch');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, callId: "call-123" }),
+      });
+
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const request = createMockRequest({ agentProfileId: mockAgentProfileId });
+      await POST(request);
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        `[Remove Agent] Agent ${mockAgentProfileId} is in a call, ending it first`
+      );
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        `[Remove Agent] Call end result:`,
+        { success: true, callId: "call-123" }
+      );
+
+      consoleLogSpy.mockRestore();
+    });
+
+    it("uses default localhost URL when NEXT_PUBLIC_SERVER_URL not set", async () => {
+      delete process.env.NEXT_PUBLIC_SERVER_URL;
+
+      setupSupabaseMock({
+        agent: { id: mockAgentProfileId, user_id: "other-user", organization_id: mockOrgId, is_active: true, status: "in_call" },
+      });
+
+      const mockFetch = vi.spyOn(global, 'fetch');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+      const request = createMockRequest({ agentProfileId: mockAgentProfileId });
+      await POST(request);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:3001/api/agent/end-call",
+        expect.anything()
+      );
     });
   });
 
