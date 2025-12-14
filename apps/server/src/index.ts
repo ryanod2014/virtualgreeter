@@ -34,6 +34,7 @@ import type {
   ServerToWidgetEvents,
   ServerToDashboardEvents,
 } from "@ghost-greeter/domain";
+import { SOCKET_EVENTS } from "@ghost-greeter/domain";
 import { handleStripeWebhook } from "./features/billing/stripe-webhook-handler.js";
 
 // ============================================================================
@@ -389,7 +390,7 @@ app.get("/api/stats", async (_req, res) => {
 // API: Test URL matching
 app.get("/api/test-match", async (req, res) => {
   const { orgId, url } = req.query;
-  
+
   if (!orgId || !url || typeof orgId !== "string" || typeof url !== "string") {
     res.status(400).json({ error: "orgId and url query params are required" });
     return;
@@ -401,12 +402,94 @@ app.get("/api/test-match", async (req, res) => {
   } else if (inMemoryPoolManager) {
     matchedPoolId = inMemoryPoolManager.matchPathToPool(orgId, url);
   }
-  
-  res.json({ 
+
+  res.json({
     orgId,
     url,
     matchedPoolId,
     timestamp: Date.now()
+  });
+});
+
+// API: End active call for agent (called during agent removal)
+app.post("/api/agent/end-call", async (req, res) => {
+  const { agentId } = req.body;
+
+  if (!agentId || typeof agentId !== "string") {
+    res.status(400).json({ error: "agentId is required" });
+    return;
+  }
+
+  // This endpoint is called from the dashboard when removing an agent
+  // It forcefully ends any active call the agent is in
+
+  let activeCall = null;
+  let poolManager = null;
+
+  if (USE_REDIS && redisPoolManager) {
+    poolManager = redisPoolManager;
+    activeCall = await redisPoolManager.getActiveCallByAgentId(agentId);
+  } else if (inMemoryPoolManager) {
+    poolManager = inMemoryPoolManager;
+    activeCall = inMemoryPoolManager.getActiveCallByAgentId(agentId);
+  }
+
+  if (!activeCall) {
+    res.json({ success: true, callEnded: false, message: "No active call found" });
+    return;
+  }
+
+  console.log(`[API] Ending active call ${activeCall.callId} for agent ${agentId} (agent removal)`);
+
+  // Import the call ending functions
+  const { markCallEnded } = await import("./lib/call-logger.js");
+  const { recordStatusChange } = await import("./lib/session-tracker.js");
+
+  // Mark call as completed in database
+  await markCallEnded(activeCall.callId);
+
+  // End the call in pool manager
+  if (USE_REDIS && redisPoolManager) {
+    await redisPoolManager.endCall(activeCall.callId);
+  } else if (inMemoryPoolManager) {
+    inMemoryPoolManager.endCall(activeCall.callId);
+  }
+
+  // Record status change
+  await recordStatusChange(agentId, "idle", "call_ended");
+
+  // Notify the visitor that the call has ended
+  const visitor = poolManager ?
+    (USE_REDIS && redisPoolManager ? await redisPoolManager.getVisitor(activeCall.visitorId) : inMemoryPoolManager?.getVisitor(activeCall.visitorId))
+    : null;
+
+  if (visitor && ioServer) {
+    const visitorSocket = ioServer.sockets.sockets.get(visitor.socketId);
+    visitorSocket?.emit(SOCKET_EVENTS.CALL_ENDED, {
+      callId: activeCall.callId,
+      reason: "agent_ended",
+      message: "Agent has ended the call",
+    });
+  }
+
+  // Notify the agent (if still connected)
+  const agent = poolManager ?
+    (USE_REDIS && redisPoolManager ? await redisPoolManager.getAgent(agentId) : inMemoryPoolManager?.getAgent(agentId))
+    : null;
+
+  if (agent && ioServer) {
+    const agentSocket = ioServer.sockets.sockets.get(agent.socketId);
+    agentSocket?.emit(SOCKET_EVENTS.CALL_ENDED, {
+      callId: activeCall.callId,
+      reason: "agent_ended",
+      message: "Call ended due to agent removal",
+    });
+  }
+
+  res.json({
+    success: true,
+    callEnded: true,
+    callId: activeCall.callId
   });
 });
 

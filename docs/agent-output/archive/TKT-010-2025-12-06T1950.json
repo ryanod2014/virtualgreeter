@@ -1,0 +1,9 @@
+{
+  "ticket_id": "TKT-010",
+  "branch": "agent/tkt-010",
+  "started_at": "2025-12-06T19:50:00Z",
+  "files_locking": [
+    "apps/dashboard/src/app/(dashboard)/agents/actions.ts",
+    "apps/server/src/features/agents/removeAgent.ts"
+  ]
+}
