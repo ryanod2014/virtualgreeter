@@ -1,17 +1,17 @@
 {
   "meta": {
-    "last_updated": "2025-12-06T19:50:00Z",
+    "last_updated": "2025-12-05T08:47:09.320Z",
     "version": "2.1",
     "note": "Built from agent-output files (source of truth)"
   },
   "in_progress": [],
   "completed": [
     {
-      "ticket_id": "TKT-010",
-      "branch": "agent/tkt-010",
-      "started_at": "2025-12-06T19:50:00Z",
-      "completed_at": "2025-12-06T19:50:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-010-2025-12-06T1950.md"
+      "ticket_id": "TKT-034",
+      "branch": "agent/tkt-034-call-logs-pagination-for-perfo",
+      "started_at": "2025-12-06T19:00:00Z",
+      "completed_at": "2025-12-13T02:21:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-034-2025-12-13T0221.md"
     },
     {
       "ticket_id": "SEC-001",

@@ -314,7 +314,7 @@ export function FeedbackClient({ feedbackItems, pmfSurveys }: FeedbackClientProp
           ) : (
             <div className="divide-y divide-border">
               {filteredSurveys.map((survey) => {
-                const levelConfig = levelConfigs[survey.disappointment_level] ?? levelConfigs.not_disappointed;
+                const levelConfig = survey.disappointment_level ? levelConfigs[survey.disappointment_level] : levelConfigs.not_disappointed;
                 const Icon = levelConfig.icon;
 
                 return (
@@ -633,7 +633,7 @@ export function FeedbackClient({ feedbackItems, pmfSurveys }: FeedbackClientProp
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
                   {(() => {
-                    const lc = levelConfigs[selectedSurvey.disappointment_level] ?? levelConfigs.not_disappointed;
+                    const lc = selectedSurvey.disappointment_level ? levelConfigs[selectedSurvey.disappointment_level] : levelConfigs.not_disappointed;
                     const LcIcon = lc.icon;
                     return (
                       <>
