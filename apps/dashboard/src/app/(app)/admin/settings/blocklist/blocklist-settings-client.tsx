@@ -465,11 +465,8 @@ export function BlocklistSettingsClient({ orgId, initialBlockedCountries, initia
             {!isBlocklistMode && countryList.length === 0 && (
               <div className="mb-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-amber-600">Your allowlist is empty</p>
-                  <p className="text-muted-foreground">
-                    All visitors are currently allowed. Add countries to restrict access.
-                  </p>
+                <div className="text-sm text-amber-600">
+                  <p className="font-medium">Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access.</p>
                 </div>
               </div>
             )}

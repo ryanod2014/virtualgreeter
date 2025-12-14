@@ -33,6 +33,7 @@ vi.mock("lucide-react", () => ({
   Ban: () => <div data-testid="ban-icon" />,
   CheckCircle2: () => <div data-testid="check-circle-icon" />,
   ChevronDown: () => <div data-testid="chevron-down-icon" />,
+  AlertTriangle: () => <div data-testid="alert-triangle-icon" />,
 }));
 
 // Mock next/link
@@ -254,6 +255,45 @@ describe("BlocklistSettingsClient", () => {
       );
 
       expect(screen.getByText(/No countries allowed - add countries to show widget/)).toBeInTheDocument();
+    });
+  });
+
+  describe("Display - Allowlist Empty Warning", () => {
+    it("shows warning banner when allowlist is empty", () => {
+      render(
+        <BlocklistSettingsClient
+          {...defaultProps}
+          initialMode="allowlist"
+          initialBlockedCountries={[]}
+        />
+      );
+
+      expect(screen.getByText("Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access.")).toBeInTheDocument();
+      expect(screen.getByTestId("alert-triangle-icon")).toBeInTheDocument();
+    });
+
+    it("hides warning banner when countries are added to allowlist", () => {
+      render(
+        <BlocklistSettingsClient
+          {...defaultProps}
+          initialMode="allowlist"
+          initialBlockedCountries={["US"]}
+        />
+      );
+
+      expect(screen.queryByText("Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access.")).not.toBeInTheDocument();
+    });
+
+    it("hides warning banner in blocklist mode", () => {
+      render(
+        <BlocklistSettingsClient
+          {...defaultProps}
+          initialMode="blocklist"
+          initialBlockedCountries={[]}
+        />
+      );
+
+      expect(screen.queryByText("Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access.")).not.toBeInTheDocument();
     });
   });
 
