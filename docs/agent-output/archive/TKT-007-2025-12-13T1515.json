@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TKT-007",
+  "branch": "agent/tkt-007-fix-public-feedback-doc",
+  "started_at": "2025-12-13T15:15:00Z",
+  "files_locking": [
+    "docs/features/visitor/public-feedback.md"
+  ]
+}
