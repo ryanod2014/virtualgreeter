@@ -127,3 +127,4 @@ Use CLI (or let the launcher handle session start/heartbeats):
 - **Block**: `./scripts/agent-cli.sh block --reason "..." --type clarification`
 - **Findings (optional)**: `./scripts/agent-cli.sh add-finding --title "..." --severity high --description "..." --file path/to/file`
 
+

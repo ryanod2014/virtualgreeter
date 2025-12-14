@@ -27,3 +27,4 @@ QA routing is now handled by the pipeline runner, not a separate agent.
 3. **Manual ticket creation** - Now automated with prompt file generation
 4. **Unclear handoffs** - New pipeline has explicit status-based transitions
 
+
