@@ -37,6 +37,9 @@ function getActiveTmuxSessions() {
 
 /**
  * Clean up orphaned sessions (in DB but tmux session gone)
+ * 
+ * IMPORTANT: Only cleans up sessions older than 2 minutes to avoid
+ * race conditions where the session is registered but tmux hasn't started yet.
  */
 function cleanupOrphanedSessions() {
   if (!db?.sessions) return { cleaned: 0 };
@@ -45,9 +48,19 @@ function cleanupOrphanedSessions() {
     const runningSessions = db.sessions.getRunning() || [];
     const activeTmux = getActiveTmuxSessions();
     let cleaned = 0;
+    const now = Date.now();
+    const MIN_AGE_MS = 2 * 60 * 1000; // 2 minutes grace period
     
     for (const session of runningSessions) {
       const tmuxName = session.tmux_session;
+      
+      // Check session age - don't clean up newly created sessions
+      const sessionAge = now - new Date(session.started_at).getTime();
+      if (sessionAge < MIN_AGE_MS) {
+        // Session is too new, skip cleanup (tmux might still be starting)
+        continue;
+      }
+      
       // If no tmux session name or tmux session doesn't exist, clean it up
       if (!tmuxName || !activeTmux.has(tmuxName)) {
         try {

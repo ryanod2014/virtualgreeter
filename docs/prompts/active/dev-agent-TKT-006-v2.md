@@ -121,3 +121,4 @@ Use CLI (or let the launcher handle session start/heartbeats):
 - **Findings (optional)**: `./scripts/agent-cli.sh add-finding --title "..." --severity high --description "..." --file path/to/file`
 
 
+

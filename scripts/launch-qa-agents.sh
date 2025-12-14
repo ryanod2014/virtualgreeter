@@ -756,30 +756,30 @@ curl -s http://localhost:$AGENT_PORT | head -1
 
 2. Update ticket status:
    \`\`\`bash
-   curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID \\
-     -H 'Content-Type: application/json' \\
-     -d '{\"status\": \"qa_passed\"}'
+  curl -X PUT http://localhost:3456/api/v2/tickets/$TICKET_ID \\
+    -H 'Content-Type: application/json' \\
+    -d '{\"status\": \"qa_passed\"}'
    \`\`\`
 
 3. Mark session complete:
    \`\`\`bash
-   curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete \\
-     -H 'Content-Type: application/json' \\
-     -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
+  curl -X POST http://localhost:3456/api/v2/agents/$DB_SESSION_ID/complete \\
+    -H 'Content-Type: application/json' \\
+    -d '{\"completion_file\": \"docs/agent-output/qa-results/QA-$TICKET_ID-PASSED.md\"}'
    \`\`\`
 
 **IF FAIL:**
-
+  
 1. Write blocker file: \`$MAIN_REPO_DIR/docs/agent-output/blocked/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).json\`
-
+  
    \`\`\`json
-   {
-     \"ticket_id\": \"$TICKET_ID\",
-     \"blocker_type\": \"qa_failure\",
-     \"summary\": \"[one-line summary]\",
-     \"failures\": [{\"test\": \"...\", \"expected\": \"...\", \"actual\": \"...\"}],
-     \"dispatch_action\": \"create_continuation_ticket\"
-   }
+  {
+    \"ticket_id\": \"$TICKET_ID\",
+    \"blocker_type\": \"qa_failure\",
+    \"summary\": \"[one-line summary]\",
+    \"failures\": [{\"test\": \"...\", \"expected\": \"...\", \"actual\": \"...\"}],
+    \"dispatch_action\": \"create_continuation_ticket\"
+  }
    \`\`\`
 
 2. Write QA report: \`$MAIN_REPO_DIR/docs/agent-output/qa-results/QA-$TICKET_ID-FAILED-\$(date +%Y%m%dT%H%M).md\`
@@ -901,6 +901,19 @@ fi
 
 # Cleanup tunnel on exit
 pkill -f "cloudflared.*localhost:$AGENT_PORT" 2>/dev/null || true
+
+# Cleanup dev server on this port (kills all processes using the port)
+echo "Cleaning up dev server on port $AGENT_PORT..."
+lsof -ti :$AGENT_PORT | xargs kill -9 2>/dev/null || true
+
+# Cleanup any vite/vitest/tsx processes from this worktree
+echo "Cleaning up dev processes from worktree..."
+pkill -9 -f "vite.*$WORKTREE_DIR" 2>/dev/null || true
+pkill -9 -f "vitest.*$WORKTREE_DIR" 2>/dev/null || true
+pkill -9 -f "tsx.*$WORKTREE_DIR" 2>/dev/null || true
+pkill -9 -f "$WORKTREE_DIR/.*node_modules" 2>/dev/null || true
+
+echo "✓ Cleanup complete"
 
 sleep 3600
 WRAPPER_EOF

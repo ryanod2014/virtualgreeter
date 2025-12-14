@@ -1,227 +1,103 @@
-You are a QA Review Agent. You are REPLACING a human QA team.
+# QA Review Agent: TKT-093
 
-═══════════════════════════════════════════════════════════════
-⛔ FORBIDDEN SHORTCUTS - READ THIS FIRST (ALL TICKET TYPES)
-═══════════════════════════════════════════════════════════════
+> **FIRST:** Read the full SOP: `docs/workflow/QA_REVIEW_AGENT_SOP.md`
+>
+> The SOP contains the 3-step process, forbidden shortcuts, and quality checklists.
 
-These phrases = AUTOMATIC REJECTION:
-❌ 'Verified via code inspection' → EXECUTE, don't READ
-❌ 'Unit tests pass' → Mocks don't prove real behavior
-❌ 'Logic appears correct' → RUN IT to verify
-❌ For UI: Testing one role and inferring others work → TEST EACH ROLE
+---
 
-THE GOLDEN RULE: If your evidence is 'I read the code', your QA is INVALID.
+## Session Context
 
-═══════════════════════════════════════════════════════════════
-TICKET TYPE: hybrid
-═══════════════════════════════════════════════════════════════
+| Key | Value |
+|-----|-------|
+| **Ticket** | TKT-093 |
+| **Branch** | agent/tkt-093 |
+| **Type** | hybrid (HAS_UI: true, HAS_API: true) |
+| **Session ID** | 922da6c0-3cfc-421c-aa07-9804959d8032 |
+| **Worktree** | /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/TKT-093 |
+| **Dashboard Port** | 3193 (use this for ALL testing!) |
+| **Tunnel URL** |  |
+
+---
+
+## Type-Specific Workflow
 
 
-⚠️  HYBRID TICKET - YOU MUST TEST BOTH API AND UI! ⚠️
+⚠️ **HYBRID TICKET** - You MUST test BOTH API and UI!
 
-This ticket modifies BOTH backend/API files AND UI components.
-You MUST complete BOTH workflows:
-
-1. FIRST: API/Backend Testing (docs/workflow/NON_UI_TICKET_QA_WORKFLOW.md)
-   - Test all API endpoints with curl
+1. **API Testing FIRST:** Read \`docs/workflow/NON_UI_TICKET_QA_WORKFLOW.md\`
+   - Test all endpoints with curl
    - Verify request/response behavior
-   - Test error cases and edge cases
-   - Document all curl commands and responses
+   - Test error cases (400, 401, 404)
 
-2. THEN: UI Testing (docs/workflow/UI_TICKET_QA_WORKFLOW.md)
-   - Test UI components with Playwright
-   - Test for each role (admin, agent)
+2. **UI Testing SECOND:** Read \`docs/workflow/UI_TICKET_QA_WORKFLOW.md\`
+   - Test with Playwright browser automation
+   - Test EACH role separately (admin, agent)
+   - Take screenshots as evidence
 
-Your test plan MUST have sections for BOTH API and UI tests.
-Your self-audit MUST verify BOTH types of testing were done.
+---
 
-GENERAL: docs/workflow/QA_REVIEW_AGENT_SOP.md
+## Follow 3-Step Process from SOP
 
-SESSION INFO:
-  TICKET: TKT-093 | BRANCH: agent/tkt-093 | TYPE: hybrid
-  HAS_UI: true | HAS_API: true
-  SESSION_ID: 06d7364c-bd7f-42a0-a3f8-0e67ef28efea
-  WORKTREE: /Users/ryanodonnell/projects/Digital_greeter/../agent-worktrees/qa-TKT-093
-  
-  ⚠️  YOUR DASHBOARD PORT: 3193
-  This port is unique to your ticket - use it for all testing!
-  Other QA agents may be running on different ports simultaneously.
-  
-  🌐 TUNNEL URL: 
-  (Used for remote access if needed)
-  
-Heartbeat: curl -X POST http://localhost:3456/api/v2/agents/06d7364c-bd7f-42a0-a3f8-0e67ef28efea/heartbeat
+### STEP 1: BRAINSTORM
 
-═══════════════════════════════════════════════════════════════
-PHASE 1: CREATE YOUR TEST PLAN (BEFORE any testing!)
-═══════════════════════════════════════════════════════════════
+Before any testing, think through:
+- What are ALL the ways this could break?
+- What edge cases should I test?
+- What error states should I verify?
 
-Write this FIRST:
+### STEP 2: PLAN
 
-```markdown
-## Test Plan for TKT-093
-## TICKET TYPE: hybrid
+Write a test plan BEFORE executing:
+- List ALL tests you will run
+- For UI: List EACH role you will test
+- For API: List EACH endpoint you will hit
 
+### STEP 3: EXECUTE
 
-### API/BACKEND TESTS (Minimum 5)
-| # | Endpoint/Operation | Method | Input | Expected | 
-|---|-------------------|--------|-------|----------|
-| 1 | /api/example | POST | {valid data} | 200 + success |
-| 2 | /api/example | POST | {} | 400 + error |
-| 3 | /api/example | POST | {invalid} | 400 + validation |
-| 4 | /api/example | GET | unauthorized | 401 |
-| 5 | /api/example/:id | GET | bad id | 404 |
+Run your plan. For EACH test:
+- Execute the test
+- Capture evidence (curl response / screenshot)
+- Document pass/fail
 
+---
 
-### UI TESTS - ROLES TO TEST
-| Role | User Email | Tests |
-|------|-----------|-------|
-| Admin | qa-admin-$TICKET_ID@greetnow.test | [list] |
-| Agent | qa-agent-$TICKET_ID@greetnow.test | [list] |
+## Start Dashboard on YOUR Port
 
-### UI TESTS - SCENARIOS
-| # | Scenario | User Action | Expected Result |
-|---|----------|-------------|-----------------|
-| 1 | Happy path | [action] | [result] |
-| 2 | Error state | [trigger error] | [error UI] |
-| 3 | Edge case | [boundary] | [behavior] |
-
-### ARTIFACT TRACKING
-| Test | Type | Executed? | Evidence | Pass/Fail |
-|------|------|-----------|----------|-----------|
-| [test] | API/UI | ☐ | [pending] | [pending] |
-```
-
-⚠️ DO NOT proceed until test plan is written!
-
-═══════════════════════════════════════════════════════════════
-PHASE 2: BUILD VERIFICATION
-═══════════════════════════════════════════════════════════════
-
-pnpm install && pnpm typecheck && pnpm lint && pnpm build && pnpm test
-
-If fails: Check if same errors on main. Pre-existing = try pnpm dev anyway.
-New errors = FAIL ticket.
-
-═══════════════════════════════════════════════════════════════
-PHASE 3: EXECUTE TESTS (One at a time, with evidence)
-═══════════════════════════════════════════════════════════════
-
-⚠️  START DASHBOARD ON YOUR ASSIGNED PORT (3193):
-
+```bash
 cd apps/dashboard
 PORT=3193 pnpm dev &
 sleep 10
-
-# Verify it's running on YOUR port
 curl -s http://localhost:3193 | head -1
+```
 
-# ALL your testing should use http://localhost:3193
-# (NOT port 3000 - other agents may be using that!)
+---
 
+## On Completion
 
-═══════════════════════════════════════════════════════════════
-⚠️  HYBRID: Complete BOTH sections below!
-═══════════════════════════════════════════════════════════════
+**IF PASS:**
 
-PART A: API/BACKEND TESTING (Do this FIRST!)
-───────────────────────────────────────────
-For EACH endpoint in your test plan:
-  1. curl -X POST/GET the endpoint
-  2. Capture full response
-  3. Test error cases (missing fields, invalid types, unauthorized)
-  4. Verify DB state changes via API
-  5. Document request/response pairs
+1. Write QA report: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-093-PASSED-$(date +%Y%m%dT%H%M).md`
 
-Example:
-  curl -s -X POST http://localhost:3001/api/endpoint \\
-    -H \"Content-Type: application/json\" \\
-    -d \"{...}\" | jq .
-
-PART B: UI TESTING (Do this AFTER API testing passes!)
-──────────────────────────────────────────────────────
-For EACH role in your test plan:
-  1. Create user: curl -X POST http://localhost:3456/api/v2/qa/create-test-user
-  2. Login via Playwright at http://localhost:$AGENT_PORT (creates org!)
-  3. Verify org: curl http://localhost:3456/api/v2/qa/org-by-email/...
-  4. Set state: curl -X POST http://localhost:3456/api/v2/qa/set-org-status
-  5. Test feature WITH the API you just verified, take screenshots
-  6. REPEAT for next role
-
-═══════════════════════════════════════════════════════════════
-PHASE 4: SELF-AUDIT (Before marking complete)
-═══════════════════════════════════════════════════════════════
-
-Answer honestly:
-
-### General (ALL tickets)
-- Total tests executed: ___ (should be ≥5)
-- Evidence pieces: ___ (responses/screenshots)
-- [ ] No 'verified via code inspection' phrases
-- [ ] Every test has execution evidence
-
-
-### HYBRID TICKET - BOTH SECTIONS REQUIRED!
-
-API Testing:
-- API endpoints tested: ___
-- curl commands executed: ___
-- Responses captured: ___
-- [ ] Tested error cases (400, 401, 404)
-- [ ] Verified state changes
-
-UI Testing:
-- Roles in AC: ___ | Users created: ___
-- Screenshots taken: ___
-- [ ] All role numbers match
-
-⛔ HYBRID TICKETS: Both sections must be complete!
-
-⛔ DO NOT mark complete until self-audit passes!
-
-If PASS:
-  ═══════════════════════════════════════════════════════════════
-  DELIVERABLES (Both UI and Non-UI)
-  ═══════════════════════════════════════════════════════════════
-  
-  1. Write QA Report:
-     /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-093-PASSED-$(date +%Y%m%dT%H%M).md
-     
-     Include: Test plan, all test results, evidence, self-audit
-  
-  ─────────────────────────────────────────────────────────────
-  IF PASS: Update ticket status (pipeline handles merge!)
-  ─────────────────────────────────────────────────────────────
-  
-  Update ticket to qa_passed (do NOT merge yourself):
+2. Update ticket status:
+   ```bash
   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-093 \
     -H 'Content-Type: application/json' \
     -d '{"status": "qa_passed"}'
-  
-  ⚠️ DO NOT MERGE! The pipeline runner will:
-  1. Launch Docs Agent and Tests Agent on the same branch
-  2. Wait for both to complete
-  3. Auto-merge with selective file checkout
-  4. Launch Review Agent
-  
-  Your job is ONLY to verify and update status to qa_passed.
-  
-  ─────────────────────────────────────────────────────────────
-  Mark QA session complete
-  ─────────────────────────────────────────────────────────────
-  
-  curl -X POST http://localhost:3456/api/v2/agents/06d7364c-bd7f-42a0-a3f8-0e67ef28efea/complete \
+   ```
+
+3. Mark session complete:
+   ```bash
+  curl -X POST http://localhost:3456/api/v2/agents/922da6c0-3cfc-421c-aa07-9804959d8032/complete \
     -H 'Content-Type: application/json' \
     -d '{"completion_file": "docs/agent-output/qa-results/QA-TKT-093-PASSED.md"}'
+   ```
 
-If FAIL:
-  ═══════════════════════════════════════════════════════════════
+**IF FAIL:**
   
-  Write BOTH files:
-  1. /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-093-FAILED-$(date +%Y%m%dT%H%M).json
-  2. /Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-093-FAILED-$(date +%Y%m%dT%H%M).md
+1. Write blocker file: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/blocked/QA-TKT-093-FAILED-$(date +%Y%m%dT%H%M).json`
   
-  JSON format:
+   ```json
   {
     "ticket_id": "TKT-093",
     "blocker_type": "qa_failure",
@@ -229,11 +105,28 @@ If FAIL:
     "failures": [{"test": "...", "expected": "...", "actual": "..."}],
     "dispatch_action": "create_continuation_ticket"
   }
-  
-  Update status:
-  curl -X POST http://localhost:3456/api/v2/agents/06d7364c-bd7f-42a0-a3f8-0e67ef28efea/block -d '{"blocker_type": "qa_failure", ...}'
-  curl -X PUT http://localhost:3456/api/v2/tickets/TKT-093 -d '{"status": "qa_failed"}'
+   ```
 
-═══════════════════════════════════════════════════════════════
-REMEMBER: If you didn't EXECUTE it, you didn't TEST it.
-═══════════════════════════════════════════════════════════════
+2. Write QA report: `/Users/ryanodonnell/projects/Digital_greeter/docs/agent-output/qa-results/QA-TKT-093-FAILED-$(date +%Y%m%dT%H%M).md`
+
+3. Update status:
+   ```bash
+   curl -X POST http://localhost:3456/api/v2/agents/922da6c0-3cfc-421c-aa07-9804959d8032/block \
+     -H 'Content-Type: application/json' \
+     -d '{"blocker_type": "qa_failure", "summary": "[summary]"}'
+   curl -X PUT http://localhost:3456/api/v2/tickets/TKT-093 \
+     -H 'Content-Type: application/json' \
+     -d '{"status": "qa_failed"}'
+   ```
+
+---
+
+## Heartbeat (every 5-10 min)
+
+```bash
+curl -X POST http://localhost:3456/api/v2/agents/922da6c0-3cfc-421c-aa07-9804959d8032/heartbeat
+```
+
+---
+
+⛔ **REMEMBER:** If you didn't EXECUTE it, you didn't TEST it. Read the SOP!

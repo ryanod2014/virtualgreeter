@@ -505,6 +505,32 @@ done
 # Main
 # =============================================================================
 
+# Check for worktree accumulation and warn
+WORKTREE_BASE="$MAIN_REPO_DIR/../agent-worktrees"
+if [ -d "$WORKTREE_BASE" ]; then
+    WORKTREE_COUNT=$(ls -1 "$WORKTREE_BASE" 2>/dev/null | wc -l | tr -d ' ')
+    WORKTREE_SIZE=$(du -sh "$WORKTREE_BASE" 2>/dev/null | awk '{print $1}' || echo "?")
+    
+    if [ "$WORKTREE_COUNT" -gt 15 ]; then
+        log_warning "⚠️  $WORKTREE_COUNT worktrees detected ($WORKTREE_SIZE disk usage)"
+        log_warning "Run: ./scripts/pre-batch-cleanup.sh --deep"
+        log_warning "Or:  ./scripts/cleanup-agent-worktrees.sh --all"
+        echo ""
+        sleep 2
+    elif [ "$WORKTREE_COUNT" -gt 10 ]; then
+        log_warning "$WORKTREE_COUNT worktrees ($WORKTREE_SIZE) - consider cleanup after this batch"
+    fi
+fi
+
+# Check for stale processes before launching
+STALE_VITE=$(pgrep -f "vite" 2>/dev/null | wc -l | tr -d ' ')
+STALE_TSX=$(pgrep -f "tsx.*watch" 2>/dev/null | wc -l | tr -d ' ')
+if [ "$STALE_VITE" -gt 5 ] || [ "$STALE_TSX" -gt 5 ]; then
+    log_warning "Found $STALE_VITE vite and $STALE_TSX tsx processes"
+    log_warning "Run: ./scripts/pre-batch-cleanup.sh"
+    echo ""
+fi
+
 # Auto-detect max concurrent if not specified
 if [ -z "$MAX_CONCURRENT" ]; then
     MAX_CONCURRENT=$(auto_detect_max)

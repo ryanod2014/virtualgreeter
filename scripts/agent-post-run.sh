@@ -237,13 +237,15 @@ curl -s -X PUT "$DASHBOARD_URL/api/v2/tickets/$TICKET_ID" \
     || log_warning "Could not update ticket status"
 
 # -----------------------------------------------------------------------------
-# Step 8: Cleanup stale processes (vite/vitest)
+# Step 8: Cleanup stale processes (vite/vitest/tsx)
 # -----------------------------------------------------------------------------
-log "Cleaning up vite/vitest processes from this worktree..."
+log "Cleaning up dev processes from this worktree..."
 
-# Kill any vite/vitest spawned from this worktree
+# Kill any vite/vitest/tsx spawned from this worktree
 VITE_KILLED=0
 VITEST_KILLED=0
+TSX_KILLED=0
+NODE_KILLED=0
 
 # Get PIDs of vite processes tied to this worktree
 for pid in $(pgrep -f "vite.*$WORKTREE_DIR" 2>/dev/null); do
@@ -255,10 +257,21 @@ for pid in $(pgrep -f "vitest.*$WORKTREE_DIR" 2>/dev/null); do
     kill -9 "$pid" 2>/dev/null && VITEST_KILLED=$((VITEST_KILLED + 1))
 done
 
-if [ $VITE_KILLED -gt 0 ] || [ $VITEST_KILLED -gt 0 ]; then
-    log_success "Killed $VITE_KILLED vite and $VITEST_KILLED vitest processes"
+# Get PIDs of tsx watch processes tied to this worktree
+for pid in $(pgrep -f "tsx.*$WORKTREE_DIR" 2>/dev/null); do
+    kill -9 "$pid" 2>/dev/null && TSX_KILLED=$((TSX_KILLED + 1))
+done
+
+# Kill any node processes running from this worktree's node_modules
+for pid in $(pgrep -f "$WORKTREE_DIR/.*node_modules" 2>/dev/null); do
+    kill -9 "$pid" 2>/dev/null && NODE_KILLED=$((NODE_KILLED + 1))
+done
+
+TOTAL_KILLED=$((VITE_KILLED + VITEST_KILLED + TSX_KILLED + NODE_KILLED))
+if [ $TOTAL_KILLED -gt 0 ]; then
+    log_success "Killed $TOTAL_KILLED processes (vite:$VITE_KILLED vitest:$VITEST_KILLED tsx:$TSX_KILLED node:$NODE_KILLED)"
 else
-    log "No stale vite/vitest processes found"
+    log "No stale dev processes found"
 fi
 
 # -----------------------------------------------------------------------------

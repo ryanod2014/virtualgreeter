@@ -35,12 +35,11 @@ Allows organization admins to control which countries can see and interact with 
 ### High-Level Flow (Happy Path)
 1. Admin navigates to Settings → Country Restrictions
 2. Admin selects mode: Blocklist (default) or Allowlist
-3. Admin configures geolocation failure handling: Allow (default) or Block
-4. Admin adds countries using the dropdown selector
-5. Admin clicks "Save Changes"
-6. Changes are persisted to `organizations.blocked_countries`, `organizations.country_list_mode`, and `organizations.geo_failure_handling`
-7. When visitors connect, server checks their IP-based country against the list
-8. Blocked visitors are silently disconnected (no widget shown)
+3. Admin adds countries using the dropdown selector
+4. Admin clicks "Save Changes"
+5. Changes are persisted to `organizations.blocked_countries` and `organizations.country_list_mode`
+6. When visitors connect, server checks their IP-based country against the list
+7. Blocked visitors are silently disconnected (no widget shown)
 
 ### State Machine
 
@@ -50,22 +49,16 @@ Allows organization admins to control which countries can see and interact with 
 ├─────────────────────────────────────────────────────────────────┤
 │  Empty List → All visitors allowed worldwide                     │
 │  Countries in List → Those countries BLOCKED, all others ALLOWED │
-│  Unknown Country (geo fail) → Depends on geo_failure_handling   │
+│  Unknown Country (geo fail) → ALLOWED (fail-safe)               │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                       ALLOWLIST MODE                             │
 ├─────────────────────────────────────────────────────────────────┤
 │  Empty List → All visitors allowed (lenient default)            │
+│              → ⚠️ Shows warning banner in UI                     │
 │  Countries in List → Only those countries ALLOWED, others BLOCKED │
-│  Unknown Country (geo fail) → Depends on geo_failure_handling   │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│              GEO FAILURE HANDLING (applies to both modes)        │
-├─────────────────────────────────────────────────────────────────┤
-│  Allow (default) → Unknown visitors are allowed through          │
-│  Block → Unknown visitors are blocked                           │
+│  Unknown Country (geo fail) → BLOCKED                           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -102,10 +95,9 @@ Allows organization admins to control which countries can see and interact with 
 ```
 ADMIN SAVES BLOCKLIST
     │
-    ├─► Dashboard: supabase.update("organizations", {
+    ├─► Dashboard: supabase.update("organizations", { 
     │       blocked_countries: ["CN", "RU"],
-    │       country_list_mode: "blocklist",
-    │       geo_failure_handling: "allow"
+    │       country_list_mode: "blocklist"
     │   })
     │
     └─► Database: organizations table updated
@@ -125,7 +117,6 @@ VISITOR CONNECTS
     │
     ├─► Server: isCountryBlocked(orgId, countryCode)
     │   ├─► Fetch settings from cache/DB
-    │   ├─► If countryCode is null (geo failed): use geo_failure_handling setting
     │   ├─► If blocklist mode: block if IN list
     │   └─► If allowlist mode: block if NOT in list
     │
@@ -146,9 +137,9 @@ VISITOR CONNECTS
 | 1 | Happy path - blocklist mode | Admin blocks CN, visitor from CN connects | Visitor silently disconnected | ✅ | |
 | 2 | Happy path - allowlist mode | Admin allows US only, visitor from US connects | Visitor allowed | ✅ | |
 | 3 | Empty blocklist | No countries in list | All visitors allowed worldwide | ✅ | |
-| 4 | Empty allowlist | No countries in list | All visitors allowed (lenient) | ✅ | Could be stricter but prevents lockout |
-| 5 | Geolocation fails - geo_failure_handling=allow | IP lookup returns null | Visitor ALLOWED | ✅ | Admin configured lenient |
-| 6 | Geolocation fails - geo_failure_handling=block | IP lookup returns null | Visitor BLOCKED | ✅ | Admin configured strict |
+| 4 | Empty allowlist | No countries in list | All visitors allowed (lenient) + warning banner shown | ✅ | Warning banner added in TKT-088 |
+| 5 | Geolocation fails - blocklist | IP lookup returns null | Visitor ALLOWED (fail-safe) | ✅ | |
+| 6 | Geolocation fails - allowlist | IP lookup returns null | Visitor BLOCKED | ✅ | Unknown = not in allowlist |
 | 7 | Private IP (localhost) | 127.0.0.1, 192.168.x | Geolocation skipped, returns null | ✅ | |
 | 8 | Case sensitivity | "cn" vs "CN" in list | Case-insensitive comparison | ✅ | Both match |
 | 9 | Mode change | Switch blocklist → allowlist | Country list cleared | ✅ | Prevents accidental blocking |
@@ -176,22 +167,21 @@ VISITOR CONNECTS
 |------|------------|-----------------|--------|--------|
 | 1 | Navigate to Country Restrictions | Page loads with current settings | ✅ | |
 | 2 | Select mode (Blocklist/Allowlist) | Mode toggles, list clears | ✅ | Warning in info box |
-| 3 | Configure geo-failure handling (Allow/Block) | Toggle highlights, updates immediately | ✅ | Info note about failure rates |
-| 4 | Open country dropdown | Shows search + region buttons + country list | ✅ | |
-| 5 | Search for country | Filters list in real-time | ✅ | |
-| 6 | Click region button | Toggles all countries in region | ✅ | Visual feedback |
-| 7 | Select individual country | Country added with badge | ✅ | |
-| 8 | Remove country | Click X on badge | ✅ | |
-| 9 | Save changes | Loading spinner → success message | ✅ | 3s auto-dismiss |
-| 10 | No changes | Save button disabled | ✅ | |
+| 3 | Open country dropdown | Shows search + region buttons + country list | ✅ | |
+| 4 | Search for country | Filters list in real-time | ✅ | |
+| 5 | Click region button | Toggles all countries in region | ✅ | Visual feedback |
+| 6 | Select individual country | Country added with badge | ✅ | |
+| 7 | Remove country | Click X on badge | ✅ | |
+| 8 | Save changes | Loading spinner → success message | ✅ | 3s auto-dismiss |
+| 9 | No changes | Save button disabled | ✅ | |
+| 10 | Empty allowlist mode | Select allowlist with no countries | Warning banner appears: "Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access." | ✅ | TKT-088 enhancement |
 
 ### Visual Design
 - **Mode Selection:** Two large cards with icons (Ban for blocklist, CheckCircle2 for allowlist)
-- **Geo-Failure Handling:** Two toggle cards with icons (CheckCircle2 for allow, Ban for block) and explanatory text
 - **Country Selector:** Dropdown with search, region quick-buttons, grouped country list
 - **Selected Countries:** Color-coded badges (red for blocklist, green for allowlist)
+- **Empty Allowlist Warning:** Amber warning banner with AlertTriangle icon when allowlist is empty (TKT-088)
 - **Info Box:** Orange warning explaining how blocking works, VPN caveat
-- **Failure Rate Note:** Informational box explaining typical 2-5% failure rate to help admins decide
 
 ### Accessibility
 - Keyboard navigation: ⚠️ Dropdown requires mouse interaction
@@ -257,13 +247,12 @@ VISITOR CONNECTS
 |---------|------|-------|-------|
 | Main UI component | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 1-733 | Full settings UI |
 | Mode selection UI | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 330-381 | Blocklist/Allowlist toggle |
-| Geo-failure handling UI | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 387-447 | Allow/Block toggle for unknown locations |
-| Country dropdown | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 449-680 | Portal-based dropdown |
-| Save handler | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 198-224 | Supabase update with geo_failure_handling |
+| Country dropdown | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 398-629 | Portal-based dropdown |
+| Empty allowlist warning | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 464-472 | TKT-088 warning banner |
+| Save handler | `apps/dashboard/src/app/(app)/admin/settings/blocklist/blocklist-settings-client.tsx` | 198-224 | Supabase update |
 | Server page component | `apps/dashboard/src/app/(app)/admin/settings/blocklist/page.tsx` | 1-43 | Auth check, data fetch |
-| Country blocking logic | `apps/server/src/lib/country-blocklist.ts` | 94-136 | `isCountryBlocked()` with geo_failure_handling |
-| Geo-failure handling logic | `apps/server/src/lib/country-blocklist.ts` | 105-114 | Uses admin's geo_failure_handling setting |
-| Settings cache | `apps/server/src/lib/country-blocklist.ts` | 22-24, 31-74 | Cache management with geo_failure_handling |
+| Country blocking logic | `apps/server/src/lib/country-blocklist.ts` | 91-132 | `isCountryBlocked()` |
+| Settings cache | `apps/server/src/lib/country-blocklist.ts` | 19-21, 29-71 | Cache management |
 | IP geolocation | `apps/server/src/lib/geolocation.ts` | 21-67 | `getLocationFromIP()` |
 | Client IP extraction | `apps/server/src/lib/geolocation.ts` | 110-130 | `getClientIP()` |
 | Socket enforcement | `apps/server/src/features/signaling/socket-handlers.ts` | 132-140 | Block check on VISITOR_JOIN |
@@ -292,9 +281,7 @@ VISITOR CONNECTS
 
 5. **Should we support time-based blocking?** E.g., block certain countries during off-hours. Not currently implemented.
 
-6. **Should we warn about empty allowlist?** Empty allowlist currently allows everyone (lenient). Could be confusing - admin might expect it to block everyone.
-
-7. **Should we track actual geo-failure rates per organization?** Currently we show a typical 2-5% estimate. Could provide org-specific stats to help admins make more informed decisions about their geo_failure_handling setting.
+6. ~~**Should we warn about empty allowlist?** Empty allowlist currently allows everyone (lenient). Could be confusing - admin might expect it to block everyone.~~ **RESOLVED in TKT-088:** Added warning banner that displays: "Your allowlist is empty. All visitors are currently allowed. Add countries to restrict access."
 
 
 

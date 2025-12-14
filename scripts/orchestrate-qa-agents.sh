@@ -416,6 +416,15 @@ done
 # Main
 # =============================================================================
 
+# Check for stale processes before launching
+STALE_VITE=$(pgrep -f "vite" 2>/dev/null | wc -l | tr -d ' ')
+STALE_TSX=$(pgrep -f "tsx.*watch" 2>/dev/null | wc -l | tr -d ' ')
+if [ "$STALE_VITE" -gt 5 ] || [ "$STALE_TSX" -gt 5 ]; then
+    log_warning "Found $STALE_VITE vite and $STALE_TSX tsx processes - consider running:"
+    log_warning "  ./scripts/pre-batch-cleanup.sh"
+    echo ""
+fi
+
 # Auto-detect max concurrent if not specified
 if [ -z "$MAX_CONCURRENT" ]; then
     MAX_CONCURRENT=$(auto_detect_max)

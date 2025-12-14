@@ -221,6 +221,7 @@ router.delete('/', async (req, res) => {
 });
 
 // POST /api/v2/agents/cleanup - Clean up stale/orphaned sessions
+// Only cleans sessions older than 2 minutes to avoid race conditions
 router.post('/cleanup', async (req, res) => {
   if (!db?.sessions) {
     return res.status(503).json({ error: 'Database not available' });
@@ -237,12 +238,22 @@ router.post('/cleanup', async (req, res) => {
     // Find orphaned sessions (in DB but not in tmux)
     const orphaned = [];
     const cleaned = [];
+    const skipped = [];
+    const now = Date.now();
+    const MIN_AGE_MS = 2 * 60 * 1000; // 2 minutes grace period
     
     for (const session of runningSessions) {
       const tmuxName = session.tmux_session;
       const isActive = tmuxName && activeTmuxNames.has(tmuxName);
       
       if (!isActive) {
+        // Check session age - don't clean up newly created sessions
+        const sessionAge = now - new Date(session.started_at).getTime();
+        if (sessionAge < MIN_AGE_MS) {
+          skipped.push({ id: session.id, ticket_id: session.ticket_id, age_seconds: Math.round(sessionAge / 1000) });
+          continue;
+        }
+        
         orphaned.push(session);
         // Mark as completed (agent finished without proper cleanup)
         try {
@@ -258,7 +269,9 @@ router.post('/cleanup', async (req, res) => {
       success: true,
       orphanedCount: orphaned.length,
       cleanedCount: cleaned.length,
+      skippedCount: skipped.length,
       orphanedSessions: orphaned.map(s => ({ id: s.id, ticket_id: s.ticket_id, agent_type: s.agent_type })),
+      skippedSessions: skipped,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
