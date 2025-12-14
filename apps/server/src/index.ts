@@ -413,10 +413,39 @@ app.get("/api/test-match", async (req, res) => {
 
 // API: End active call for agent (called during agent removal)
 app.post("/api/agent/end-call", async (req, res) => {
+  // Security: Authentication check
+  const INTERNAL_API_KEY = process.env["INTERNAL_API_KEY"];
+  const providedKey = req.headers["x-internal-api-key"];
+
+  if (IS_PRODUCTION || INTERNAL_API_KEY) {
+    // In production or when API key is configured, enforce authentication
+    if (!INTERNAL_API_KEY) {
+      console.error("[Security] ⚠️ INTERNAL_API_KEY not configured! This endpoint is vulnerable.");
+      res.status(500).json({ error: "Server misconfiguration" });
+      return;
+    }
+
+    if (!providedKey || providedKey !== INTERNAL_API_KEY) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+  }
+
   const { agentId } = req.body;
 
   if (!agentId || typeof agentId !== "string") {
     res.status(400).json({ error: "agentId is required" });
+    return;
+  }
+
+  // Security: Organization isolation check
+  // Verify the agent exists and get its organization
+  const { getAgentOrgId } = await import("./lib/auth.js");
+  const agentOrgId = await getAgentOrgId(agentId);
+
+  if (!agentOrgId) {
+    // Return generic success to avoid information disclosure
+    res.json({ success: true });
     return;
   }
 
@@ -435,7 +464,8 @@ app.post("/api/agent/end-call", async (req, res) => {
   }
 
   if (!activeCall) {
-    res.json({ success: true, callEnded: false, message: "No active call found" });
+    // Return generic success to avoid information disclosure
+    res.json({ success: true });
     return;
   }
 
@@ -445,8 +475,14 @@ app.post("/api/agent/end-call", async (req, res) => {
   const { markCallEnded } = await import("./lib/call-logger.js");
   const { recordStatusChange } = await import("./lib/session-tracker.js");
 
-  // Mark call as completed in database
-  await markCallEnded(activeCall.callId);
+  // Database operations with error handling
+  try {
+    // Mark call as completed in database
+    await markCallEnded(activeCall.callId);
+  } catch (error) {
+    console.error(`[API] Failed to mark call ${activeCall.callId} as ended in database:`, error);
+    // Continue with pool manager cleanup and notifications even if DB write fails
+  }
 
   // End the call in pool manager
   if (USE_REDIS && redisPoolManager) {
@@ -455,8 +491,13 @@ app.post("/api/agent/end-call", async (req, res) => {
     inMemoryPoolManager.endCall(activeCall.callId);
   }
 
-  // Record status change
-  await recordStatusChange(agentId, "idle", "call_ended");
+  // Record status change with error handling
+  try {
+    await recordStatusChange(agentId, "idle", "call_ended");
+  } catch (error) {
+    console.error(`[API] Failed to record status change for agent ${agentId}:`, error);
+    // Continue - this is non-critical logging
+  }
 
   // Notify the visitor that the call has ended
   const visitor = poolManager ?
@@ -486,11 +527,8 @@ app.post("/api/agent/end-call", async (req, res) => {
     });
   }
 
-  res.json({
-    success: true,
-    callEnded: true,
-    callId: activeCall.callId
-  });
+  // Return generic success message to avoid information disclosure
+  res.json({ success: true });
 });
 
 // ============================================================================
