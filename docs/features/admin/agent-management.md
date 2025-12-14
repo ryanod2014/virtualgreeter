@@ -97,7 +97,7 @@ Provides a centralized interface for admins to manage their team of agents who c
 | "Confirm & Send" | agents-client.tsx → /api/invites/send | Creates invite, updates billing, sends email | DB: invites, Stripe, Resend |
 | Revoke invite | agents-client.tsx → /api/invites/revoke | Deletes invite, credits seat | DB: delete, billing API |
 | Resend invite | agents-client.tsx → agents/actions.ts | Retries email sending for failed invites | Email: Resend API, DB: update email_status |
-| Remove agent | agents-client.tsx → /api/agents/remove | Soft deletes agent, removes from pools | DB: update agent_profiles, delete pool_members, billing API |
+| Remove agent | agents-client.tsx → /api/agents/remove | Soft deletes agent, removes from pools, ends active calls | DB: update agent_profiles, delete pool_members, billing API, call /api/agent/end-call |
 | Accept invite | accept-invite page | Creates user, agent_profile, marks accepted | DB: users, agent_profiles, invites |
 
 ### Key Functions/Components
@@ -109,7 +109,8 @@ Provides a centralized interface for admins to manage their team of agents who c
 | `POST /api/invites/revoke` | `apps/dashboard/src/app/api/invites/revoke/route.ts` | Deletes invite, credits billing seat |
 | `resendInviteEmail` | `apps/dashboard/src/app/(dashboard)/agents/actions.ts` | Server action to retry failed invite emails |
 | `sendEmailWithRetry` | `apps/dashboard/src/lib/email.ts` | Email retry logic (3 attempts, exponential backoff) |
-| `POST /api/agents/remove` | `apps/dashboard/src/app/api/agents/remove/route.ts` | Soft deletes agent, removes from pools |
+| `POST /api/agents/remove` | `apps/dashboard/src/app/api/agents/remove/route.ts` | Soft deletes agent, removes from pools, ends active calls |
+| `POST /api/agent/end-call` | `apps/server/src/index.ts:415-532` | Securely ends active call for agent (internal API) |
 | `POST /api/billing/seats` | `apps/dashboard/src/app/api/billing/seats/route.ts` | Updates seat count in billing system |
 | `AcceptInvitePage` | `apps/dashboard/src/app/accept-invite/page.tsx` | Invite acceptance UI and account creation |
 
@@ -179,7 +180,16 @@ REMOVE FLOW
     │   ├─► Validate: Admin role + org match
     │   ├─► Check: Agent exists and is_active = true
     │   │
-    │   ├─► DB: UPDATE agent_profiles SET is_active=false, 
+    │   ├─► (If agent.status === "in_call")
+    │   │   └─► POST /api/agent/end-call
+    │   │       ├─► Headers: x-internal-api-key (required)
+    │   │       ├─► Validate: INTERNAL_API_KEY authentication
+    │   │       ├─► End call in pool manager (Redis/in-memory)
+    │   │       ├─► Notify visitor: "Agent has ended the call"
+    │   │       ├─► Notify agent: "Call ended due to agent removal"
+    │   │       └─► DB: Mark call as ended
+    │   │
+    │   ├─► DB: UPDATE agent_profiles SET is_active=false,
     │   │       deactivated_at=NOW(), status='offline'
     │   │
     │   ├─► DB: DELETE FROM agent_pool_members WHERE agent_profile_id=X
@@ -206,7 +216,7 @@ REMOVE FLOW
 | 7 | Accept expired invite | Token older than 7 days | Error: "This invite is invalid or has expired" | ✅ | |
 | 8 | Accept with no token | URL missing ?token= | Error: "Invalid invite link - no token provided" | ✅ | |
 | 9 | Remove active agent | Admin removes agent | Soft delete, removes from pools, seat freed | ✅ | |
-| 10 | Remove agent in call | Agent is in_call status | Same as #9 - no active call termination | ⚠️ | Call continues until natural end |
+| 10 | Remove agent in call | Agent is in_call status | Gracefully ends call, then removes agent | ✅ | Fixed in TKT-010-V2 |
 | 11 | Admin removes themselves | Admin clicks remove on their own row | Allowed - removes agent profile, keeps admin role | ✅ | Shows "Remove Myself" |
 | 12 | Remove already inactive agent | Edge case | Error: "Agent already deactivated" | ✅ | |
 | 13 | Admin invites admin role | Role selection | Creates invite, no seat charge | ✅ | Admin chooses at accept time |
@@ -294,6 +304,9 @@ REMOVE FLOW
 | Invite token guessing | UUID token (128-bit entropy) |
 | Invite token reuse | Marked accepted_at, checked on accept |
 | Cross-org agent removal | Agent's org_id verified against admin's org |
+| Unauthorized call termination | `/api/agent/end-call` protected by INTERNAL_API_KEY auth |
+| Information disclosure on remove | `/api/agent/end-call` returns generic success for all cases |
+| Missing API key in production | Server returns 500 if INTERNAL_API_KEY not configured |
 
 ### Reliability
 | Concern | Mitigation |
@@ -318,7 +331,7 @@ REMOVE FLOW
 ### Identified Issues
 | Issue | Impact | Severity | Suggested Fix |
 |-------|--------|----------|--------------|
-| Agent removal doesn't end active calls | Call continues after agent "removed" | 🟡 Medium | Consider emitting call:end on removal |
+| ~~Agent removal doesn't end active calls~~ | ~~Call continues after agent "removed"~~ | ✅ Fixed | ~~Consider emitting call:end on removal~~ RESOLVED in TKT-010-V2 |
 | Can't re-invite removed users | Users with inactive agent_profile can't be re-invited | 🟡 Medium | Check is_active or allow re-invitation |
 | ~~Email send failure silent~~ | ~~Invite created but invitee never notified~~ | ✅ Fixed | ~~Add retry mechanism or alert admin~~ RESOLVED in TKT-011 |
 | No bulk invite | Must invite one at a time | 🟢 Low | Add CSV upload for enterprise |
@@ -354,17 +367,19 @@ REMOVE FLOW
 
 ## 10. OPEN QUESTIONS
 
-1. **Should removing an agent terminate their active call?** Currently soft delete doesn't emit any call:end event. The call would continue until naturally ended.
+1. ~~**Should removing an agent terminate their active call?**~~ RESOLVED in TKT-010-V2. Now calls `/api/agent/end-call` to gracefully terminate active calls when removing agents.
 
 2. **How to handle re-inviting a previously removed user?** Current logic blocks this with "User already exists" error. May need a reactivation flow instead.
 
-3. **Should email failures be more visible?** Currently only logs to console. Admin might not know invite wasn't delivered.
+3. **INTERNAL_API_KEY configuration** - The `/api/agent/end-call` endpoint requires both dashboard and server to have the same INTERNAL_API_KEY. Deployment processes should ensure this is properly configured.
 
-4. **Is 7-day invite expiration appropriate?** Hardcoded in DB default. Should it be configurable per-org?
+4. **Should email failures be more visible?** Currently only logs to console. Admin might not know invite wasn't delivered.
 
-5. **What happens if Stripe is down during invite?** Currently fails and rolls back invite. Should there be a retry mechanism?
+5. **Is 7-day invite expiration appropriate?** Hardcoded in DB default. Should it be configurable per-org?
 
-6. **Should admins be able to see deactivated agents?** Currently filtered out entirely. May be useful for audit/history.
+6. **What happens if Stripe is down during invite?** Currently fails and rolls back invite. Should there be a retry mechanism?
+
+7. **Should admins be able to see deactivated agents?** Currently filtered out entirely. May be useful for audit/history.
 
 
 
