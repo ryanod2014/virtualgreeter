@@ -1,7 +1,7 @@
 # Feature: Cancel Subscription (B5)
 
 ## Quick Summary
-The Cancel Subscription feature allows admins to terminate their GreetNow subscription through a multi-step feedback collection process. A "pause account" downsell is offered first, and upon confirmation, the organization is downgraded to a free plan with feedback data preserved for analytics.
+The Cancel Subscription feature allows admins to terminate their GreetNow subscription through a multi-step feedback collection process. A "pause account" downsell is offered first, and upon confirmation, the organization retains access until the end of the current billing period (grace period), then automatically downgrades to a free plan with feedback data preserved for analytics.
 
 ## Affected Users
 - [ ] Website Visitor
@@ -38,8 +38,10 @@ Enables subscription cancellation while maximizing feedback collection for produ
 7. **Cancel Modal Step 3**: Review summary and confirm deletion warning
 8. Admin clicks "Cancel Subscription"
 9. System saves feedback to `cancellation_feedback` table
-10. Organization plan downgraded to "free"
-11. Confirmation screen shown
+10. System sets `pause_ends_at` to current billing period end date
+11. Organization maintains current plan until period ends (grace period)
+12. Confirmation screen shown
+13. When billing period ends, Stripe webhook downgrades plan to "free"
 
 ### State Machine
 
@@ -89,7 +91,17 @@ Enables subscription cancellation while maximizing feedback collection for produ
                                  ┌────────────────────────────────┐
                                  │   CONFIRMATION SCREEN          │
                                  │   "Subscription Cancelled"     │
+                                 │   (Grace period active)        │
+                                 │   Access until: [date]         │
+                                 └──────────────┬─────────────────┘
+                                                │
+                                      [Billing period ends]
+                                                │
+                                                ▼
+                                 ┌────────────────────────────────┐
+                                 │   DOWNGRADED TO FREE           │
                                  │   (plan: free)                 │
+                                 │   (pause_ends_at: null)        │
                                  └────────────────────────────────┘
 ```
 
@@ -101,7 +113,8 @@ Enables subscription cancellation while maximizing feedback collection for produ
 | Cancel Step 1 | Primary reason selection | Click "No, cancel..." in pause modal | Select reason and continue, or close |
 | Cancel Step 2 | Details and feedback | Complete step 1 | Provide feedback and continue, or back |
 | Cancel Step 3 | Final confirmation | Complete step 2 | Confirm cancellation, or back |
-| Cancelled (Free) | Downgraded plan | Complete cancellation | Re-subscribe |
+| Grace Period | Active plan with end date set | Complete cancellation | Wait for period end or re-subscribe |
+| Cancelled (Free) | Downgraded plan | Billing period ends (webhook) | Re-subscribe |
 
 ---
 
@@ -116,8 +129,8 @@ Enables subscription cancellation while maximizing feedback collection for produ
 | Click "No, cancel..." | Pause modal | Opens cancel modal | Closes pause modal |
 | Select primary reason | Cancel step 1 | Updates `primaryReason` state | Enables continue button |
 | Toggle additional reasons | Cancel step 2 | Updates `additionalReasons` array | None |
-| Submit cancellation | Cancel step 3 | Calls `submitCancellationFeedback()` | Inserts to `cancellation_feedback`, updates org plan to "free" |
-| Webhook: `customer.subscription.deleted` | Stripe → Server | Updates org status to "cancelled" | DB update |
+| Submit cancellation | Cancel step 3 | Calls `submitCancellationFeedback()` | Inserts to `cancellation_feedback`, stores `pause_ends_at` with billing period end, keeps current plan |
+| Webhook: `customer.subscription.deleted` | Stripe → Server | Updates org status to "cancelled", plan to "free", clears `pause_ends_at` | DB update |
 
 ### Key Functions/Components
 | Function/Component | File | Purpose |
@@ -179,7 +192,18 @@ ADMIN INITIATES CANCELLATION
                             │
                             ├─► DB: INSERT INTO cancellation_feedback
                             │
-                            └─► DB: UPDATE organizations SET plan = 'free'
+                            └─► DB: UPDATE organizations SET pause_ends_at = current_period_end
+                                        (Plan remains active until period ends)
+
+WHEN BILLING PERIOD ENDS
+    │
+    └─► Stripe webhook: customer.subscription.deleted
+        │
+        └─► handleSubscriptionDeleted()
+            │
+            ├─► DB: UPDATE organizations SET plan = 'free'
+            ├─► DB: UPDATE organizations SET subscription_status = 'cancelled'
+            └─► DB: UPDATE organizations SET pause_ends_at = null
 ```
 
 ---
@@ -305,11 +329,16 @@ No emails or in-app notifications are sent:
 - No agents notified
 - No reminder emails
 
-#### ⚠️ Issue 4: No Grace Period Logic
-The code mentions "access continues until end of billing period" in UI but:
-- No `subscription_ends_at` field tracked
-- No access gating based on billing period end
-- Immediate downgrade to "free"
+#### ✅ Issue 4: Grace Period Logic (Fixed in TKT-030-V2)
+The grace period is now properly implemented:
+- `pause_ends_at` field stores the `current_period_end` date when subscription is cancelled
+- Plan remains active (not downgraded to "free") until billing period ends
+- When Stripe webhook fires `customer.subscription.deleted`, the plan is downgraded to "free" and `pause_ends_at` is cleared
+- UI can show "Access until [date]" using the `pause_ends_at` field
+
+**Previous behavior:** Immediate downgrade to "free" plan on cancellation.
+**Current behavior:** Access continues until end of billing period, proper grace period enforcement.
+**Fixed:** TKT-030-V2 (2025-12-13)
 
 ---
 
@@ -330,7 +359,7 @@ The code mentions "access continues until end of billing period" in UI but:
 | Stripe not actually cancelled | Continued billing | 🔴 High | Implement Stripe API call |
 | ~~Data not deleted despite UI claim~~ | ~~Trust issue, compliance~~ | ✅ **FIXED** | **TKT-003: Copy updated to accurate 30-day retention** |
 | No confirmation email | Poor UX | 🟡 Medium | Add email notification |
-| No grace period enforcement | Immediate access loss | 🟡 Medium | Track and enforce period end |
+| ~~No grace period enforcement~~ | ~~Immediate access loss~~ | ✅ **FIXED** | **TKT-030-V2: Grace period now tracked via pause_ends_at** |
 | Pause modal first may confuse | UX friction | 🟢 Low | Consider flow order |
 | No agent notification | Agents confused when widget stops | 🟢 Low | Add notification system |
 
@@ -344,7 +373,7 @@ The code mentions "access continues until end of billing period" in UI but:
 | Pause modal (downsell) | `apps/dashboard/src/app/(app)/admin/settings/billing/pause-account-modal.tsx` | 1-317 | Full retention offer flow |
 | Cancel modal wizard | `apps/dashboard/src/app/(app)/admin/settings/billing/cancel-subscription-modal.tsx` | 1-623 | 3-step wizard |
 | Server actions | `apps/dashboard/src/app/(app)/admin/settings/billing/actions.ts` | 21-68 | `submitCancellationFeedback` |
-| Webhook handler | `apps/server/src/features/billing/stripe-webhook-handler.ts` | 204-209 | `handleSubscriptionDeleted` |
+| Webhook handler | `apps/server/src/features/billing/stripe-webhook-handler.ts` | 204-263 | `handleSubscriptionDeleted` - clears `pause_ends_at` on deletion |
 | Analytics dashboard | `apps/dashboard/src/app/(app)/platform/cancellations/cancellations-client.tsx` | 1-891 | MRR-weighted analytics |
 | Analytics data fetch | `apps/dashboard/src/app/(app)/platform/cancellations/page.tsx` | 1-81 | Server-side data loading |
 | DB schema | `supabase/migrations/20251127700000_cancellation_feedback.sql` | 1-44 | Table definition, RLS |
@@ -376,7 +405,11 @@ The code mentions "access continues until end of billing period" in UI but:
 
 4. **Should cancelled users retain read-only access?** Current behavior is unclear on what "free" plan includes.
 
-5. **How is "end of billing period" enforced?** UI mentions access continues but no implementation visible.
+5. ~~**How is "end of billing period" enforced?**~~ **RESOLVED (TKT-030-V2):** Grace period is now properly enforced:
+   - `pause_ends_at` stores the billing period end date when user cancels
+   - Plan remains active until that date
+   - Stripe webhook `customer.subscription.deleted` triggers the actual downgrade to "free"
+   - `pause_ends_at` is cleared when subscription finally ends
 
 6. **Should there be a reactivation flow?** No dedicated reactivation path documented.
 
