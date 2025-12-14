@@ -281,6 +281,23 @@ export interface WidgetSettings {
   cobrowse_enabled: boolean; // whether co-browse screen sharing is enabled
 }
 
+/**
+ * Default widget settings - single source of truth
+ *
+ * WARNING: Do NOT recreate this constant elsewhere in the codebase.
+ * Always import from @ghost-greeter/domain instead.
+ */
+export const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
+  size: "medium",
+  position: "bottom-right",
+  devices: "all",
+  trigger_delay: 3,
+  auto_hide_delay: null,
+  show_minimize_button: false,
+  theme: "dark",
+  cobrowse_enabled: true, // default to enabled for backward compatibility
+} as const;
+
 // Server -> Widget Payloads
 export interface AgentAssignedPayload {
   agent: Pick<AgentProfile, "id" | "displayName" | "avatarUrl" | "waveVideoUrl" | "introVideoUrl" | "connectVideoUrl" | "loopVideoUrl">;

@@ -31,16 +31,7 @@ import {
   clearPoolSettingsCache,
   clearAllSettingsCaches,
 } from "./widget-settings.js";
-
-const DEFAULT_WIDGET_SETTINGS = {
-  size: "medium",
-  position: "bottom-right",
-  devices: "all",
-  trigger_delay: 3,
-  auto_hide_delay: null,
-  show_minimize_button: false,
-  theme: "dark",
-};
+import { DEFAULT_WIDGET_SETTINGS } from "@ghost-greeter/domain";
 
 describe("widget-settings", () => {
   beforeEach(() => {

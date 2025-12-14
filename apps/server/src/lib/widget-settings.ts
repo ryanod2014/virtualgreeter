@@ -7,18 +7,7 @@
 
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 import type { WidgetSettings } from "@ghost-greeter/domain";
-
-// Default widget settings (used if Supabase is not configured or fetch fails)
-const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
-  size: "medium",
-  position: "bottom-right",
-  devices: "all",
-  trigger_delay: 3,
-  auto_hide_delay: null,
-  show_minimize_button: false,
-  theme: "dark",
-  cobrowse_enabled: true, // default to enabled for backward compatibility
-};
+import { DEFAULT_WIDGET_SETTINGS } from "@ghost-greeter/domain";
 
 // Cache for org default settings (expires after 10 seconds in dev, 5 minutes in prod)
 const orgSettingsCache = new Map<string, { settings: WidgetSettings; expiresAt: number }>();

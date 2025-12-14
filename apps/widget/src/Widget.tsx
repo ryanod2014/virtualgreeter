@@ -5,21 +5,8 @@ import { useSignaling, shouldSkipIntroForAgent, storeWidgetState, clearStoredWid
 import { useWebRTC } from "./features/webrtc/useWebRTC";
 import { useCobrowse } from "./features/cobrowse/useCobrowse";
 import type { AgentAssignedPayload, AgentUnavailablePayload, OrgPausedPayload, WidgetSettings } from "@ghost-greeter/domain";
+import { DEFAULT_WIDGET_SETTINGS } from "@ghost-greeter/domain";
 import { ARIA_LABELS, ANIMATION_TIMING, ERROR_MESSAGES, CONNECTION_TIMING, SIZE_DIMENSIONS, IDLE_TIMING } from "./constants";
-
-/**
- * Default widget settings (used until server sends actual settings)
- */
-const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
-  size: "medium",
-  position: "bottom-right",
-  devices: "all",
-  trigger_delay: 3,
-  auto_hide_delay: null,
-  show_minimize_button: false,
-  theme: "dark",
-  cobrowse_enabled: true, // default to enabled for existing orgs
-};
 
 /**
  * Detect if the current device is mobile based on screen width and touch capability
