@@ -1,0 +1,57 @@
+{
+  "id": "BLOCKED-TKT-085-2",
+  "type": "blocker",
+  "source": "dev-agent-TKT-085",
+  "severity": "critical",
+  "title": "Ticket still has incorrect file paths - no resolution provided",
+  "feature": "Agent Management",
+  "category": "clarification",
+  "status": "pending",
+  "found_at": "2025-12-14T05:13:19Z",
+
+  "issue": "This is a continuation attempt, but the ticket (v1) still specifies the same incorrect file paths that were reported as blockers in the previous attempt on 2025-12-11. The ticket has not been updated with correct file paths.\n\nPreviously identified issues (still present):\n1. `apps/dashboard/src/app/api/agents/invite/route.ts` - DOES NOT EXIST\n2. `packages/database/src/schema.ts` - DOES NOT EXIST\n\nThe previous agent recommended using the existing `/invites/send` route and adding billing_pending to the Supabase invites table, but the ticket was not updated with this clarification.",
+
+  "options": [
+    {
+      "id": 1,
+      "label": "Update ticket with correct file paths — apps/dashboard/src/app/api/invites/send/route.ts (existing) and clarify database approach (Supabase migration vs other)",
+      "recommended": true
+    },
+    {
+      "id": 2,
+      "label": "Proceed with previous agent's recommendation — Modify existing invites/send route and create Supabase migration without waiting for ticket update",
+      "recommended": false
+    }
+  ],
+
+  "recommendation": "Option 1 - The ticket needs to be updated with correct file paths before implementation can begin. This ensures alignment between specification and implementation.",
+
+  "blocker_context": {
+    "ticket_id": "TKT-085",
+    "ticket_version": 1,
+    "branch": "agent/tkt-085",
+    "progress": {
+      "commits": [
+        "20defef - WIP TKT-085: File path mismatch discovered - BLOCKED",
+        "ad3ccaf - TKT-085: Auto-commit by failsafe (agent did not commit)"
+      ],
+      "done": [
+        "Previous agent already identified file path issues",
+        "Validated that file paths are still incorrect in ticket v1"
+      ],
+      "remaining": [
+        "Get ticket updated with correct file paths ← BLOCKED HERE",
+        "Implement billing retry queue",
+        "Add billing_pending flag to database",
+        "Update invite flow to handle Stripe failures gracefully",
+        "Test with mocked Stripe failure"
+      ],
+      "stopped_at": {
+        "file": "None - blocked on ticket validation",
+        "line": null,
+        "context": "Cannot proceed with implementation due to incorrect file paths in ticket specification"
+      },
+      "notes_for_next_agent": "See previous blocker BLOCKED-TKT-085-1 from 2025-12-11 for detailed analysis of what files actually exist and recommendations."
+    }
+  }
+}
