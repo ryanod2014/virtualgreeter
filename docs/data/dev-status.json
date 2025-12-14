@@ -42,18 +42,19 @@
       "completion_file": "docs/agent-output/completions/TKT-038-2025-12-05T1530.md"
     },
     {
-      "ticket_id": "TKT-007",
-      "branch": "agent/tkt-007-fix-public-feedback-doc",
-      "started_at": "2025-12-05T13:00:00Z",
-      "completed_at": "2025-12-12T05:18:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-007-2025-12-12T0518.md"
+      "ticket_id": "TKT-018",
+      "branch": "agent/tkt-018-transcription-auto-retry-with",
+      "started_at": "2025-12-05T21:00:00Z",
+      "completed_at": "2025-12-08T15:45:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-018-2025-12-08T1545.md",
+      "note": "Fixed missing type definitions in process/route.ts (continuation)"
     },
     {
-      "ticket_id": "TKT-007",
-      "branch": "agent/tkt-007-fix-public-feedback-doc",
-      "started_at": "2025-12-13T15:15:00Z",
-      "completed_at": "2025-12-13T15:20:00Z",
-      "completion_file": "docs/agent-output/completions/TKT-007-2025-12-13T1520.md"
+      "ticket_id": "TKT-018",
+      "branch": "agent/tkt-018-transcription-auto-retry-with",
+      "started_at": "2025-12-13T11:30:00Z",
+      "completed_at": "2025-12-13T11:50:00Z",
+      "completion_file": "docs/agent-output/completions/TKT-018-2025-12-13T1150.md"
     }
   ],
   "retry_history": []

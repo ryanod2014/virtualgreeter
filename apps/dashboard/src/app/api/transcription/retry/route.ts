@@ -99,6 +99,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Transcription is not in failed state" }, { status: 400 });
     }
 
+    // Only allow manual retry if automatic retries have been exhausted
+    if ((callLog.transcription_retry_count || 0) < 3) {
+      return NextResponse.json({ error: "Automatic retries not yet exhausted" }, { status: 400 });
+    }
+
     const recordingSettings = (callLog as any).organizations?.recording_settings as RecordingSettings | null;
     if (!recordingSettings?.transcription_enabled) {
       return NextResponse.json({ error: "Transcription not enabled for organization" }, { status: 400 });

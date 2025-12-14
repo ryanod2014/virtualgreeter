@@ -79,7 +79,11 @@ export function CallLogRow({
 
   const hasTranscription = call.transcription_status === "completed" && call.transcription;
   const hasSummary = call.ai_summary_status === "completed" && call.ai_summary;
-  const canRetry = call.transcription_status === "failed" && call.recording_url && onTranscriptionRetry;
+  // Only allow retry if transcription failed after max attempts (3)
+  const canRetry = call.transcription_status === "failed" &&
+    call.recording_url &&
+    onTranscriptionRetry &&
+    (call.transcription_retry_count || 0) >= 3;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
